@@ -1,2 +1,4 @@
 # hexagonoids
-Asteroids Clone on a Spherical Plane
+> Asteroids Clone on a Sphere.
+
+
