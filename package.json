@@ -32,6 +32,7 @@
     "@commitlint/config-lerna-scopes": "^17.6.6",
     "@manypkg/cli": "^0.21.0",
     "husky": "^8.0.3",
-    "turbo": "^1.10.12"
+    "turbo": "^1.10.12",
+    "vercel": "^31.1.1"
   }
 }
