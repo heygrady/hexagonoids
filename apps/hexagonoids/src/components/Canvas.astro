@@ -1,0 +1,38 @@
+---
+// export interface Props {
+// 	title: string;
+// 	body: string;
+// 	href: string;
+// }
+// const { href, title, body } = Astro.props;
+
+import { HexagonoidsCanvas } from './hexagonoids/HexagonoidsCanvas'
+---
+
+<div class="aspect-video hexagonoids-container">
+  <HexagonoidsCanvas
+    aria-describedby="hexagonoids-description"
+    aria-live="polite"
+    class="hexagonoids-canvas"
+    client:only="solid-js"
+    role="application"
+    tabindex="0"
+  />
+</div>
+
+<style>
+  .hexagonoids-container {
+    position: relative;
+    /* width: 100%;
+    height: 0%;
+    padding-bottom: 56.25%;
+    overflow: hidden; */
+  }
+  .hexagonoids-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+</style>
