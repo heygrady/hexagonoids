@@ -1,0 +1,134 @@
+---
+import Canvas from '../components/Canvas.astro'
+import Layout from '../layouts/Layout.astro'
+---
+
+<Layout title="Asteroids.">
+  <main class="container m-auto">
+    <div class="max-w-screen-xl m-auto mb-10">
+      <Canvas />
+    </div>
+    <article
+      id="hexagonoids-description"
+      class="prose max-w-screen-md m-auto pb-40">
+      <h1>Hexagonoids</h1>
+      <p>
+        Use the arrow keys and space bar to play. WASD controls are also
+        supported.
+      </p>
+      <p>
+        This is a clone of the classic <a
+          href="https://en.wikipedia.org/wiki/Asteroids_(video_game)"
+          >Asteroids</a
+        > video game, built using <a href="https://www.babylonjs.com/"
+          >Babylon.JS</a
+        >.
+      </p>
+      <p>
+        The key differece is that Hexagonoids takes place on the surface of a
+        sphere. In the original Asteroids the ship would transport magically
+        from one edge of the screen to the other, creating a wrap-around effect.
+        Generally I tried to stay true to the <a
+          href="https://www.retrogamedeconstructionzone.com/2019/10/asteroids-by-numbers.html"
+          >physics</a
+        > of the original game. However, in Hexagonoids you wrap around a sphere
+        instead. This creates more of an open world feeling, where you can explore
+        and hunt down the rocks at your own pace.
+      </p>
+      <p>
+        Some other elements are different, namely there are no alien space
+        ships. Also, there is no place to put your quarters. It was designed to
+        closely resemble the original visual specs (see <a
+          href="https://arcadeblogger.com/2018/10/24/atari-asteroids-creating-a-vector-arcade-classic/"
+          >here</a
+        >). This <a
+          href="https://ronjeffries.com/articles/020-asteroids/asteroids-10/"
+          >post</a
+        > was a huge help in getting the shape for the rocks to look right.
+      </p>
+      <h2>Why hexagons?</h2>
+      <p>Hexagons are the bestigons.</p>
+      <p>
+        Also, hexagons can form an efficient tiling system for analyzing
+        geospatial data. Under the hood, Hexagonoids is using the <a
+          href="https://h3geo.org/">H3 geospatial indexing system</a
+        >. It partitions the world into hexagonal cells, which is useful in data
+        sciene applications. It was <a href="https://www.uber.com/blog/h3/"
+          >invented at Uber</a
+        > to help them optimize their ride sharing newtork.
+      </p>
+      <p>
+        The hexagons that light up as the ship moves are all <a
+          href="https://h3geo.org/docs/core-library/restable">resolution 1</a
+        > cells, drawn using the vertex data provided by the <a
+          href="https://www.npmjs.com/package/h3-js">H3 library</a
+        >. The globe surface is a polyhedron created from the centers and
+        vertexes of all of the resolution 0 cells.
+      </p>
+      <h2>How is H3 being used?</h2>
+      <p>
+        Primarily H3 is being used here for fun; because I like hexagons and
+        wanted to practice making visualizations from H3 indexed data sources.
+        For instance, above is an H3 visualization showing the areas of the
+        globe that have recently been visited (by a rock, ship or bullet).
+      </p>
+      <p>
+        This project is mostly about visualizing the H3 hexagons in a 3D
+        environment. In that vein, the cells are mostly decorative and are not
+        relevant to the gameplay.
+      </p>
+      <p>
+        <b>Fun fact:</b> The ship is a little smaller than a resolution 2 hexagon,
+        which makes it similar in size to <a
+          href="https://en.wikipedia.org/wiki/Maine">Maine</a
+        >.
+      </p>
+      <h3>What about collisions?</h3>
+      <p>
+        It is possible to use H3 cells to create a collision system (early
+        versions of this game worked this way) but it is generally much slower
+        (100x) compared to standard collision detection methods that are built
+        in to Babylon.
+      </p>
+      <p>
+        The collision system uses an overlapping spheres algorithm to determine
+        if two items are <i>possibly</i> touching. If the spheres overlap, we check
+        if the polygons intersect using the <a
+          href="https://github.com/w8r/martinez/tree/master"
+          >martinez-polygon-clipping</a
+        > library. This detects if the
+        <i>possibly touching</i> polygons (i.e. the ship and the rock) actually intersect.
+        By combining the two methods it is possible to calculate precise collisions,
+        only when necessary.
+      </p>
+      <h2>About the Project</h2>
+      <p>
+        I made this for personal educational purposes. Big thanks to the free
+        version of <a href="https://chat.openai.com/">Chat GPT</a> for helping me
+        tame Bablyon.JS. Also big thanks to <a
+          href="https://github.com/features/copilot">GitHub Co-Pilot</a
+        > and, of course, Google Search. It was great to work on a project with such
+        a capable team.
+      </p>
+      <p>
+        This project is available on GitHub at <a
+          href="https://github.com/heygrady/hexagonoids">heygrady/hexagonoids</a
+        >. It is open source and available under the MIT license.
+      </p>
+      <p>
+        I'm <a href="https://github.com/heygrady">heygrady</a> on GitHub and my website
+        is <a href="https://heygrady.com/">heygrady.com</a>
+      </p>
+    </article>
+  </main>
+</Layout>
+
+<style>
+  .text-gradient {
+    background-image: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-size: 400%;
+    background-position: 0%;
+  }
+</style>

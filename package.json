@@ -1,5 +1,5 @@
 {
-  "name": "hexagonoids",
+  "name": "@heygrady/hexagonoids-repo",
   "packageManager": "yarn@3.6.1",
   "private": true,
   "scripts": {
@@ -21,7 +21,7 @@
     "scripts/*"
   ],
   "volta": {
-    "node": "18.17.0",
+    "node": "16.20.1",
     "npm": "9.8.1",
     "yarn": "3.6.1"
   },
@@ -31,7 +31,7 @@
     "@commitlint/config-conventional": "^17.6.7",
     "@commitlint/config-lerna-scopes": "^17.6.6",
     "@manypkg/cli": "^0.21.0",
-    "husky": "^8.0.0",
+    "husky": "^8.0.3",
     "turbo": "^1.10.12"
   }
 }
