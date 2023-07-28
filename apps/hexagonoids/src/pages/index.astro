@@ -87,12 +87,12 @@ import Layout from '../layouts/Layout.astro'
       <p>
         It is possible to use H3 cells to create a collision system (early
         versions of this game worked this way) but it is generally much slower
-        (100x) compared to standard collision detection methods that are built
-        in to Babylon.
+        (100x) compared to standard collision detection methods like sphere
+        intersections.
       </p>
       <p>
-        The collision system uses an overlapping spheres algorithm to determine
-        if two items are <i>possibly</i> touching. If the spheres overlap, we check
+        Hexagonoids uses an overlapping spheres algorithm to determine if two
+        items are <i>possibly</i> touching. If the spheres overlap, we then check
         if the polygons intersect using the <a
           href="https://github.com/w8r/martinez/tree/master"
           >martinez-polygon-clipping</a
@@ -122,13 +122,3 @@ import Layout from '../layouts/Layout.astro'
     </article>
   </main>
 </Layout>
-
-<style>
-  .text-gradient {
-    background-image: var(--accent-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-size: 400%;
-    background-position: 0%;
-  }
-</style>
