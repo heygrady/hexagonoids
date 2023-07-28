@@ -1,6 +1,6 @@
-import { Quaternion, Vector3 } from '@babylonjs/core'
+import { Quaternion } from '@babylonjs/core'
 
-import { GUN_DISTANCE, RADIUS } from '../constants'
+import { GUN_DISTANCE } from '../constants'
 import { vector3ToGeo } from '../geoCoords/geoToVector3'
 import { getOrientation } from '../ship/orientation'
 import { accelerateHeadingSpeed } from '../ship/velocity'
