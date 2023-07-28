@@ -50,6 +50,7 @@ jobs:
           # This expects you to have a script called release which builds your packages and then calls `changeset publish`.
           publish: yarn release
         env:
+          HUSKY: 0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages#example-workflow
