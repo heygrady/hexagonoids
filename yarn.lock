@@ -140,6 +140,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@astrojs/vercel@npm:^3.7.4":
+  version: 3.7.4
+  resolution: "@astrojs/vercel@npm:3.7.4"
+  dependencies:
+    "@astrojs/internal-helpers": ^0.1.1
+    "@astrojs/webapi": ^2.2.0
+    "@vercel/analytics": ^0.1.11
+    "@vercel/nft": ^0.22.6
+    esbuild: ^0.17.19
+    fast-glob: ^3.2.12
+    set-cookie-parser: ^2.6.0
+    web-vitals: ^3.3.2
+  peerDependencies:
+    astro: ^2.9.1
+  checksum: fbc75d670508639c126492220dbc146c6daf3a72c747f73c0d45b12f239ed1e84e4dca28bf2302c9af28c07e93dd2552207d6892d02ffa991921913e8a5bb023
+  languageName: node
+  linkType: hard
+
 "@astrojs/webapi@npm:^2.2.0":
   version: 2.2.0
   resolution: "@astrojs/webapi@npm:2.2.0"
@@ -2677,6 +2695,7 @@ __metadata:
   dependencies:
     "@astrojs/solid-js": ^2.2.0
     "@astrojs/tailwind": ^4.0.0
+    "@astrojs/vercel": ^3.7.4
     "@babylonjs/core": ^6.14.0
     "@heygrady/eslint-config-astro": ^1.3.0
     "@nanostores/solid": ^0.4.2
@@ -3933,6 +3952,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@vercel/analytics@npm:^0.1.11":
+  version: 0.1.11
+  resolution: "@vercel/analytics@npm:0.1.11"
+  peerDependencies:
+    react: ^16.8||^17||^18
+  checksum: 05b8180ac6e23ebe7c09d74c43f8ee78c408cd0b6546e676389cbf4fba44dfeeae3648c9b52e2421be64fe3aeee8b026e6ea4bdfc0589fb5780670f2b090a167
+  languageName: node
+  linkType: hard
+
 "@vercel/build-utils@npm:6.8.2":
   version: 6.8.2
   resolution: "@vercel/build-utils@npm:6.8.2"
@@ -4011,6 +4039,27 @@ __metadata:
   bin:
     nft: out/cli.js
   checksum: 9bc965a6b096c55ed14bfc761668fe3900db83cf379bf1e9741d31510579950dff12d8223867b3fd0c3af1bb96a1b4519c4b0f93d1c26949d2e216a4272f59b4
+  languageName: node
+  linkType: hard
+
+"@vercel/nft@npm:^0.22.6":
+  version: 0.22.6
+  resolution: "@vercel/nft@npm:0.22.6"
+  dependencies:
+    "@mapbox/node-pre-gyp": ^1.0.5
+    "@rollup/pluginutils": ^4.0.0
+    acorn: ^8.6.0
+    async-sema: ^3.1.1
+    bindings: ^1.4.0
+    estree-walker: 2.0.2
+    glob: ^7.1.3
+    graceful-fs: ^4.2.9
+    micromatch: ^4.0.2
+    node-gyp-build: ^4.2.2
+    resolve-from: ^5.0.0
+  bin:
+    nft: out/cli.js
+  checksum: 03ab38477ca7006b3d5568a716128a5abb13a425205ea5cb23eed86967334a6c7fc9d36c58154e1ccd4e349e3ec0d725aa7496ef4159bf232ad706d842d85c29
   languageName: node
   linkType: hard
 
@@ -13718,7 +13767,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"set-cookie-parser@npm:^2.4.8":
+"set-cookie-parser@npm:^2.4.8, set-cookie-parser@npm:^2.6.0":
   version: 2.6.0
   resolution: "set-cookie-parser@npm:2.6.0"
   checksum: bf11ebc594c53d84588f1b4c04f1b8ce14e0498b1c011b3d76b5c6d5aac481bbc3f7c5260ec4ce99bdc1d9aed19f9fc315e73166a36ca74d0f12349a73f6bdc9
@@ -15758,6 +15807,13 @@ __metadata:
   version: 0.2.4
   resolution: "web-vitals@npm:0.2.4"
   checksum: 128a4e87730b0a02fb6af3eef7d31f9a79b4646e83cfe4465aa8ce6054fe16f7b1f4125a384f1b4f039091bd9513cb54b4e559c0b10ae953c01900786a16b1c2
+  languageName: node
+  linkType: hard
+
+"web-vitals@npm:^3.3.2":
+  version: 3.4.0
+  resolution: "web-vitals@npm:3.4.0"
+  checksum: 6baac515035a82f05623aa6592654af3b5fd8ca0359e368388e147c1376ca00e5f1b2256130f8e96249ee793a437b55615db21ae699d6d400bf2800f676e0114
   languageName: node
   linkType: hard
 
