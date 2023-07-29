@@ -1,7 +1,7 @@
 import { Quaternion } from '@babylonjs/core'
+import { vector3ToLatLng } from '@heygrady/h3-babylon'
 
 import { SPLIT_HEADING_OFFSET, SPLIT_ROLL_DISTANCE } from '../constants'
-import { vector3ToGeo } from '../geoCoords/geoToVector3'
 import { getOrientation } from '../ship/orientation'
 import { setLocation } from '../store/rock/RockSetters'
 import type { RockStore } from '../store/rock/RockStore'
@@ -80,5 +80,5 @@ export const orientToRock = (
   // set the final state (from the scene)
   const [rockHeading] = getOrientation(originNode)
   $rock.setKey('heading', rockHeading)
-  setLocation($rock, vector3ToGeo(originNode.absolutePosition))
+  setLocation($rock, vector3ToLatLng(originNode.absolutePosition))
 }

@@ -1,7 +1,7 @@
 import { Quaternion } from '@babylonjs/core'
+import { vector3ToLatLng } from '@heygrady/h3-babylon'
 
 import { GUN_DISTANCE } from '../constants'
-import { vector3ToGeo } from '../geoCoords/geoToVector3'
 import { getOrientation } from '../ship/orientation'
 import { accelerateHeadingSpeed } from '../ship/velocity'
 import { setLocation } from '../store/bullet/BulletSetters'
@@ -92,5 +92,5 @@ export const orientToShip = ($bullet: BulletStore) => {
   $bullet.setKey('heading', bulletHeading)
   $bullet.setKey('speed', speed)
 
-  setLocation($bullet, vector3ToGeo(bulletNode.absolutePosition))
+  setLocation($bullet, vector3ToLatLng(bulletNode.absolutePosition))
 }

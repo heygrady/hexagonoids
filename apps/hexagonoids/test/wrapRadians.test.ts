@@ -1,6 +1,6 @@
+import { degsToRads } from 'h3-js'
 import { describe, expect, test } from 'vitest'
 
-import { degToRad } from '../src/components/hexagonoids/geoCoords/degToRad'
 import {
   wrapRadians,
   wrapHalfCircle,
@@ -47,7 +47,7 @@ describe('wrapHalfCircle', () => {
     expect(wrapHalfCircle(Math.PI * 3.5)).toBe(-Math.PI / 2)
   })
   test('wraps 181 degrees to -179 degrees', () => {
-    expect(wrapHalfCircle(degToRad(181))).toBe(degToRad(-179))
+    expect(wrapHalfCircle(degsToRads(181))).toBe(degsToRads(-179))
   })
   test('wraps heading', () => {
     const heading = -3.1108690043350893 - Math.PI

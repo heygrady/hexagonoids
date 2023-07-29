@@ -1,4 +1,5 @@
 import type { Vector3 } from '@babylonjs/core'
+import { latLngToVector3 } from '@heygrady/h3-babylon'
 import {
   type Component,
   createContext,
@@ -10,7 +11,6 @@ import {
 import { useScene, useSceneStore } from '../solid-babylon/hooks/useScene'
 
 import { CAMERA_RADIUS, RADIUS } from './constants'
-import { geoToVector3 } from './geoCoords/geoToVector3'
 import { useGame } from './hooks/useGame'
 import { getYawPitch } from './ship/getYawPitch'
 import { moveNodeTo } from './ship/orientation'
@@ -64,7 +64,7 @@ export const ShipCamera: Component<ShipCameraProps> = (props) => {
     return sphereArenaCamera
   }
 
-  const defaultPosition = geoToVector3(0, 0, RADIUS)
+  const defaultPosition = latLngToVector3(0, 0, RADIUS)
   const cameraContext = createCamera(
     positionNode?.absolutePosition ?? defaultPosition
   )

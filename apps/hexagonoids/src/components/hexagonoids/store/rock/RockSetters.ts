@@ -1,8 +1,8 @@
+import type { CoordPair } from 'h3-js'
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
 
 import { storeToCells } from '../../colission/storeToCells'
-import type { GeoCoord } from '../../geoCoords/geoToVector3'
 import { wrapHalfCircle } from '../../ship/orientation'
 
 import type { RockState } from './RockState'
@@ -65,9 +65,9 @@ export const setLng = ($rock: RockStore, lng: RockState['lng']) => {
   }
 }
 
-export const setLocation = ($rock: RockStore, location: GeoCoord) => {
-  setLat($rock, location.lat)
-  setLng($rock, location.lng)
+export const setLocation = ($rock: RockStore, location: CoordPair) => {
+  setLat($rock, location[0])
+  setLng($rock, location[1])
 }
 
 export const setCells = ($rock: RockStore) => {

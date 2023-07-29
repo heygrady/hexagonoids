@@ -1,4 +1,5 @@
 import type { AbstractMesh, FreeCamera, Scene, Vector3 } from '@babylonjs/core'
+import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import {
   cellToLatLng,
   getRes0Cells,
@@ -16,7 +17,6 @@ import {
   SHIP_REGENERATION_WAIT_PERIOD,
   SHIP_VALUE,
 } from '../../constants'
-import { vector3ToGeo } from '../../geoCoords/geoToVector3'
 import { pickPoint } from '../../rock/pickPoint'
 import { generateShip as _generateShip } from '../../ship/generateShip'
 import type { CameraContextValue } from '../../ShipCamera'
@@ -282,7 +282,7 @@ export const regenerate = (
 
   if (screenCenter != null) {
     // pick the center of the screen
-    const { lat, lng } = vector3ToGeo(screenCenter)
+    const [lat, lng] = vector3ToLatLng(screenCenter)
     options.lat = lat
     options.lng = lng
   } else if (cell != null) {

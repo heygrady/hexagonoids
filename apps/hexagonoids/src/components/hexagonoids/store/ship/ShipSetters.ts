@@ -1,8 +1,8 @@
+import type { CoordPair } from 'h3-js'
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
 
 import { MAX_SPEED } from '../../constants'
-import type { GeoCoord } from '../../geoCoords/geoToVector3'
 import { wrapHalfCircle } from '../../ship/orientation'
 
 import type { ShipState } from './ShipState'
@@ -99,9 +99,9 @@ export const setLng = ($ship: ShipStore, lng: ShipState['lng']) => {
   }
 }
 
-export const setLocation = ($ship: ShipStore, location: GeoCoord) => {
-  setLat($ship, location.lat)
-  setLng($ship, location.lng)
+export const setLocation = ($ship: ShipStore, location: CoordPair) => {
+  setLat($ship, location[0])
+  setLng($ship, location[1])
 }
 
 export const setFiredAt = ($ship: ShipStore, now?: number) => {

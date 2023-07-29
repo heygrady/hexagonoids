@@ -6,10 +6,10 @@ import {
   type TransformNode,
   type Vector3,
 } from '@babylonjs/core'
+import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import type { Nullable } from 'vitest'
 
 import { localToWorld, type createHexagon } from '../Collision'
-import { vector3ToGeo } from '../geoCoords/geoToVector3'
 import { getYawPitch } from '../ship/getYawPitch'
 import { moveNodeTo } from '../ship/orientation'
 
@@ -46,10 +46,7 @@ export const generateHexagonDebugNodes = (
   // get the world coordinates of each vertex
   const worldVertices = hexagon.map((v) => localToWorld(v, firstMarkerNode))
 
-  const polygon = worldVertices.map((v) => {
-    const { lat, lng } = vector3ToGeo(v)
-    return [lat, lng]
-  })
+  const polygon = worldVertices.map((v) => vector3ToLatLng(v))
 
   // DEBUG place a sphere at each vertex
   for (const [i, originNode] of markers.entries()) {

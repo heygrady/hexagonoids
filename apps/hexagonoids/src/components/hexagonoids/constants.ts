@@ -1,4 +1,4 @@
-import { degToRad } from './geoCoords/degToRad'
+import { degsToRads } from 'h3-js'
 
 /** Maximum milliseconds between frames */
 export const MAX_DELTA = 1000 / 30 // 30 frames a second
@@ -28,8 +28,8 @@ export const MAX_SPEED = MAX_DISTANCE / 10
 
 /** Pitch distance in radians from the center of the ship to the gun tip */
 export const GUN_DISTANCE = Math.PI / 180
-export const SPLIT_ROLL_DISTANCE = degToRad(1)
-export const SPLIT_HEADING_OFFSET = degToRad(20)
+export const SPLIT_ROLL_DISTANCE = degsToRads(1)
+export const SPLIT_HEADING_OFFSET = degsToRads(20)
 
 /** Bullet speed in radians per second */
 export const BULLET_SPEED = MAX_SPEED

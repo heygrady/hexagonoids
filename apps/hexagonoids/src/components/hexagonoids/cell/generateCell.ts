@@ -5,11 +5,11 @@ import {
   type AbstractMesh,
   Color3,
 } from '@babylonjs/core'
+import { latLngToVector3 } from '@heygrady/h3-babylon'
 import { cellToLatLng } from 'h3-js'
 
 import { getCommonMaterial } from '../common/commonMaterial'
 import { CELL_VISITED_OPACITY, RADIUS } from '../constants'
-import { geoToVector3 } from '../geoCoords/geoToVector3'
 import { getYawPitch } from '../ship/getYawPitch'
 import { moveNodeTo } from '../ship/orientation'
 import type { CellStore } from '../store/cell/CellStore'
@@ -38,7 +38,7 @@ const createCellNodes = (scene: Scene, h: string): CellNodesCacheValue => {
   // FIXME: this orientation affects the mesh that is created
   // 2. rotate the origin node (important)
   const [lat, lng] = cellToLatLng(h)
-  const centerPosition = geoToVector3(lat, lng, RADIUS)
+  const centerPosition = latLngToVector3(lat, lng, RADIUS)
   const [yaw, pitch] = getYawPitch(centerPosition)
   moveNodeTo(originNode, yaw, pitch)
 

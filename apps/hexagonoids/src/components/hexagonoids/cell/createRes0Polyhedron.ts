@@ -4,6 +4,7 @@ import {
   type Scene,
   type Vector3,
 } from '@babylonjs/core'
+import { latLngToVector3 } from '@heygrady/h3-babylon'
 import {
   type CoordPair,
   cellToLatLng,
@@ -12,8 +13,6 @@ import {
   vertexToLatLng,
 } from 'h3-js'
 import qh from 'quickhull3d'
-
-import { geoToVector3 } from '../geoCoords/geoToVector3'
 
 const createGlobe = (points: Vector3[]) => {
   const vertex = points.map((v) => v.asArray())
@@ -36,7 +35,7 @@ export const createRes0Polyhedron = (scene: Scene): Mesh => {
 
   const points = new Set<Vector3>()
   for (const [lat, lng] of coordPairs) {
-    points.add(geoToVector3(lat, lng, 1))
+    points.add(latLngToVector3(lat, lng, 1))
   }
 
   const shape = createGlobe(Array.from(points))
