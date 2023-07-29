@@ -1448,7 +1448,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@heygrady/h3-babylon@^0.0.1, @heygrady/h3-babylon@workspace:packages/h3-babylon":
+"@heygrady/h3-babylon@^0.1.0, @heygrady/h3-babylon@workspace:packages/h3-babylon":
   version: 0.0.0-use.local
   resolution: "@heygrady/h3-babylon@workspace:packages/h3-babylon"
   dependencies:
@@ -1482,7 +1482,7 @@ __metadata:
     "@astrojs/vercel": ^3.7.4
     "@babylonjs/core": ^6.14.0
     "@heygrady/eslint-config-astro": ^1.5.1
-    "@heygrady/h3-babylon": ^0.0.1
+    "@heygrady/h3-babylon": ^0.1.0
     "@nanostores/solid": ^0.4.2
     "@rushstack/eslint-patch": ^1.3.2
     "@solid-primitives/intersection-observer": ^2.1.2
