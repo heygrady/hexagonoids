@@ -1,7 +1,7 @@
 import type { Scene } from '@babylonjs/core'
+import { latLngToVector3, vector3ToLatLng } from '@heygrady/h3-babylon'
 
 import { RADIUS } from '../constants'
-import { geoToVector3, vector3ToGeo } from '../geoCoords/geoToVector3'
 import {
   setGeneratedAt,
   setHeading,
@@ -50,7 +50,7 @@ export const generateShip = (scene: Scene, $ship: ShipStore) => {
   const shipState = $ship.get()
 
   // Orient the ship on the sphere
-  const initialPosition = geoToVector3(
+  const initialPosition = latLngToVector3(
     shipState.lat,
     shipState.lng,
     RADIUS
@@ -74,7 +74,7 @@ export const generateShip = (scene: Scene, $ship: ShipStore) => {
   // Update heading (from scene)
   setHeading($ship, shipHeading)
 
-  const location = vector3ToGeo(shipNode.absolutePosition)
+  const location = vector3ToLatLng(shipNode.absolutePosition)
 
   // Update location (from scene)
   setLocation($ship, location)

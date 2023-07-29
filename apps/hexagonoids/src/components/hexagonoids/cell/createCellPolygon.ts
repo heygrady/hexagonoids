@@ -4,11 +4,11 @@ import {
   Vector3,
   MeshBuilder,
 } from '@babylonjs/core'
+import { latLngToVector3 } from '@heygrady/h3-babylon'
 import { cellToLatLng, cellToVertexes, vertexToLatLng } from 'h3-js'
 import qh from 'quickhull3d'
 
 import { RADIUS } from '../constants'
-import { geoToVector3 } from '../geoCoords/geoToVector3'
 
 // FIXME: positionNode should be in a scaled position (if we want to scale the cells)
 export const worldToLocal = (
@@ -47,13 +47,16 @@ export const createCellPolygon = (
   const cellVertexes: Vector3[] = []
   for (const v of cellToVertexes(h)) {
     const [lat, lng] = vertexToLatLng(v)
-    const localPosition = geoToVector3(lat, lng, radius)
+    const localPosition = latLngToVector3(lat, lng, radius)
     const position = worldToLocal(localPosition, positionNode)
     cellVertexes.push(position)
   }
 
   const [lat, lng] = cellToLatLng(h)
-  const cellCenter = worldToLocal(geoToVector3(lat, lng, radius), positionNode)
+  const cellCenter = worldToLocal(
+    latLngToVector3(lat, lng, radius),
+    positionNode
+  )
 
   const cellNode = MeshBuilder.CreatePolyhedron(
     'customPolyhedron',

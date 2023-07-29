@@ -1,4 +1,5 @@
 import { Vector3, Color3, SpotLight, TransformNode } from '@babylonjs/core'
+import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import { cellToLatLng, latLngToCell } from 'h3-js'
 import { type Component, onCleanup } from 'solid-js'
 
@@ -6,7 +7,6 @@ import { onBeforeRender } from '../solid-babylon/hooks/onBeforeRender'
 import { useScene } from '../solid-babylon/hooks/useScene'
 
 import { CAMERA_RADIUS, RADIUS, SPOTLIGHT_HEIGHT } from './constants'
-import { vector3ToGeo } from './geoCoords/geoToVector3'
 import { useCamera } from './ShipCamera'
 
 export const blendColors = (
@@ -71,8 +71,8 @@ export const CameraLighting: Component = (props) => {
   let prevCell: string | null = null
   onBeforeRender(() => {
     const position = spotlightPositionNode.absolutePosition
-    const location = vector3ToGeo(position)
-    const cell = latLngToCell(location.lat, location.lng, 2)
+    const location = vector3ToLatLng(position)
+    const cell = latLngToCell(location[0], location[1], 2)
     if (cell === prevCell) {
       return
     }

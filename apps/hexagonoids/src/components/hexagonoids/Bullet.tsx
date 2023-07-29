@@ -1,3 +1,4 @@
+import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import type { Component } from 'solid-js'
 import { unwrap } from 'solid-js/store'
 
@@ -14,7 +15,6 @@ import {
   ROCK_LARGE_SIZE,
   ROCK_MEDIUM_SIZE,
 } from './constants'
-import { vector3ToGeo } from './geoCoords/geoToVector3'
 import { useBulletPool } from './hooks/useBulletPool'
 import { pitchNodeBy } from './ship/orientation'
 import { setLocation } from './store/bullet/BulletSetters'
@@ -93,7 +93,7 @@ export const Bullet: Component<BulletProps> = (props) => {
 
       // Pitch the bullet forward by distance radians
       pitchNodeBy(originNode, distance)
-      setLocation($bullet, vector3ToGeo(bulletNode.absolutePosition))
+      setLocation($bullet, vector3ToLatLng(bulletNode.absolutePosition))
     }
   }
 

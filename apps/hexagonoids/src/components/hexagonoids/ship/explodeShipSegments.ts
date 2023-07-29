@@ -1,7 +1,7 @@
 import { Quaternion, type Scene } from '@babylonjs/core'
+import { vector3ToLatLng } from '@heygrady/h3-babylon'
 
 import { EXPLOSION_LARGE_SPEED } from '../constants'
-import { vector3ToGeo } from '../geoCoords/geoToVector3'
 import {
   setGeneratedAt,
   setHeading,
@@ -128,7 +128,7 @@ export const explodeShipSegment = (
   // 5. Update from scene
   const [segmentHeading] = getOrientation(segmentOriginNode)
   const [segmentYaw] = getOrientation(segmentOrientationNode)
-  const location = vector3ToGeo(segmentOrientationNode.absolutePosition)
+  const location = vector3ToLatLng(segmentOrientationNode.absolutePosition)
 
   setHeading($segment, segmentHeading)
   setYaw($segment, segmentYaw)

@@ -1,4 +1,4 @@
-import type { GeoCoord } from '../../geoCoords/geoToVector3'
+import type { CoordPair } from 'h3-js'
 
 import type { BulletState } from './BulletState'
 import type { BulletStore } from './BulletStore'
@@ -19,7 +19,7 @@ export const setLng = ($bullet: BulletStore, lng: BulletState['lng']) => {
   }
 }
 
-export const setLocation = ($bullet: BulletStore, location: GeoCoord) => {
-  setLat($bullet, location.lat)
-  setLng($bullet, location.lng)
+export const setLocation = ($bullet: BulletStore, location: CoordPair) => {
+  setLat($bullet, location[0])
+  setLng($bullet, location[1])
 }

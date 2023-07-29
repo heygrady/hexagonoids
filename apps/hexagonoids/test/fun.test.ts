@@ -1,4 +1,5 @@
 import type { Vector3 } from '@babylonjs/core'
+import { latLngToVector3 } from '@heygrady/h3-babylon'
 import {
   type CoordPair,
   cellToVertexes,
@@ -8,8 +9,6 @@ import {
 } from 'h3-js'
 import qh from 'quickhull3d'
 import { describe, expect, test } from 'vitest'
-
-import { geoToVector3 } from '../src/components/hexagonoids/geoCoords/geoToVector3'
 
 const createGlobe = (points: Vector3[]) => {
   const vertex = points.map((v) => v.asArray())
@@ -38,7 +37,7 @@ describe('h3', () => {
 
     const points = new Set<Vector3>()
     for (const [lat, lng] of coordPairs) {
-      points.add(geoToVector3(lat, lng, 1))
+      points.add(latLngToVector3(lat, lng, 1))
     }
 
     expect(points.size).toBe(coordPairs.size)

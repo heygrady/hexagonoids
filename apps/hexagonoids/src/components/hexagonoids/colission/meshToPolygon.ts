@@ -1,9 +1,9 @@
 import { VertexBuffer, type AbstractMesh, Vector3 } from '@babylonjs/core'
+import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import type { CoordPair } from 'h3-js'
 import QuickLRU from 'quick-lru'
 
 import { CELL_CACHE_SIZE } from '../constants'
-import { vector3ToGeo } from '../geoCoords/geoToVector3'
 
 /**
  * Must be cleared every frame.
@@ -86,8 +86,8 @@ export const meshToPolygon = (
   const polygon: CoordPair[] = []
   for (const vertex of vertices) {
     const position = Vector3.TransformCoordinates(vertex, worldMatrix)
-    const { lat, lng } = vector3ToGeo(position)
-    polygon.push([lat, lng])
+    const coordPair = vector3ToLatLng(position)
+    polygon.push(coordPair)
   }
 
   meshPolygonCache.set(mesh, polygon)

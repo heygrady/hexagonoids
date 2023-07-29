@@ -1,4 +1,5 @@
 import { Color3 } from '@babylonjs/core'
+import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import { cellToLatLng, latLngToCell } from 'h3-js'
 import type { Component } from 'solid-js'
 import { unwrap } from 'solid-js/store'
@@ -7,7 +8,6 @@ import { onBeforeRender } from '../solid-babylon/hooks/onBeforeRender'
 import { useScene } from '../solid-babylon/hooks/useScene'
 
 import { ROCK_SMALL_SPEED, ROCK_LARGE_SPEED, MAX_DELTA } from './constants'
-import { vector3ToGeo } from './geoCoords/geoToVector3'
 import { blendColors } from './NewLights'
 import { pitchNodeBy } from './ship/orientation'
 import { setCells, setLocation } from './store/rock/RockSetters'
@@ -88,7 +88,7 @@ export const Rock: Component<RockProps> = (props) => {
 
       // Pitch the rock forward by distance radians
       pitchNodeBy(originNode, distance)
-      setLocation($rock, vector3ToGeo(rockNode.absolutePosition))
+      setLocation($rock, vector3ToLatLng(rockNode.absolutePosition))
       setCells($rock)
     }
   }

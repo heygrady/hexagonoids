@@ -1,7 +1,7 @@
 import { Vector3, Vector2, Quaternion } from '@babylonjs/core'
+import { degsToRads } from 'h3-js'
 import { describe, expect, test } from 'vitest'
 
-import { degToRad } from '../src/components/hexagonoids/geoCoords/degToRad'
 import { getNextPoint } from '../src/components/hexagonoids/ship/getNextPoint'
 import {
   arcDistanceTo,
@@ -179,7 +179,7 @@ describe('getPitchRoll', () => {
 
   describe('diagonals', () => {
     test('yaw 1, pitch 1', () => {
-      const point = getNextPoint(degToRad(1), degToRad(1))
+      const point = getNextPoint(degsToRads(1), degsToRads(1))
       const [pitch, roll] = getPitchRoll(point)
       const rotationQuaternion = Quaternion.RotationYawPitchRoll(0, pitch, roll)
       const result = new Vector3()
@@ -191,7 +191,7 @@ describe('getPitchRoll', () => {
       expect(result).equalsWithEpsilon(point)
     })
     test('yaw 10, pitch 10', () => {
-      const point = getNextPoint(degToRad(10), degToRad(10))
+      const point = getNextPoint(degsToRads(10), degsToRads(10))
       const [pitch, roll] = getPitchRoll(point)
       const rotationQuaternion = Quaternion.RotationYawPitchRoll(0, pitch, roll)
       const result = new Vector3()
@@ -203,7 +203,7 @@ describe('getPitchRoll', () => {
       expect(result).equalsWithEpsilon(point)
     })
     test.skip('yaw 20, pitch 20', () => {
-      const point = getNextPoint(degToRad(20), degToRad(20))
+      const point = getNextPoint(degsToRads(20), degsToRads(20))
       const [pitch, roll] = getPitchRoll(point)
       const rotationQuaternion = Quaternion.RotationYawPitchRoll(0, pitch, roll)
       const result = new Vector3()

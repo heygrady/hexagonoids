@@ -1,5 +1,6 @@
+import { vector3ToLatLng } from '@heygrady/h3-babylon'
+
 import { MAX_DURATION, MAX_SPEED } from '../constants'
-import { vector3ToGeo } from '../geoCoords/geoToVector3'
 import { setLocation } from '../store/ship/ShipSetters'
 import type { ShipStore } from '../store/ship/ShipStore'
 
@@ -41,17 +42,14 @@ export const moveShip = (
 
   // FIXME: these calculations are inaccurate by a small amount
   const nextPosition = getNextPosition(originNode, shipState.heading, distance)
-  const nextLocation = vector3ToGeo(nextPosition)
+  const nextLocation = vector3ToLatLng(nextPosition)
 
-  if (
-    shipState.lat !== nextLocation.lat ||
-    shipState.lng !== nextLocation.lng
-  ) {
+  if (shipState.lat !== nextLocation[0] || shipState.lng !== nextLocation[1]) {
     // Pitch the ship forward by distance radians
     pitchNodeBy(originNode, distance)
 
     // Update location (from scene)
-    setLocation($ship, vector3ToGeo(positionNode.absolutePosition))
+    setLocation($ship, vector3ToLatLng(positionNode.absolutePosition))
 
     // FIXME: only move camera for the one in GameState
     if (shipState.type === 'ship') {

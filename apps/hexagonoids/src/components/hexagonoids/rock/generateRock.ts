@@ -1,4 +1,5 @@
 import { Quaternion, type Scene } from '@babylonjs/core'
+import { latLngToVector3, vector3ToLatLng } from '@heygrady/h3-babylon'
 import { easeCubicIn, easeCubicInOut, easeCubicOut } from 'd3-ease'
 
 import {
@@ -15,7 +16,6 @@ import {
   ROCK_SMALL_SPEED,
   ROCK_SMALL_VALUE,
 } from '../constants'
-import { geoToVector3, vector3ToGeo } from '../geoCoords/geoToVector3'
 import { getYawPitch } from '../ship/getYawPitch'
 import { getOrientation, moveNodeTo, turnNodeBy } from '../ship/orientation'
 import { setHeading, setLocation, setYaw } from '../store/rock/RockSetters'
@@ -89,7 +89,7 @@ export const generateRock = (scene: Scene, $rock: RockStore) => {
   }
 
   // 3. Position the rock
-  const position = geoToVector3(rockState.lat, rockState.lng, RADIUS)
+  const position = latLngToVector3(rockState.lat, rockState.lng, RADIUS)
   const [yaw, pitch] = getYawPitch(position)
   moveNodeTo(originNode, yaw, pitch)
 
@@ -115,6 +115,6 @@ export const generateRock = (scene: Scene, $rock: RockStore) => {
 
   // 5. Update from scene
   setHeading($rock, getOrientation(originNode)[0])
-  setLocation($rock, vector3ToGeo(rockNode.absolutePosition))
+  setLocation($rock, vector3ToLatLng(rockNode.absolutePosition))
   setYaw($rock, getOrientation(orientationNode)[0])
 }

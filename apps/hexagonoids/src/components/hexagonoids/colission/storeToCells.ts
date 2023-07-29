@@ -1,4 +1,5 @@
 import { BoundingSphere, Vector3 } from '@babylonjs/core'
+import { latLngToVector3 } from '@heygrady/h3-babylon'
 import { cellToBoundary, type CoordPair, gridDisk, latLngToCell } from 'h3-js'
 import QuickLRU from 'quick-lru'
 
@@ -13,7 +14,6 @@ import {
   ROCK_SMALL_RADIUS,
   SHIP_RADIUS,
 } from '../constants'
-import { geoToVector3 } from '../geoCoords/geoToVector3'
 import { boundingPoints } from '../sphereArenaCamera/SphereArenaCamera'
 
 import {
@@ -51,7 +51,7 @@ const cellToBoundingSphere = (
 
   const [min, max] = boundingPoints(
     boundary.map((coordPair) =>
-      geoToVector3(coordPair[0], coordPair[1], RADIUS)
+      latLngToVector3(coordPair[0], coordPair[1], RADIUS)
     )
   )
   return new BoundingSphere(min, max)
@@ -112,7 +112,7 @@ export const storeToCells = (
 
   // add the center
   const { lat, lng } = state
-  const center = geoToVector3(lat, lng, RADIUS)
+  const center = latLngToVector3(lat, lng, RADIUS)
   const h = latLngToCell(lat, lng, resolution)
   cells.add(h)
 

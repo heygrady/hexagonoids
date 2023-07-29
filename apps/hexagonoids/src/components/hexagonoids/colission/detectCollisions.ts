@@ -1,9 +1,9 @@
 import { Vector3 } from '@babylonjs/core'
+import { latLngToVector3 } from '@heygrady/h3-babylon'
 import type { CoordPair } from 'h3-js'
 import * as martinez from 'martinez-polygon-clipping'
 
 import { RADIUS } from '../constants'
-import { geoToVector3 } from '../geoCoords/geoToVector3'
 
 import { meshPolygonCache, meshToPolygon } from './meshToPolygon'
 import { storeToRadius } from './storeToCells'
@@ -48,7 +48,7 @@ const detectSphereCollisions = (
   // FIXME: use the built in boundingInfo to detect sphere collisions
   for (const $target of targets) {
     const { lat, lng } = $target.get()
-    const target = geoToVector3(lat, lng, RADIUS)
+    const target = latLngToVector3(lat, lng, RADIUS)
     for (const $projectile of projectiles) {
       // skip used projectiles
       if (usedProjectiles.has($projectile)) {
@@ -59,7 +59,7 @@ const detectSphereCollisions = (
       let projectile = projectileVectors.get($projectile)
       if (projectile == null) {
         const { lat, lng } = $projectile.get()
-        projectile = geoToVector3(lat, lng, RADIUS)
+        projectile = latLngToVector3(lat, lng, RADIUS)
         projectileVectors.set($projectile, projectile)
       }
 

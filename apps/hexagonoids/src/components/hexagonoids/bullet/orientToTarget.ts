@@ -1,7 +1,7 @@
 import { Quaternion } from '@babylonjs/core'
+import { vector3ToLatLng } from '@heygrady/h3-babylon'
 
 import type { TargetStore } from '../colission/typeCheck'
-import { vector3ToGeo } from '../geoCoords/geoToVector3'
 import { getOrientation } from '../ship/orientation'
 import { setLocation } from '../store/bullet/BulletSetters'
 import type { BulletStore } from '../store/bullet/BulletStore'
@@ -54,5 +54,5 @@ export const orientToTarget = ($bullet: BulletStore, $target: TargetStore) => {
   // set the final state (from the scene)
   const [bulletHeading] = getOrientation(originNode)
   $bullet.setKey('heading', bulletHeading)
-  setLocation($bullet, vector3ToGeo(bulletNode.absolutePosition))
+  setLocation($bullet, vector3ToLatLng(bulletNode.absolutePosition))
 }

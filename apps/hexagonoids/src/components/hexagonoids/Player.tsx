@@ -1,3 +1,4 @@
+import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import { gridDisk, latLngToCell } from 'h3-js'
 import type { Component, JSX } from 'solid-js'
 import { unwrap } from 'solid-js/store'
@@ -10,7 +11,6 @@ import {
   ROCK_ENCOUNTER_COOLDOWN,
   ROCK_WAVE_PERIOD,
 } from './constants'
-import { vector3ToGeo } from './geoCoords/geoToVector3'
 import { useGame } from './hooks/useGame'
 import { useRockPool } from './hooks/useRockPool'
 import {
@@ -56,7 +56,7 @@ export const Player: Component<PlayerProps> = (props) => {
         h = latLngToCell(lat, lng, 1)
       } else if (cameraContext != null) {
         const center = getScreenCenter(scene, cameraContext)
-        const { lat, lng } = vector3ToGeo(center)
+        const [lat, lng] = vector3ToLatLng(center)
         h = latLngToCell(lat, lng, 1)
         options = { lat, lng }
       }
