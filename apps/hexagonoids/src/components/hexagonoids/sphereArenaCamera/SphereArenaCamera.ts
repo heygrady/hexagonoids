@@ -25,7 +25,7 @@ type CameraPoints = [
   topRight: Vector3,
   bottomLeft: Vector3,
   bottomRight: Vector3,
-  center: Vector3
+  center: Vector3,
 ]
 
 export interface SphereArenaCamera {

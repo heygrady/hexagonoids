@@ -36,7 +36,7 @@ const segment3Contours = [
 export type SegmentPolygons = [
   segment1Mesh: Mesh,
   segment2Mesh: Mesh,
-  segment3Mesh: Mesh
+  segment3Mesh: Mesh,
 ]
 
 export const createSegmentPolygons = (

@@ -7,7 +7,7 @@ import { useGame } from './useGame'
 
 export const useCellPool = (): [
   $cells: CellPoolStore,
-  actions: CellPoolActions
+  actions: CellPoolActions,
 ] => {
   const [$game, gameActions] = useGame()
   const { $cells } = $game.get()

@@ -116,7 +116,8 @@ export const Collisions: Component = () => {
             return 'unknown'
           }
           return `${state.id ?? 'unknown'}_${state.size}`
-        })}>
+        })}
+      >
         {(key) => {
           const id = key.split('_')[0]
           const $rock = rocks()[id]

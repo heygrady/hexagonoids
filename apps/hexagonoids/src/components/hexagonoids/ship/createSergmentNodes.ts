@@ -10,13 +10,13 @@ import { turnNodeBy } from './orientation'
 export type SegmentStores = [
   $segment1: ShipStore,
   $segment2: ShipStore,
-  $segment3: ShipStore
+  $segment3: ShipStore,
 ]
 
 export type SegmentNodes = [
   segment1OriginNode: TransformNode,
   segment2OriginNode: TransformNode,
-  segment3OriginNode: TransformNode
+  segment3OriginNode: TransformNode,
 ]
 
 export const createSegmentNodes = (

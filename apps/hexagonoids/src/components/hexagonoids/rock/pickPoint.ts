@@ -10,7 +10,7 @@ export type ScreenCorners = [
   topLeft: Vector3,
   topRight: Vector3,
   bottomLeft: Vector3,
-  bottomRight: Vector3
+  bottomRight: Vector3,
 ]
 
 export const pickPoint = (
