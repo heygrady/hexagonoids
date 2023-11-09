@@ -6,14 +6,14 @@
     "build": "turbo run --concurrency=4 build",
     "clean": "turbo run clean",
     "coverage": "turbo run --concurrency=4 coverage",
-    "coverage:ci": "turbo run --concurrency=2 coverage -- --maxWorkers=2 --forceExit",
+    "coverage:ci": "turbo run --concurrency=2 coverage -- --passWithNoTests --run",
     "dev": "cd apps/hexagonoids && yarn dev",
     "format": "turbo run --concurrency=4 format",
     "lint": "turbo run --concurrency=4 lint",
     "postinstall": "husky install",
     "release": "yarn build && changeset publish",
-    "test": "turbo run --concurrency=4 test",
-    "test:ci": "turbo run --concurrency=2 test -- --maxWorkers=2 --forceExit",
+    "test": "turbo run --concurrency=4 test -- --passWithNoTests --run",
+    "test:ci": "turbo run --concurrency=2 test -- --passWithNoTests --run",
     "version": "changeset version && yarn install"
   },
   "workspaces": [
@@ -28,12 +28,12 @@
   },
   "dependencies": {
     "@changesets/cli": "^2.26.2",
-    "@commitlint/cli": "^17.6.7",
-    "@commitlint/config-conventional": "^17.6.7",
-    "@commitlint/config-lerna-scopes": "^17.6.6",
+    "@commitlint/cli": "^18.2.0",
+    "@commitlint/config-conventional": "^18.1.0",
+    "@commitlint/config-lerna-scopes": "^18.1.0",
     "@manypkg/cli": "^0.21.0",
     "husky": "^8.0.3",
-    "turbo": "^1.10.12",
-    "vercel": "^31.2.0"
+    "turbo": "^1.10.16",
+    "vercel": "^32.5.3"
   }
 }
