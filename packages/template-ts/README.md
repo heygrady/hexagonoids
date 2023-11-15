@@ -1,6 +1,6 @@
 # @heygrady/template-ts
 
-New package used in @heygrady.
+New package.
 
 ```sh
 yarn add @heygrady/template-ts
