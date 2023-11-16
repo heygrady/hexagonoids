@@ -1,37 +1,68 @@
-export const opportunityMap = new Map<number, number[][]>()
+interface Opportunities {
+  combinations: number[][]
+  corners: Set<number>
+  edges: Set<number>
+  diagonals: Set<number>
+  centerSpace: number
+}
 
-export const getOpportunities = (boardSize: number): number[][] => {
-  const cachedCombinations = opportunityMap.get(boardSize)
-  if (cachedCombinations != null) {
-    return cachedCombinations
+export const opportunityMap = new Map<number, Opportunities>()
+
+// export const getOpportunities = (boardSize: number): Opportunities => {
+export const getOpportunities = (boardSize: number): Opportunities => {
+  const cachedOpportunities = opportunityMap.get(boardSize)
+  if (cachedOpportunities != null) {
+    return cachedOpportunities
   }
-  const combinations: number[][] = []
+  const response: Opportunities = {
+    combinations: [],
+    corners: new Set(),
+    edges: new Set(),
+    diagonals: new Set(),
+    centerSpace: Math.floor((boardSize * boardSize) / 2),
+  }
 
-  // Rows
+  // Rows and Columns
   for (let i = 0; i < boardSize; i++) {
     const row: number[] = []
-    for (let j = 0; j < boardSize; j++) {
-      row.push(i * boardSize + j)
-    }
-    combinations.push(row)
-  }
-  // Columns
-  for (let i = 0; i < boardSize; i++) {
     const col: number[] = []
     for (let j = 0; j < boardSize; j++) {
-      col.push(i + j * boardSize)
+      const rowIndex = i * boardSize + j
+      const colIndex = j * boardSize + i
+      row.push(rowIndex)
+      col.push(colIndex)
+
+      // Corners
+      if (
+        (i === 0 || i === boardSize - 1) &&
+        (j === 0 || j === boardSize - 1)
+      ) {
+        response.corners.add(rowIndex)
+      }
+
+      // Edges
+      if (i === 0 || i === boardSize - 1 || j === 0 || j === boardSize - 1) {
+        response.edges.add(rowIndex)
+      }
     }
-    combinations.push(col)
+    response.combinations.push(row, col)
   }
 
   // Diagonals
   const diag1: number[] = []
   const diag2: number[] = []
   for (let i = 0; i < boardSize; i++) {
-    diag1.push(i * boardSize + i)
-    diag2.push(i * boardSize + (boardSize - i - 1))
+    const index1 = i * boardSize + i
+    const index2 = i * boardSize + (boardSize - i - 1)
+    diag1.push(index1)
+    diag2.push(index2)
+    response.diagonals.add(index1)
+    response.diagonals.add(index2)
   }
+  response.combinations.push(diag1, diag2)
 
-  opportunityMap.set(boardSize, combinations)
-  return combinations
+  // Cache
+  opportunityMap.set(boardSize, response)
+
+  return response
 }

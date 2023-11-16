@@ -18,7 +18,7 @@ import type { TicTacToeGameOptions } from './TicTacToeGameOptions.js'
 
 export const WIN_VALUE = 10
 export const DRAW_VALUE = 5
-export const LOSE_VALUE = 0
+export const LOSE_VALUE = -10
 
 export class TicTacToeGame {
   public description: EnvironmentDescription
@@ -166,9 +166,6 @@ export class TicTacToeGame {
       player2Data[1] += player2Bonus / round
     }
 
-    // if (Math.max(player1Data[1], player2Data[1]) > 60) {
-    //   console.log(player1Data[1], player2Data[1])
-    // }
     return gameData
   }
 

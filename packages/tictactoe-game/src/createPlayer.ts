@@ -8,7 +8,7 @@ export type PlayerFn = (board: SpaceValue[]) => WeightedIndex
 export type AsyncPlayerFn = (board: SpaceValue[]) => Promise<WeightedIndex>
 
 /** prefer outputs that are valid */
-const validAttemptsBias = 10
+export const validAttemptsBias = 10
 
 export const toBoardIndex = (
   board: number[],
@@ -21,7 +21,7 @@ export const toBoardIndex = (
     index = output.indexOf(Math.max(...output))
     if (board[index] === 0) {
       let attemptBias = 0
-      if (i < output.length / 3) {
+      if (i < 3) {
         attemptBias = (output.length - i) * validAttemptsBias
       } else if (i > output.length - output.length / 3) {
         attemptBias = i * validAttemptsBias * -1

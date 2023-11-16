@@ -31,22 +31,6 @@ const gamePool = new ObjectPool<TicTacToeGame, GamePoolFactoryOptions>(
     new TicTacToeGame(executor1, executor2, options)
 )
 
-// const cachedMaxBonuses = new Map<number, number>()
-// const calculateMaxBonus = (boardSize: number): number => {
-//   const cachedMaxBonus = cachedMaxBonuses.get(boardSize)
-//   if (cachedMaxBonus != null) {
-//     return cachedMaxBonus
-//   }
-//   let maxBonus = 0
-//   const totalMoves = boardSize * boardSize
-
-//   for (let move = 0; move < totalMoves; move++) {
-//     maxBonus += totalMoves / (totalMoves - move)
-//   }
-//   cachedMaxBonuses.set(boardSize, maxBonus)
-//   return maxBonus
-// }
-
 export const createGameExecutor = (
   options: TicTacToeGameOptions
 ): GameExecutor<
@@ -55,7 +39,7 @@ export const createGameExecutor = (
   [executor1: Executor, executor2: Executor],
   TicTacToeGameData
 > => {
-  const maxBonus = 55 // calculateMaxBonus(options.boardSize)
+  const maxBonus = 160 // 142 observed on a 5x5 board
   const maxScore = (maxBonus + WIN_VALUE) * 2 // they play two games
 
   return {
