@@ -72,7 +72,7 @@ const createReproducer: ReproducerFactory<any, any> = createReproducerFactory(
 
 export const demo = async () => {
   const gameOptions: TicTacToeGameOptions = {
-    boardSize: 3,
+    boardSize: 5,
   }
   const gameExecutor = createGameExecutor(gameOptions)
   const tournamentOptions: TournamentEvaluatorOptions = {
