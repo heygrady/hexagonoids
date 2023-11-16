@@ -7,7 +7,7 @@ import { useGame } from './useGame'
 
 export const useShipPool = (): [
   $ships: ShipPoolStore,
-  actions: ShipPoolActions
+  actions: ShipPoolActions,
 ] => {
   const [$game, gameActions] = useGame()
   const { $ships } = $game.get()

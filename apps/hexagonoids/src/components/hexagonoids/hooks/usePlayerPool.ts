@@ -7,7 +7,7 @@ import { useGame } from './useGame'
 
 export const usePlayerPool = (): [
   $players: PlayerPoolStore,
-  actions: PlayerPoolActions
+  actions: PlayerPoolActions,
 ] => {
   const [$game, gameActions] = useGame()
   const { $players } = $game.get()

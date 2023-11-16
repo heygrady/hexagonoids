@@ -7,7 +7,7 @@ import { useGame } from './useGame'
 
 export const useBulletPool = (): [
   $bullets: BulletPoolStore,
-  actions: BulletPoolActions
+  actions: BulletPoolActions,
 ] => {
   const [$game, gameActions] = useGame()
   const { $bullets } = $game.get()

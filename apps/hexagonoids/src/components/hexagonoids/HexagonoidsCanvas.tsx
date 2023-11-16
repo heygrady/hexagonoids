@@ -56,7 +56,8 @@ export const HexagonoidsCanvas: Component<
       adaptToDeviceRatio={adaptToDeviceRatio}
       sceneOptions={sceneOptions}
       onReady={onReady}
-      {...props}>
+      {...props}
+    >
       <GameContext.Provider value={gameContext}>
         <Show when={ready()}>
           <Globe>
