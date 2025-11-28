@@ -6,6 +6,23 @@
       "name": "Development server",
       "request": "launch",
       "type": "node-terminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Worker",
+      "program": "${workspaceFolder}/packages/tictactoe-demo/dist/esm/train.js",
+      "runtimeArgs": [
+        "--inspect-brk"
+      ],
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/packages/**/dist/**/*.js"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "autoAttachChildProcesses": true,
+      "preLaunchTask": "build"
     }
   ]
 }
