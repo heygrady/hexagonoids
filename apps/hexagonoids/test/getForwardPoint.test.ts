@@ -1,4 +1,4 @@
-import { Vector3 } from '@babylonjs/core'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { describe, expect, test } from 'vitest'
 
 import { getForwardPoint } from '../src/components/hexagonoids/ship/getNextPoint'

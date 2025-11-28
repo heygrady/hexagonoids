@@ -1,10 +1,7 @@
-import {
-  TransformNode,
-  Vector3,
-  NullEngine,
-  Scene,
-  Quaternion,
-} from '@babylonjs/core'
+import { NullEngine } from '@babylonjs/core/Engines/nullEngine'
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import { Scene } from '@babylonjs/core/scene'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 
 import { getYawPitch } from '../src/components/hexagonoids/ship/getYawPitch'

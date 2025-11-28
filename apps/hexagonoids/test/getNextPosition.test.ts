@@ -1,10 +1,7 @@
-import {
-  NullEngine,
-  Quaternion,
-  Scene,
-  TransformNode,
-  Vector3,
-} from '@babylonjs/core'
+import { NullEngine } from '@babylonjs/core/Engines/nullEngine'
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import { Scene } from '@babylonjs/core/scene'
 import { beforeEach, afterEach, describe, expect, test } from 'vitest'
 
 import { getNextPosition } from '../src/components/hexagonoids/ship/getNextPosition'
