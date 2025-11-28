@@ -1,4 +1,4 @@
-import { Vector3, Vector2, Quaternion } from '@babylonjs/core'
+import { Quaternion, Vector2, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { degsToRads } from 'h3-js'
 import { describe, expect, test } from 'vitest'
 
