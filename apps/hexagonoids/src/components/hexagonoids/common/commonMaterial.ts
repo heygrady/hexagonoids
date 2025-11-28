@@ -1,4 +1,6 @@
-import { Color3, type Scene, StandardMaterial } from '@babylonjs/core'
+import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import type { Scene } from '@babylonjs/core/scene'
 import QuickLRU from 'quick-lru'
 import { createUniqueId } from 'solid-js'
 
@@ -91,8 +93,6 @@ export const getCommonMaterial = (
   material.onDisposeObservable.addOnce(() => {
     materialCache.delete(key)
   })
-
-  console.log('materialCache.size', materialCache.size)
 
   return material
 }

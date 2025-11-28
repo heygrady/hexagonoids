@@ -3,11 +3,13 @@ import { createUniqueId } from 'solid-js'
 
 import { defaultPlayerState, type PlayerState } from './PlayerState'
 
+export { defaultPlayerState }
+
 export type PlayerStore = MapStore<PlayerState>
 
 /**
  * This is used by the PlayerPool to create players.
- * @returns
+ * @returns {PlayerStore} The created player store
  */
 export const createPlayerStore = (): PlayerStore => {
   const $player = map<PlayerState>({ ...defaultPlayerState })
@@ -17,7 +19,7 @@ export const createPlayerStore = (): PlayerStore => {
 
 /**
  * This is used by the PlayerPool to recycle players.
- * @param $player
+ * @param {PlayerStore} $player - The player store to reset
  */
 export const resetPlayer = ($player: PlayerStore) => {
   // preserve the ID and nodes

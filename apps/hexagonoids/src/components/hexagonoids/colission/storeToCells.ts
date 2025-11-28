@@ -1,4 +1,5 @@
-import { BoundingSphere, Vector3 } from '@babylonjs/core'
+import { BoundingSphere } from '@babylonjs/core/Culling/boundingSphere'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
 import { cellToBoundary, type CoordPair, gridDisk, latLngToCell } from 'h3-js'
 import QuickLRU from 'quick-lru'
@@ -15,6 +16,7 @@ import {
   SHIP_RADIUS,
 } from '../constants'
 import { boundingPoints } from '../sphereArenaCamera/SphereArenaCamera'
+import { LoopGuard } from '../utils/performanceMonitor'
 
 import {
   isRockState,
@@ -66,18 +68,26 @@ const isSphereInside = (
   return distanceCenters + sphereA.radius <= sphereB.radius
 }
 
-// FIXME: this should use the real mesh shape
+/**
+ * Get collision radius for a store object.
+ * Uses hardcoded radii for fast lookup (called frequently in collision detection).
+ * @param {TargetStore | ProjectileStore} $store - The store object
+ * @returns {number} The collision radius
+ */
 export const storeToRadius = ($store: TargetStore | ProjectileStore) => {
-  const radius = isRockStore($store)
-    ? $store.get().size === ROCK_LARGE_SIZE
+  const state = $store.get()
+
+  if (isRockStore($store)) {
+    return state.size === ROCK_LARGE_SIZE
       ? ROCK_LARGE_RADIUS
-      : $store.get().size === ROCK_MEDIUM_SIZE
+      : state.size === ROCK_MEDIUM_SIZE
       ? ROCK_MEDIUM_RADIUS
       : ROCK_SMALL_RADIUS
-    : isShipStore($store)
-    ? SHIP_RADIUS
-    : BULLET_RADIUS
-  return radius
+  } else if (isShipStore($store)) {
+    return SHIP_RADIUS
+  } else {
+    return BULLET_RADIUS
+  }
 }
 
 export const storeToCells = (
@@ -134,14 +144,37 @@ export const storeToCells = (
         ? 1
         : Math.ceil(radius / cellBoundingSphere.radius)
 
+    // Diagnostic: log if we're checking an unusually large disk
+    if (k > 5) {
+      console.warn(
+        `[storeToCells] Large disk radius k=${k} for ${type} at ${h} (radius=${radius}, cellRadius=${cellBoundingSphere.radius})`
+      )
+    }
+
     // get a disk of cells
     const disk = getGridDisk(h, k)
     disk.delete(h)
-    for (const h of disk) {
-      const diskBoundingSphere = cellToBoundingSphere(h)
+
+    // Loop guard: prevent infinite loops in cell checking
+    const loopGuard = new LoopGuard(
+      `storeToCells-${type}-${h}`,
+      disk.size + 100
+    )
+
+    // Fix: Use different variable name to avoid shadowing
+    for (const cellId of disk) {
+      loopGuard.check()
+      const diskBoundingSphere = cellToBoundingSphere(cellId)
       if (BoundingSphere.Intersects(diskBoundingSphere, storeBoundingSphere)) {
-        cells.add(h)
+        cells.add(cellId)
       }
+    }
+
+    // Diagnostic: log iteration count
+    if (loopGuard.getIterations() > 50) {
+      console.warn(
+        `[storeToCells] Checked ${loopGuard.getIterations()} cells for ${type} at ${h}`
+      )
     }
   }
 

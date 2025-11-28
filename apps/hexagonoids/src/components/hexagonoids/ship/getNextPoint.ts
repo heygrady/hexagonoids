@@ -1,12 +1,12 @@
-import { Quaternion, Vector3 } from '@babylonjs/core'
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
 
 import { wrapHalfCircle } from './orientation'
 
 /**
  * Returns a new point on the sphere that is pitch distance in yaw direction from the up position, facing forward
- * @param direction yaw rotation
- * @param distance pitch distance
- * @returns new point on the sphere that is pitch distance in yaw direction from the up position
+ * @param {number} direction - yaw rotation
+ * @param {number} distance - pitch distance
+ * @returns {Vector3} new point on the sphere that is pitch distance in yaw direction from the up position
  */
 export const getNextPoint = (direction: number, distance: number): Vector3 => {
   const rotationQuaternion = Quaternion.RotationYawPitchRoll(
@@ -25,8 +25,8 @@ export const getNextPoint = (direction: number, distance: number): Vector3 => {
 
 /**
  * Returns a new point on the sphere that is pitch distance from the up position, facing forward
- * @param distance pitch distance
- * @returns new point on the sphere that is pitch distance from the up position
+ * @param {number} distance - pitch distance
+ * @returns {Vector3} new point on the sphere that is pitch distance from the up position
  */
 export const getForwardPoint = (distance: number): Vector3 =>
   getNextPoint(0, distance)

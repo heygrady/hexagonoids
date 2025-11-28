@@ -4,6 +4,8 @@ import { CELL_VISITED_OPACITY } from '../../constants'
 
 import { defaultCellState, type CellState } from './CellState'
 
+export { defaultCellState }
+
 export type CellStore = MapStore<CellState>
 
 export const createCellStore = (h?: string): CellStore => {
@@ -16,8 +18,8 @@ export const createCellStore = (h?: string): CellStore => {
 
 /**
  * Prepare the $cell for reuse.
- * @param $cell
- * @returns
+ * @param {CellStore} $cell - The cell store to reset
+ * @returns {CellStore} The reset cell store
  */
 export const resetCell = ($cell: CellStore) => {
   const { originNode, cellNode } = $cell.get()

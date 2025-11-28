@@ -1,6 +1,7 @@
-import { TransformNode, type Scene, Quaternion } from '@babylonjs/core'
+import { Quaternion } from '@babylonjs/core/Maths/math.vector'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import type { Scene } from '@babylonjs/core/scene'
 
-import { getCommonMaterial } from '../common/commonMaterial'
 import { RADIUS, SHIP_SCALE } from '../constants'
 import type { ShipStore } from '../store/ship/ShipStore'
 
@@ -10,13 +11,13 @@ import { turnNodeBy } from './orientation'
 export type SegmentStores = [
   $segment1: ShipStore,
   $segment2: ShipStore,
-  $segment3: ShipStore
+  $segment3: ShipStore,
 ]
 
 export type SegmentNodes = [
   segment1OriginNode: TransformNode,
   segment2OriginNode: TransformNode,
-  segment3OriginNode: TransformNode
+  segment3OriginNode: TransformNode,
 ]
 
 export const createSegmentNodes = (
@@ -26,7 +27,6 @@ export const createSegmentNodes = (
 ): SegmentNodes => {
   const segmentPolygons = createSegmentPolygons(scene, shipId)
 
-  const shipMaterial = getCommonMaterial(scene).clone(`shipMaterial_${shipId}`)
   const globe = scene.getMeshByName('globe')
 
   const segmentNodes: TransformNode[] = []
@@ -34,7 +34,6 @@ export const createSegmentNodes = (
     const $segment = segments[i]
     const segmentId = $segment.get().id ?? `${shipId}_${i}`
 
-    segmentNode.material = shipMaterial
     segmentNode.scaling.setAll(SHIP_SCALE)
     turnNodeBy(segmentNode, -Math.PI / 2)
 

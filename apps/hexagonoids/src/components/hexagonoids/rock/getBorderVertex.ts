@@ -23,8 +23,8 @@ const isConvex = (
  *
  * const borderVertices = rockVertices.map(getBorderVertex(2))
  * ```
- * @param distance
- * @returns a mapping function that returns a border vertex for a given vertex
+ * @param {number} distance - The distance from the original vertex
+ * @returns {(currentVertex: Vector2, index: number, array: Vector2[]) => Vector2} a mapping function that returns a border vertex for a given vertex
  */
 export const getBorderVertex =
   (distance: number) =>

@@ -1,4 +1,4 @@
-import { Quaternion } from '@babylonjs/core'
+import { Quaternion } from '@babylonjs/core/Maths/math.vector'
 import { map, type MapStore } from 'nanostores'
 import { createUniqueId } from 'solid-js'
 
@@ -8,7 +8,7 @@ export type BulletStore = MapStore<BulletState>
 
 /**
  * This is used by the BulletPool to create bullets.
- * @returns
+ * @returns {BulletStore} The created bullet store
  */
 export const createBulletStore = (): BulletStore => {
   const $bullet = map<BulletState>({ ...defaultBulletState })
@@ -18,8 +18,8 @@ export const createBulletStore = (): BulletStore => {
 
 /**
  * This is used by the BulletPool to recycle bullets.
- * @param $bullet
- * @returns
+ * @param {BulletStore} $bullet - The bullet store to reset
+ * @returns {BulletStore} The reset bullet store
  */
 export const resetBullet = ($bullet: BulletStore) => {
   // preserve the ID and nodes

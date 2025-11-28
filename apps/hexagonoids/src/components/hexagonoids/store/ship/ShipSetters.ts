@@ -2,7 +2,6 @@ import type { CoordPair } from 'h3-js'
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
 
-import { MAX_SPEED } from '../../constants'
 import { wrapHalfCircle } from '../../ship/orientation'
 
 import type { ShipState } from './ShipState'
@@ -10,9 +9,7 @@ import type { ShipStore } from './ShipStore'
 
 export interface ShipSetters {
   setYaw: OmitFirstArg<typeof setYaw>
-  setHeading: OmitFirstArg<typeof setHeading>
-  setSpeed: OmitFirstArg<typeof setSpeed>
-  setHeadingSpeed: OmitFirstArg<typeof setHeadingSpeed>
+  setAngularVelocity: OmitFirstArg<typeof setAngularVelocity>
   setLat: OmitFirstArg<typeof setLat>
   setLng: OmitFirstArg<typeof setLng>
   setLocation: OmitFirstArg<typeof setLocation>
@@ -21,9 +18,7 @@ export interface ShipSetters {
 
 export const bindShipSetters = ($ship: ShipStore): ShipSetters => ({
   setYaw: action($ship, 'setYaw', setYaw),
-  setHeading: action($ship, 'setHeading', setHeading),
-  setSpeed: action($ship, 'setSpeed', setSpeed),
-  setHeadingSpeed: action($ship, 'setHeadingSpeed', setHeadingSpeed),
+  setAngularVelocity: action($ship, 'setAngularVelocity', setAngularVelocity),
   setLat: action($ship, 'setLat', setLat),
   setLng: action($ship, 'setLng', setLng),
   setLocation: action($ship, 'setLocation', setLocation),
@@ -32,8 +27,8 @@ export const bindShipSetters = ($ship: ShipStore): ShipSetters => ({
 
 /**
  * Sets the rotation of the ship relative to the heading in radians.
- * @param $ship
- * @param yaw Rotation of the ship relative to the heading in radians. Ranges from -Math.PI to Math.PI. Controls the forward facing direction the ship.
+ * @param {ShipStore} $ship - The ship store
+ * @param {number} yaw - Rotation of the ship relative to the heading in radians. Ranges from -Math.PI to Math.PI. Controls the forward facing direction the ship.
  */
 export const setYaw = ($ship: ShipStore, yaw: ShipState['yaw']) => {
   const prev = $ship.get().yaw
@@ -43,44 +38,18 @@ export const setYaw = ($ship: ShipStore, yaw: ShipState['yaw']) => {
 }
 
 /**
- * Sets the direction of the ship velocity in radians.
- * @param $ship
- * @param heading Direction of the ship velocity in radians. Ranges from -Math.PI to Math.PI.
+ * Sets the angular velocity of the ship.
+ * @param {ShipStore} $ship - The ship store
+ * @param {any} angularVelocity - Angular velocity as a 3D vector (axis × magnitude)
  */
-export const setHeading = ($ship: ShipStore, heading: ShipState['heading']) => {
-  const prev = $ship.get().heading
-  if (prev !== heading) {
-    // wrap heading to -Math.PI to Math.PI
-    $ship.setKey('heading', wrapHalfCircle(heading))
-  }
-}
-
-/**
- * Sets the speed of the ship as radians per second.
- * @param $ship
- * @param speed Speed of the ship as radians per second. Ranges from 0 to MAX_SPEED.
- */
-export const setSpeed = ($ship: ShipStore, speed: ShipState['speed']) => {
-  const prev = $ship.get().speed
-  if (prev !== speed) {
-    // enforce speed limits
-    $ship.setKey('speed', Math.min(Math.max(speed, 0), MAX_SPEED))
-  }
-}
-
-/**
- * Sets the direction of the ship in radians and the speed of the ship as radians per second.
- * @param $ship
- * @param heading Direction of the ship velocity in radians. Ranges from -Math.PI to Math.PI.
- * @param speed Speed of the ship as radians per second. Ranges from 0 to MAX_SPEED.
- */
-export const setHeadingSpeed = (
+export const setAngularVelocity = (
   $ship: ShipStore,
-  heading: number,
-  speed: number
+  angularVelocity: ShipState['angularVelocity']
 ) => {
-  setHeading($ship, heading)
-  setSpeed($ship, speed)
+  const prev = $ship.get().angularVelocity
+  if (!prev.equals(angularVelocity)) {
+    $ship.setKey('angularVelocity', angularVelocity.clone())
+  }
 }
 
 export const setLat = ($ship: ShipStore, lat: ShipState['lat']) => {

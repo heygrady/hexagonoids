@@ -1,10 +1,11 @@
-import {
-  PolygonMeshBuilder,
-  Vector2,
-  type Scene,
-  type Mesh,
-} from '@babylonjs/core'
+import { Vector2 } from '@babylonjs/core/Maths/math.vector'
+import { type InstancedMesh } from '@babylonjs/core/Meshes/instancedMesh'
+import type { Mesh } from '@babylonjs/core/Meshes/mesh'
+import { PolygonMeshBuilder } from '@babylonjs/core/Meshes/polygonMesh'
+import type { Scene } from '@babylonjs/core/scene'
 import earcut from 'earcut'
+
+import { getCommonMaterial } from '../common/commonMaterial'
 
 // https://ronjeffries.com/articles/020-asteroids/asteroids-10/
 
@@ -131,25 +132,54 @@ const rocks: Array<[vertices: Vector2[], hole: Vector2[]]> = [
   [ROCK_4, ROCK_4_HOLE],
 ]
 
-const getRandomRock = (): [vertices: Vector2[], hole: Vector2[]] => {
-  const index = Math.floor(Math.random() * rocks.length)
-  return rocks[index]
+let rockMasters: Mesh[] | null = null
+
+/**
+ * Initialize the rock master meshes. This should be called once when the scene is set up.
+ * Creates 4 master meshes (one for each rock shape) that will be used to create instances.
+ * @param {Scene} scene - The scene
+ */
+export const initializeRockMasters = (scene: Scene): void => {
+  if (rockMasters !== null) {
+    return // Already initialized
+  }
+
+  rockMasters = rocks.map(([vertices, hole], index) => {
+    const builder = new PolygonMeshBuilder(
+      `rockMaster_${index}`,
+      vertices,
+      scene,
+      earcut
+    )
+    builder.addHole(hole)
+
+    const master = builder.build()
+    master.isVisible = false // Hide the master mesh
+    master.material = getCommonMaterial(scene) // Assign shared material
+
+    return master
+  })
 }
 
-const rockCache = new Map<[vertices: Vector2[], hole: Vector2[]], Mesh>()
-
-export const createRockPolygon = (scene: Scene, id: string): Mesh => {
-  const rockData = getRandomRock()
-
-  if (rockCache.has(rockData)) {
-    return (rockCache.get(rockData) as Mesh).clone(`rock_${id}`)
+/**
+ * Create a rock polygon.
+ * @param {Scene} scene - The scene
+ * @param {string} id - The rock ID
+ * @returns {InstancedMesh} The created rock mesh
+ */
+export const createRockPolygon = (scene: Scene, id: string): InstancedMesh => {
+  // Lazy initialization: create masters on first call if not already initialized
+  if (rockMasters === null) {
+    initializeRockMasters(scene)
   }
-  const [rockVertices, rockHole] = rockData
 
-  const rock = new PolygonMeshBuilder(`rock_${id}`, rockVertices, scene, earcut)
-  rock.addHole(rockHole)
+  if (rockMasters == null) {
+    throw new Error('Rock masters not initialized')
+  }
 
-  const polygon = rock.build()
-  rockCache.set(rockData, polygon)
-  return polygon
+  const shapeIndex = Math.floor(Math.random() * rockMasters.length)
+  const master = rockMasters[shapeIndex]
+
+  // Create an instance of the master mesh
+  return master.createInstance(`rock_${id}`)
 }

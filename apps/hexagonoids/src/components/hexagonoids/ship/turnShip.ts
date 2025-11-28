@@ -8,10 +8,9 @@ import { getOrientation, turnNodeBy } from './orientation'
 
 /**
  * Changes the yaw of the ship
- * @param orientationNode The node to rotate around the up axis
- * @param $ship
- * @param delta Milliseconds since the last frame
- * @param duration Milliseconds of continuous turning
+ * @param {ShipStore} $ship - The ship store
+ * @param {number} delta - Milliseconds since the last frame
+ * @param {number} [duration] - Milliseconds of continuous turning
  */
 export const turnShip = (
   $ship: ShipStore,

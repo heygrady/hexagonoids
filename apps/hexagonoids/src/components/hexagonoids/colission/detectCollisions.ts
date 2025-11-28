@@ -1,4 +1,4 @@
-import { Vector3 } from '@babylonjs/core'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
 import type { CoordPair } from 'h3-js'
 import * as martinez from 'martinez-polygon-clipping'
@@ -41,32 +41,54 @@ const detectSphereCollisions = (
   projectiles: Set<ProjectileStore>
 ): Set<CollisionPair> => {
   const collidingPairs = new Set<CollisionPair>()
-
-  const projectileVectors = new Map<ProjectileStore, Vector3>()
   const usedProjectiles = new Set<ProjectileStore>()
 
-  // FIXME: use the built in boundingInfo to detect sphere collisions
+  // Pre-compute target positions and radii before nested loop
+  const targetDataMap = new Map<
+    TargetStore,
+    { position: Vector3; radius: number }
+  >()
   for (const $target of targets) {
     const { lat, lng } = $target.get()
-    const target = latLngToVector3(lat, lng, RADIUS)
+    const position = latLngToVector3(lat, lng, RADIUS)
+    const radius = storeToRadius($target)
+    targetDataMap.set($target, { position, radius })
+  }
+
+  // Pre-compute projectile positions and radii before nested loop
+  const projectileDataMap = new Map<
+    ProjectileStore,
+    { position: Vector3; radius: number }
+  >()
+  for (const $projectile of projectiles) {
+    const { lat, lng } = $projectile.get()
+    const position = latLngToVector3(lat, lng, RADIUS)
+    const radius = storeToRadius($projectile)
+    projectileDataMap.set($projectile, { position, radius })
+  }
+
+  // Perform collision detection with pre-computed data
+  for (const $target of targets) {
+    const targetData = targetDataMap.get($target)
+    if (targetData == null) continue
+
     for (const $projectile of projectiles) {
       // skip used projectiles
       if (usedProjectiles.has($projectile)) {
         continue
       }
 
-      // cache the vector (why?)
-      let projectile = projectileVectors.get($projectile)
-      if (projectile == null) {
-        const { lat, lng } = $projectile.get()
-        projectile = latLngToVector3(lat, lng, RADIUS)
-        projectileVectors.set($projectile, projectile)
-      }
+      const projectileData = projectileDataMap.get($projectile)
+      if (projectileData == null) continue
 
-      const targetRadius = storeToRadius($target)
-      const projectileRadius = storeToRadius($projectile)
-
-      if (sphereCollision(target, targetRadius, projectile, projectileRadius)) {
+      if (
+        sphereCollision(
+          targetData.position,
+          targetData.radius,
+          projectileData.position,
+          projectileData.radius
+        )
+      ) {
         collidingPairs.add([$target, $projectile])
         usedProjectiles.add($projectile)
       }
@@ -127,7 +149,6 @@ export const arePolygonsIntersecting = (
     }
     const inside = isPolygonCompletelyInside(polygon1, polygon2)
     if (inside) {
-      console.log('polygon1 inside polygon2')
       return true
     }
     return false
@@ -152,6 +173,8 @@ export const detectCollisions = (
     meshPolygonCache.clear()
     for (const collidingPair of sphereCollisions) {
       const [$target, $projectile] = collidingPair
+
+      // Ship colliding with rock (requires polygon check)
       if (isShipStore($projectile) && isRockStore($target)) {
         const shipNode = $projectile.get().shipNode
         const rockNode = $target.get().rockNode
@@ -165,9 +188,28 @@ export const detectCollisions = (
 
         if (!intersects) {
           sphereCollisions.delete(collidingPair)
-          // console.log('removed colliding pair')
         }
       }
+
+      // Ship colliding with ship (requires polygon check, same as ship-rock)
+      else if (isShipStore($projectile) && isShipStore($target)) {
+        const shipNode1 = $projectile.get().shipNode
+        const shipNode2 = $target.get().shipNode
+        if (shipNode1 == null || shipNode2 == null) {
+          continue
+        }
+        const shipPolygon1 = meshToPolygon(shipNode1, 'ship')
+        const shipPolygon2 = meshToPolygon(shipNode2, 'ship')
+
+        const intersects = arePolygonsIntersecting(shipPolygon1, shipPolygon2)
+
+        if (!intersects) {
+          sphereCollisions.delete(collidingPair)
+        }
+      }
+
+      // Note: Bullet collisions (bullet-rock, bullet-ship) use sphere collision only
+      // No polygon checks needed for bullets - sphere collision is sufficient
     }
   }
   return sphereCollisions

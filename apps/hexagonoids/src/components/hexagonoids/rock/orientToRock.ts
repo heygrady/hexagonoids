@@ -1,20 +1,22 @@
-import { Quaternion } from '@babylonjs/core'
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { vector3ToLatLng } from '@heygrady/h3-babylon'
 
 import { SPLIT_HEADING_OFFSET, SPLIT_ROLL_DISTANCE } from '../constants'
-import { getOrientation } from '../ship/orientation'
-import { setLocation } from '../store/rock/RockSetters'
+import { setAngularVelocity, setLocation } from '../store/rock/RockSetters'
 import type { RockStore } from '../store/rock/RockStore'
 
 /**
- * Updates rock state and rock nodes.
- * @param $rock
- * @param $target
- * @param side
+ * Positions and initializes a child rock relative to a parent rock.
+ * Sets both position (with roll offset) and velocity (with heading offset).
+ * @param {RockStore} $rock - The child rock to initialize
+ * @param {RockStore} $target - The parent rock to base position/velocity on
+ * @param {Vector3} parentAngularVelocity - The parent's current angular velocity
+ * @param {number} side - Which side to split towards (-1 or 1)
  */
 export const orientToRock = (
   $rock: RockStore,
   $target: RockStore,
+  parentAngularVelocity: Vector3,
   side: number = -1 | 1
 ) => {
   const targetState = $target.get()
@@ -70,15 +72,24 @@ export const orientToRock = (
     Quaternion.RotationYawPitchRoll(0, 0, roll)
   )
 
-  // 4. offset heading between -SPLIT_HEADING_OFFSET and SPLIT_HEADING_OFFSET degrees
-  const headingOffset =
-    Math.random() * SPLIT_HEADING_OFFSET * (Math.random() > 0.5 ? 1 : -1)
-  originNode.rotationQuaternion = originNode.rotationQuaternion.multiply(
-    Quaternion.RotationYawPitchRoll(headingOffset, 0, 0)
+  // 4. Set velocity: offset heading between -SPLIT_HEADING_OFFSET and SPLIT_HEADING_OFFSET degrees
+  // Get parent's world up to use as rotation axis
+  const parentWorldUp = Vector3.Up().applyRotationQuaternion(
+    targetOriginNode.rotationQuaternion
   )
 
-  // set the final state (from the scene)
-  const [rockHeading] = getOrientation(originNode)
-  $rock.setKey('heading', rockHeading)
+  // Random heading offset for the child rock's direction of travel
+  const headingOffset =
+    Math.random() * SPLIT_HEADING_OFFSET * (Math.random() > 0.5 ? 1 : -1)
+
+  // Create rotation around parent's world up axis
+  const offsetRotation = Quaternion.RotationAxis(parentWorldUp, headingOffset)
+
+  // Rotate parent's velocity to get child's velocity with the heading offset
+  const childAngularVelocity =
+    parentAngularVelocity.applyRotationQuaternion(offsetRotation)
+  setAngularVelocity($rock, childAngularVelocity)
+
+  // Set the final location
   setLocation($rock, vector3ToLatLng(originNode.absolutePosition))
 }

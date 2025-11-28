@@ -1,7 +1,8 @@
-import type { AbstractMesh, TransformNode } from '@babylonjs/core'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import type { InstancedMesh } from '@babylonjs/core/Meshes/instancedMesh'
+import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 
 import {
-  BULLET_SPEED,
   type ROCK_LARGE_SIZE,
   type ROCK_MEDIUM_SIZE,
   type ROCK_SMALL_SIZE,
@@ -20,11 +21,13 @@ export interface BulletState {
     | typeof ROCK_SMALL_SIZE
     | null
 
-  /** Direction of the bullet velocity in radians. Ranges from -Math.PI to Math.PI. */
-  heading: number
-
-  /** Magnitude of the velocity of the bullet in radians per second. Ranges from 0 to MAX_SPEED. */
-  speed: number
+  /**
+   * Angular velocity of the bullet as a 3D vector.
+   * Direction: axis of rotation on the sphere
+   * Magnitude: angular speed in radians per second
+   * Represents velocity as angular velocity ω for quaternion-based spherical physics.
+   */
+  angularVelocity: Vector3
 
   /** Latitude in degrees on the surface of the sphere. */
   lat: number
@@ -36,7 +39,7 @@ export interface BulletState {
   firedAt: number | null
 
   originNode: TransformNode | null
-  bulletNode: AbstractMesh | null
+  bulletNode: InstancedMesh | null
 
   /** Ship that fired the bullet. Explosions are null */
   $ship: ShipStore | null
@@ -45,8 +48,7 @@ export interface BulletState {
 export const defaultBulletState: BulletState = {
   type: 'bullet',
   size: null,
-  heading: 0,
-  speed: BULLET_SPEED,
+  angularVelocity: Vector3.Zero(),
   lat: 0,
   lng: 0,
   firedAt: null,

@@ -1,10 +1,8 @@
-import {
-  TransformNode,
-  type Scene,
-  Quaternion,
-  type AbstractMesh,
-  Color3,
-} from '@babylonjs/core'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Quaternion } from '@babylonjs/core/Maths/math.vector'
+import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import type { Scene } from '@babylonjs/core/scene'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
 import { cellToLatLng } from 'h3-js'
 

@@ -7,7 +7,7 @@ import { useGame } from './useGame'
 
 export const useRockPool = (): [
   $rocks: RockPoolStore,
-  actions: RockPoolActions
+  actions: RockPoolActions,
 ] => {
   const [$game, gameActions] = useGame()
   const { $rocks } = $game.get()

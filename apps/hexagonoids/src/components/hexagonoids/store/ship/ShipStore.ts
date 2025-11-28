@@ -1,4 +1,4 @@
-import { Quaternion } from '@babylonjs/core'
+import { Quaternion } from '@babylonjs/core/Maths/math.vector'
 import { map, type MapStore } from 'nanostores'
 import { createUniqueId } from 'solid-js'
 
@@ -6,11 +6,13 @@ import { createControlStore, resetControl } from '../control/ControlStore'
 
 import { defaultShipState, type ShipState } from './ShipState'
 
+export { defaultShipState }
+
 export type ShipStore = MapStore<ShipState>
 
 /**
  * This is used by the ShipPool to create ships.
- * @returns
+ * @returns {ShipStore} The created ship store
  */
 export const createShipStore = (): ShipStore => {
   const $ship = map<ShipState>({ ...defaultShipState })
@@ -25,8 +27,8 @@ export const createShipStore = (): ShipStore => {
 
 /**
  * This is used by the ShipPool to recycle ships.
- * @param $ship
- * @returns
+ * @param {ShipStore} $ship - The ship store to reset
+ * @returns {ShipStore} The reset ship store
  */
 export const resetShip = ($ship: ShipStore) => {
   // preserve the ID, nodes and control store

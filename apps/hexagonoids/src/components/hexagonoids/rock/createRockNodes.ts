@@ -1,11 +1,8 @@
-import {
-  TransformNode,
-  type Scene,
-  Quaternion,
-  type AbstractMesh,
-} from '@babylonjs/core'
+import { Quaternion } from '@babylonjs/core/Maths/math.vector'
+import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import type { Scene } from '@babylonjs/core/scene'
 
-import { getCommonMaterial } from '../common/commonMaterial'
 import { RADIUS, ROCK_LARGE_SCALE } from '../constants'
 import { turnNodeBy } from '../ship/orientation'
 
@@ -19,11 +16,16 @@ export interface RockNodes {
 
 /**
  * Create the nodes for a rock.
- * @param scene
- * @param id
- * @returns
+ * @param {Scene} scene - The scene
+ * @param {string} id - The rock ID
+ * @param {AbstractMesh | null} [globe] - Globe mesh to parent rock to (from scene state)
+ * @returns {RockNodes} The created rock nodes
  */
-export const createRockNodes = (scene: Scene, id: string): RockNodes => {
+export const createRockNodes = (
+  scene: Scene,
+  id: string,
+  globe: AbstractMesh | null = null
+): RockNodes => {
   const rockNode = createRockPolygon(scene, id)
 
   const originNode = new TransformNode(`rockOrigin_${id}`)
@@ -35,8 +37,7 @@ export const createRockNodes = (scene: Scene, id: string): RockNodes => {
   orientationNode.parent = originNode
   rockNode.parent = orientationNode
 
-  // FIXME: get the globe into game state
-  const globe = scene.getMeshByName('globe')
+  // Parent to globe if available
   if (globe != null) {
     originNode.parent = globe
   }
@@ -45,7 +46,6 @@ export const createRockNodes = (scene: Scene, id: string): RockNodes => {
 
   turnNodeBy(rockNode, Math.PI)
 
-  rockNode.material = getCommonMaterial(scene).clone(`rockMaterial_${id}`)
   rockNode.scaling.setAll(ROCK_LARGE_SCALE)
 
   return { originNode, orientationNode, rockNode }

@@ -1,4 +1,4 @@
-import type { Scene } from '@babylonjs/core'
+import type { Scene } from '@babylonjs/core/scene'
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
 
@@ -33,10 +33,9 @@ export const bindShipPoolActions = (
  *
  * This is bound as an action to the $ships when it is created (see createShipStore).
  * Manages the ship pool, ship store and the ship nodes.
- * @param $ships set of active ships
- * @param scene the scene to generate the ship in
- * @param splitting whether or not the ship is being split
- * @returns the ship that was generated
+ * @param {ShipPoolStore} $ships - set of active ships
+ * @param {Scene} scene - the scene to generate the ship in
+ * @returns {ShipStore} the ship that was generated
  */
 export const generateShip = ($ships: ShipPoolStore, scene: Scene) => {
   // Get a clean ship from the pool
@@ -54,6 +53,7 @@ export const generateShip = ($ships: ShipPoolStore, scene: Scene) => {
 export const explodeShip = ($ships: ShipPoolStore, $ship: ShipStore) => {
   const { originNode, shipNode } = $ship.get()
   if (originNode == null) {
+    removeShip($ships, $ship)
     return
   }
   if (shipNode != null) {

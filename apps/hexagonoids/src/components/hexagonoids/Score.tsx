@@ -1,4 +1,5 @@
-import { type TransformNode, Vector3 } from '@babylonjs/core'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import { type Component, createRenderEffect, onCleanup } from 'solid-js'
 
 import { onBeforeRender } from '../solid-babylon/hooks/onBeforeRender'
@@ -34,7 +35,7 @@ export const Score: Component = () => {
     livesNode = createLivesNode(scene, lives)
     livesNode.position = new Vector3(1.05, 0, -0.35)
 
-    // place the score in he hud
+    // place the score in the hud
     scoreNode.parent = hudNode
     livesNode.parent = hudNode
   })
@@ -43,7 +44,6 @@ export const Score: Component = () => {
   onBeforeRender(() => {
     const { score, lives, startedAt } = $player.get()
 
-    // FIXME: use solid effects for this
     if (startedAt == null) {
       scoreNode?.getChildMeshes().forEach((mesh) => {
         mesh.isVisible = false

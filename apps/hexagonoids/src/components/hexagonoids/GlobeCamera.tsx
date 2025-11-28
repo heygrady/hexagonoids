@@ -1,4 +1,5 @@
-import { Vector3, ArcRotateCamera } from '@babylonjs/core'
+import { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { onCleanup, type Component } from 'solid-js'
 
 import { useScene } from '../solid-babylon/hooks/useScene'

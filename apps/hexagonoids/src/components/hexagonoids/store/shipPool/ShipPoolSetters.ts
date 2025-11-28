@@ -1,5 +1,6 @@
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
+import { unwrap } from 'solid-js/store'
 
 import type { ShipStore } from '../ship/ShipStore'
 
@@ -47,7 +48,7 @@ export const removeShip = ($ships: ShipPoolStore, $ship: ShipStore) => {
   $ships.setKey(id, undefined)
 
   // release back into the pool
-  releaseShipStore($ship)
+  releaseShipStore(unwrap($ship))
 }
 
 export const clearShips = ($ships: ShipPoolStore) => {

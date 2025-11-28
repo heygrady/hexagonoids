@@ -1,13 +1,14 @@
-import { Quaternion, type Scene } from '@babylonjs/core'
+import { Quaternion } from '@babylonjs/core/Maths/math.vector'
+import type { Scene } from '@babylonjs/core/scene'
 import { vector3ToLatLng } from '@heygrady/h3-babylon'
 
 import { EXPLOSION_LARGE_SPEED } from '../constants'
+import { headingToAngularVelocity } from '../ship/quaternionPhysics'
 import {
   setGeneratedAt,
-  setHeading,
   setLocation,
-  setSpeed,
   setYaw,
+  setAngularVelocity,
 } from '../store/ship/ShipSetters'
 import type { ShipStore } from '../store/ship/ShipStore'
 
@@ -85,7 +86,6 @@ export const explodeShipSegment = (
   // 3. Randomize speed and heading
   const speed =
     EXPLOSION_LARGE_SPEED + Math.random() * EXPLOSION_LARGE_SPEED * 2
-  setSpeed($segment, speed)
   const heading = (Math.random() * Math.PI * 2 - Math.PI) / 2
   if (heading !== 0) {
     // randomly change the heading
@@ -125,12 +125,17 @@ export const explodeShipSegment = (
     // $control.setKey('accelerateAcked', false)
   }
 
-  // 5. Update from scene
-  const [segmentHeading] = getOrientation(segmentOriginNode)
+  // 5. Update from scene and set angular velocity
   const [segmentYaw] = getOrientation(segmentOrientationNode)
   const location = vector3ToLatLng(segmentOrientationNode.absolutePosition)
 
-  setHeading($segment, segmentHeading)
+  // Convert speed and heading to angular velocity (heading is already in segmentOriginNode.rotationQuaternion)
+  const angularVelocity = headingToAngularVelocity(
+    segmentOriginNode.rotationQuaternion,
+    0, // heading offset: 0 since we already rotated the segment to the desired heading
+    speed
+  )
+  setAngularVelocity($segment, angularVelocity)
   setYaw($segment, segmentYaw)
   setLocation($segment, location)
   setGeneratedAt($segment)
@@ -138,9 +143,9 @@ export const explodeShipSegment = (
 
 /**
  * Explodes ship segments from the given ship
- * @param scene
- * @param $ship the ship to generate
- * @param segments
+ * @param {Scene} scene - The scene
+ * @param {ShipStore} $ship - the ship to generate
+ * @param {SegmentStores} segments - The segment stores
  */
 export const explodeShipSegments = (
   scene: Scene,

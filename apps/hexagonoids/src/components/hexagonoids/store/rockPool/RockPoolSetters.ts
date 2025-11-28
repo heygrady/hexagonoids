@@ -1,5 +1,6 @@
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
+import { unwrap } from 'solid-js/store'
 
 import type { RockStore } from '../rock/RockStore'
 
@@ -46,7 +47,7 @@ export const removeRock = ($rocks: RockPoolStore, $rock: RockStore) => {
   $rocks.setKey(id, undefined)
 
   // release back into the pool
-  releaseRockStore($rock)
+  releaseRockStore(unwrap($rock))
 }
 
 export const clearRocks = ($rocks: RockPoolStore) => {

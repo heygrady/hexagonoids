@@ -32,6 +32,12 @@ export const Collisions: Component = () => {
   const ships = subscribeShipPool()
 
   const afterRender = () => {
+    const scene = $scene.get().scene
+    if (scene == null) return
+
+    // Get actual frame delta time in seconds (Babylon provides milliseconds)
+    const deltaTime = scene.getEngine().getDeltaTime() / 1000
+
     const allRocks = Object.values(rocks()) as RockStore[]
     const allBullets = Object.values(bullets()).filter(
       ($b) => $b?.get().type === 'bullet'
@@ -43,12 +49,14 @@ export const Collisions: Component = () => {
     const targets = new Set<TargetStore>(allRocks)
     const projectiles = new Set<ProjectileStore>(allBullets)
 
-    // FIXME: include ships as targets
-    // include ships as projectiles
-    allShips.forEach(($s) => projectiles.add($s))
+    // Ships can be both targets and projectiles, enabling ship-to-ship collisions
+    allShips.forEach(($s) => {
+      targets.add($s)
+      projectiles.add($s)
+    })
 
-    // Manage collisions
-    const collisionPartners = detectCollisions(targets, projectiles)
+    // Manage collisions with actual frame delta
+    const collisionPartners = detectCollisions(targets, projectiles, deltaTime)
 
     if (collisionPartners.size > 0) {
       handleCollisionPartners(
@@ -116,7 +124,8 @@ export const Collisions: Component = () => {
             return 'unknown'
           }
           return `${state.id ?? 'unknown'}_${state.size}`
-        })}>
+        })}
+      >
         {(key) => {
           const id = key.split('_')[0]
           const $rock = rocks()[id]

@@ -1,14 +1,16 @@
-import { Quaternion } from '@babylonjs/core'
+import { Quaternion } from '@babylonjs/core/Maths/math.vector'
 import { type MapStore, map } from 'nanostores'
 import { createUniqueId } from 'solid-js'
 
 import { type RockState, defaultRockState } from './RockState'
 
+export { defaultRockState }
+
 export type RockStore = MapStore<RockState>
 
 /**
  * This is used by the RockPool to create rocks.
- * @returns
+ * @returns {RockStore} The created rock store
  */
 export const createRockStore = (): RockStore => {
   const $rock = map<RockState>({ ...defaultRockState })
@@ -18,8 +20,8 @@ export const createRockStore = (): RockStore => {
 
 /**
  * This is used by the RockPool to recycle rocks.
- * @param $rock
- * @returns
+ * @param {RockStore} $rock - The rock store to reset
+ * @returns {RockStore} The reset rock store
  */
 export const resetRock = ($rock: RockStore) => {
   const { id, originNode, orientationNode, rockNode } = $rock.get()

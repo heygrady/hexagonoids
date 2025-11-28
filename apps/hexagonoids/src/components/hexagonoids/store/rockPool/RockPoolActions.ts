@@ -1,4 +1,4 @@
-import type { Scene } from '@babylonjs/core'
+import type { Scene } from '@babylonjs/core/scene'
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
 
@@ -33,10 +33,10 @@ export type GenerateRockOptions = Partial<
 
 /**
  * Get a rock from the pool; prep it; add it to the scene
- * @param $rocks set of active rocks
- * @param scene the scene to generate the rock in
- * @param options
- * @returns the rock that was generated
+ * @param {RockPoolStore} $rocks - set of active rocks
+ * @param {Scene} scene - the scene to generate the rock in
+ * @param {GenerateRockOptions} [options] - options for the rock
+ * @returns {RockStore} the rock that was generated
  */
 export const generateRock = (
   $rocks: RockPoolStore,
@@ -65,9 +65,9 @@ export const generateRock = (
 
 /**
  * Splits a rock into two smaller rocks
- * @param $rocks set of active rocks
- * @param $rock the rock to split
- * @returns the rock that was split
+ * @param {RockPoolStore} $rocks - set of active rocks
+ * @param {RockStore} $rock - the rock to split
+ * @returns {RockStore[]} the rock that was split
  */
 export const splitRock = (
   $rocks: RockPoolStore,
@@ -89,8 +89,8 @@ export const splitRock = (
   removeRock($rocks, $rock)
 
   // add the new rocks to the scene
-  for (const $rock of newRocks) {
-    addRock($rocks, $rock)
+  for (const $newRock of newRocks) {
+    addRock($rocks, $newRock)
   }
   return newRocks
 }

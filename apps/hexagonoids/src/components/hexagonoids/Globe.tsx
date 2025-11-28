@@ -1,7 +1,9 @@
-import { Color3, MeshBuilder, Vector3 } from '@babylonjs/core'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
 import { type Component, onCleanup, type JSX } from 'solid-js'
 
-import { useScene } from '../solid-babylon/hooks/useScene'
+import { useSceneStore } from '../solid-babylon/hooks/useScene'
 
 import { createRes0Polyhedron } from './cell/createRes0Polyhedron'
 import { getCommonMaterial } from './common/commonMaterial'
@@ -12,16 +14,23 @@ export interface GlobeProps {
 }
 
 export const Globe: Component<GlobeProps> = (props) => {
-  const scene = useScene()
+  const [$scene, sceneActions] = useSceneStore()
+  const scene = $scene.get().scene
 
-  // FIXME: prefer the globe from the camera context
-  const globe = MeshBuilder.CreateSphere(
+  if (scene == null) {
+    throw new Error('Globe: cannot render without a scene')
+  }
+
+  const globe = CreateSphere(
     'globe',
     { diameter: RADIUS * 2, segments: 32 },
     scene
   )
   globe.material = getCommonMaterial(scene, { alpha: 0 })
   globe.position = new Vector3(0, 0, 0)
+
+  // Store globe reference in scene state for reliable access
+  sceneActions.setGlobe(globe)
 
   const polyhedron = createRes0Polyhedron(scene)
   polyhedron.material = getCommonMaterial(scene, {

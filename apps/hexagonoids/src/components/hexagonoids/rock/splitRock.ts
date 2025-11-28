@@ -1,4 +1,4 @@
-import type { Scene } from '@babylonjs/core'
+import type { Scene } from '@babylonjs/core/scene'
 
 import {
   ROCK_LARGE_SIZE,
@@ -13,12 +13,13 @@ import { orientToRock } from './orientToRock'
 
 /**
  * Generates two new rocks from the given rock. Does not alter the given rock.
- * @param scene
- * @param $rock the rock to split
- * @returns the new rock
+ * @param {Scene} scene - The scene
+ * @param {RockStore} $rock - the rock to split
+ * @returns {RockStore[]} the new rocks
  */
 export const splitRock = (scene: Scene, $rock: RockStore): RockStore[] => {
-  const { id, size, originNode, orientationNode, rockNode } = $rock.get()
+  const { id, size, originNode, orientationNode, rockNode, angularVelocity } =
+    $rock.get()
 
   if (originNode == null || orientationNode == null || rockNode == null) {
     throw new Error('Rock originNode, orientationNode and rockNode must be set')
@@ -45,14 +46,15 @@ export const splitRock = (scene: Scene, $rock: RockStore): RockStore[] => {
     $rock2.setKey('size', ROCK_SMALL_SIZE)
   }
 
-  // 2. initialize nodes and state (speed is set here)
+  // 3. initialize nodes and state (sets random velocity, which we'll override)
   generateRock(scene, $rock1)
   generateRock(scene, $rock2)
 
-  // 3. orient them to the original rock
+  // 4. orient them to the original rock
+  // orientToRock handles both position and velocity initialization with random offsets
   const side = Math.random() < 0.5 ? -1 : 1
-  orientToRock($rock1, $rock, side)
-  orientToRock($rock2, $rock, -side)
+  orientToRock($rock1, $rock, angularVelocity, side)
+  orientToRock($rock2, $rock, angularVelocity, -side)
 
   return [$rock1, $rock2]
 }

@@ -1,27 +1,23 @@
+import { Quaternion } from '@babylonjs/core/Maths/math.vector'
 import { vector3ToLatLng } from '@heygrady/h3-babylon'
 
-import { MAX_DURATION, MAX_SPEED } from '../constants'
 import { setLocation } from '../store/ship/ShipSetters'
 import type { ShipStore } from '../store/ship/ShipStore'
 
-import { getNextPosition } from './getNextPosition'
 import { moveCamera } from './moveCamera'
-import { pitchNodeBy } from './orientation'
+import { integrateAngularVelocity } from './quaternionPhysics'
 
 /**
  * Changes the location of the ship
- * @param $ship
- * @param delta Milliseconds since the last frame
- * @param duration Milliseconds of continuously turning
+ * @param {ShipStore} $ship - The ship store
+ * @param {number} delta - Milliseconds since the last frame
+ * @param {number} duration - Milliseconds of continuously turning
  */
-export const moveShip = (
-  $ship: ShipStore,
-  delta: number,
-  duration: number = MAX_DURATION
-) => {
+export const moveShip = ($ship: ShipStore, delta: number, duration: number) => {
   const shipState = $ship.get()
 
-  if (shipState.speed === 0) {
+  // Check if ship is moving using angular velocity magnitude
+  if (shipState.angularVelocity.length() === 0) {
     return
   }
 
@@ -30,30 +26,33 @@ export const moveShip = (
     throw new Error('ship nodes are missing')
   }
 
-  // Apply Velocity
-  const speed = Math.min(shipState.speed, MAX_SPEED)
-
-  /** how far to travel in radians between -Math.PI and Math.PI */
-  const distance = (speed / 1000) * delta
-
-  if (distance === 0) {
-    return
+  // Ensure rotationQuaternion is initialized
+  if (originNode.rotationQuaternion == null) {
+    originNode.rotationQuaternion = Quaternion.Identity()
   }
 
-  // FIXME: these calculations are inaccurate by a small amount
-  const nextPosition = getNextPosition(originNode, shipState.heading, distance)
-  const nextLocation = vector3ToLatLng(nextPosition)
+  // Integrate angular velocity over deltaTime
+  // This updates the position quaternion based on angular velocity
+  const updatedRotation = integrateAngularVelocity(
+    originNode.rotationQuaternion,
+    shipState.angularVelocity,
+    delta / 1000 // Convert milliseconds to seconds
+  )
 
-  if (shipState.lat !== nextLocation[0] || shipState.lng !== nextLocation[1]) {
-    // Pitch the ship forward by distance radians
-    pitchNodeBy(originNode, distance)
+  // Update origin node position quaternion
+  originNode.rotationQuaternion = updatedRotation
 
-    // Update location (from scene)
-    setLocation($ship, vector3ToLatLng(positionNode.absolutePosition))
+  // Force world matrix recalculation
+  originNode.computeWorldMatrix(true)
 
-    // FIXME: only move camera for the one in GameState
-    if (shipState.type === 'ship') {
-      moveCamera(positionNode, delta, duration)
-    }
+  // Get new location from the mesh's position in the scene
+  const newLocation = vector3ToLatLng(positionNode.absolutePosition)
+
+  // Update location in state
+  setLocation($ship, newLocation)
+
+  // Move camera if this is the player ship
+  if (shipState.type === 'ship') {
+    moveCamera(positionNode, delta, duration)
   }
 }

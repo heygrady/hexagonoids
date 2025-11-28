@@ -1,15 +1,13 @@
-import { Color3 } from '@babylonjs/core'
+import { Quaternion } from '@babylonjs/core/Maths/math.vector'
 import { vector3ToLatLng } from '@heygrady/h3-babylon'
-import { cellToLatLng, latLngToCell } from 'h3-js'
 import type { Component } from 'solid-js'
 import { unwrap } from 'solid-js/store'
 
 import { onBeforeRender } from '../solid-babylon/hooks/onBeforeRender'
 import { useScene } from '../solid-babylon/hooks/useScene'
 
-import { ROCK_SMALL_SPEED, ROCK_LARGE_SPEED, MAX_DELTA } from './constants'
-import { blendColors } from './NewLights'
-import { pitchNodeBy } from './ship/orientation'
+import { MAX_DELTA, ROCK_LARGE_SPEED, ROCK_SMALL_SPEED } from './constants'
+import { integrateAngularVelocity } from './ship/quaternionPhysics'
 import { setCells, setLocation } from './store/rock/RockSetters'
 import type { RockStore } from './store/rock/RockStore'
 
@@ -37,27 +35,8 @@ export const Rock: Component<RockProps> = (props) => {
     throw new Error('Cannot render a rock without a RockState.rockNode')
   }
 
-  // Handle rock material color
-  let prevCell: string | null = null
-  const changeRockColor = () => {
-    const { lat, lng, rockNode } = $rock.get()
-
-    const cell = latLngToCell(lat, lng, 2)
-    if (cell === prevCell) {
-      return
-    }
-    prevCell = cell
-    const [cellLat] = cellToLatLng(cell)
-    // convert north pole to 1, south pole to 0
-    const blendFactor = (cellLat + 90) / 180
-
-    const color = blendColors(Color3.Magenta(), Color3.Teal(), blendFactor)
-    if (rockNode?.material != null) {
-      // @ts-expect-error Material does not have diffuseColor
-      rockNode.material.diffuseColor = color
-    }
-  }
-  onBeforeRender(changeRockColor)
+  // Rock material color is now handled globally by CameraLighting component
+  // based on camera position, not individual rock positions
 
   const moveRock = () => {
     const rockState = $rock.get()
@@ -72,22 +51,41 @@ export const Rock: Component<RockProps> = (props) => {
       return
     }
 
-    // Move the rock
-    if (rockState.speed > 0) {
-      const speed = Math.max(
-        ROCK_LARGE_SPEED,
-        Math.min(rockState.speed, ROCK_SMALL_SPEED)
-      )
+    // Move the rock using quaternion physics
+    if (rockState.angularVelocity.length() > 0) {
       const delta = Math.min(MAX_DELTA, scene.getEngine().getDeltaTime())
-      const distance = (speed / 1000) * delta
 
-      // FIXME: should be larger than MIN_DISTANCE
-      if (distance === 0) {
-        return
+      // Ensure rotationQuaternion is initialized
+      if (originNode.rotationQuaternion == null) {
+        originNode.rotationQuaternion = Quaternion.Identity()
       }
 
-      // Pitch the rock forward by distance radians
-      pitchNodeBy(originNode, distance)
+      // Clamp velocity to rock speed range (safety check)
+      // ROCK_LARGE_SPEED is the minimum (slowest rocks), ROCK_SMALL_SPEED is maximum (fastest rocks)
+      const speed = rockState.angularVelocity.length()
+      const clampedSpeed = Math.max(
+        ROCK_LARGE_SPEED,
+        Math.min(speed, ROCK_SMALL_SPEED)
+      )
+      const clampedVelocity =
+        speed > 0.00001
+          ? rockState.angularVelocity.scale(clampedSpeed / speed)
+          : rockState.angularVelocity
+
+      // Integrate angular velocity over deltaTime
+      const updatedRotation = integrateAngularVelocity(
+        originNode.rotationQuaternion,
+        clampedVelocity,
+        delta / 1000 // Convert milliseconds to seconds
+      )
+
+      // Update origin node position quaternion
+      originNode.rotationQuaternion = updatedRotation
+
+      // Force world matrix recalculation
+      originNode.computeWorldMatrix(true)
+
+      // Get new location from the mesh's position in the scene
       setLocation($rock, vector3ToLatLng(rockNode.absolutePosition))
       setCells($rock)
     }

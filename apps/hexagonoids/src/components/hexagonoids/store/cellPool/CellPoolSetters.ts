@@ -1,6 +1,7 @@
 import { requestIdleCallback } from 'idle-callback'
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
+import { unwrap } from 'solid-js/store'
 
 import type { CellStore } from '../cell/CellStore'
 
@@ -35,8 +36,8 @@ export const deferIdleCallback = (fn: () => void) => {
 
 /**
  * Add a cell to the scene
- * @param $cells
- * @param $cell
+ * @param {CellPoolStore} $cells - The cell pool store
+ * @param {CellStore} $cell - The cell store to add
  */
 export const addCell = ($cells: CellPoolStore, $cell: CellStore) => {
   const h = $cell.get().h
@@ -52,8 +53,8 @@ export const addCell = ($cells: CellPoolStore, $cell: CellStore) => {
 
 /**
  * Remove a cell from the scene; releases it back to the pool.
- * @param $cells
- * @param $cell
+ * @param {CellPoolStore} $cells - The cell pool store
+ * @param {CellStore} $cell - The cell store to remove
  */
 export const removeCell = ($cells: CellPoolStore, $cell: CellStore) => {
   const h = $cell.get().h
@@ -66,12 +67,12 @@ export const removeCell = ($cells: CellPoolStore, $cell: CellStore) => {
   $cells.setKey(h, undefined)
 
   // release back into the pool
-  releaseCellStore($cell)
+  releaseCellStore(unwrap($cell))
 }
 
 /**
  * Remove all cells from the scene
- * @param $cells
+ * @param {CellPoolStore} $cells - The cell pool store
  */
 export const clearCells = ($cells: CellPoolStore) => {
   for (const $cell of Object.values($cells.get())) {

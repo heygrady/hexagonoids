@@ -9,6 +9,7 @@ export const createSceneStore = (): SceneStore => {
     scene: null,
     running: false,
     cameraContext: null,
+    globe: null,
   })
   return $scene
 }

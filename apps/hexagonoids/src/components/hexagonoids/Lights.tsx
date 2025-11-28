@@ -1,4 +1,6 @@
-import { Vector3, Color3, DirectionalLight } from '@babylonjs/core'
+import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { onCleanup, type Component } from 'solid-js'
 
 import { useScene } from '../solid-babylon/hooks/useScene'

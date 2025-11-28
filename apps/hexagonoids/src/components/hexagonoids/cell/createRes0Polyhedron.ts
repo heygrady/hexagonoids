@@ -1,9 +1,5 @@
-import {
-  MeshBuilder,
-  type Mesh,
-  type Scene,
-  type Vector3,
-} from '@babylonjs/core'
+import { CreatePolyhedron } from '@babylonjs/core/Meshes/Builders/polyhedronBuilder'
+import type { Mesh, Scene, Vector3 } from '@babylonjs/core/scene'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
 import {
   type CoordPair,
@@ -39,7 +35,7 @@ export const createRes0Polyhedron = (scene: Scene): Mesh => {
   }
 
   const shape = createGlobe(Array.from(points))
-  const polyhedron = MeshBuilder.CreatePolyhedron(
+  const polyhedron = CreatePolyhedron(
     'customPolyhedron',
     { custom: shape },
     scene

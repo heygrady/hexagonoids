@@ -1,4 +1,5 @@
-import { TransformNode, Vector3 } from '@babylonjs/core'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import {
   createContext,
   type Component,

@@ -1,10 +1,7 @@
-import {
-  type Scene,
-  type AbstractMesh,
-  TransformNode,
-  MeshBuilder,
-  Color3,
-} from '@babylonjs/core'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import type { Scene, AbstractMesh } from '@babylonjs/core/scene'
 import QuickLRU from 'quick-lru'
 
 import { getCommonMaterial } from '../common/commonMaterial'
@@ -30,7 +27,7 @@ export const createCellMarker = (
 ) => {
   const cellId = `${id}_${i}`
 
-  const cellMarker = MeshBuilder.CreateSphere(
+  const cellMarker = CreateSphere(
     `cellMarker_${cellId}`,
     { diameter: diameter ?? 0.015 },
     scene

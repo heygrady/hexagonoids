@@ -1,9 +1,7 @@
-import {
-  type TransformNode,
-  type Scene,
-  Vector3,
-  MeshBuilder,
-} from '@babylonjs/core'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { CreatePolyhedron } from '@babylonjs/core/Meshes/Builders/polyhedronBuilder'
+import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import type { Scene } from '@babylonjs/core/scene'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
 import { cellToLatLng, cellToVertexes, vertexToLatLng } from 'h3-js'
 import qh from 'quickhull3d'
@@ -58,7 +56,7 @@ export const createCellPolygon = (
     positionNode
   )
 
-  const cellNode = MeshBuilder.CreatePolyhedron(
+  const cellNode = CreatePolyhedron(
     'customPolyhedron',
     { custom: createDipyramid(cellVertexes, cellCenter) },
     scene
