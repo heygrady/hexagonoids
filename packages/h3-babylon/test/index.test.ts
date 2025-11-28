@@ -1,4 +1,4 @@
-import { Vector3 } from '@babylonjs/core'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import { latLngToCell } from 'h3-js'
 import { describe, expect, test } from 'vitest'
 
