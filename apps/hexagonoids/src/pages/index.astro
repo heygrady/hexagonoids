@@ -6,7 +6,7 @@ import Layout from '../layouts/Layout.astro'
 <Layout title="Hexagonoids">
   <main class="container m-auto">
     <div class="max-w-screen-xl m-auto mb-10">
-      <Canvas />
+      <Canvas debug={false} enableWebGPU={true} />
     </div>
     <article
       id="hexagonoids-description"
@@ -26,11 +26,11 @@ import Layout from '../layouts/Layout.astro'
           href="https://en.wikipedia.org/wiki/Asteroids_(video_game)"
           >Asteroids</a
         > video game, built using <a href="https://www.babylonjs.com/"
-          >Babylon.JS</a
+          >Babylon.js</a
         >.
       </p>
       <p>
-        The key differece is that Hexagonoids takes place on the surface of a
+        The key difference is that Hexagonoids takes place on the surface of a
         sphere. In the original Asteroids the ship would transport magically
         from one edge of the screen to the other, creating a wrap-around effect.
         Generally I tried to stay true to the <a
@@ -58,9 +58,9 @@ import Layout from '../layouts/Layout.astro'
         geospatial data. Under the hood, Hexagonoids is using the <a
           href="https://h3geo.org/">H3 geospatial indexing system</a
         >. It partitions the world into hexagonal cells, which is useful in data
-        sciene applications. It was <a href="https://www.uber.com/blog/h3/"
+        science applications. It was <a href="https://www.uber.com/blog/h3/"
           >invented at Uber</a
-        > to help them optimize their ride sharing newtork.
+        > to help them optimize their ride sharing network.
       </p>
       <p>
         The hexagons that light up as the ship moves are all <a
@@ -68,7 +68,7 @@ import Layout from '../layouts/Layout.astro'
         > cells, drawn using the vertex data provided by the <a
           href="https://www.npmjs.com/package/h3-js">H3 library</a
         >. The globe surface is a polyhedron created from the centers and
-        vertexes of all of the resolution 0 cells.
+        vertices of all of the resolution 0 cells.
       </p>
       <h2>How is H3 being used?</h2>
       <p>
@@ -109,9 +109,9 @@ import Layout from '../layouts/Layout.astro'
       <h2>About the Project</h2>
       <p>
         I made this for personal educational purposes. Big thanks to the free
-        version of <a href="https://chat.openai.com/">Chat GPT</a> for helping me
-        tame Bablyon.JS. Also big thanks to <a
-          href="https://github.com/features/copilot">GitHub Co-Pilot</a
+        version of <a href="https://chat.openai.com/">ChatGPT</a> for helping me
+        tame Babylon.js. Also big thanks to <a
+          href="https://github.com/features/copilot">GitHub Copilot</a
         > and, of course, Google Search. It was great to work on a project with such
         a capable team.
       </p>

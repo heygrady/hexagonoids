@@ -7,6 +7,11 @@ export interface PoolOptions {
   maxSize: number
 }
 
+/**
+ * Object pool implementation.
+ * @template T - The type of object in the pool
+ * @template A - The type of arguments for the create function
+ */
 export class Pool<T = any, A extends any[] = any[]> {
   private readonly create: PoolCreate<T, A>
   private readonly reset: PoolReset<T>
@@ -31,8 +36,8 @@ export class Pool<T = any, A extends any[] = any[]> {
 
   /**
    * Remove an item from the pool or create a new one if the pool is empty.
-   * @param {...any} args
-   * @returns {T}
+   * @param {...any} args - Arguments to pass to the create function
+   * @returns {T} The item from the pool or a new one
    */
   get(...args: A): T {
     if (this.pool.length === 0) {
@@ -44,7 +49,7 @@ export class Pool<T = any, A extends any[] = any[]> {
 
   /**
    * Adds item back into the pool after resetting it.
-   * @param item
+   * @param {T} item - The item to release
    */
   release(item: T) {
     this.reset(item)
@@ -56,7 +61,7 @@ export class Pool<T = any, A extends any[] = any[]> {
 
   /**
    * Removes item from the pool without resetting it.
-   * @param item
+   * @param {T} item - The item to remove
    */
   remove(item: T) {
     this.pool = this.pool.filter((i) => i !== item)
