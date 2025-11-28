@@ -1,0 +1,90 @@
+{
+  "name": "@heygrady/tournament-strategy",
+  "version": "0.0.1",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/heygrady/hexagonoids.git"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    }
+  },
+  "files": [
+    "dist/**/*",
+    "src/**/*"
+  ],
+  "scripts": {
+    "build": "yarn clean && concurrently --timings --prefix --names \"cjs,esm,tsc\" \"yarn build:cjs\" \"yarn build:esm\" \"yarn build:types\"",
+    "build:cjs": "yarn prebuild:cjs && swc src -d dist/cjs --source-maps --copy-files -C module.type=commonjs",
+    "build:esm": "swc src -d dist/esm --source-maps --copy-files -C module.type=es6",
+    "build:types": "tsc --declaration --emitDeclarationOnly --project tsconfig.types.json --outDir dist/types",
+    "clean": "rimraf dist coverage",
+    "coverage": "vitest --coverage",
+    "debug": "yarn build && nodemon --exec 'node --inspect=0.0.0.0:9229 ./dist/esm/index.js'",
+    "dev": "concurrently --timings --prefix --names \"cjs,esm,tsc\" \"yarn dev:cjs\" \"yarn dev:esm\" \"yarn dev:types\"",
+    "dev:workspace": "turbo run dev --filter='@heygrady/tournament-strategy^...'",
+    "dev:cjs": "yarn prebuild:cjs && swc --watch src -d dist/cjs --source-maps --copy-files -C module.type=commonjs",
+    "dev:esm": "swc --watch src -d dist/esm --source-maps --copy-files -C module.type=es6",
+    "dev:types": "tsc --watch --declaration --emitDeclarationOnly --project tsconfig.types.json --outDir dist/types",
+    "format": "eslint \"**/*.{md,cjs,mjs,js,jsx,cts,.ts,ts,tsx,json}\" --fix",
+    "lint": "eslint \"**/*.{md,cjs,mjs,js,jsx,cts,.ts,ts,tsx,json}\"",
+    "prebuild:cjs": "mkdir -p dist/cjs && echo '{\"type\":\"commonjs\",\"main\":\"./index.js\"}' >> dist/cjs/package.json",
+    "precommit": "lint-staged",
+    "test": "vitest --run --passWithNoTests",
+    "test:dev": "vitest"
+  },
+  "dependencies": {
+    "@neat-evolution/core": "^0.3.3",
+    "@neat-evolution/evaluation-strategy": "^0.3.2",
+    "@neat-evolution/evaluator": "^0.5.0",
+    "@neat-evolution/utils": "^0.2.5",
+    "@swc/helpers": "^0.5.17",
+    "glicko2": "^1.2.1"
+  },
+  "devDependencies": {
+    "@heygrady/eslint-config": "^1.5.1",
+    "@heygrady/tsconfig-bases": "^1.0.6",
+    "@rushstack/eslint-patch": "^1.6.1",
+    "@swc/cli": "^0.1.65",
+    "@swc/core": "^1.11.1",
+    "@types/eslint": "^8",
+    "@types/prettier": "^2",
+    "@vitest/coverage-v8": "^0.34.6",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.54.0",
+    "lint-staged": "^15.1.0",
+    "nodemon": "^3.0.1",
+    "rimraf": "^5.0.5",
+    "turbo": "^2.6.1",
+    "typescript": "^5.3.2",
+    "vitest": "^0.34.6"
+  },
+  "lint-staged": {
+    "*.{md,cjs,mjs,js,jsx,cts,.ts,ts,tsx,json}": [
+      "eslint --fix"
+    ]
+  },
+  "browserslist": [
+    "node >=16"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "volta": {
+    "extends": "../../package.json"
+  },
+  "packageManager": "yarn@3.6.1"
+}
