@@ -1,0 +1,75 @@
+import type { Algorithm, CoreGenome } from '@neat-evolution/core'
+
+export type { AnyPopulation } from '@neat-evolution/worker-reproducer'
+
+export type AnyGenome<
+  G extends CoreGenome<
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    any,
+    G
+  >,
+> = CoreGenome<
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  G
+>
+
+export type AnyAlgorithm<G extends AnyGenome<G>> = Algorithm<
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  any,
+  G
+>

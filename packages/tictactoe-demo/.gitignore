@@ -1,0 +1,7 @@
+.turbo
+dist
+coverage
+generated
+heroes-log*.jsonl
+normalization-ranges.json
+seed-ai-scores*.json
