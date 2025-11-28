@@ -139,3 +139,13 @@ dist
 !.yarn/sdks
 !.yarn/versions
 .turbo
+
+packages/tictactoe-demo/tmp
+packages/tictactoe-demo/best*.json
+
+# AI assistant config
+devlogs/
+.claude
+.gemini
+CLAUDE.md
+GEMINI.md
