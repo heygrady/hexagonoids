@@ -1,0 +1,5 @@
+export { start } from './start.js'
+export { restart } from './restart.js'
+export { move, update } from './move.js'
+export { end } from './end.js'
+export { enableAutoPlay, disableAutoPlay } from './autoPlay.js'
