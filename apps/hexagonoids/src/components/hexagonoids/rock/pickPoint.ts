@@ -1,6 +1,8 @@
 import type { FreeCamera } from '@babylonjs/core/Cameras/freeCamera'
 import type { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh'
+// Side-effect import required for scene.pick() to work with tree-shaking
+import '@babylonjs/core/Culling/ray'
 import type { Scene } from '@babylonjs/core/scene'
 
 export type ScreenCorners = [
