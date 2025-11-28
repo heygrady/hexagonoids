@@ -3,17 +3,22 @@
   "packageManager": "yarn@3.6.1",
   "private": true,
   "scripts": {
-    "build": "turbo run --concurrency=4 build",
+    "build": "turbo run build",
+    "build:demo": "turbo run build --filter=@heygrady/tictactoe-demo",
+    "claude": "npm install -g @anthropic-ai/claude-code && claude",
+    "gemini": "npm install -g @google/gemini-cli && gemini",
     "clean": "turbo run clean",
-    "coverage": "turbo run --concurrency=4 coverage",
-    "coverage:ci": "turbo run --concurrency=2 coverage -- --maxWorkers=2 --forceExit",
-    "dev": "cd apps/hexagonoids && yarn dev",
-    "format": "turbo run --concurrency=4 format",
-    "lint": "turbo run --concurrency=4 lint",
+    "coverage": "turbo run coverage",
+    "coverage:ci": "turbo run coverage --concurrency=2 -- --passWithNoTests --run",
+    "demo": "yarn build:demo && yarn workspace @heygrady/tictactoe-demo start",
+    "play": "yarn workspace @heygrady/tictactoe-demo play",
+    "dev": "yarn workspace @heygrady/hexagonoids-app dev:workspace",
+    "format": "turbo run format",
+    "lint": "turbo run lint",
     "postinstall": "husky install",
     "release": "yarn build && changeset publish",
-    "test": "turbo run --concurrency=4 test",
-    "test:ci": "turbo run --concurrency=2 test -- --maxWorkers=2 --forceExit",
+    "test": "turbo run test -- --passWithNoTests --run",
+    "test:ci": "turbo run test --concurrency=2 -- --passWithNoTests --run",
     "version": "changeset version && yarn install"
   },
   "workspaces": [
@@ -22,18 +27,18 @@
     "scripts/*"
   ],
   "volta": {
-    "node": "16.20.1",
-    "npm": "9.8.1",
+    "node": "22.14.0",
+    "npm": "11.1.0",
     "yarn": "3.6.1"
   },
   "dependencies": {
-    "@changesets/cli": "^2.26.2",
-    "@commitlint/cli": "^17.6.7",
-    "@commitlint/config-conventional": "^17.6.7",
-    "@commitlint/config-lerna-scopes": "^17.6.6",
-    "@manypkg/cli": "^0.21.0",
+    "@changesets/cli": "^2.27.1",
+    "@commitlint/cli": "^18.4.3",
+    "@commitlint/config-conventional": "^18.4.3",
+    "@commitlint/config-lerna-scopes": "^18.4.3",
+    "@manypkg/cli": "^0.21.1",
     "husky": "^8.0.3",
-    "turbo": "^1.10.12",
-    "vercel": "^31.2.0"
+    "turbo": "^2.6.1",
+    "vercel": "^32.6.0"
   }
 }
