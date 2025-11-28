@@ -1,10 +1,10 @@
 ---
-// export interface Props {
-// 	title: string;
-// 	body: string;
-// 	href: string;
-// }
-// const { href, title, body } = Astro.props;
+export interface Props {
+  enableWebGPU?: boolean
+  debug?: boolean
+}
+
+const { enableWebGPU = false, debug = false } = Astro.props
 
 import { HexagonoidsCanvas } from './hexagonoids/HexagonoidsCanvas'
 ---
@@ -15,6 +15,8 @@ import { HexagonoidsCanvas } from './hexagonoids/HexagonoidsCanvas'
     aria-live="polite"
     class="hexagonoids-canvas"
     client:only="solid-js"
+    debug={debug}
+    enableWebGPU={enableWebGPU}
     role="application"
     tabindex="0"
   />
