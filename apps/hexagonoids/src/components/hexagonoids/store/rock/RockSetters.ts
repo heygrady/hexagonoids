@@ -10,7 +10,7 @@ import type { RockStore } from './RockStore'
 
 export interface RockSetters {
   setYaw: OmitFirstArg<typeof setYaw>
-  setHeading: OmitFirstArg<typeof setHeading>
+  setAngularVelocity: OmitFirstArg<typeof setAngularVelocity>
   setLat: OmitFirstArg<typeof setLat>
   setLng: OmitFirstArg<typeof setLng>
   setLocation: OmitFirstArg<typeof setLocation>
@@ -18,16 +18,16 @@ export interface RockSetters {
 
 export const bindRockSetters = ($rock: RockStore): RockSetters => ({
   setYaw: action($rock, 'setYaw', setYaw),
-  setHeading: action($rock, 'setHeading', setHeading),
+  setAngularVelocity: action($rock, 'setAngularVelocity', setAngularVelocity),
   setLat: action($rock, 'setLat', setLat),
   setLng: action($rock, 'setLng', setLng),
   setLocation: action($rock, 'setLocation', setLocation),
 })
 
 /**
- * Sets the rotation of the rock relative to the heading in radians.
- * @param $rock
- * @param yaw Rotation of the rock relative to the heading in radians. Ranges from -Math.PI to Math.PI. Controls the forward facing direction the rock.
+ * Sets the yaw (visual rotation) of the rock.
+ * @param {RockStore} $rock - The rock store
+ * @param {number} yaw - Visual rotation in radians (-π to π)
  */
 export const setYaw = ($rock: RockStore, yaw: RockState['yaw']) => {
   const prev = $rock.get().yaw
@@ -37,15 +37,17 @@ export const setYaw = ($rock: RockStore, yaw: RockState['yaw']) => {
 }
 
 /**
- * Sets the direction of the rock velocity in radians.
- * @param $rock
- * @param heading Direction of the rock velocity in radians. Ranges from -Math.PI to Math.PI.
+ * Sets the angular velocity of the rock.
+ * @param {RockStore} $rock - The rock store
+ * @param {any} angularVelocity - Angular velocity as a 3D vector (axis × magnitude)
  */
-export const setHeading = ($rock: RockStore, heading: RockState['heading']) => {
-  const prev = $rock.get().heading
-  if (prev !== heading) {
-    // wrap heading to -Math.PI to Math.PI
-    $rock.setKey('heading', wrapHalfCircle(heading))
+export const setAngularVelocity = (
+  $rock: RockStore,
+  angularVelocity: RockState['angularVelocity']
+) => {
+  const prev = $rock.get().angularVelocity
+  if (!prev.equals(angularVelocity)) {
+    $rock.setKey('angularVelocity', angularVelocity.clone())
   }
 }
 

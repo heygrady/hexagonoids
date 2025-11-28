@@ -1,4 +1,4 @@
-import type { TransformNode } from '@babylonjs/core'
+import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 
 import { RADIUS } from '../constants'
 

@@ -1,4 +1,4 @@
-import type { Vector3 } from '@babylonjs/core'
+import type { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
 import {
   type Component,
@@ -31,6 +31,7 @@ export const useCamera = () => {
 
 export interface ShipCameraProps {
   children?: JSX.Element
+  debug?: boolean
 }
 
 export const ShipCamera: Component<ShipCameraProps> = (props) => {
@@ -49,9 +50,21 @@ export const ShipCamera: Component<ShipCameraProps> = (props) => {
   // }
 
   const createCamera = (lookAt: Vector3) => {
+    // Retrieve the globe mesh from scene state
+    const [$scene] = useSceneStore()
+    const globe = $scene.get().globe
+
+    if (globe == null) {
+      throw new Error(
+        'ShipCamera: Globe mesh not found in scene state. Globe component must render before ShipCamera.'
+      )
+    }
+
     const sphereArenaCamera = createSphereArenaCamera('shipCamera', scene, {
       radius: CAMERA_RADIUS,
       globeRadius: RADIUS,
+      globeMesh: globe,
+      debug: props.debug,
     })
 
     const position = lookAt.normalize().scaleInPlace(CAMERA_RADIUS)

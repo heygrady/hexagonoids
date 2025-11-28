@@ -1,4 +1,5 @@
 import type { BulletStore } from '../store/bullet/BulletStore'
+import { showBullet } from '../store/bulletPool/BulletPool'
 
 import { createBulletNodes } from './createBulletNodes'
 import { orientToShip } from './orientToShip'
@@ -7,7 +8,7 @@ import { orientToShip } from './orientToShip'
  * INTERNAL USE ONLY. see fireBullet in store/bulletPool
  *
  * Updates bullet state and bullet nodes.
- * @param $bullet the bullet to fire
+ * @param {BulletStore} $bullet - the bullet to fire
  */
 export const fireBullet = ($bullet: BulletStore) => {
   const $ship = $bullet.get().$ship
@@ -38,14 +39,11 @@ export const fireBullet = ($bullet: BulletStore) => {
     ;({ originNode, bulletNode } = $bullet.get())
   }
 
-  // make it visible
-  if (originNode != null && bulletNode != null) {
-    bulletNode.isVisible = true
-    originNode.setEnabled(true)
-  }
-
   // Set the bullet's initial position and velocity
   orientToShip($bullet)
+
+  // Make it visible AFTER nodes are guaranteed to be correct
+  showBullet($bullet)
 
   $bullet.setKey('firedAt', Date.now())
 }

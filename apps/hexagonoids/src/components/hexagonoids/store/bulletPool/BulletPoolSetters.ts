@@ -1,5 +1,6 @@
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
+import { unwrap } from 'solid-js/store'
 
 import type { BulletStore } from '../bullet/BulletStore'
 
@@ -51,7 +52,7 @@ export const removeBullet = (
   $bullets.setKey(id, undefined)
 
   // release back into the pool
-  releaseBulletStore($bullet)
+  releaseBulletStore(unwrap($bullet))
 }
 
 export const clearBullets = ($bullets: BulletPoolStore) => {

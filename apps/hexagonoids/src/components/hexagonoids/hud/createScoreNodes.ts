@@ -1,4 +1,5 @@
-import { type Scene, TransformNode } from '@babylonjs/core'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import type { Scene } from '@babylonjs/core/scene'
 
 import { createTextMesh, replaceText, updateText } from './createTextMesh'
 

@@ -1,4 +1,7 @@
-import { Color3, type Material, type Node, Vector3 } from '@babylonjs/core'
+import type { Material } from '@babylonjs/core/Materials/material'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import type { Node } from '@babylonjs/core/node'
 import { type Component, onCleanup } from 'solid-js'
 
 import { useScene } from '../solid-babylon/hooks/useScene'

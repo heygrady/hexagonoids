@@ -1,8 +1,9 @@
-import type { AbstractMesh, TransformNode } from '@babylonjs/core'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh'
+import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 
 import {
   ROCK_LARGE_SIZE,
-  ROCK_LARGE_SPEED,
   ROCK_LARGE_VALUE,
   type ROCK_MEDIUM_SIZE,
   type ROCK_SMALL_SIZE,
@@ -24,14 +25,16 @@ export interface RockState {
   /** Determines the point value of the rock. 200 | 100 | 50 */
   value: number
 
-  /** Rotation of the rock relative to the heading in radians. Ranges from -Math.PI to Math.PI. */
+  /** Visual rotation of the rock (separate from movement direction). */
   yaw: number
 
-  /** Direction of the rock velocity in radians. Ranges from -Math.PI to Math.PI. */
-  heading: number
-
-  /** Magnitude of the velocity of the rock in radians per second. Ranges from 0 to MAX_SPEED. */
-  speed: number
+  /**
+   * Angular velocity of the rock as a 3D vector.
+   * Direction: axis of rotation on the sphere
+   * Magnitude: angular speed in radians per second
+   * Represents velocity as angular velocity ω for quaternion-based spherical physics.
+   */
+  angularVelocity: Vector3
 
   /** Latitude in degrees on the surface of the sphere. */
   lat: number
@@ -50,8 +53,7 @@ export const defaultRockState: RockState = {
   size: ROCK_LARGE_SIZE,
   value: ROCK_LARGE_VALUE,
   yaw: 0,
-  heading: 0,
-  speed: ROCK_LARGE_SPEED,
+  angularVelocity: Vector3.Zero(),
   lat: 0,
   lng: 0,
   cells: new Set(),

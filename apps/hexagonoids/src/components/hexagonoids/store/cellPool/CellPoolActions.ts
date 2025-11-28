@@ -1,9 +1,10 @@
-import type { Scene } from '@babylonjs/core'
+import type { Scene } from '@babylonjs/core/scene'
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
 
 import { generateCell } from '../../cell/generateCell'
 import { setImpactedAt, setVisitedAt } from '../cell/CellSetters'
+import type { CellStore } from '../cell/CellStore'
 
 import { getCellStore } from './CellPool'
 import { addCell } from './CellPoolSetters'
@@ -23,10 +24,10 @@ export const bindCellPoolActions = (
 
 /**
  * Get a cell from the pool; prep it; add it to the scene
- * @param $cells
- * @param h
- * @param scene
- * @returns
+ * @param {CellPoolStore} $cells - The cell pool store
+ * @param {string} h - Hexagon ID
+ * @param {Scene} scene - The scene
+ * @returns {CellStore} The cell store
  */
 export const getCell = ($cells: CellPoolStore, h: string, scene: Scene) => {
   let $cell = $cells.get()[h]
@@ -54,12 +55,27 @@ export const getCell = ($cells: CellPoolStore, h: string, scene: Scene) => {
   return $cell
 }
 
+/**
+ * Mark a cell as impacted.
+ * @param {CellPoolStore} $cells - The cell pool store
+ * @param {string} h - Hexagon ID
+ * @param {Scene} scene - The scene
+ * @returns {CellStore} The cell store
+ */
 export const impact = ($cells: CellPoolStore, h: string, scene: Scene) => {
   const $cell = getCell($cells, h, scene)
   setImpactedAt($cell)
   return $cell
 }
 
+/**
+ * Mark a cell as visited.
+ * @param {CellPoolStore} $cells - The cell pool store
+ * @param {string} h - Hexagon ID
+ * @param {Scene} scene - The scene
+ * @param {number} [now] - Timestamp
+ * @returns {CellStore} The cell store
+ */
 export const visit = (
   $cells: CellPoolStore,
   h: string,

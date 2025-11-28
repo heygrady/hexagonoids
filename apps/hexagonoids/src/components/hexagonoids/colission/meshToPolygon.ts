@@ -1,4 +1,6 @@
-import { VertexBuffer, type AbstractMesh, Vector3 } from '@babylonjs/core'
+import { VertexBuffer } from '@babylonjs/core/Buffers/buffer'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh'
 import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import type { CoordPair } from 'h3-js'
 import QuickLRU from 'quick-lru'

@@ -1,9 +1,10 @@
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
+import { unwrap } from 'solid-js/store'
 
 import type { PlayerStore } from '../player/PlayerStore'
 
-import { playerPool } from './PlayerPool'
+import { releasePlayerStore } from './PlayerPool'
 import type { PlayerPoolStore } from './PlayerPoolStore'
 
 interface PlayerPoolSetters {
@@ -52,7 +53,7 @@ export const removePlayer = (
   $players.setKey(id, undefined)
 
   // release back into the pool
-  playerPool.release($player)
+  releasePlayerStore(unwrap($player))
 }
 
 export const clearPlayers = ($players: PlayerPoolStore) => {

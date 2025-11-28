@@ -34,15 +34,15 @@ export const bindBulletPoolActions = (
 /**
  * Creates several "explosion" bullets at the given location.
  * Used as an explosion effect when a rock (or ship) is destroyed.
- * @param $bullets
- * @param $target
- * @returns the bullets that were created
+ * @param {BulletPoolStore} $bullets - The bullet pool store
+ * @param {TargetStore} $target - The target to explode
+ * @returns {BulletStore[]} the bullets that were created
  */
 export const explode = ($bullets: BulletPoolStore, $target: TargetStore) => {
   const explosion: BulletStore[] = []
   // fire six "explosion" bullets
   for (let i = 0; i < 6; i++) {
-    // Get a clean bullet from the pool
+    // Get a clean bullet from the pool (assumes pool is initialized)
     const $bullet = getBulletStore()
     $bullet.setKey('type', 'explosion')
     _explode($bullet, $target)
@@ -56,12 +56,12 @@ export const explode = ($bullets: BulletPoolStore, $target: TargetStore) => {
 
 /**
  * Fires a bullet from the given ship.
- * @param $bullets set of active bullets
- * @param $ship  the ship that fired the bullet
- * @returns the bullet that was fired
+ * @param {BulletPoolStore} $bullets - set of active bullets
+ * @param {ShipStore} $ship - the ship that fired the bullet
+ * @returns {BulletStore} the bullet that was fired
  */
 export const fireBullet = ($bullets: BulletPoolStore, $ship: ShipStore) => {
-  // Get a clean bullet from the pool
+  // Get a clean bullet from the pool (assumes pool is initialized)
   const $bullet = getBulletStore()
 
   // Mark the owner of the bullet
@@ -76,6 +76,12 @@ export const fireBullet = ($bullets: BulletPoolStore, $ship: ShipStore) => {
   return $bullet
 }
 
+/**
+ * Handles collision between a bullet and a target.
+ * @param {BulletPoolStore} $bullets - The bullet pool store
+ * @param {BulletStore} $bullet - The bullet
+ * @param {TargetStore} $target - The target
+ */
 export const collideWithTarget = (
   $bullets: BulletPoolStore,
   $bullet: BulletStore,

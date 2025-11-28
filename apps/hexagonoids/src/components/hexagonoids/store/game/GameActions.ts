@@ -1,4 +1,4 @@
-import type { Scene } from '@babylonjs/core'
+import type { Scene } from '@babylonjs/core/scene'
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
 

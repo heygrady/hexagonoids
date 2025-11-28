@@ -1,4 +1,8 @@
-import type { AbstractMesh, FreeCamera, Scene, Vector3 } from '@babylonjs/core'
+import type { FreeCamera } from '@babylonjs/core/Cameras/freeCamera'
+import type { AbstractEngine } from '@babylonjs/core/Engines/abstractEngine'
+import type { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh'
+import type { Scene } from '@babylonjs/core/scene'
 import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import {
   cellToLatLng,
@@ -46,6 +50,29 @@ export const bindPlayerActions = ($player: PlayerStore): PlayerActions => ({
   score: action($player, 'score', score),
 })
 
+/**
+ * Get screen dimensions for scene.pick() operations.
+ * WebGPU and WebGL engines handle screen coordinates differently.
+ * Uses engine.isWebGPU accessor to avoid loading WebGPUEngine class.
+ * @param {AbstractEngine} engine - Babylon.js engine
+ * @returns {[number, number]} [width, height]
+ */
+export const getScreenDimensions = (
+  engine: AbstractEngine
+): [width: number, height: number] => {
+  // Use Babylon.js built-in engine.isWebGPU property
+  if (engine.isWebGPU) {
+    // WebGPU: Use physical pixels (hardware pixels)
+    return [engine.getRenderWidth(true), engine.getRenderHeight(true)]
+  } else {
+    // WebGL: Use hardware pixel dimensions but account for device pixel ratio
+    const pixelRatio = window?.devicePixelRatio ?? 1
+    const width = engine.getRenderWidth(true) / pixelRatio
+    const height = engine.getRenderHeight(true) / pixelRatio
+    return [width, height]
+  }
+}
+
 // FIXME: move to a better place
 export const getScreenCenter = (
   scene: Scene,
@@ -65,9 +92,8 @@ export const getScreenCenter = (
     throw new Error('shipCamera is not defined in the scene')
   }
   const engine = scene.getEngine()
-  const pixelRatio = window?.devicePixelRatio ?? 1
-  const screenWidth = engine.getRenderWidth() / pixelRatio - pixelRatio
-  const screenHeight = engine.getRenderHeight() / pixelRatio - pixelRatio
+  // Get screen dimensions in an engine-aware way (WebGL vs WebGPU)
+  const [screenWidth, screenHeight] = getScreenDimensions(engine)
 
   const predicate = (mesh: AbstractMesh) =>
     mesh === globe || mesh === cameraContext.equatorialPlane
@@ -185,11 +211,6 @@ export const spawnWave = (
       waveSize = ROCK_WAVE_SIZES[i]
     }
   }
-  console.log(
-    `spawning wave; ${waveSize} new rocks; ${
-      Object.keys($rocks.get()).length
-    } total rocks`
-  )
 
   for (let i = 0; i < waveSize; i++) {
     // take a random cell from the ring

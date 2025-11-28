@@ -1,23 +1,26 @@
-import {
-  FreeCamera,
-  Vector3,
-  type Scene,
-  TransformNode,
-  Quaternion,
-  Plane,
-  MeshBuilder,
-  Mesh,
-  BoundingBox,
-  type AbstractMesh,
-} from '@babylonjs/core'
+import { FreeCamera } from '@babylonjs/core/Cameras/freeCamera'
+import { BoundingBox } from '@babylonjs/core/Culling/boundingBox'
+import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Plane } from '@babylonjs/core/Maths/math.plane'
+import { Vector3, Quaternion } from '@babylonjs/core/Maths/math.vector'
+import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh'
+import { CreateBox } from '@babylonjs/core/Meshes/Builders/boxBuilder'
+import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder'
+import { Mesh } from '@babylonjs/core/Meshes/mesh'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import type { Scene } from '@babylonjs/core/scene'
 
 import { getCommonMaterial } from '../common/commonMaterial'
 import { CAMERA_RADIUS } from '../constants'
 import { pickPoint } from '../rock/pickPoint'
+import { getScreenDimensions } from '../store/player/PlayerActions'
 
 export interface SphereArenaCameraOptions {
   radius: number
   globeRadius: number
+  globeMesh: Mesh
+  debug?: boolean
 }
 
 type CameraPoints = [
@@ -25,7 +28,7 @@ type CameraPoints = [
   topRight: Vector3,
   bottomLeft: Vector3,
   bottomRight: Vector3,
-  center: Vector3
+  center: Vector3,
 ]
 
 export interface SphereArenaCamera {
@@ -59,7 +62,7 @@ const createEquatorialPlane = (scene: Scene, camera: FreeCamera) => {
   const abstractPlane = Plane.FromPositionAndNormal(Vector3.Zero(), normal)
 
   // Create the plane mesh using the abstract plane
-  const plane = MeshBuilder.CreatePlane(
+  const plane = CreatePlane(
     'plane',
     {
       sourcePlane: abstractPlane,
@@ -116,7 +119,7 @@ function boxFromBoundingBox(scene: Scene, boundingBox: BoundingBox): Mesh {
   const centerZ = (max.z + min.z) / 2
 
   // Create the box mesh
-  const box = MeshBuilder.CreateBox('box', { width, height, depth }, scene)
+  const box = CreateBox('box', { width, height, depth }, scene)
 
   // Set the position of the box based on the bounding box center
   box.position.set(centerX, centerY, centerZ)
@@ -137,6 +140,19 @@ export const createSphereArenaCamera = (
   // Set camera properties
   camera.setTarget(Vector3.Zero()) // Camera always faces the origin
 
+  // Configure near/far planes for sphere-based geometry
+  // Camera is at radius 7.4, looking at origin
+  // Sphere surface is at radius 5.0
+  // Distance from camera to sphere surface: ~2.4 units
+  camera.minZ = 0.1 // Near plane - prevents ship/rock clipping
+  camera.maxZ = 20 // Far plane - narrow range improves depth precision
+
+  // Force camera to recalculate projection matrix (critical for WebGPU)
+  camera.getProjectionMatrix(true)
+
+  // Set as active camera for the scene
+  scene.activeCamera = camera
+
   // Create a parent TransformNode for the camera
   const originNode = new TransformNode(`${name}Origin`, scene)
   originNode.rotationQuaternion = Quaternion.Identity()
@@ -151,19 +167,19 @@ export const createSphereArenaCamera = (
   equatorialPlane.material = getCommonMaterial(scene, { alpha: 0 })
   equatorialPlane.parent = originNode
 
-  const globe = MeshBuilder.CreateSphere(
-    'globe',
-    { diameter: options.globeRadius * 2, segments: 32 },
-    scene
-  )
-  globe.material = getCommonMaterial(scene, { alpha: 0 })
-  globe.position = new Vector3(0, 0, 0)
-  globe.parent = originNode
+  // Use the provided globe mesh instead of creating a duplicate
+  const globe = options.globeMesh
 
   const engine = scene.getEngine()
-  const pixelRatio = window?.devicePixelRatio ?? 1
-  const screenWidth = engine.getRenderWidth() / pixelRatio - pixelRatio
-  const screenHeight = engine.getRenderHeight() / pixelRatio - pixelRatio
+  // Get screen dimensions in an engine-aware way (WebGL vs WebGPU)
+  const [screenWidth, screenHeight] = getScreenDimensions(engine)
+
+  // Debug logging (can be removed if not needed)
+  // console.log(`\n=== Camera ${name} Screen Sampling ===`)
+  // console.log(`Screen dimensions: ${screenWidth} x ${screenHeight}`)
+  // console.log(`Pixel ratio: ${pixelRatio}`)
+  // console.log(`Camera position:`, camera.position)
+  // console.log(`Camera target:`, camera.getTarget())
 
   const predicate = (mesh: AbstractMesh) =>
     mesh === globe || mesh === equatorialPlane
@@ -178,15 +194,37 @@ export const createSphereArenaCamera = (
   ]
   const points: Vector3[] = []
   for (const [x, y] of samplePoints) {
-    const point = pickPoint(x, y, scene, camera, predicate) as Vector3
-    points.push(point)
+    const point = pickPoint(x, y, scene, camera, predicate)
+    if (point != null) {
+      points.push(point)
+    }
+    // Note: Corner picks may miss the globe - this is geometrically expected
+    // when the viewport extends beyond the sphere's visible area
+  }
+
+  // Ensure we have at least some valid points for bounding box calculation
+  if (points.length === 0) {
+    throw new Error(
+      '[SphereArenaCamera] Failed to pick any points on globe mesh - camera may be misconfigured'
+    )
   }
 
   const [minBox, maxBox] = boundingPoints(points)
   const boundingBox = new BoundingBox(minBox, maxBox)
   const boxNode = boxFromBoundingBox(scene, boundingBox)
-  boxNode.isVisible = false
   boxNode.parent = originNode
+
+  // Debug visualization: show culling box as red wireframe
+  if (options.debug === true) {
+    const debugMaterial = new StandardMaterial('cullingBoxDebugMaterial', scene)
+    debugMaterial.wireframe = true
+    debugMaterial.emissiveColor = Color3.Red()
+    boxNode.material = debugMaterial
+    boxNode.isVisible = true
+    console.log('[SphereArenaCamera] Debug mode enabled - culling box visible')
+  } else {
+    boxNode.isVisible = false
+  }
 
   return {
     camera,

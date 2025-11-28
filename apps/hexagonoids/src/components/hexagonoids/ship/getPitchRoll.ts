@@ -1,4 +1,4 @@
-import { Vector2, Vector3 } from '@babylonjs/core'
+import { Vector2, Vector3 } from '@babylonjs/core/Maths/math.vector'
 
 export const arcDistanceTo = (
   point: Vector2,
@@ -20,8 +20,8 @@ export const arcDistanceTo = (
 
 /**
  * Returns the pitch and roll to rotate from the up position to the given point
- * @param point the ending point
- * @returns the pitch and roll to rotate from the up position to the given point
+ * @param {Vector3} point - the ending point
+ * @returns {[number, number]} the pitch and roll to rotate from the up position to the given point
  */
 export const getPitchRoll = (point: Vector3): [pitch: number, roll: number] => {
   const up = Vector3.Up()

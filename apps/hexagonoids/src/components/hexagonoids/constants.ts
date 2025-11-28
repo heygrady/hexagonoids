@@ -46,8 +46,14 @@ export const ROCK_SMALL_SPEED = MAX_SPEED / (17 / 6.5)
 /** Increase in velocity in radians per second */
 export const ACCELERATION_RATE = MAX_SPEED * 1.55
 
-/** Strength of the friction */
-export const FRICTION_COEFFICIENT = Math.PI / 425
+/**
+ * Strength of the friction (exponential decay coefficient)
+ * Used in: Math.exp(-FRICTION_COEFFICIENT * dt)
+ * This should be approximately equal to the linear decay coefficient for similar feel.
+ * For icy surface: ~0.3, light drag: ~0.01, noticeable drag: ~0.5, strong drag: ~1.5
+ * Exponential decay is frame-rate independent and more physically accurate.
+ */
+export const FRICTION_COEFFICIENT = 0.35
 
 export const SHIP_SCALE = 2 / 1000
 export const BULLET_SCALE = (12 * 1) / 1000
@@ -81,10 +87,10 @@ export const ROCK_MEDIUM_RADIUS = SHIP_RADIUS * 1.2 // 1.2
 export const ROCK_LARGE_RADIUS = SHIP_RADIUS * 2.4 // 2.4
 
 /** Maximum number of ships to keep in cache pools */
-export const SHIP_CACHE_SIZE = 2
+export const SHIP_CACHE_SIZE = 10
 
 /** Maximum number of rocks to keep in cache pools */
-export const MAX_ROCKS = 40
+export const MAX_ROCKS = 50
 export const ROCK_CACHE_SIZE = 11 // max wave size
 
 /** Maximum number of bullets to keep in cache pools */
@@ -92,7 +98,9 @@ export const BULLET_CACHE_SIZE = SHIP_CACHE_SIZE * 6 + 18 // spare bullets per s
 
 /** Maximum number of cells to keep in cache pools */
 // res 0 = 122; 1 = 842; 2 = 5882
-export const CELL_CACHE_SIZE = 30 // over 500 and it takes up too much memory
+// Increased from 30 to reduce disposal/recreation churn for WebGPU stability
+// With ~200+ cells active during gameplay, 30 caused constant evictions
+export const CELL_CACHE_SIZE = 250
 
 export const ROCK_LARGE_SIZE = 2
 export const ROCK_MEDIUM_SIZE = 1

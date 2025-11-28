@@ -1,7 +1,9 @@
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
 
-import { playerPool } from './PlayerPool'
+import type { PlayerStore } from '../player/PlayerStore'
+
+import { getPlayerStore } from './PlayerPool'
 import { addPlayer } from './PlayerPoolSetters'
 import type { PlayerPoolStore } from './PlayerPoolStore'
 
@@ -17,14 +19,12 @@ export const bindPlayerPoolActions = (
 
 /**
  * Generates a new player
- * @param $players set of active players
- * @param $ships
- * @param scene the scene to generate the player in
- * @returns the player that was generated
+ * @param {PlayerPoolStore} $players - set of active players
+ * @returns {PlayerStore} the player that was generated
  */
 export const generatePlayer = ($players: PlayerPoolStore) => {
   // Get a clean player from the pool
-  const $player = playerPool.get()
+  const $player = getPlayerStore()
 
   // // Initialize the player
   // startPlayer($player, $ships, scene)

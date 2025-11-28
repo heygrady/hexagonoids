@@ -1,6 +1,7 @@
-import { type Scene, TransformNode, Quaternion } from '@babylonjs/core'
+import { Quaternion } from '@babylonjs/core/Maths/math.vector'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import type { Scene } from '@babylonjs/core/scene'
 
-import { getCommonMaterial } from '../common/commonMaterial'
 import { RADIUS, SHIP_SCALE } from '../constants'
 import type { ShipStore } from '../store/ship/ShipStore'
 
@@ -13,11 +14,8 @@ export const createShipNodes = (scene: Scene, $ship: ShipStore) => {
   const shipNode = createShipPolygon(scene, id)
   const shipTailNode = createShipTailPolygon(scene, id)
 
-  const shipMaterial = getCommonMaterial(scene).clone(`shipMaterial_${id}`)
-  shipNode.material = shipMaterial
   shipNode.scaling.setAll(SHIP_SCALE)
 
-  shipTailNode.material = shipMaterial
   shipTailNode.parent = shipNode
   shipTailNode.isVisible = false
 

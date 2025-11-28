@@ -1,3 +1,4 @@
+import { Quaternion } from '@babylonjs/core/Maths/math.vector'
 import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import type { Component } from 'solid-js'
 import { unwrap } from 'solid-js/store'
@@ -16,7 +17,10 @@ import {
   ROCK_MEDIUM_SIZE,
 } from './constants'
 import { useBulletPool } from './hooks/useBulletPool'
-import { pitchNodeBy } from './ship/orientation'
+import {
+  clampAngularVelocity,
+  integrateAngularVelocity,
+} from './ship/quaternionPhysics'
 import { setLocation } from './store/bullet/BulletSetters'
 import type { BulletStore } from './store/bullet/BulletStore'
 import { removeBullet } from './store/bulletPool/BulletPoolSetters'
@@ -80,19 +84,35 @@ export const Bullet: Component<BulletProps> = (props) => {
       return
     }
 
-    // Move the bullet
-    if (bulletState.speed > 0) {
-      const speed = Math.min(bulletState.speed, MAX_BULLET_SPEED)
+    // Move the bullet using quaternion physics
+    if (bulletState.angularVelocity.length() > 0) {
       const delta = Math.min(MAX_DELTA, scene.getEngine().getDeltaTime())
-      const distance = (speed / 1000) * delta
 
-      // FIXME: should be larger than MIN_DISTANCE
-      if (distance === 0) {
-        return
+      // Ensure rotationQuaternion is initialized
+      if (originNode.rotationQuaternion == null) {
+        originNode.rotationQuaternion = Quaternion.Identity()
       }
 
-      // Pitch the bullet forward by distance radians
-      pitchNodeBy(originNode, distance)
+      // Clamp velocity to maximum bullet speed (safety check)
+      const clampedVelocity = clampAngularVelocity(
+        bulletState.angularVelocity,
+        MAX_BULLET_SPEED
+      )
+
+      // Integrate angular velocity over deltaTime
+      const updatedRotation = integrateAngularVelocity(
+        originNode.rotationQuaternion,
+        clampedVelocity,
+        delta / 1000 // Convert milliseconds to seconds
+      )
+
+      // Update origin node position quaternion
+      originNode.rotationQuaternion = updatedRotation
+
+      // Force world matrix recalculation
+      originNode.computeWorldMatrix(true)
+
+      // Get new location from the mesh's position in the scene
       setLocation($bullet, vector3ToLatLng(bulletNode.absolutePosition))
     }
   }

@@ -1,4 +1,5 @@
-import { Vector3, Matrix, type TransformNode } from '@babylonjs/core'
+import { Vector3, Matrix } from '@babylonjs/core/Maths/math.vector'
+import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import { easeQuadIn } from 'd3-ease'
 
 import {
@@ -7,6 +8,7 @@ import {
   MAX_SPEED,
   SCREEN_EDGE_BUFFER,
 } from '../constants'
+import { getScreenDimensions } from '../store/player/PlayerActions'
 
 import { getPitchRoll } from './getPitchRoll'
 import { getYawPitch } from './getYawPitch'
@@ -32,8 +34,8 @@ export const moveCamera = (
     return
   }
 
-  const screenWidth = engine.getRenderWidth(true)
-  const screenHeight = engine.getRenderHeight(true)
+  // Get screen dimensions in an engine-aware way (WebGL vs WebGPU)
+  const [screenWidth, screenHeight] = getScreenDimensions(engine)
 
   const shipScreenPosition = Vector3.Project(
     shipPosition.absolutePosition,

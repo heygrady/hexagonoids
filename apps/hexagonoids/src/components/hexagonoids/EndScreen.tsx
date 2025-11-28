@@ -1,4 +1,6 @@
-import { Color3, type Node, Vector3 } from '@babylonjs/core'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import type { Node } from '@babylonjs/core/node'
 import { type Component, onCleanup } from 'solid-js'
 
 import { onAfterRender } from '../solid-babylon/hooks/onAfterRender'

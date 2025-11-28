@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from '@babylonjs/core'
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
 
 import { getNextPoint } from './getNextPoint'
 import { getYawPitch } from './getYawPitch'
@@ -7,8 +7,8 @@ export type HeadingSpeed = [heading: number, speed: number]
 
 /**
  * Convert a Cartesian vector to angle and magnitude
- * @param velocity
- * @returns Heading in radians and speed in radians
+ * @param {Vector3} velocity - Velocity vector
+ * @returns {HeadingSpeed} Heading in radians and speed in radians
  */
 export const vector3ToHeadingSpeed = (velocity: Vector3): HeadingSpeed => {
   const point = velocity.clone()
@@ -24,9 +24,9 @@ export const vector3ToHeadingSpeed = (velocity: Vector3): HeadingSpeed => {
 
 /**
  * Convert heading and speed into a Cartesian vector
- * @param heading Angle of velocity in radians
- * @param speed Magnitude of velocity
- * @returns Cartesian Coords
+ * @param {number} heading - Angle of velocity in radians
+ * @param {number} speed - Magnitude of velocity
+ * @returns {Vector3} Cartesian Coords
  */
 export const headingSpeedToVector3 = (heading: number, speed: number) => {
   const point = getNextPoint(-heading, speed)
@@ -41,10 +41,11 @@ export const headingSpeedToVector3 = (heading: number, speed: number) => {
 
 /**
  * Accelerates a velocity in a new direction
- * @param heading Current angle of velocity in radians
- * @param speed  Current magnitude of velocity in radians
- * @param angle Additional angle of velocity in radians
- * @param magnitude Additional magnitude of velocity in radians
+ * @param {number} heading - Current angle of velocity in radians
+ * @param {number} speed - Current magnitude of velocity in radians
+ * @param {number} angle - Additional angle of velocity in radians
+ * @param {number} magnitude - Additional magnitude of velocity in radians
+ * @returns {HeadingSpeed} New heading and speed
  */
 export const accelerateHeadingSpeed = (
   heading: number,
@@ -59,8 +60,9 @@ export const accelerateHeadingSpeed = (
 
 /**
  * Accelerates a velocity in a new direction
- * @param velocity Current velocity as a Vector3
- * @param acceleration  Additional velocity as a Vector3
+ * @param {Vector3} velocity - Current velocity as a Vector3
+ * @param {Vector3} acceleration - Additional velocity as a Vector3
+ * @returns {Vector3} New velocity
  */
 export const accelerateVector3 = (velocity: Vector3, acceleration: Vector3) => {
   velocity.addInPlace(acceleration)

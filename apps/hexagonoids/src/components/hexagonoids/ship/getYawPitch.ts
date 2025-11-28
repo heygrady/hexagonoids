@@ -1,9 +1,9 @@
-import { Vector3 } from '@babylonjs/core'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 
 /**
  * Returns the yaw and pitch to rotate from the up position to the given point
- * @param point the ending point
- * @returns the yaw and pitch to rotate from the  up position to the given point
+ * @param {Vector3} point - the ending point
+ * @returns {[number, number]} the yaw and pitch to rotate from the  up position to the given point
  */
 export const getYawPitch = (point: Vector3): [yaw: number, pitch: number] => {
   // Calculate the direction vector from the up position to the given point

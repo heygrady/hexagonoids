@@ -23,3 +23,13 @@ export const setLocation = ($bullet: BulletStore, location: CoordPair) => {
   setLat($bullet, location[0])
   setLng($bullet, location[1])
 }
+
+export const setAngularVelocity = (
+  $bullet: BulletStore,
+  angularVelocity: BulletState['angularVelocity']
+) => {
+  const prev = $bullet.get().angularVelocity
+  if (!prev.equals(angularVelocity)) {
+    $bullet.setKey('angularVelocity', angularVelocity.clone())
+  }
+}

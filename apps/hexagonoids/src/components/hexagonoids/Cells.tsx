@@ -1,4 +1,4 @@
-import { TransformNode } from '@babylonjs/core'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import type { Component } from 'solid-js'
 import { createRenderEffect, For } from 'solid-js'
 
@@ -13,14 +13,16 @@ export const Cells: Component = () => {
   const cells = subscribeCellPool()
 
   createRenderEffect(() => {
-    const scene = $scene.get().scene
-    if (scene == null) {
+    const sceneState = $scene.get()
+    if (sceneState.scene == null) {
       return
     }
-    const originNode = new TransformNode('h3CellOrigin', scene)
-    // FIXME: enable scaling here (scaling conflicts with the h3 cell to vector3 conversion)
+    const originNode = new TransformNode('h3CellOrigin', sceneState.scene)
+    // NOTE: Scaling is disabled by design. H3 geographic coordinates convert to absolute
+    // world 3D vectors, so scaling would break the coordinate system conversion.
+    // This is a known limitation of the H3 geospatial coordinate system.
     // originNode.scaling.setAll(0.5)
-    const globe = scene.getMeshByName('globe')
+    const globe = sceneState.globe
 
     if (globe != null) {
       originNode.parent = globe

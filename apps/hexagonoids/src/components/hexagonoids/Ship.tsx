@@ -1,5 +1,3 @@
-import { Color3 } from '@babylonjs/core'
-import { cellToLatLng, latLngToCell } from 'h3-js'
 import type { Component } from 'solid-js'
 import { unwrap } from 'solid-js/store'
 
@@ -15,7 +13,6 @@ import {
 } from './constants'
 import { useBulletPool } from './hooks/useBulletPool'
 import { useShipPool } from './hooks/useShipPool'
-import { blendColors } from './NewLights'
 import {
   accelerateAck,
   leftAck,
@@ -26,7 +23,7 @@ import {
   bindShipActions,
 } from './store/ship/ShipActions'
 import { resetShip, type ShipStore } from './store/ship/ShipStore'
-import { disposeShip } from './store/shipPool/ShipPool'
+import { releaseShipStore } from './store/shipPool/ShipPool'
 
 export interface ShipProps {
   id?: string
@@ -40,30 +37,8 @@ export const Ship: Component<ShipProps> = (props) => {
 
   const $ship = unwrap(props.store)
 
-  // Handle ship material color
-  let prevCell: string | null = null
-  onBeforeRender(() => {
-    const { lat, lng, shipNode, shipTailNode } = $ship.get()
-
-    const cell = latLngToCell(lat, lng, 2)
-    if (cell === prevCell) {
-      return
-    }
-    prevCell = cell
-    const [cellLat] = cellToLatLng(cell)
-    // convert north pole to 1, south pole to 0
-    const blendFactor = (cellLat + 90) / 180
-
-    const color = blendColors(Color3.Magenta(), Color3.Teal(), blendFactor)
-    if (shipNode?.material != null) {
-      // @ts-expect-error Material does not have diffuseColor
-      shipNode.material.diffuseColor = color
-    }
-    if (shipTailNode?.material != null) {
-      // @ts-expect-error Material does not have diffuseColor
-      shipTailNode.material.diffuseColor = color
-    }
-  })
+  // Ship material color is now handled globally by CameraLighting component
+  // based on camera position, not individual ship positions
 
   // Handle controls (and other stuff)
   onBeforeRender(() => {
@@ -93,7 +68,7 @@ export const Ship: Component<ShipProps> = (props) => {
         // remove the segment from the scene
         $ships.setKey(id, undefined)
         resetShip($ship)
-        disposeShip($ship)
+        releaseShipStore($ship)
         return
       }
     }
@@ -165,7 +140,7 @@ export const Ship: Component<ShipProps> = (props) => {
     const shouldAccelerate =
       controlState.acceleratePressed ||
       !controlState.accelerateAcked ||
-      shipState.speed > 0
+      shipState.angularVelocity.length() > 0
 
     if (shouldAccelerate) {
       const keyAt = controlState.acceleratePressedAt
@@ -192,7 +167,7 @@ export const Ship: Component<ShipProps> = (props) => {
       shipTailNode.isVisible = false
     }
 
-    if (shipState.speed > 0) {
+    if (shipState.angularVelocity.length() > 0) {
       const keyAt = controlState.acceleratePressedAt
       const duration = now - (keyAt ?? now)
       move(delta, duration)

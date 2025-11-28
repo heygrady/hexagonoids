@@ -1,13 +1,39 @@
-import { Vector3, Color3, SpotLight, TransformNode } from '@babylonjs/core'
+import { SpotLight } from '@babylonjs/core/Lights/spotLight'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import { cellToLatLng, latLngToCell } from 'h3-js'
-import { type Component, onCleanup } from 'solid-js'
+import {
+  type Component,
+  createContext,
+  onCleanup,
+  type JSX,
+  useContext,
+} from 'solid-js'
 
 import { onBeforeRender } from '../solid-babylon/hooks/onBeforeRender'
 import { useScene } from '../solid-babylon/hooks/useScene'
 
+import { getCommonMaterial } from './common/commonMaterial'
 import { CAMERA_RADIUS, RADIUS, SPOTLIGHT_HEIGHT } from './constants'
 import { useCamera } from './ShipCamera'
+
+export interface SpotlightContextValue {
+  spotlight: SpotLight
+  originNode: TransformNode
+  positionNode: TransformNode
+}
+
+export const SpotlightContext = createContext<SpotlightContextValue>()
+
+export const useSpotlight = () => {
+  const context = useContext(SpotlightContext)
+  if (context == null) {
+    throw new Error('useSpotlight: cannot find a SpotlightContext.Provider')
+  }
+  return context
+}
 
 export const blendColors = (
   color1: Color3,
@@ -24,7 +50,11 @@ export const blendColors = (
   return new Color3(r, g, b)
 }
 
-export const CameraLighting: Component = (props) => {
+export interface CameraLightingProps {
+  children?: JSX.Element
+}
+
+export const CameraLighting: Component<CameraLightingProps> = (props) => {
   const scene = useScene()
   const cameraContext = useCamera()
 
@@ -69,6 +99,9 @@ export const CameraLighting: Component = (props) => {
   spotlight.specular = color
 
   let prevCell: string | null = null
+  let lastMaterialUpdate = 0
+  const MATERIAL_UPDATE_THROTTLE = 16 // ~60fps, throttle material updates to reduce GPU pressure
+
   onBeforeRender(() => {
     const position = spotlightPositionNode.absolutePosition
     const location = vector3ToLatLng(position)
@@ -85,19 +118,31 @@ export const CameraLighting: Component = (props) => {
     const color = blendColors(Color3.Magenta(), Color3.Teal(), blendFactor)
     spotlight.diffuse = color
     spotlight.specular = color
+
+    // Throttle material updates to reduce WebGPU command buffer pressure
+    const now = performance.now()
+    if (now - lastMaterialUpdate > MATERIAL_UPDATE_THROTTLE) {
+      // Update shared material color for all rocks, ships, and bullets
+      const commonMaterial = getCommonMaterial(scene)
+      commonMaterial.diffuseColor = color
+      lastMaterialUpdate = now
+    }
   })
 
-  // FIXME: make this context available to the game
-  const spotlightContext = {
+  const spotlightContextValue: SpotlightContextValue = {
     spotlight,
     originNode: spotlightOriginNode,
     positionNode: spotlightPositionNode,
   }
 
   onCleanup(() => {
-    Object.values(spotlightContext).forEach((n) => {
+    Object.values(spotlightContextValue).forEach((n) => {
       n.dispose()
     })
   })
-  return null
+  return (
+    <SpotlightContext.Provider value={spotlightContextValue}>
+      {props.children}
+    </SpotlightContext.Provider>
+  )
 }
