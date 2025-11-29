@@ -13,10 +13,10 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 22
           cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@heygrady'
@@ -28,31 +28,26 @@ jobs:
         env:
           NPM_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Cache node_modules and yarn cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             node_modules
             apps/*/node_modules
             packages/*/node_modules
-            scripts/*/node_modules
             .yarn/cache
-          key: root-node-modules-folder-v1
+          key: node-modules-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            root-node-modules-folder-
+            node-modules-
       - run: yarn install
-      # FIXME: run yarn lint and yarn test before releasing
       - name: Create Release Pull Request or Publish to Github Package Registry
         id: changesets
         uses: changesets/action@v1
         with:
-          # This expects you to have a script called version which updates the lockfile after calling `changeset version`.
           version: yarn version
-          # This expects you to have a script called release which builds your packages and then calls `changeset publish`.
           publish: yarn release
         env:
           HUSKY: 0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages#example-workflow
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
