@@ -1,7 +1,4 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-# https://typicode.github.io/husky/guide.html#with-env-variables
+# Skip in CI
 [ -n "$CI" ] && exit 0
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
@@ -9,5 +6,3 @@ if [ "$branch" = "main" ]; then
   echo "You can't commit directly to main branch"
   exit 1
 fi
-
-# yarn turbo run --concurrency=1 --filter=[HEAD^1] precommit
