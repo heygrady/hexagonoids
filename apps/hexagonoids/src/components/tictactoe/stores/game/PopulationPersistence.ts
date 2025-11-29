@@ -95,21 +95,21 @@ export const savePopulationToStorage = async (
     const committedSerialized: SerializableGenerationSnapshot | undefined =
       committedSnapshot != null
         ? {
-          generation: committedSnapshot.generation,
-          fitness: committedSnapshot.fitness,
-          bestOrganismData: committedSnapshot.bestOrganismData,
-          glickoData: committedSnapshot.glickoData,
-        }
+            generation: committedSnapshot.generation,
+            fitness: committedSnapshot.fitness,
+            bestOrganismData: committedSnapshot.bestOrganismData,
+            glickoData: committedSnapshot.glickoData,
+          }
         : undefined
 
     const bestSerialized: SerializableGenerationSnapshot | undefined =
       bestSnapshot != null
         ? {
-          generation: bestSnapshot.generation,
-          fitness: bestSnapshot.fitness,
-          bestOrganismData: bestSnapshot.bestOrganismData,
-          glickoData: bestSnapshot.glickoData,
-        }
+            generation: bestSnapshot.generation,
+            fitness: bestSnapshot.fitness,
+            bestOrganismData: bestSnapshot.bestOrganismData,
+            glickoData: bestSnapshot.glickoData,
+          }
         : undefined
 
     // Create stored data with population and both snapshots
