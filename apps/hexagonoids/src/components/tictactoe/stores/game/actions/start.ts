@@ -41,10 +41,14 @@ export const start = async ($game: GameStore) => {
 
   if (!hasRestoredState) {
     // Fresh start - mutate and evaluate population, create generation 0 snapshots
+    console.log('[start] Calling initializePopulation...')
     await evolutionManager.initializePopulation()
+    console.log('[start] initializePopulation complete')
 
     const bestExecutor = evolutionManager.getBestExecutor()
+    console.log('[start] Got bestExecutor:', bestExecutor != null)
     const best = evolutionManager.population.best()
+    console.log('[start] Got best organism:', best != null, 'fitness:', best?.fitness)
     if (best?.fitness != null) {
       const gen0Snapshot: RuntimeGenerationSnapshot = {
         generation: 0,
@@ -56,7 +60,11 @@ export const start = async ($game: GameStore) => {
       gameSetters.setBest(gen0Snapshot)
 
       // Set opponent based on useBestOpponent setting
+      console.log('[start] Calling initializeOpponent...')
       initializeOpponent($game, gameSetters)
+      console.log('[start] initializeOpponent complete')
+    } else {
+      console.warn('[start] No best organism found after initializePopulation!')
     }
   } else {
     // Restored state - skip mutations but still evaluate the population
