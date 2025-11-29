@@ -43,8 +43,8 @@ import type { AnyAlgorithm, AnyGenome, AnyPopulation } from './types.js'
 
 export { type SupportedAlgorithm } from './algorithmRegistry.js'
 
-const workerEvaluatorThreadLimit = Math.floor(hardwareConcurrency * 0.5)
-const workerReproducerThreadLimit = Math.floor(hardwareConcurrency * 0.5)
+const workerEvaluatorThreadLimit = Math.floor(hardwareConcurrency - 1)
+const workerReproducerThreadLimit = Math.floor(hardwareConcurrency - 1)
 
 /**
  * Configuration for EvolutionManager.
@@ -68,6 +68,16 @@ export interface EvolutionManagerConfig {
   strategyOptions?: Partial<GlickoStrategyOptions<any>>
   /** Population factory options for restoring saved populations (optional) */
   populationFactoryOptions?: any
+  /**
+   * URL to the worker evaluator script. Required for Vite compatibility.
+   * In Vite, import with: import workerUrl from '@neat-evolution/worker-evaluator/workerEvaluatorScript?worker&url'
+   */
+  workerEvaluatorScriptUrl?: URL | string
+  /**
+   * URL to the worker reproducer script. Required for Vite compatibility.
+   * In Vite, import with: import workerUrl from '@neat-evolution/worker-reproducer/workerReproducerScript?worker&url'
+   */
+  workerReproducerScriptUrl?: URL | string
 }
 
 /**
@@ -124,6 +134,10 @@ export class EvolutionManager<G extends AnyGenome<G>> {
   private readonly strategyOptions: Partial<GlickoStrategyOptions<any>>
   /** Population factory options for restoring saved populations */
   private populationFactoryOptions?: any
+  /** Worker evaluator script URL for Vite compatibility */
+  private readonly workerEvaluatorScriptUrl?: URL | string
+  /** Worker reproducer script URL for Vite compatibility */
+  private readonly workerReproducerScriptUrl?: URL | string
 
   constructor(config: EvolutionManagerConfig) {
     this.algorithmType = config.algorithm
@@ -153,6 +167,12 @@ export class EvolutionManager<G extends AnyGenome<G>> {
     this.environmentConfig = config.environmentConfig ?? {}
     this.strategyOptions = config.strategyOptions ?? {}
     this.populationFactoryOptions = config.populationFactoryOptions
+    if (config.workerEvaluatorScriptUrl != null) {
+      this.workerEvaluatorScriptUrl = config.workerEvaluatorScriptUrl
+    }
+    if (config.workerReproducerScriptUrl != null) {
+      this.workerReproducerScriptUrl = config.workerReproducerScriptUrl
+    }
 
     this.configureGenomeOptions(config.algorithm, config.genomeOptions)
 
@@ -209,6 +229,10 @@ export class EvolutionManager<G extends AnyGenome<G>> {
           algorithmPathname: this.modulePathnames[ModulePathnameKey.ALGORITHM],
           threadCount: workerReproducerThreadLimit,
           enableCustomState: this.algorithmType === 'DES-HyperNEAT',
+          // Only include workerScriptUrl if defined (exactOptionalPropertyTypes compatibility)
+          ...(this.workerReproducerScriptUrl != null && {
+            workerScriptUrl: this.workerReproducerScriptUrl,
+          }),
         },
         this.terminables
       )
@@ -243,6 +267,11 @@ export class EvolutionManager<G extends AnyGenome<G>> {
       taskCount: this.populationOptions.populationSize,
       threadCount: workerEvaluatorThreadLimit,
       strategy,
+      // Only include workerScriptUrl if defined (exactOptionalPropertyTypes compatibility)
+      ...(this.workerEvaluatorScriptUrl != null && {
+        workerScriptUrl: this.workerEvaluatorScriptUrl,
+      }),
+      verbose: false, // DEBUG: Enable verbose logging for worker pool
     })
     this.terminables.add(evaluator as any)
 
