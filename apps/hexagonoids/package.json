@@ -33,6 +33,8 @@
     "@neat-evolution/executor": "^0.3.5",
     "@neat-evolution/hyperneat": "^0.6.0",
     "@neat-evolution/neat": "^0.6.0",
+    "@neat-evolution/worker-evaluator": "^0.7.0",
+    "@neat-evolution/worker-reproducer": "^0.7.0",
     "@solid-primitives/intersection-observer": "^2.1.3",
     "@tailwindcss/typography": "^0.5.10",
     "astro": "^2.10.15",
