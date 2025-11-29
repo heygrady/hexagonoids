@@ -33,12 +33,14 @@
   },
   "dependencies": {
     "@changesets/cli": "^2.29.8",
-    "@commitlint/cli": "^18.4.3",
-    "@commitlint/config-conventional": "^18.4.3",
-    "@commitlint/config-lerna-scopes": "^18.4.3",
-    "@manypkg/cli": "^0.21.1",
-    "husky": "^8.0.3",
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "@manypkg/cli": "^0.25.1",
+    "husky": "^9.1.7",
     "turbo": "^2.6.1",
     "vercel": "^32.6.0"
+  },
+  "devDependencies": {
+    "@commitlint/config-workspace-scopes": "^20.0.0"
   }
 }
