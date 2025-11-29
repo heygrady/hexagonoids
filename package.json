@@ -11,6 +11,7 @@
     "coverage": "turbo run coverage",
     "coverage:ci": "turbo run coverage --concurrency=2 -- --passWithNoTests --run",
     "demo": "yarn build:demo && yarn workspace @heygrady/tictactoe-demo start",
+    "preview": "yarn workspace @heygrady/hexagonoids-app preview",
     "play": "yarn workspace @heygrady/tictactoe-demo play",
     "dev": "yarn workspace @heygrady/hexagonoids-app dev:workspace",
     "format": "turbo run format",
