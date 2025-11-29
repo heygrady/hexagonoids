@@ -1,5 +1,6 @@
 {
   "concurrency": "4",
+  "globalPassThroughEnv": ["GITHUB_TOKEN"],
   "tasks": {
     "build": {
       "inputs": [
