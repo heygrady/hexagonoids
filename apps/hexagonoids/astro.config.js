@@ -54,13 +54,18 @@ export default defineConfig({
             if (
               id.includes('@neat-evolution') ||
               id.includes('@heygrady/tictactoe') ||
-              id.includes('@heygrady/tournament')
+              id.includes('@heygrady/tournament') ||
+              // Match local monorepo packages by folder path
+              id.includes('/packages/tictactoe-') ||
+              id.includes('/packages/tournament-strategy')
             ) {
-              const getNeatId = (id) => {
-                const match = id.match(/@(?:neat-evolution|heygrady)\/(.+)/)
-                return match ? `neat-${match[1]}` : id
-              }
-              return getNeatId(id)
+              // Chunk by package name only (not per-file) to prevent
+              // shared dependencies from contaminating worker chunks
+              // Match npm package names OR local package folder names
+              const match =
+                id.match(/@(?:neat-evolution|heygrady)\/([^/]+)/) ||
+                id.match(/\/packages\/(tictactoe-[^/]+|tournament-strategy)\//)
+              return match ? `neat-${match[1]}` : null
             }
           },
         },
