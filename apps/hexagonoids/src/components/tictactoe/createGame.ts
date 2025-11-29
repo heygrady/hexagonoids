@@ -6,6 +6,9 @@ import {
   validateModulePathnames,
   type SupportedAlgorithm,
 } from '@heygrady/tictactoe-demo'
+// Vite worker URL imports - must use ?worker&url suffix for Vite to bundle correctly
+import workerEvaluatorScriptUrl from '@neat-evolution/worker-evaluator/workerEvaluatorScript?worker&url'
+import workerReproducerScriptUrl from '@neat-evolution/worker-reproducer/workerReproducerScript?worker&url'
 
 import { GLICKO_MAX_HISTORY } from './constants/glickoSettings.js'
 import { resetBoard } from './stores/board/BoardSetters.js'
@@ -32,7 +35,35 @@ const DEFAULT_POPULATION_SIZE = 100
 // See: devlogs/vite-glob-import.md
 const modules = import.meta.glob('./modules/*.ts')
 
-const moduleKeys = Object.keys(modules)
+/**
+ * Extract the bundled module path from a glob import function.
+ * In dev mode, the key itself is the path. In production builds,
+ * the function contains an import() call with the bundled filename.
+ * @param {string} key - The original module key (e.g., './modules/NEATAlgorithmPathname.ts')
+ * @param {() => Promise<unknown>} importFn - The dynamic import function from import.meta.glob
+ * @returns {string} The resolved pathname for the module
+ */
+const extractModulePath = (
+  key: string,
+  importFn: () => Promise<unknown>
+): string => {
+  const fnString = importFn.toString()
+
+  // The function looks like this (in both prod and dev):
+  // () => __vitePreload(() => import("./NEATAlgorithmPathname.bf49d966.js"), [...])
+  // We need to extract the path from the import() call
+  const importMatch = fnString.match(/import\(["']([^"']+)["']\)/)
+  console.log(
+    `[extractModulePath] key: ${key}, fnString: ${fnString}, importMatch:`,
+    importMatch?.[1]
+  )
+  if (importMatch != null) {
+    // use the bundled filename as the href
+    return new URL(importMatch[1], import.meta.url).href
+  }
+  // Fallback: use the original key as the href
+  return new URL(key, import.meta.url).href
+}
 
 /**
  * Get module pathnames for a specific algorithm.
@@ -50,19 +81,16 @@ export const getModulePathnamesForAlgorithm = (
 
   const algorithmPathnameKey = `${algorithmName}AlgorithmPathname`
 
-  for (const key of moduleKeys) {
+  for (const [key, importFn] of Object.entries(modules)) {
     if (key.includes(algorithmPathnameKey)) {
-      modulePathnames.algorithmPathname = new URL(key, import.meta.url).pathname
+      modulePathnames.algorithmPathname = extractModulePath(key, importFn)
     } else if (key.includes(ModulePathnameKey.CREATE_ENVIRONMENT)) {
-      modulePathnames.createEnvironmentPathname = new URL(
+      modulePathnames.createEnvironmentPathname = extractModulePath(
         key,
-        import.meta.url
-      ).pathname
+        importFn
+      )
     } else if (key.includes(ModulePathnameKey.CREATE_EXECUTOR)) {
-      modulePathnames.createExecutorPathname = new URL(
-        key,
-        import.meta.url
-      ).pathname
+      modulePathnames.createExecutorPathname = extractModulePath(key, importFn)
     }
   }
 
@@ -109,6 +137,8 @@ export const createGame = async (
   const evolutionManager = new EvolutionManager({
     algorithm: settings.algorithm,
     modulePathnames,
+    workerEvaluatorScriptUrl,
+    workerReproducerScriptUrl,
     // Use saved config if available, otherwise use defaults
     neatOptions:
       savedData?.populationData.config != null
@@ -180,8 +210,7 @@ export const createGame = async (
       }
       gameSetters.setCommitted(committedSnapshot)
       console.log(
-        `[createGame] Restored committed generation ${
-          committedSnapshot.generation
+        `[createGame] Restored committed generation ${committedSnapshot.generation
         } with fitness ${committedSnapshot.fitness.toFixed(4)}`
       )
     }
@@ -200,8 +229,7 @@ export const createGame = async (
       }
       gameSetters.setBest(bestSnapshot)
       console.log(
-        `[createGame] Restored best generation ${
-          bestSnapshot.generation
+        `[createGame] Restored best generation ${bestSnapshot.generation
         } with fitness ${bestSnapshot.fitness.toFixed(4)}`
       )
     }
