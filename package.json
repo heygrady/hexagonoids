@@ -5,8 +5,8 @@
   "scripts": {
     "build": "turbo run build",
     "build:demo": "turbo run build --filter=@heygrady/tictactoe-demo",
-    "claude": "npm install -g @anthropic-ai/claude-code && claude",
-    "gemini": "npm install -g @google/gemini-cli && gemini",
+    "claude": "yarn dlx @anthropic-ai/claude-code",
+    "gemini": "yarn dlx @google/gemini-cli",
     "clean": "turbo run clean",
     "coverage": "turbo run coverage",
     "coverage:ci": "turbo run coverage --concurrency=2 -- --passWithNoTests --run",
