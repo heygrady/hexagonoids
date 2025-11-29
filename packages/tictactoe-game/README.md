@@ -1,56 +1,196 @@
 # @heygrady/tictactoe-game
 
-New package.
+A pure TypeScript implementation of Tic-Tac-Toe game logic with multiple AI player types. This package provides the core game mechanics, board representation, and a variety of AI opponents ranging from random play to optimal minimax strategy, including support for neural network-based players.
 
-```sh
+## Purpose
+
+- **Game Logic**: Provide board representation, move validation, and win/draw detection
+- **AI Players**: Offer multiple AI implementations with varying skill levels for training and evaluation
+- **Neural Network Support**: Enable NEAT-based agents to play via the `neatAI` player
+- **Board Transformations**: Normalize board orientations for consistent neural network inputs
+
+## How it Fits into the Ecosystem
+
+- **@heygrady/tictactoe-environment**: Uses this package's game logic and AI players to evaluate NEAT genomes
+- **@heygrady/tictactoe-demo**: Imports AI players for training opponents and interactive play
+- **@heygrady/hexagonoids-app**: Displays game state and allows users to play against AI opponents
+
+## Installation
+
+```bash
 yarn add @heygrady/tictactoe-game
 ```
 
+## Key Components
+
+### Types
+
+- **`Board`**: A 9-element tuple representing the game board (0 = empty, 1 = X, -1 = O)
+- **`Player`**: The current player (1 for X, -1 for O)
+- **`GameState`**: Tuple of `[isWin, isDraw, winner]` for checking game completion
+- **`PlayerFn`**: Function signature for AI players: `(board, player, options?) => PlayerMove`
+- **`PlayerMove`**: Tuple of `[newBoard, moveIndex, fitness]` returned by all players
+
+### Game Functions
+
+- **`getInitialBoard()`**: Returns a fresh empty board
+- **`checkState(board)`**: Returns the current game state (win/draw/ongoing)
+- **`getValidMoves(board)`**: Returns array of valid move indices (0-8)
+- **`getCandidateMoves(board, player)`**: Returns categorized move candidates (winning, blocking, developing, open)
+- **`getForkingCandidateMoves(board, player)`**: Extended analysis including fork detection
+
+### AI Players
+
+| Player | Strategy | Skill Level |
+|--------|----------|-------------|
+| `randomAI` | Picks winning/blocking moves when obvious, otherwise random | Low |
+| `simpleAI` | Uses basic heuristics (center, corners, edges) | Low-Medium |
+| `heuristicAI` | Evaluates positions using strategic priorities | Medium |
+| `minimaxAI` | Optimal play using minimax with alpha-beta pruning | Perfect |
+| `neatAI` | Neural network-based decision making | Variable |
+| `sleeperAI` | Intentionally delays winning for training purposes | Special |
+
+### Board Utilities
+
+- **`boardToInput(board, player)`**: Converts board to neural network input format with orientation normalization
+- **`reorientBoard(board)`**: Transforms board to canonical orientation for consistent NN inputs
+
 ## Usage
 
-This package supports both CJS and ESM formats. You will see `cjs`, `esm` and `types` builds in the `dist` folder to support Common JS, ECMAScript Modules and TypeScript respectively. In practice you should be able to import it however you prefer and it will just work.
+### Basic Game Loop
 
-### TypeScript and ESM (preferred)
+```typescript
+import {
+  getInitialBoard,
+  checkState,
+  getValidMoves,
+  type Board,
+  type Player,
+} from '@heygrady/tictactoe-game'
 
-Node ESM and TypeScript support the same modern syntax for imports.
+// 1. Initialize the game
+let board = getInitialBoard()
+let currentPlayer: Player = 1 // X goes first
 
-```ts
-import { message } from '@heygrady/tictactoe-game'
+// 2. Game loop
+while (true) {
+  const [isWin, isDraw, winner] = checkState(board)
 
-console.log(message)
+  if (isWin) {
+    console.log(`Player ${winner === 1 ? 'X' : 'O'} wins!`)
+    break
+  }
+  if (isDraw) {
+    console.log("It's a draw!")
+    break
+  }
+
+  // 3. Get valid moves and make a move
+  const validMoves = getValidMoves(board)
+  const move = validMoves[0] // Simple: pick first valid move
+
+  // 4. Apply the move
+  board = [...board] as Board
+  board[move] = currentPlayer
+
+  // 5. Switch players
+  currentPlayer = currentPlayer === 1 ? -1 : 1
+}
 ```
 
-### CJS
+### Using AI Players
 
-Legacy Node supports Common JS require syntax for imports.
+```typescript
+import {
+  getInitialBoard,
+  checkState,
+  randomAI,
+  minimaxAI,
+  type Board,
+  type Player,
+} from '@heygrady/tictactoe-game'
 
-```js
-const { message } = require('@heygrady/tictactoe-game')
+// 1. Set up players
+const players = {
+  1: randomAI,   // X uses random AI
+  [-1]: minimaxAI, // O uses perfect play
+}
 
-console.log(message)
+// 2. Play a game
+let board = getInitialBoard()
+let currentPlayer: Player = 1
+
+while (true) {
+  const [isWin, isDraw] = checkState(board)
+  if (isWin || isDraw) break
+
+  // 3. Get the AI's move
+  const playerFn = players[currentPlayer]
+  const [newBoard, move, fitness] = playerFn(board, currentPlayer)
+
+  console.log(`Player ${currentPlayer === 1 ? 'X' : 'O'} plays position ${move}`)
+  board = newBoard
+  currentPlayer = currentPlayer === 1 ? -1 : 1
+}
 ```
 
-## Development
+### Using NEAT AI with an Executor
 
-```sh
-# build (in watch mode)
-yarn dev
+```typescript
+import {
+  getInitialBoard,
+  checkState,
+  neatAI,
+  type Board,
+  type Player,
+} from '@heygrady/tictactoe-game'
+import type { SyncExecutor } from '@neat-evolution/executor'
 
-# build
-yarn build
+// 1. Assume you have a trained neural network executor
+const executor: SyncExecutor = /* your trained network */
 
-# lint
-yarn lint
+// 2. Play using the NEAT AI
+let board = getInitialBoard()
+const player: Player = 1
 
-# fix linting errors
-yarn format
+const [newBoard, move, fitness] = neatAI(board, player, {
+  executor,
+  verbose: true, // Log decision details
+})
 
-# test
-yarn test
-
-# test (in coverage mode)
-yarn coverage
-
-# clean up generated files
-yarn clean
+console.log(`NEAT chose position ${move} with fitness ${fitness.toFixed(3)}`)
 ```
+
+### Converting Board to Neural Network Input
+
+```typescript
+import {
+  getInitialBoard,
+  boardToInput,
+  type Board,
+  type Player,
+} from '@heygrady/tictactoe-game'
+
+// 1. Create a board state
+const board: Board = [
+  1, 0, -1,
+  0, 1, 0,
+  0, 0, -1,
+]
+const player: Player = 1
+
+// 2. Convert to neural network input
+// Returns 18 values: 9 for player's pieces + 9 for opponent's pieces
+const [input, inverseTransform] = boardToInput(board, player)
+
+console.log('NN Input:', input)
+// Output is normalized so the board appears in a canonical orientation
+
+// 3. After getting NN output, use inverseTransform to map back to original orientation
+const nnOutput = [0.1, 0.8, 0.1, 0.2, 0.1, 0.3, 0.4, 0.2, 0.1] // example
+const originalOutput = inverseTransform(nnOutput as Board)
+```
+
+## License
+
+MIT License - see [LICENSE](../../LICENSE) for details.
