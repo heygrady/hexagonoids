@@ -174,13 +174,6 @@ export const createSphereArenaCamera = (
   // Get screen dimensions in an engine-aware way (WebGL vs WebGPU)
   const [screenWidth, screenHeight] = getScreenDimensions(engine)
 
-  // Debug logging (can be removed if not needed)
-  // console.log(`\n=== Camera ${name} Screen Sampling ===`)
-  // console.log(`Screen dimensions: ${screenWidth} x ${screenHeight}`)
-  // console.log(`Pixel ratio: ${pixelRatio}`)
-  // console.log(`Camera position:`, camera.position)
-  // console.log(`Camera target:`, camera.getTarget())
-
   const predicate = (mesh: AbstractMesh) =>
     mesh === globe || mesh === equatorialPlane
 
