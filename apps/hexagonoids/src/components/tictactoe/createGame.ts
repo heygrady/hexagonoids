@@ -7,7 +7,9 @@ import {
   type SupportedAlgorithm,
 } from '@heygrady/tictactoe-demo'
 // Vite worker URL imports - must use ?worker&url suffix for Vite to bundle correctly
+// eslint-disable-next-line import/default
 import workerEvaluatorScriptUrl from '@neat-evolution/worker-evaluator/workerEvaluatorScript?worker&url'
+// eslint-disable-next-line import/default
 import workerReproducerScriptUrl from '@neat-evolution/worker-reproducer/workerReproducerScript?worker&url'
 
 import { GLICKO_MAX_HISTORY } from './constants/glickoSettings.js'
@@ -53,10 +55,6 @@ const extractModulePath = (
   // () => __vitePreload(() => import("./NEATAlgorithmPathname.bf49d966.js"), [...])
   // We need to extract the path from the import() call
   const importMatch = fnString.match(/import\(["']([^"']+)["']\)/)
-  console.log(
-    `[extractModulePath] key: ${key}, fnString: ${fnString}, importMatch:`,
-    importMatch?.[1]
-  )
   if (importMatch != null) {
     // use the bundled filename as the href
     return new URL(importMatch[1], import.meta.url).href
@@ -117,14 +115,6 @@ export const createGame = async (
     settings.algorithm,
     settings.activation
   )
-
-  // DEBUG: Log what's being restored
-  console.log('[createGame] Loaded savedData:', {
-    hasData: savedData != null,
-    committedGen: savedData?.committedSnapshot?.generation,
-    bestGen: savedData?.bestSnapshot?.generation,
-    hasFactoryOptions: savedData?.populationData?.factoryOptions != null,
-  })
 
   // Get module pathnames for the selected algorithm
   const modulePathnames = getModulePathnamesForAlgorithm(settings.algorithm)
@@ -209,10 +199,6 @@ export const createGame = async (
         executor,
       }
       gameSetters.setCommitted(committedSnapshot)
-      console.log(
-        `[createGame] Restored committed generation ${committedSnapshot.generation
-        } with fitness ${committedSnapshot.fitness.toFixed(4)}`
-      )
     }
 
     // Restore best snapshot from historical best
@@ -228,10 +214,6 @@ export const createGame = async (
         executor,
       }
       gameSetters.setBest(bestSnapshot)
-      console.log(
-        `[createGame] Restored best generation ${bestSnapshot.generation
-        } with fitness ${bestSnapshot.fitness.toFixed(4)}`
-      )
     }
 
     // Set opponent based on useBestOpponent setting

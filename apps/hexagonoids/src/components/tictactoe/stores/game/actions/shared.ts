@@ -600,7 +600,12 @@ export const initializeOpponent = (
 ) => {
   const interactiveGame = $game.get().interactiveGame
   const opponent = getOpponent($game)
-  console.log('[initializeOpponent] opponent:', opponent != null, 'executor:', opponent?.executor != null)
+  console.log(
+    '[initializeOpponent] opponent:',
+    opponent != null,
+    'executor:',
+    opponent?.executor != null
+  )
   if (opponent != null) {
     gameSetters.setOpponent({ ...opponent })
     interactiveGame.setAIExecutor(opponent.executor)

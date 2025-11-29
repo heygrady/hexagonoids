@@ -48,7 +48,12 @@ export const start = async ($game: GameStore) => {
     const bestExecutor = evolutionManager.getBestExecutor()
     console.log('[start] Got bestExecutor:', bestExecutor != null)
     const best = evolutionManager.population.best()
-    console.log('[start] Got best organism:', best != null, 'fitness:', best?.fitness)
+    console.log(
+      '[start] Got best organism:',
+      best != null,
+      'fitness:',
+      best?.fitness
+    )
     if (best?.fitness != null) {
       const gen0Snapshot: RuntimeGenerationSnapshot = {
         generation: 0,
