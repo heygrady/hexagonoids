@@ -15,8 +15,9 @@
     "dev": "yarn workspace @heygrady/hexagonoids-app dev:workspace",
     "format": "turbo run format",
     "lint": "turbo run lint",
-    "postinstall": "husky install",
+    "prepare": "husky",
     "release": "yarn build && changeset publish",
+    "vercel-build": "./scripts/inject-npm-auth.sh && yarn install && yarn build",
     "test": "turbo run test -- --passWithNoTests --run",
     "test:ci": "turbo run test --concurrency=2 -- --passWithNoTests --run",
     "version": "changeset version && yarn install"
