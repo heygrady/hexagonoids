@@ -20,8 +20,30 @@ import '../../styles/experiments.css';
         <section class="blog-area container mx-auto px-4 py-8 max-w-lg">
             <article class="prose">
                 <h2 class="text-2xl font-bold mb-3">About the Game</h2>
-                <!-- Blog content explaining the experiment -->
-                <p>...</p>
+
+                <p>
+                  This is an experiment where you play tic-tac-toe against an AI that learns through evolution. The game starts with a completely untrained neural network — basically random moves. After each match, the AI trains for several generations, and you play against whichever network has emerged with the best fitness score. It's weirdly satisfying to watch it go from clueless to competent.
+                </p>
+
+                <p>
+                  The AI uses <a href="https://nn.cs.utexas.edu/downloads/papers/stanley.ec02.pdf" target="_blank" rel="noopener noreferrer">NEAT</a> (NeuroEvolution of Augmenting Topologies), a genetic algorithm for evolving neural networks. Instead of training with backpropagation like most modern AI, NEAT maintains a population of networks (100 by default) and randomly mutates them across generations. Networks that perform well survive and reproduce; bad ones get culled. Amazingly, this actually works — the AI typically reaches solid play around 150-200 generations.
+                </p>
+
+                <p>
+                  Each "match" is actually two games: one where the AI goes first, one where you go first. This keeps things fair since the first player has an advantage. After your match, the AI trains in the background using web workers so it doesn't freeze your browser. Then you face the new champion.
+                </p>
+
+                <p>
+                  If you don't want to play 20 matches waiting for the AI to get good, bump up the <strong>Generations per Match</strong> setting. At 100 generations per round, the AI evolves much faster between games. You can also toggle <strong>Use Best Opponent</strong> to always play against the all-time best network instead of the current generation's leader. The <strong>Algorithm</strong> dropdown lets you try different NEAT variants, though for a game this simple the basic NEAT algorithm works fine.
+                </p>
+
+                <p>
+                  Fair warning: ES-HyperNEAT and DES-HyperNEAT are computationally expensive. They'll work, but expect your CPU fan to spin up. These algorithms shine on problems with spatial structure — tic-tac-toe is honestly too simple to benefit from their advanced topology generation.
+                </p>
+
+                <p>
+                  Why tic-tac-toe? It's the perfect sandbox. The game is solved (perfect play always draws), so we know exactly how good the AI can get. It's simple enough that evolution happens quickly, but complex enough that a random network can't win by accident. Think of it as a hello world for neuroevolution.
+                </p>
             </article>
         </section>
     </main>
