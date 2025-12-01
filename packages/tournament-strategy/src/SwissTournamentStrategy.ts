@@ -21,9 +21,9 @@ import type {
   ScoreComponents,
 } from './types.js'
 
-export class SwissTournamentStrategy<G extends AnyGenome<G>>
-  implements EvaluationStrategy<G>
-{
+export class SwissTournamentStrategy<
+  G extends AnyGenome<G>,
+> implements EvaluationStrategy<G> {
   public readonly options: SwissTournamentStrategyOptions<G>
   private readonly fillerIds = new Set<number>()
 

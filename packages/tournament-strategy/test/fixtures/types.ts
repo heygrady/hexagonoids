@@ -1,5 +1,3 @@
-import type { GenomeEntry } from '@neat-evolution/evaluator'
-
 import type { GlickoNormalizationRanges } from '../../src/GlickoStrategyOptions.js'
 
 /**
