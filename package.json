@@ -1,6 +1,6 @@
 {
   "name": "@heygrady/hexagonoids-repo",
-  "packageManager": "yarn@3.6.1",
+  "packageManager": "yarn@4.12.0",
   "private": true,
   "scripts": {
     "build": "turbo run build",
@@ -29,9 +29,9 @@
     "scripts/*"
   ],
   "volta": {
-    "node": "22.14.0",
-    "npm": "11.1.0",
-    "yarn": "3.6.1"
+    "node": "24.11.1",
+    "npm": "11.6.4",
+    "yarn": "4.12.0"
   },
   "dependencies": {
     "@changesets/cli": "^2.29.8",
