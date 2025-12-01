@@ -87,8 +87,9 @@ console.log(environment.description)
 ### Evaluating Individual Genomes (Gauntlet)
 
 ```typescript
-import { TicTacToeEnvironment } from '@heygrady/tictactoe-environment'
 import type { SyncExecutor } from '@neat-evolution/executor'
+
+import { TicTacToeEnvironment } from '@heygrady/tictactoe-environment'
 
 const environment = new TicTacToeEnvironment({
   // Configure gauntlet opponents
@@ -111,8 +112,9 @@ function evaluateGenome(executor: SyncExecutor): number {
 ### Evaluating Head-to-Head Matches
 
 ```typescript
-import { TicTacToeEnvironment } from '@heygrady/tictactoe-environment'
 import type { SyncExecutor } from '@neat-evolution/executor'
+
+import { TicTacToeEnvironment } from '@heygrady/tictactoe-environment'
 
 const environment = new TicTacToeEnvironment()
 

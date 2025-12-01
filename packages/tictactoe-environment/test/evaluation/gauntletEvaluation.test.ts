@@ -1,4 +1,4 @@
-import { simpleAI, minimaxAI, heuristicAI } from '@heygrady/tictactoe-game'
+import { simpleAI, minimaxAI } from '@heygrady/tictactoe-game'
 import { createRNG } from '@neat-evolution/utils'
 import { describe, expect, test } from 'vitest'
 
