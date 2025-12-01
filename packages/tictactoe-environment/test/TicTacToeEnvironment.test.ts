@@ -4,7 +4,7 @@ import { describe, expect, test, vi, beforeEach } from 'vitest'
 import { TicTacToeEnvironment } from '../src/TicTacToeEnvironment.js'
 
 // Helper to create a mock executor. We only need a unique instance for Map keys.
-const mockExecutor = (name: string): SyncExecutor => {
+const mockExecutor = (_name: string): SyncExecutor => {
   return {
     execute: vi.fn(() => Array(9).fill(0.1)),
   }

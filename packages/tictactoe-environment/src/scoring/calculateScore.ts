@@ -33,8 +33,8 @@ export function calculateScore(
   const gameOutcomeScore = didWin
     ? outcomeScores.win
     : didLose
-    ? outcomeScores.loss
-    : outcomeScores.draw
+      ? outcomeScores.loss
+      : outcomeScores.draw
 
   // If no moves were made, return base score
   if (moveScores.length === 0) {

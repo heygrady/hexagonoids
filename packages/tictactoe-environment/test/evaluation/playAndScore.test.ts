@@ -1,9 +1,4 @@
-import {
-  getInitialBoard,
-  simpleAI,
-  type Board,
-  type Player,
-} from '@heygrady/tictactoe-game'
+import { simpleAI, type Board, type Player } from '@heygrady/tictactoe-game'
 import { createRNG } from '@neat-evolution/utils'
 import { describe, expect, test } from 'vitest'
 

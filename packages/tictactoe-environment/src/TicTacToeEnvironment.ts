@@ -22,9 +22,7 @@ import { createPlayerFromExecutor } from './utils/createPlayerFromExecutor.js'
  * @returns {import('@heygrady/tictactoe-game').PlayerFn} A PlayerFn that uses the provided executor
  */
 
-export class TicTacToeEnvironment
-  implements Environment<TicTacToeEnvironmentConfig>
-{
+export class TicTacToeEnvironment implements Environment<TicTacToeEnvironmentConfig> {
   public readonly description: EnvironmentDescription
   public readonly isAsync = false
   private readonly config: TicTacToeEnvironmentConfig
