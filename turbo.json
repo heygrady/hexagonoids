@@ -1,4 +1,5 @@
 {
+  "$schema": "https://turbo.build/schema.json",
   "concurrency": "4",
   "globalPassThroughEnv": ["GITHUB_TOKEN"],
   "tasks": {
