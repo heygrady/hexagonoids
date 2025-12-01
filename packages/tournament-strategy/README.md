@@ -49,9 +49,10 @@ yarn add @heygrady/tournament-strategy
 ### Swiss Tournament Strategy
 
 ```typescript
-import { SwissTournamentStrategy } from '@heygrady/tournament-strategy'
 import type { EvaluationContext } from '@neat-evolution/evaluation-strategy'
 import type { GenomeEntries, AnyGenome } from '@neat-evolution/evaluator'
+
+import { SwissTournamentStrategy } from '@heygrady/tournament-strategy'
 
 // 1. Create the strategy with options
 const strategy = new SwissTournamentStrategy({
@@ -87,12 +88,13 @@ async function evaluatePopulation<G extends AnyGenome<G>>(
 ### Glicko-2 Strategy with Heroes
 
 ```typescript
+import type { AnyGenome } from '@neat-evolution/evaluator'
+
 import {
   GlickoStrategy,
   type GlickoStrategyOptions,
   type HeroGenome,
 } from '@heygrady/tournament-strategy'
-import type { AnyGenome } from '@neat-evolution/evaluator'
 
 // 1. Create strategy with hero tracking
 const strategy = new GlickoStrategy<MyGenome>({
@@ -135,12 +137,13 @@ const strategy = new GlickoStrategy<MyGenome>({
 ### Custom Fitness Calculator
 
 ```typescript
+import type { GenomeEntry, AnyGenome } from '@neat-evolution/evaluator'
+
 import {
   SwissTournamentStrategy,
   type ScoreComponents,
   type FitnessCalculator,
 } from '@heygrady/tournament-strategy'
-import type { GenomeEntry, AnyGenome } from '@neat-evolution/evaluator'
 
 // 1. Define custom fitness calculation logic
 const customFitnessCalculator: FitnessCalculator<MyGenome> = (

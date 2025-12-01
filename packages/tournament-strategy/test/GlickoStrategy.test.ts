@@ -21,11 +21,11 @@ vi.mock('../src/glicko/scoreSeedTournaments.js', async (importOriginal) => {
 describe('GlickoStrategy', () => {
   const mockContext: EvaluationContext<AnyGenome<any>> = {
     evaluateGenomeEntry: vi.fn(
-      async (entry: GenomeEntry<AnyGenome<any>>, seed?: string) =>
+      async (entry: GenomeEntry<AnyGenome<any>>, _seed?: string) =>
         [entry[0], entry[1], Math.random()] as FitnessData
     ),
     evaluateGenomeEntryBatch: vi.fn(
-      async (entries: Array<GenomeEntry<AnyGenome<any>>>, seed?: string) => {
+      async (entries: Array<GenomeEntry<AnyGenome<any>>>, _seed?: string) => {
         const results: FitnessData[] = []
         for (const entry of entries) {
           results.push([entry[0], entry[1], Math.random()])
