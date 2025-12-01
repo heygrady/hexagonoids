@@ -74,8 +74,7 @@ export interface SerializableGenerationSnapshot {
 /**
  * Runtime snapshot of a generation's state (with executor)
  */
-export interface RuntimeGenerationSnapshot
-  extends SerializableGenerationSnapshot {
+export interface RuntimeGenerationSnapshot extends SerializableGenerationSnapshot {
   executor: SyncExecutor
 }
 

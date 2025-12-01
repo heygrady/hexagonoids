@@ -156,7 +156,7 @@ export const disposeCellMaterialPool = (): void => {
 
   materialPool = []
   cellToMaterialMap.clear()
-  materialInUse.clear()
+  // materialInUse.clear()
   currentKRingCells.clear()
   defaultMaterial = null
   sceneRef = null

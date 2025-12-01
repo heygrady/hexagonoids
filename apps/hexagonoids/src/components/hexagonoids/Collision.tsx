@@ -41,8 +41,8 @@ export const Collision: Component<CollisionProps> = (props) => {
       const meshNode = isRockState(state)
         ? state.rockNode
         : isShipState(state)
-        ? state.shipNode
-        : state.bulletNode
+          ? state.shipNode
+          : state.bulletNode
       if (originNode == null || meshNode == null) {
         return
       }

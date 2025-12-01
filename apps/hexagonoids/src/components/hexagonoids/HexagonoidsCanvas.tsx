@@ -27,8 +27,7 @@ import { type GameActions, bindGameActions } from './store/game/GameActions'
 import { type GameStore, createGameStore } from './store/game/GameStore'
 import { UI } from './UI'
 
-export interface HexagonoidsCanvasProps
-  extends JSX.CanvasHTMLAttributes<HTMLCanvasElement> {
+export interface HexagonoidsCanvasProps extends JSX.CanvasHTMLAttributes<HTMLCanvasElement> {
   enableWebGPU?: boolean
   debug?: boolean
 }

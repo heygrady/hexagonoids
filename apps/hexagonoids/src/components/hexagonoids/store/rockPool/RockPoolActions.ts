@@ -98,7 +98,7 @@ export const splitRock = (
 export const collideWithBullet = (
   $rocks: RockPoolStore,
   $rock: RockStore,
-  $bullet: BulletStore
+  _$bullet: BulletStore
 ): RockStore[] => {
   const rockState = $rock.get()
   const { size } = rockState

@@ -61,15 +61,15 @@ export const TicTacToeBoard: Component<TicTacToeBoardProps> = (props) => {
             {game().gameOutcome === 'win'
               ? '🎉'
               : game().gameOutcome === 'loss'
-              ? '🤖'
-              : '🤝'}
+                ? '🤖'
+                : '🤝'}
           </p>
           <p class='text-lg font-semibold'>
             {game().gameOutcome === 'win'
               ? 'You win!'
               : game().gameOutcome === 'loss'
-              ? 'AI wins!'
-              : "It's a draw!"}
+                ? 'AI wins!'
+                : "It's a draw!"}
           </p>
         </div>
       )}

@@ -122,9 +122,9 @@ let globalShipPool: ShipPool | null = null
 /**
  * Initialize the global ship pool.
  * @param {Scene} scene - Babylon.js scene
- * @param {Mesh} globe - Globe mesh (unused, kept for consistency)
+ * @param {Mesh} _globe - Globe mesh (unused, kept for consistency)
  */
-export const initializeShipPool = (scene: Scene, globe: Mesh): void => {
+export const initializeShipPool = (scene: Scene, _globe: Mesh): void => {
   if (globalShipPool !== null) {
     console.warn('[ShipPool] Already initialized, skipping')
     return

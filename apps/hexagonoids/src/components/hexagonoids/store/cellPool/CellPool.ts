@@ -83,9 +83,9 @@ let globalCellPool: CellPool | null = null
 /**
  * Initialize the global cell pool.
  * @param {Scene} scene - Babylon.js scene
- * @param {Mesh} globe - Globe mesh (unused, kept for consistency)
+ * @param {Mesh} _globe - Globe mesh (unused, kept for consistency)
  */
-export const initializeCellPool = (scene: Scene, globe: Mesh): void => {
+export const initializeCellPool = (scene: Scene, _globe: Mesh): void => {
   if (globalCellPool !== null) {
     console.warn('[CellPool] Already initialized, skipping')
     return

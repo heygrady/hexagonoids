@@ -20,8 +20,7 @@ import { SceneContext, type SceneContextValue } from './SceneContext'
 export type ReadyCallback = (scene: Scene) => void
 export type VisibilityChangeCallback = (scene: Scene, visible: boolean) => void
 
-export interface SceneCanvasProps
-  extends JSX.CanvasHTMLAttributes<HTMLCanvasElement> {
+export interface SceneCanvasProps extends JSX.CanvasHTMLAttributes<HTMLCanvasElement> {
   antialias?: boolean
   engineOptions?: AbstractEngineOptions
   adaptToDeviceRatio?: boolean
@@ -140,9 +139,8 @@ export const SceneCanvas: Component<SceneCanvasProps> = (props) => {
           console.log('Attempting WebGPU initialization...')
           try {
             // Lazy load WebGPUEngine only when needed
-            const { WebGPUEngine } = await import(
-              '@babylonjs/core/Engines/webgpuEngine.js'
-            )
+            const { WebGPUEngine } =
+              await import('@babylonjs/core/Engines/webgpuEngine.js')
             const webGPUSupported = await WebGPUEngine.IsSupportedAsync
 
             if (webGPUSupported) {

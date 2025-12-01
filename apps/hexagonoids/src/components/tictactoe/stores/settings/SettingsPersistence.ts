@@ -27,7 +27,7 @@ export const saveSettingsToStorage = async (
   settings: SettingsState
 ): Promise<void> => {
   try {
-    const { isOpen, ...persistableSettings } = settings
+    const { isOpen: _isOpen, ...persistableSettings } = settings
     await set(SETTINGS_STORAGE_KEY, persistableSettings)
   } catch (error) {
     console.warn('Failed to save settings to IndexedDB:', error)

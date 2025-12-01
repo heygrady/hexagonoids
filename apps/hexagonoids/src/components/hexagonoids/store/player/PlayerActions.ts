@@ -66,7 +66,7 @@ export const getScreenDimensions = (
     return [engine.getRenderWidth(true), engine.getRenderHeight(true)]
   } else {
     // WebGL: Use hardware pixel dimensions but account for device pixel ratio
-    const pixelRatio = window?.devicePixelRatio ?? 1
+    const pixelRatio = globalThis?.devicePixelRatio ?? 1
     const width = engine.getRenderWidth(true) / pixelRatio
     const height = engine.getRenderHeight(true) / pixelRatio
     return [width, height]
@@ -224,12 +224,12 @@ export const spawnWave = (
       lat: spawnLat,
       lng: spawnLng,
       // random heading between -Math.PI and Math.PI
-      heading: Math.random() * 2 * Math.PI - Math.PI,
+      // heading: Math.random() * 2 * Math.PI - Math.PI,
     })
   }
 }
 
-export const dieTimeoutIds = new Set<NodeJS.Timeout>()
+export const dieTimeoutIds = new Set<ReturnType<typeof setTimeout>>()
 
 export const die = (
   $player: PlayerStore,

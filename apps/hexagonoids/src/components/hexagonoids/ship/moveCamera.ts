@@ -17,7 +17,7 @@ import { moveNodeBy } from './orientation'
 export const moveCamera = (
   shipPosition: TransformNode,
   delta: number,
-  duration: number = MAX_DURATION
+  _duration: number = MAX_DURATION
 ) => {
   const scene = shipPosition.getScene()
   const engine = scene.getEngine()

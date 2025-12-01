@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/solid'
 import { Activation } from '@neat-evolution/core'
-import { createMemo, createSignal, onMount, Show } from 'solid-js'
+import { createMemo, createSignal, onMount, Show, For } from 'solid-js'
 
 import { useGame } from './hooks/useGame.js'
 import { subscribeSettings, useSettings } from './hooks/useSettings.js'
@@ -25,7 +25,7 @@ const clamp = (value: number, min: number, max: number) =>
 
 // Helper to find nearest generation step
 const nearestGenerationStep = (value: number): GenerationStep => {
-  let nearest = GENERATION_STEPS[0]
+  let nearest: 5 | 10 | 50 | 100 = GENERATION_STEPS[0]
   let minDiff = Math.abs(value - nearest)
 
   for (const step of GENERATION_STEPS) {
@@ -186,18 +186,18 @@ export function SettingsPanel() {
             stroke-linejoin='round'
             stroke-width='2'
             d='M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z'
-          ></path>
+          />
           <path
             stroke-linecap='round'
             stroke-linejoin='round'
             stroke-width='2'
             d='M15 12a3 3 0 11-6 0 3 3 0 016 0z'
-          ></path>
+          />
         </svg>
       </button>
 
       <dialog ref={dialogRef} class='modal modal-middle'>
-        <div class='modal-box w-11/12 max-w-md flex flex-col max-h-[90vh]'>
+        <div class='modal-box w-11/12 max-w-md flex flex-col max-h-[90vh] overflow-x-hidden'>
           {/* Fixed header */}
           <div class='flex justify-between items-center mb-4 flex-shrink-0'>
             <div class='flex items-center gap-2'>
@@ -215,7 +215,7 @@ export function SettingsPanel() {
                       stroke-linejoin='round'
                       stroke-width='2'
                       d='M5 13l4 4L19 7'
-                    ></path>
+                    />
                   </svg>
                   Saved
                 </span>
@@ -299,9 +299,9 @@ export function SettingsPanel() {
                 onInput={handleGenerationsChange}
               />
               <div class='w-full flex justify-between text-xs px-2 mt-2'>
-                {GENERATION_STEPS.map((step) => (
-                  <span class='text-center'>{step}</span>
-                ))}
+                <For each={GENERATION_STEPS}>
+                  {(step) => <span class='text-center'>{step}</span>}
+                </For>
               </div>
               <label class='label'>
                 <span class='label-text-alt'>
@@ -323,10 +323,9 @@ export function SettingsPanel() {
                   }}
                 />
               </label>
-              <label class='label'>
-                <span class='label-text-alt'>
-                  Play against best genome instead of current opponent
-                </span>
+              <br />
+              <label class='label pt-0'>
+                <span class='label-text-alt'>Play against all-time best</span>
               </label>
             </div>
 
@@ -339,15 +338,15 @@ export function SettingsPanel() {
                   <span class='label-text'>Algorithm</span>
                 </label>
                 <select
-                  class='select select-bordered'
+                  class='select select-bordered w-full'
                   value={settings().draft.algorithm}
                   onChange={(e) => {
                     setDraftAlgorithm(e.currentTarget.value as AlgorithmType)
                   }}
                 >
-                  {Object.values(AlgorithmType).map((algo) => (
-                    <option value={algo}>{algo}</option>
-                  ))}
+                  <For each={Object.values(AlgorithmType)}>
+                    {(algo) => <option value={algo}>{algo}</option>}
+                  </For>
                 </select>
               </div>
 
@@ -356,15 +355,15 @@ export function SettingsPanel() {
                   <span class='label-text'>Activation Function</span>
                 </label>
                 <select
-                  class='select select-bordered'
+                  class='select select-bordered w-full'
                   value={settings().draft.activation}
                   onChange={(e) => {
                     setDraftActivation(e.currentTarget.value as Activation)
                   }}
                 >
-                  {Object.values(usableActivation).map((act) => (
-                    <option value={act}>{act}</option>
-                  ))}
+                  <For each={Object.values(usableActivation)}>
+                    {(act) => <option value={act}>{act}</option>}
+                  </For>
                 </select>
               </div>
 
@@ -392,7 +391,7 @@ export function SettingsPanel() {
 
               <div class='flex gap-2'>
                 <button
-                  class='btn btn-primary flex-1'
+                  class='btn btn-primary flex-1 text-sm'
                   onClick={() => {
                     void handleApply()
                   }}
@@ -403,11 +402,11 @@ export function SettingsPanel() {
                   {game().operationStatus === 'switching' ? (
                     <span class='loading loading-spinner loading-sm' />
                   ) : (
-                    'Switch Population'
+                    'Switch'
                   )}
                 </button>
                 <button
-                  class='btn btn-ghost flex-1'
+                  class='btn btn-ghost flex-1 text-sm'
                   onClick={() => {
                     cancelDraftSettings()
                   }}
@@ -460,7 +459,7 @@ export function SettingsPanel() {
               </Show>
             </div>
 
-            <div class='divider'></div>
+            <div class='divider' />
 
             <button
               class='btn btn-outline btn-sm w-full'
