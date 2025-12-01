@@ -12,21 +12,19 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    env:
+      # Yarn 4 reads auth token from this env var for the @heygrady scope
+      YARN_NPM_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v6
+      - name: Enable Corepack
+        run: corepack enable
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@heygrady'
-      - name: Setup .yarnrc.yml
-        run: |
-          yarn config set npmScopes.heygrady.npmRegistryServer "https://npm.pkg.github.com"
-          yarn config set npmScopes.heygrady.npmAlwaysAuth true
-          yarn config set npmScopes.heygrady.npmAuthToken $NPM_AUTH_TOKEN
-        env:
-          NPM_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Cache dependencies and Turbo
         uses: actions/cache@v4
         with:
@@ -36,7 +34,7 @@ jobs:
             packages/*/node_modules
             .yarn/cache
             .turbo
-          key: ${{ runner.os }}-turbo-${{ hashFiles('yarn.lock') }}
+          key: ${{ runner.os }}-turbo-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-turbo-
       - run: yarn install
@@ -44,11 +42,15 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          version: yarn version
+          # This expects you to have a script called version which updates the lockfile after calling `changeset version`.
+          # Use "yarn run version" to call the npm script (not Yarn 4's built-in "yarn version" command)
+          version: yarn run version
+          # This expects you to have a script called release which builds your packages and then calls `changeset publish`.
           publish: yarn release
         env:
           HUSKY: 0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages#example-workflow
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           YARN_ENABLE_IMMUTABLE_INSTALLS: false
