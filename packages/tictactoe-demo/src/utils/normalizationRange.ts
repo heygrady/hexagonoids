@@ -40,7 +40,7 @@ export async function readObservedRanges(): Promise<GlickoObservedRanges> {
         max: ranges.seedConservativeRating?.max ?? null,
       },
     }
-  } catch (error) {
+  } catch (_error) {
     // File might not exist, so return default wide ranges
     return {
       environmentFitness: { min: null, max: null },
