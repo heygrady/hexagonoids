@@ -1831,9 +1831,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@heygrady/eslint-config@portal:/Users/heygrady/projects/blog/packages/eslint-config::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@heygrady/eslint-config@portal:/Users/heygrady/projects/blog/packages/eslint-config::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
+"@heygrady/eslint-config@npm:^1.6.0":
+  version: 1.6.0
+  resolution: "@heygrady/eslint-config@npm:1.6.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40heygrady%2Feslint-config%2F1.6.0%2F912546bb530ca6b321568d8851e9e25a0e2eb722"
   dependencies:
     "@eslint/js": "npm:^9.39.1"
     "@eslint/markdown": "npm:^7.5.1"
@@ -1868,16 +1868,17 @@ __metadata:
     vitest: "npm:^4.0.14"
   peerDependencies:
     eslint: ^9.0.0
+  checksum: 10/7fc9ba1bc83fc482c297e895521b09776a4ebc07d9505c05ea5ae76fbf8bf15c60587ff21795a8f2ee8a99861cc484f060e6a3c32d92f6b84f1c52fc091c92d3
   languageName: node
-  linkType: soft
+  linkType: hard
 
 "@heygrady/h3-babylon@npm:^0.1.0, @heygrady/h3-babylon@workspace:packages/h3-babylon":
   version: 0.0.0-use.local
   resolution: "@heygrady/h3-babylon@workspace:packages/h3-babylon"
   dependencies:
     "@babylonjs/core": "npm:^8.37.3"
-    "@heygrady/eslint-config": "npm:^1.5.1"
-    "@heygrady/tsconfig-bases": "npm:^1.0.6"
+    "@heygrady/eslint-config": "npm:^1.6.0"
+    "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@swc/cli": "npm:^0.1.65"
     "@swc/core": "npm:^1.11.1"
     "@swc/helpers": "npm:^0.5.17"
@@ -1903,7 +1904,7 @@ __metadata:
     "@astrojs/tailwind": "npm:^4.0.0"
     "@astrojs/vercel": "npm:^3.8.2"
     "@babylonjs/core": "npm:^8.37.3"
-    "@heygrady/eslint-config": "npm:^1.5.1"
+    "@heygrady/eslint-config": "npm:^1.6.0"
     "@heygrady/h3-babylon": "npm:^0.1.0"
     "@heygrady/tictactoe-demo": "npm:^0.0.1"
     "@heygrady/tictactoe-environment": "npm:^0.0.1"
@@ -1967,8 +1968,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@heygrady/template-ts@workspace:packages/template-ts"
   dependencies:
-    "@heygrady/eslint-config": "npm:^1.5.1"
-    "@heygrady/tsconfig-bases": "npm:^1.0.6"
+    "@heygrady/eslint-config": "npm:^1.6.0"
+    "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@swc/cli": "npm:^0.1.65"
     "@swc/core": "npm:^1.11.1"
     "@swc/helpers": "npm:^0.5.17"
@@ -1989,11 +1990,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@heygrady/tictactoe-demo@workspace:packages/tictactoe-demo"
   dependencies:
-    "@heygrady/eslint-config": "npm:^1.5.1"
+    "@heygrady/eslint-config": "npm:^1.6.0"
     "@heygrady/tictactoe-environment": "npm:^0.0.1"
     "@heygrady/tictactoe-game": "npm:^0.0.1"
     "@heygrady/tournament-strategy": "npm:^0.0.1"
-    "@heygrady/tsconfig-bases": "npm:^1.0.6"
+    "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@neat-evolution/core": "npm:^0.3.3"
     "@neat-evolution/cppn": "npm:^0.6.0"
     "@neat-evolution/dataset-environment": "npm:^0.5.0"
@@ -2029,9 +2030,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@heygrady/tictactoe-environment@workspace:packages/tictactoe-environment"
   dependencies:
-    "@heygrady/eslint-config": "npm:^1.5.1"
+    "@heygrady/eslint-config": "npm:^1.6.0"
     "@heygrady/tictactoe-game": "npm:^0.0.1"
-    "@heygrady/tsconfig-bases": "npm:^1.0.6"
+    "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@neat-evolution/core": "npm:^0.3.3"
     "@neat-evolution/environment": "npm:^0.5.0"
     "@neat-evolution/executor": "npm:^0.3.5"
@@ -2060,8 +2061,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@heygrady/tictactoe-game@workspace:packages/tictactoe-game"
   dependencies:
-    "@heygrady/eslint-config": "npm:^1.5.1"
-    "@heygrady/tsconfig-bases": "npm:^1.0.6"
+    "@heygrady/eslint-config": "npm:^1.6.0"
+    "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@neat-evolution/cppn": "npm:^0.6.0"
     "@neat-evolution/des-hyperneat": "npm:^0.6.0"
     "@neat-evolution/es-hyperneat": "npm:^0.6.0"
@@ -2090,8 +2091,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@heygrady/tournament-strategy@workspace:packages/tournament-strategy"
   dependencies:
-    "@heygrady/eslint-config": "npm:^1.5.1"
-    "@heygrady/tsconfig-bases": "npm:^1.0.6"
+    "@heygrady/eslint-config": "npm:^1.6.0"
+    "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@neat-evolution/core": "npm:^0.3.3"
     "@neat-evolution/evaluation-strategy": "npm:^0.3.4"
     "@neat-evolution/evaluator": "npm:^0.5.0"
@@ -2113,15 +2114,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@heygrady/tsconfig-bases@portal:/Users/heygrady/projects/blog/packages/tsconfig-bases::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@heygrady/tsconfig-bases@portal:/Users/heygrady/projects/blog/packages/tsconfig-bases::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
+"@heygrady/tsconfig-bases@npm:^1.0.7":
+  version: 1.0.7
+  resolution: "@heygrady/tsconfig-bases@npm:1.0.7::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40heygrady%2Ftsconfig-bases%2F1.0.7%2F5a8fec2cebd586a6329a865f135a40a9f8b4567a"
   dependencies:
     "@tsconfig/node24": "npm:^24.0.0"
     "@tsconfig/strictest": "npm:^2.0.5"
     "@tsconfig/vite-react": "npm:^7.0.1"
+  checksum: 10/e398b9cc27d9e07f871ea0e8ced745b84484df6f082c4dd3c476c3bf3550caf27d205ed020fca6c2ba0da0b05ee54e4c40da0204ce29562906a2b5f1ceec1a36
   languageName: node
-  linkType: soft
+  linkType: hard
 
 "@humanfs/core@npm:^0.19.1":
   version: 0.19.1
