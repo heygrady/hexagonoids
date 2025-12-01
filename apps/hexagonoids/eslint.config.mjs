@@ -4,6 +4,7 @@ export default [
   ...config,
   {
     ignores: [
+      '.astro/',
       '.turbo/',
       '.vercel/',
       'dist/',

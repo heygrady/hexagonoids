@@ -91,7 +91,7 @@ export const createSettingsStore = (): [SettingsStore, Promise<void>] => {
 
   // Auto-save committed settings when they change (excluding isOpen and draft)
   store.subscribe((settings) => {
-    const { isOpen, draft, ...committedWrapper } = settings
+    const { isOpen: _isOpen, draft: _draft, ...committedWrapper } = settings
     saveSettingsToStorage(committedWrapper.committed).catch((error) => {
       console.warn('Failed to save settings:', error)
     })

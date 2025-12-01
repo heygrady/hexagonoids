@@ -16,7 +16,7 @@ export interface CommonMaterialOptions {
 
 export const materialCache = new QuickLRU<string, StandardMaterial>({
   maxSize: CELL_CACHE_SIZE,
-  onEviction: (key, value) => {
+  onEviction: (key, _value) => {
     console.log('evicting material', key)
   },
 })

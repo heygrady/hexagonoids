@@ -90,9 +90,9 @@ let globalRockPool: RockPool | null = null
 /**
  * Initialize the global rock pool.
  * @param {Scene} scene - Babylon.js scene
- * @param {Mesh} globe - Globe mesh (unused, kept for consistency)
+ * @param {Mesh} _globe - Globe mesh (unused, kept for consistency)
  */
-export const initializeRockPool = (scene: Scene, globe: Mesh): void => {
+export const initializeRockPool = (scene: Scene, _globe: Mesh): void => {
   if (globalRockPool !== null) {
     console.warn('[RockPool] Already initialized, skipping')
     return

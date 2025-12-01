@@ -99,7 +99,7 @@ export const Cell: Component<CellProps> = (props) => {
       onClick={props.onClick}
     >
       <span
-        class='text-6xl md:text-7xl lg:text-8xl'
+        class='text-7xl'
         style={{
           opacity: showGhost() ? '0.25' : '1',
         }}

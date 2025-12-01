@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: night, winter;
+}
+@plugin "@tailwindcss/typography";
+
+/* Prevent zoom on double-tap and pinch on game board */
+.game-board-container {
+  touch-action: manipulation;
+}

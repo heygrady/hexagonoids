@@ -11,8 +11,8 @@ export const wrapRadians = (radians: number): number => {
   return wrapped < -Math.PI
     ? wrapped + Math.PI * 2
     : wrapped > Math.PI
-    ? wrapped - Math.PI * 2
-    : wrapped
+      ? wrapped - Math.PI * 2
+      : wrapped
 }
 
 /**
@@ -30,8 +30,8 @@ export const wrapHalfCircle = (radians: number): number => {
   return wrapped < -Math.PI
     ? wrapped + Math.PI * 2
     : wrapped > Math.PI
-    ? wrapped - Math.PI * 2
-    : wrapped
+      ? wrapped - Math.PI * 2
+      : wrapped
 }
 
 export const getOrientation = (

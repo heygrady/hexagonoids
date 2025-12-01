@@ -69,10 +69,10 @@ export const Bullet: Component<BulletProps> = (props) => {
       type === 'bullet'
         ? BULLET_LIFETIME
         : size === ROCK_LARGE_SIZE
-        ? EXPLOSION_LARGE_LIFETIME
-        : size === ROCK_MEDIUM_SIZE
-        ? EXPLOSION_MEDIUM_LIFETIME
-        : EXPLOSION_SMALL_LIFETIME
+          ? EXPLOSION_LARGE_LIFETIME
+          : size === ROCK_MEDIUM_SIZE
+            ? EXPLOSION_MEDIUM_LIFETIME
+            : EXPLOSION_SMALL_LIFETIME
 
     if (type === 'explosion') {
       // randomly increase lifetime

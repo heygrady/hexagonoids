@@ -1,0 +1,7 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: night, winter;
+}
+@plugin "@tailwindcss/typography";
+
+@source "../../packages/tictactoe-feature-astro/src/**/*.{astro,html,js,jsx,md,mdx,svelte,ts,tsx,vue}";

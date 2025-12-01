@@ -140,8 +140,8 @@ export const Collisions: Component = () => {
                 size === ROCK_LARGE_SIZE
                   ? ROCK_LARGE_RESOLUTION
                   : size === ROCK_MEDIUM_SIZE
-                  ? ROCK_MEDIUM_RESOLUTION
-                  : ROCK_SMALL_RESOLUTION
+                    ? ROCK_MEDIUM_RESOLUTION
+                    : ROCK_SMALL_RESOLUTION
               }
               store={$rock}
             />

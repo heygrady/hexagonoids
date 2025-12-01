@@ -85,7 +85,7 @@ export function TrainingStats() {
             {isTraining() ? '' : ` / ${maxGeneration()}`}
           </div>
           <div class='stat-desc'>
-            Fitness: {(displayedGeneration()?.fitness ?? 0).toFixed(2)}| Best:{' '}
+            Fitness: {(displayedGeneration()?.fitness ?? 0).toFixed(2)} | Best:{' '}
             {(game().best?.fitness ?? 0).toFixed(2)}
           </div>
         </div>

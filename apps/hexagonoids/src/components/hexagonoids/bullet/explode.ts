@@ -44,8 +44,8 @@ export const explode = ($bullet: BulletStore, $target: TargetStore) => {
       size === ROCK_LARGE_SIZE
         ? EXPLOSION_LARGE_SPEED
         : size === ROCK_MEDIUM_SIZE
-        ? EXPLOSION_MEDIUM_SPEED
-        : EXPLOSION_SMALL_SPEED
+          ? EXPLOSION_MEDIUM_SPEED
+          : EXPLOSION_SMALL_SPEED
     explosionSpeed = baseSpeed + Math.random() * baseSpeed
   } else {
     // a ship explosion is the same as a small rock

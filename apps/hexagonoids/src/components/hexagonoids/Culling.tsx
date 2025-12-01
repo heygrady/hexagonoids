@@ -5,7 +5,7 @@ import { onBeforeRender } from '../solid-babylon/hooks/onBeforeRender'
 import { useGame } from './hooks/useGame'
 import { useCamera } from './ShipCamera'
 
-export const Culling: Component = (props) => {
+export const Culling: Component = (_props) => {
   const cameraContext = useCamera()
   const [$game] = useGame()
 

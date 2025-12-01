@@ -72,9 +72,9 @@ let globalPlayerPool: PlayerPool | null = null
 /**
  * Initialize the global player pool.
  * @param {Scene} scene - Babylon.js scene
- * @param {Mesh} globe - Globe mesh (unused, kept for consistency)
+ * @param {Mesh} _globe - Globe mesh (unused, kept for consistency)
  */
-export const initializePlayerPool = (scene: Scene, globe: Mesh): void => {
+export const initializePlayerPool = (scene: Scene, _globe: Mesh): void => {
   if (globalPlayerPool !== null) {
     console.warn('[PlayerPool] Already initialized, skipping')
     return

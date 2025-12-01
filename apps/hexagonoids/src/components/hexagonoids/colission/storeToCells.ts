@@ -81,8 +81,8 @@ export const storeToRadius = ($store: TargetStore | ProjectileStore) => {
     return state.size === ROCK_LARGE_SIZE
       ? ROCK_LARGE_RADIUS
       : state.size === ROCK_MEDIUM_SIZE
-      ? ROCK_MEDIUM_RADIUS
-      : ROCK_SMALL_RADIUS
+        ? ROCK_MEDIUM_RADIUS
+        : ROCK_SMALL_RADIUS
   } else if (isShipStore($store)) {
     return SHIP_RADIUS
   } else {
@@ -99,8 +99,8 @@ export const storeToCells = (
   const type = isRockState(state)
     ? 'rock'
     : isShipState(state)
-    ? 'ship'
-    : 'bullet'
+      ? 'ship'
+      : 'bullet'
   const centerH = latLngToCell(state.lat, state.lng, 2)
   const key = `${type}_${centerH}`
 
@@ -111,8 +111,8 @@ export const storeToCells = (
   const positionNode = isShipState(state)
     ? state.positionNode
     : isRockState(state)
-    ? state.orientationNode
-    : state.bulletNode
+      ? state.orientationNode
+      : state.bulletNode
 
   if (positionNode == null) {
     return new Set()

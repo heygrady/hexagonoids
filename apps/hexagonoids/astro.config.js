@@ -1,14 +1,14 @@
 import path from 'node:path'
 
 import solid from '@astrojs/solid-js'
-import tailwind from '@astrojs/tailwind'
-import vercel from '@astrojs/vercel/static'
+import vercel from '@astrojs/vercel'
+import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'astro/config'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [solid(), tailwind()],
+  integrations: [solid()],
   adapter: vercel({
     analytics: true,
   }),
@@ -32,6 +32,7 @@ export default defineConfig({
       ],
     },
     plugins: [
+      tailwindcss(),
       {
         ...nodePolyfills(),
         apply: 'serve', // Only apply in dev mode

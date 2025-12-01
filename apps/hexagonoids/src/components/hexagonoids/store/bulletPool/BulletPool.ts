@@ -88,10 +88,10 @@ let bulletIdCounter = 0
 /**
  * Create a new bullet store for the pool.
  * @param {Scene} scene - Babylon.js scene (unused, kept for ObjectPool contract)
- * @param {Mesh | null} [globe] - Globe mesh (unused, kept for backward compatibility)
+ * @param {Mesh | null} [_globe] - Globe mesh (unused, kept for backward compatibility)
  * @returns {BulletStore} New bullet store with default state
  */
-const createBulletStore = (scene: Scene, globe: Mesh | null = null) => {
+const createBulletStore = (scene: Scene, _globe: Mesh | null = null) => {
   const id = `bullet-${bulletIdCounter++}`
   const $bullet = map<BulletState>({ ...defaultBulletState, id })
   return $bullet
