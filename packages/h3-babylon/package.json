@@ -52,8 +52,8 @@
     "h3-js": "^4.1.0"
   },
   "devDependencies": {
-    "@heygrady/eslint-config": "^1.5.1",
-    "@heygrady/tsconfig-bases": "^1.0.6",
+    "@heygrady/eslint-config": "^1.6.0",
+    "@heygrady/tsconfig-bases": "^1.0.7",
     "@swc/cli": "^0.1.65",
     "@swc/core": "^1.11.1",
     "@types/prettier": "^2",

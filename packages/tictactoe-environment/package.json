@@ -56,8 +56,8 @@
     "proper-lockfile": "^4.1.2"
   },
   "devDependencies": {
-    "@heygrady/eslint-config": "^1.5.1",
-    "@heygrady/tsconfig-bases": "^1.0.6",
+    "@heygrady/eslint-config": "^1.6.0",
+    "@heygrady/tsconfig-bases": "^1.0.7",
     "@neat-evolution/core": "^0.3.3",
     "@neat-evolution/neat": "^0.6.0",
     "@swc/cli": "^0.1.65",
