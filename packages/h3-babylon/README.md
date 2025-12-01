@@ -47,8 +47,9 @@ yarn add @babylonjs/core h3-js
 ### Converting H3 Cells to 3D Positions
 
 ```typescript
-import { cellToVector3 } from '@heygrady/h3-babylon'
 import { latLngToCell } from 'h3-js'
+
+import { cellToVector3 } from '@heygrady/h3-babylon'
 
 // 1. Get an H3 cell (e.g., San Francisco at resolution 5)
 const cell = latLngToCell(37.7749, -122.4194, 5)
@@ -82,10 +83,11 @@ console.log(`Lat/Lng: ${newLat}, ${newLng}`)
 ### Placing Objects on a Sphere
 
 ```typescript
-import { cellToVector3 } from '@heygrady/h3-babylon'
-import { gridDisk } from 'h3-js'
 import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder'
 import type { Scene } from '@babylonjs/core/scene'
+import { gridDisk } from 'h3-js'
+
+import { cellToVector3 } from '@heygrady/h3-babylon'
 
 function createHexagonalGrid(scene: Scene, centerCell: string, sphereRadius: number) {
   // 1. Get a ring of H3 cells around a center point
