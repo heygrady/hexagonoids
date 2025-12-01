@@ -192,8 +192,8 @@ export function getCandidateMoves(
         lineIndex < 3
           ? developingRows // Rows (lines 0-2)
           : lineIndex < 6
-          ? developingColumns // Columns (lines 3-5)
-          : developingDiagonals // Diagonals (lines 6-7)
+            ? developingColumns // Columns (lines 3-5)
+            : developingDiagonals // Diagonals (lines 6-7)
       for (const i of emptyIndices) {
         targetSet.add(i)
       }
