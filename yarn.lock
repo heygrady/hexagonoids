@@ -1610,13 +1610,11 @@ __metadata:
     "@heygrady/h3-babylon": "workspace:^"
     "@heygrady/tictactoe-demo": "workspace:^"
     "@heygrady/tictactoe-environment": "workspace:^"
-    "@heygrady/tictactoe-game": "workspace:^"
     "@nanostores/solid": "npm:^1.1.1"
     "@neat-evolution/core": "npm:^0.3.3"
     "@neat-evolution/cppn": "npm:^0.6.0"
     "@neat-evolution/des-hyperneat": "npm:^0.6.0"
     "@neat-evolution/es-hyperneat": "npm:^0.6.0"
-    "@neat-evolution/evolution": "npm:^0.5.0"
     "@neat-evolution/executor": "npm:^0.3.5"
     "@neat-evolution/hyperneat": "npm:^0.6.0"
     "@neat-evolution/neat": "npm:^0.6.0"
@@ -1698,11 +1696,8 @@ __metadata:
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@neat-evolution/core": "npm:^0.3.3"
     "@neat-evolution/cppn": "npm:^0.6.0"
-    "@neat-evolution/dataset-environment": "npm:^0.5.0"
     "@neat-evolution/des-hyperneat": "npm:^0.6.0"
-    "@neat-evolution/environment": "npm:^0.5.0"
     "@neat-evolution/es-hyperneat": "npm:^0.6.0"
-    "@neat-evolution/evaluation-strategy": "npm:^0.3.4"
     "@neat-evolution/evaluator": "npm:^0.5.0"
     "@neat-evolution/evolution": "npm:^0.5.0"
     "@neat-evolution/executor": "npm:^0.3.5"
@@ -1739,18 +1734,15 @@ __metadata:
     "@neat-evolution/executor": "npm:^0.3.5"
     "@neat-evolution/neat": "npm:^0.6.0"
     "@neat-evolution/utils": "npm:^0.2.5"
-    "@neat-evolution/worker-threads": "npm:^0.4.2"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
     "@swc/helpers": "npm:^0.5.17"
     "@types/prettier": "npm:^2"
-    "@types/proper-lockfile": "npm:^4"
     "@vitest/coverage-v8": "npm:^4.0.14"
     concurrently: "npm:^9.2.1"
     eslint: "npm:^9.39.1"
     lint-staged: "npm:^15.1.0"
     nodemon: "npm:^3.0.1"
-    proper-lockfile: "npm:^4.1.2"
     rimraf: "npm:^5.0.5"
     turbo: "npm:^2.6.1"
     typescript: "npm:^5.9.3"
@@ -1764,12 +1756,7 @@ __metadata:
   dependencies:
     "@heygrady/eslint-config": "npm:^1.7.0"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
-    "@neat-evolution/cppn": "npm:^0.6.0"
-    "@neat-evolution/des-hyperneat": "npm:^0.6.0"
-    "@neat-evolution/es-hyperneat": "npm:^0.6.0"
     "@neat-evolution/executor": "npm:^0.3.5"
-    "@neat-evolution/hyperneat": "npm:^0.6.0"
-    "@neat-evolution/neat": "npm:^0.6.0"
     "@neat-evolution/utils": "npm:^0.2.5"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
@@ -1794,7 +1781,6 @@ __metadata:
   dependencies:
     "@heygrady/eslint-config": "npm:^1.7.0"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
-    "@neat-evolution/core": "npm:^0.3.3"
     "@neat-evolution/evaluation-strategy": "npm:^0.3.4"
     "@neat-evolution/evaluator": "npm:^0.5.0"
     "@neat-evolution/utils": "npm:^0.2.5"
@@ -2547,20 +2533,6 @@ __metadata:
     "@neat-evolution/neat": "npm:^0.6.0"
     "@swc/helpers": "npm:^0.5.17"
   checksum: 10/cb497cea8cdf8ac72fded176ab8c7634450c45484f7ce083131338f37832e5369823c4d0c4934aecaa7c5b70f0d000a87790a311f5dba4520e0658adfbdf3873
-  languageName: node
-  linkType: hard
-
-"@neat-evolution/dataset-environment@npm:^0.5.0":
-  version: 0.5.0
-  resolution: "@neat-evolution/dataset-environment@npm:0.5.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fdataset-environment%2F0.5.0%2F162b4b5ce8a37207f27164ab344fbea75960d5d7"
-  dependencies:
-    "@neat-evolution/core": "npm:^0.3.3"
-    "@neat-evolution/environment": "npm:^0.5.0"
-    "@neat-evolution/evolution": "npm:^0.5.0"
-    "@neat-evolution/executor": "npm:^0.3.5"
-    "@neat-evolution/utils": "npm:^0.2.5"
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/55c810053483d4a7d86933de3ae2a4697d6088d752c6726318fa966c21b2bd5bb028adeb66add07577e2caf32010c80b40924ff8fd3472751cebb40e69604442
   languageName: node
   linkType: hard
 
@@ -3925,22 +3897,6 @@ __metadata:
   version: 2.7.3
   resolution: "@types/prettier@npm:2.7.3"
   checksum: 10/cda84c19acc3bf327545b1ce71114a7d08efbd67b5030b9e8277b347fa57b05178045f70debe1d363ff7efdae62f237260713aafc2d7217e06fc99b048a88497
-  languageName: node
-  linkType: hard
-
-"@types/proper-lockfile@npm:^4":
-  version: 4.1.4
-  resolution: "@types/proper-lockfile@npm:4.1.4"
-  dependencies:
-    "@types/retry": "npm:*"
-  checksum: 10/b0d1b8e84a563b2c5f869f7ff7542b1d83dec03d1c9d980847cbb189865f44b4a854673cdde59767e41bcb8c31932e613ac43822d358a6f8eede6b79ccfceb1d
-  languageName: node
-  linkType: hard
-
-"@types/retry@npm:*":
-  version: 0.12.5
-  resolution: "@types/retry@npm:0.12.5"
-  checksum: 10/3fb6bf91835ca0eb2987567d6977585235a7567f8aeb38b34a8bb7bbee57ac050ed6f04b9998cda29701b8c893f5dfe315869bc54ac17e536c9235637fe351a2
   languageName: node
   linkType: hard
 
@@ -14119,17 +14075,6 @@ __metadata:
     object-assign: "npm:^4.1.1"
     react-is: "npm:^16.13.1"
   checksum: 10/7d959caec002bc964c86cdc461ec93108b27337dabe6192fb97d69e16a0c799a03462713868b40749bfc1caf5f57ef80ac3e4ffad3effa636ee667582a75e2c0
-  languageName: node
-  linkType: hard
-
-"proper-lockfile@npm:^4.1.2":
-  version: 4.1.2
-  resolution: "proper-lockfile@npm:4.1.2"
-  dependencies:
-    graceful-fs: "npm:^4.2.4"
-    retry: "npm:^0.12.0"
-    signal-exit: "npm:^3.0.2"
-  checksum: 10/000a4875f543f591872b36ca94531af8a6463ddb0174f41c0b004d19e231d7445268b422ff1ea595e43d238655c702250cd3d27f408e7b9d97b56f1533ba26bf
   languageName: node
   linkType: hard
 
