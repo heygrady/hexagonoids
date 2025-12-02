@@ -47,12 +47,7 @@
     "test:dev": "vitest"
   },
   "dependencies": {
-    "@neat-evolution/cppn": "^0.6.0",
-    "@neat-evolution/des-hyperneat": "^0.6.0",
-    "@neat-evolution/es-hyperneat": "^0.6.0",
     "@neat-evolution/executor": "^0.3.5",
-    "@neat-evolution/hyperneat": "^0.6.0",
-    "@neat-evolution/neat": "^0.6.0",
     "@neat-evolution/utils": "^0.2.5",
     "@swc/helpers": "^0.5.17",
     "quick-lru": "^7.0.0"
