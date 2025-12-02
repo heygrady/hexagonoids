@@ -145,7 +145,7 @@ console.log(`Best fitness: ${best?.fitness}`);
 ### Loading and Using a Trained Agent
 
 ```typescript
-import fs from "fs";
+import fs from "node:fs";
 
 import { checkState, getInitialBoard, neatAI } from "@heygrady/tictactoe-game";
 import { createExecutor } from "@neat-evolution/executor";
@@ -196,7 +196,7 @@ console.log(`AI chose move ${move + 1}`);
 
 ### Evolution Options
 
-```typescript
+```text
 {
   iterations: 10_000,        // Maximum generations
   secondsLimit: 10_800,      // 3 hour time limit
@@ -207,7 +207,7 @@ console.log(`AI chose move ${move + 1}`);
 
 ### Fitness Weights
 
-```js
+```text
 {
   seedWeight: 0.4,           // AI gauntlet performance
   envWeight: 0.0,            // Raw environment score
