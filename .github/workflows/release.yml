@@ -13,8 +13,9 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     env:
-      # Yarn 4 reads auth token from this env var for the @heygrady scope
-      YARN_NPM_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Auth token for GitHub Package Registry (used by both @heygrady and @neat-evolution scopes)
+      # NEAT_EVOLUTION_TOKEN must be a PAT with read:packages scope for @neat-evolution packages
+      YARN_NPM_AUTH_TOKEN: ${{ secrets.NEAT_EVOLUTION_TOKEN }}
     steps:
       - uses: actions/checkout@v6
       - name: Enable Corepack
