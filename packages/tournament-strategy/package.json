@@ -47,7 +47,6 @@
     "test:dev": "vitest"
   },
   "dependencies": {
-    "@neat-evolution/core": "^0.3.3",
     "@neat-evolution/evaluation-strategy": "^0.3.4",
     "@neat-evolution/evaluator": "^0.5.0",
     "@neat-evolution/utils": "^0.2.5",
