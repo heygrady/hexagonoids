@@ -1,4 +1,4 @@
-import fs from 'fs/promises'
+import fs from 'node:fs/promises'
 
 import type { HeroGenome } from '@heygrady/tournament-strategy'
 import type { AnyGenome } from '@neat-evolution/evaluator'
