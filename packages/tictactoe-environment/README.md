@@ -20,8 +20,37 @@ The environment includes configurable scoring based on game outcomes, move confi
 
 ## Installation
 
+This package is hosted on [GitHub Packages](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry). You'll need to configure your package manager to use the GitHub Packages registry for the `@heygrady` scope.
+
+### Yarn (v2+)
+
+Add to your `.yarnrc.yml`:
+
+```yaml
+npmScopes:
+  heygrady:
+    npmAlwaysAuth: true
+    npmRegistryServer: "https://npm.pkg.github.com"
+```
+
+Then install:
+
 ```bash
 yarn add @heygrady/tictactoe-environment
+```
+
+### npm
+
+Create a `.npmrc` file in your project root:
+
+```
+@heygrady:registry=https://npm.pkg.github.com
+```
+
+Then install:
+
+```bash
+npm install @heygrady/tictactoe-environment
 ```
 
 ## Key Components
