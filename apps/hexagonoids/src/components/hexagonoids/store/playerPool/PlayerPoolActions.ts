@@ -1,8 +1,6 @@
 import { action } from 'nanostores'
 import type { OmitFirstArg } from 'nanostores/action'
 
-import type { PlayerStore } from '../player/PlayerStore'
-
 import { getPlayerStore } from './PlayerPool'
 import { addPlayer } from './PlayerPoolSetters'
 import type { PlayerPoolStore } from './PlayerPoolStore'
