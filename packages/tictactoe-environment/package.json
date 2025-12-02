@@ -48,16 +48,16 @@
   },
   "dependencies": {
     "@heygrady/tictactoe-game": "workspace:^",
-    "@neat-evolution/environment": "^0.5.0",
-    "@neat-evolution/executor": "^0.3.5",
+    "@neat-evolution/environment": "^0.5.2",
+    "@neat-evolution/executor": "^0.3.7",
     "@neat-evolution/utils": "^0.2.5",
     "@swc/helpers": "^0.5.17"
   },
   "devDependencies": {
     "@heygrady/eslint-config": "^1.7.0",
     "@heygrady/tsconfig-bases": "^1.0.7",
-    "@neat-evolution/core": "^0.3.3",
-    "@neat-evolution/neat": "^0.6.0",
+    "@neat-evolution/core": "^0.3.5",
+    "@neat-evolution/neat": "^0.6.2",
     "@swc/cli": "^0.7.9",
     "@swc/core": "^1.15.3",
     "@types/prettier": "^2",

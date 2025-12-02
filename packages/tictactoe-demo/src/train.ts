@@ -64,7 +64,7 @@ import {
 } from './utils/normalizationRange.js'
 import { writeJsonFile } from './utils/writeJsonFile.js'
 
-const workerThreadLimit = Math.ceil(hardwareConcurrency / 2)
+const workerThreadLimit = Math.ceil(hardwareConcurrency - 1)
 
 const terminables = new Set<Terminable>()
 
