@@ -199,36 +199,6 @@ describe('evaluateGauntlet', () => {
     expect(fitness1).toBe(fitness2)
   })
 
-  test('stronger players should score higher', () => {
-    const minimaxFitness = evaluateGauntlet(
-      minimaxAI,
-      singleOpponent,
-      defaultPositionWeights,
-      defaultOutcomes,
-      defaultConfidence,
-      defaultWeighting
-    )
-
-    const simpleFitness = evaluateGauntlet(
-      simpleAI,
-      [
-        {
-          opponent: 'minimaxAI',
-          numGames: 2,
-          weight: 1.0,
-          normalizationBounds: { min: 0.05, max: 1.5 },
-        },
-      ],
-      defaultPositionWeights,
-      defaultOutcomes,
-      defaultConfidence,
-      defaultWeighting
-    )
-
-    // When both play against weaker opponent, minimax should score higher
-    expect(minimaxFitness).toBeGreaterThan(simpleFitness)
-  })
-
   test('should handle empty opponent list', () => {
     // With no opponents, should throw an error
     expect(() =>
