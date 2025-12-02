@@ -2,7 +2,7 @@
   "name": "@heygrady/hexagonoids-app",
   "private": true,
   "type": "module",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "scripts": {
     "dev": "astro dev",
     "dev:workspace": "turbo run dev --filter='@heygrady/hexagonoids-app...' --concurrency=7",
