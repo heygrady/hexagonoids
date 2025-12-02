@@ -21,31 +21,75 @@ import '../../styles/experiments.css';
 
         <section class="blog-area mx-auto px-4 py-6 sm:py-8 max-w-md md:max-w-lg">
             <article class="prose prose-sm sm:prose">
-                <h2 class="text-2xl font-bold mb-3">About the Game</h2>
+                <h2>About the Game</h2>
 
                 <p>
-                  This is an experiment where you play tic-tac-toe against an AI that learns through evolution. The game starts with a completely untrained neural network — basically random moves. After each match, the AI trains for several generations, and you play against whichever network has emerged with the best fitness score. It's weirdly satisfying to watch it go from clueless to competent.
+                  This is an experiment where you play tic-tac-toe against an AI that learns through evolution. The game starts with a completely untrained neural network. After each match, the AI trains for several generations, and you play against whichever network has emerged with the best fitness score. It's satisfying to watch it go from clueless to competent.
                 </p>
 
                 <p>
-                  The AI uses <a href="https://nn.cs.utexas.edu/downloads/papers/stanley.ec02.pdf" target="_blank" rel="noopener noreferrer">NEAT</a> (NeuroEvolution of Augmenting Topologies), a genetic algorithm for evolving neural networks. Instead of training with backpropagation like most modern AI, NEAT maintains a population of networks (100 by default) and randomly mutates them across generations. Networks that perform well survive and reproduce; bad ones get culled. Amazingly, this actually works — the AI typically reaches solid play around 150-200 generations.
+                  The AI uses <a href="https://nn.cs.utexas.edu/downloads/papers/stanley.ec02.pdf" target="_blank" rel="noopener noreferrer">NEAT</a> (NeuroEvolution of Augmenting Topologies), a genetic algorithm for evolving neural networks. Instead of training with backpropagation like most modern AI, NEAT maintains a population of networks (100 by default) and randomly mutates them across generations. Networks that perform well survive and reproduce; bad ones get culled. Amazingly, this actually works! The AI typically reaches solid play around 150-200 generations.
+                </p>
+
+                <h3>How It Works</h3>
+
+                <p>
+                  Each "match" is actually two games: one where the AI goes first, one where you go first. This keeps things fair since the first player has an advantage. After your match, the AI trains in the background using <strong>web workers</strong> so it doesn't freeze your browser. Your progress is automatically saved to <strong>IndexedDB</strong>, so you can close the page and come back later without losing your training progress.
                 </p>
 
                 <p>
-                  Each "match" is actually two games: one where the AI goes first, one where you go first. This keeps things fair since the first player has an advantage. After your match, the AI trains in the background using web workers so it doesn't freeze your browser. Then you face the new champion.
+                  Behind the scenes, the AI isn't just playing against you. It uses a <strong>Swiss tournament environment</strong> with <a href="https://en.wikipedia.org/wiki/Glicko_rating_system" target="_blank" rel="noopener noreferrer">Glicko-2 rating calculations</a> (like chess ratings). Before each tournament, networks face a standardized gauntlet:
+                </p>
+
+                <ul>
+                  <li>A <strong>Minimax AI</strong> with perfect play</li>
+                  <li>A <strong>"Sleeper AI"</strong> that makes random opening moves before switching to optimal strategy</li>
+                </ul>
+
+                <p>
+                  This diverse training ensures the AI experiences a wider variety of game scenarios. The board is also <strong>canonicalized</strong> (normalized for symmetries), reducing the effective state space from 5,478 to just 765 unique configurations — making learning much more efficient.
+                </p>
+
+                <h3>Settings & Controls</h3>
+
+                <p>
+                  If you don't want to play 20 matches waiting for the AI to get good, bump up the <strong>Generations per Match</strong> setting. At 100 generations per round, the AI evolves much more between games. You can also toggle <strong>Use Best Opponent</strong> to always play against the all-time best network instead of the current generation's leader.
                 </p>
 
                 <p>
-                  If you don't want to play 20 matches waiting for the AI to get good, bump up the <strong>Generations per Match</strong> setting. At 100 generations per round, the AI evolves much faster between games. You can also toggle <strong>Use Best Opponent</strong> to always play against the all-time best network instead of the current generation's leader. The <strong>Algorithm</strong> dropdown lets you try different NEAT variants, though for a game this simple the basic NEAT algorithm works fine.
+                  The <strong>Algorithm</strong> dropdown lets you try different NEAT variants:
+                </p>
+
+                <ul>
+                  <li><strong>NEAT</strong>: The classic algorithm, perfect for this game</li>
+                  <li><strong>HyperNEAT</strong>: Generates network topology based on geometric patterns</li>
+                  <li><strong>ES-HyperNEAT</strong> & <strong>DES-HyperNEAT</strong>: Advanced variants with spatial structure awareness</li>
+                </ul>
+
+                <p>
+                  Fair warning: ES-HyperNEAT and DES-HyperNEAT are computationally expensive. They'll work, but expect your CPU fan to spin up. These algorithms shine on more complex problems. Tic-tac-toe is honestly too simple to benefit from the more robust networks these algorithms generate.
                 </p>
 
                 <p>
-                  Fair warning: ES-HyperNEAT and DES-HyperNEAT are computationally expensive. They'll work, but expect your CPU fan to spin up. These algorithms shine on problems with spatial structure — tic-tac-toe is honestly too simple to benefit from their advanced topology generation.
+                  You can even <strong>hot-swap algorithms</strong> mid-training without losing your population data. The system will save your old population and start a fresh one with the new algorithm settings.
+                </p>
+
+                <h3>Why Tic-Tac-Toe?</h3>
+
+                <p>
+                  It's the perfect sandbox. The game is solved (perfect play always draws), so we know exactly how good the AI can get. It's simple enough that evolution happens quickly, but complex enough that a random network can't win by accident.
                 </p>
 
                 <p>
-                  Why tic-tac-toe? It's the perfect sandbox. The game is solved (perfect play always draws), so we know exactly how good the AI can get. It's simple enough that evolution happens quickly, but complex enough that a random network can't win by accident. Think of it as a hello world for neuroevolution.
+                  Around 500 generations, you'll notice fitness plateaus as the AI achieves near-optimal play. At that point, most games end in draws.
                 </p>
+
+                <h3>Learn More</h3>
+
+                <ul>
+                  <li><a href="https://heygrady.com/posts/2025-12-01-evolving-a-tic-tac-toe-ai-in-your-browser/" target="_blank" rel="noopener noreferrer">Read the technical deep-dive</a> on the blog</li>
+                  <li><a href="https://github.com/heygrady/hexagonoids" target="_blank" rel="noopener noreferrer">Browse the source code</a> on GitHub</li>
+                </ul>
             </article>
         </section>
     </main>
