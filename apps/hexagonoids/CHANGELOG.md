@@ -1,5 +1,24 @@
 # @heygrady/hexagonoids-app
 
+## 0.3.0
+
+### Minor Changes
+
+- 6bb78fc: Add tic-tac-toe experiment with NEAT AI training UI
+  - Implement interactive tic-tac-toe board with multiple AI opponents
+  - Add training visualization with live statistics
+  - Configure Vite for @neat-evolution worker module compatibility
+  - Improve game engine pool system and shared infrastructure
+
+### Patch Changes
+
+- Updated dependencies [6bb78fc]
+- Updated dependencies [6bb78fc]
+  - @heygrady/h3-babylon@0.1.1
+  - @heygrady/tictactoe-game@0.1.0
+  - @heygrady/tictactoe-environment@0.1.0
+  - @heygrady/tictactoe-demo@0.1.0
+
 ## 0.2.0
 
 ### Minor Changes
