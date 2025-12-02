@@ -25,7 +25,7 @@ console.log(message)
 Legacy Node supports Common JS require syntax for imports.
 
 ```js
-const { message } = require('@heygrady/template-ts') // eslint-disable-line no-undef
+const { message } = require('@heygrady/template-ts')  
 
 console.log(message)
 ```
