@@ -35,11 +35,33 @@ const DEFAULT_POPULATION_SIZE = 100
 // Workers need absolute pathnames, not package names, so we use import.meta.glob()
 // to discover modules at build time and convert them to absolute paths.
 // See: devlogs/vite-glob-import.md
-const modules = import.meta.glob('./modules/*.ts', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>
+const modules = import.meta.glob('./modules/*.ts')
+
+/**
+ * Extract the bundled module path from a glob import function.
+ * In dev mode, the key itself is the path. In production builds,
+ * the function contains an import() call with the bundled filename.
+ * @param {string} key - The original module key (e.g., './modules/NEATAlgorithmPathname.ts')
+ * @param {() => Promise<unknown>} importFn - The dynamic import function from import.meta.glob
+ * @returns {string} The resolved pathname for the module
+ */
+const extractModulePath = (
+  key: string,
+  importFn: () => Promise<unknown>
+): string => {
+  const fnString = importFn.toString()
+
+  // The function looks like this (in both prod and dev):
+  // () => __vitePreload(() => import("./NEATAlgorithmPathname.bf49d966.js"), [...])
+  // We need to extract the path from the import() call
+  const importMatch = fnString.match(/import\(["']([^"']+)["']\)/)
+  if (importMatch != null) {
+    // use the bundled filename as the href
+    return new URL(importMatch[1], import.meta.url).href
+  }
+  // Fallback: use the original key as the href
+  return new URL(key, import.meta.url).href
+}
 
 /**
  * Get module pathnames for a specific algorithm.
@@ -57,13 +79,16 @@ export const getModulePathnamesForAlgorithm = (
 
   const algorithmPathnameKey = `${algorithmName}AlgorithmPathname`
 
-  for (const [key, url] of Object.entries(modules)) {
+  for (const [key, importFn] of Object.entries(modules)) {
     if (key.includes(algorithmPathnameKey)) {
-      modulePathnames.algorithmPathname = url
+      modulePathnames.algorithmPathname = extractModulePath(key, importFn)
     } else if (key.includes(ModulePathnameKey.CREATE_ENVIRONMENT)) {
-      modulePathnames.createEnvironmentPathname = url
+      modulePathnames.createEnvironmentPathname = extractModulePath(
+        key,
+        importFn
+      )
     } else if (key.includes(ModulePathnameKey.CREATE_EXECUTOR)) {
-      modulePathnames.createExecutorPathname = url
+      modulePathnames.createExecutorPathname = extractModulePath(key, importFn)
     }
   }
 
