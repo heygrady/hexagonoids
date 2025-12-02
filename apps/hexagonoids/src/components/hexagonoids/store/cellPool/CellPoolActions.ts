@@ -4,7 +4,6 @@ import type { OmitFirstArg } from 'nanostores/action'
 
 import { generateCell } from '../../cell/generateCell'
 import { setImpactedAt, setVisitedAt } from '../cell/CellSetters'
-import type { CellStore } from '../cell/CellStore'
 
 import { getCellStore } from './CellPool'
 import { addCell } from './CellPoolSetters'
