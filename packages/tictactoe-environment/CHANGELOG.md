@@ -1,5 +1,13 @@
 # @heygrady/tictactoe-environment
 
+## 0.1.1
+
+### Patch Changes
+
+- 1312d28: Remove unused dependencies (worker-threads, proper-lockfile)
+- Updated dependencies [1312d28]
+  - @heygrady/tictactoe-game@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes

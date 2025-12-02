@@ -1,5 +1,11 @@
 # @heygrady/tictactoe-game
 
+## 0.1.1
+
+### Patch Changes
+
+- 1312d28: Remove unused @neat-evolution dependencies identified by depcheck
+
 ## 0.1.0
 
 ### Minor Changes

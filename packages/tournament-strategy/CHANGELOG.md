@@ -1,5 +1,11 @@
 # @heygrady/tournament-strategy
 
+## 0.1.1
+
+### Patch Changes
+
+- 1312d28: Remove unused @neat-evolution/core dependency
+
 ## 0.1.0
 
 ### Minor Changes
