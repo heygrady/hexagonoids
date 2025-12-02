@@ -1,0 +1,45 @@
+{
+  "ignoreBinPackage": true,
+  "ignorePatterns": [
+    "dist",
+    "coverage",
+    "node_modules",
+    ".turbo",
+    ".astro",
+    ".vercel",
+    ".yarn"
+  ],
+  "ignores": [
+    "@changesets/cli",
+    "@commitlint/cli",
+    "@commitlint/config-conventional",
+    "@commitlint/config-workspace-scopes",
+    "@manypkg/cli",
+    "husky",
+    "turbo",
+    "vercel",
+    "@heygrady/eslint-config",
+    "@heygrady/tsconfig-bases",
+    "@swc/cli",
+    "@swc/core",
+    "@swc/helpers",
+    "@vitest/coverage-v8",
+    "concurrently",
+    "eslint",
+    "lint-staged",
+    "nodemon",
+    "rimraf",
+    "typescript",
+    "vitest",
+    "@types/*",
+    "@yarnpkg/*",
+    "tailwindcss",
+    "@tailwindcss/*",
+    "daisyui"
+  ],
+  "specials": [
+    "bin",
+    "eslint",
+    "vitest"
+  ]
+}
