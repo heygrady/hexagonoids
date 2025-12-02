@@ -1534,9 +1534,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@heygrady/eslint-config@npm:^1.6.1":
-  version: 1.6.1
-  resolution: "@heygrady/eslint-config@npm:1.6.1::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40heygrady%2Feslint-config%2F1.6.1%2Fb87ff362e602167bf8ba2908ff98ec37002b0341"
+"@heygrady/eslint-config@npm:^1.7.0":
+  version: 1.7.0
+  resolution: "@heygrady/eslint-config@npm:1.7.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40heygrady%2Feslint-config%2F1.7.0%2F4da04706fb80050ccce7d3067cb1d7409f8a907c"
   dependencies:
     "@eslint/js": "npm:^9.39.1"
     "@eslint/markdown": "npm:^7.5.1"
@@ -1560,7 +1560,6 @@ __metadata:
     eslint-plugin-react: "npm:^7.37.5"
     eslint-plugin-react-hooks: "npm:^7.0.1"
     eslint-plugin-solid: "npm:^0.14.5"
-    eslint-plugin-storybook: "npm:^10.1.2"
     eslint-plugin-testing-library: "npm:^7.13.5"
     eslint-plugin-vitest: "npm:^0.5.4"
     globals: "npm:^16.5.0"
@@ -1571,7 +1570,7 @@ __metadata:
     vitest: "npm:^4.0.14"
   peerDependencies:
     eslint: ^9.0.0
-  checksum: 10/07732a720cd2fd4d6a650b6795644c0c70b3bf7fb8169bba02433e6e9ffbe62787fb58fc6ea4555c9c28a059b2b9946a5c2a73358e69334cc40e998e4496b953
+  checksum: 10/cf9081a1c349a8e476fbf2849acd41a3363e773854b76163c23186ec6f068d5e319e7aea59107744c5bd82992c6003cb7e9983ae755d647dbe4ef8374ffaff17
   languageName: node
   linkType: hard
 
@@ -1580,7 +1579,7 @@ __metadata:
   resolution: "@heygrady/h3-babylon@workspace:packages/h3-babylon"
   dependencies:
     "@babylonjs/core": "npm:^8.37.3"
-    "@heygrady/eslint-config": "npm:^1.6.1"
+    "@heygrady/eslint-config": "npm:^1.7.0"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
@@ -1607,7 +1606,7 @@ __metadata:
     "@astrojs/solid-js": "npm:5.1.3"
     "@astrojs/vercel": "npm:9.0.2"
     "@babylonjs/core": "npm:^8.37.3"
-    "@heygrady/eslint-config": "npm:^1.6.1"
+    "@heygrady/eslint-config": "npm:^1.7.0"
     "@heygrady/h3-babylon": "workspace:^"
     "@heygrady/tictactoe-demo": "workspace:^"
     "@heygrady/tictactoe-environment": "workspace:^"
@@ -1670,7 +1669,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@heygrady/template-ts@workspace:packages/template-ts"
   dependencies:
-    "@heygrady/eslint-config": "npm:^1.6.1"
+    "@heygrady/eslint-config": "npm:^1.7.0"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
@@ -1692,7 +1691,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@heygrady/tictactoe-demo@workspace:packages/tictactoe-demo"
   dependencies:
-    "@heygrady/eslint-config": "npm:^1.6.1"
+    "@heygrady/eslint-config": "npm:^1.7.0"
     "@heygrady/tictactoe-environment": "workspace:^"
     "@heygrady/tictactoe-game": "workspace:^"
     "@heygrady/tournament-strategy": "workspace:^"
@@ -1732,7 +1731,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@heygrady/tictactoe-environment@workspace:packages/tictactoe-environment"
   dependencies:
-    "@heygrady/eslint-config": "npm:^1.6.1"
+    "@heygrady/eslint-config": "npm:^1.7.0"
     "@heygrady/tictactoe-game": "workspace:^"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@neat-evolution/core": "npm:^0.3.3"
@@ -1763,7 +1762,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@heygrady/tictactoe-game@workspace:packages/tictactoe-game"
   dependencies:
-    "@heygrady/eslint-config": "npm:^1.6.1"
+    "@heygrady/eslint-config": "npm:^1.7.0"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@neat-evolution/cppn": "npm:^0.6.0"
     "@neat-evolution/des-hyperneat": "npm:^0.6.0"
@@ -1793,7 +1792,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@heygrady/tournament-strategy@workspace:packages/tournament-strategy"
   dependencies:
-    "@heygrady/eslint-config": "npm:^1.6.1"
+    "@heygrady/eslint-config": "npm:^1.7.0"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@neat-evolution/core": "npm:^0.3.3"
     "@neat-evolution/evaluation-strategy": "npm:^0.3.4"
@@ -4108,7 +4107,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@typescript-eslint/utils@npm:8.48.0, @typescript-eslint/utils@npm:^7.13.1 || ^8.0.0, @typescript-eslint/utils@npm:^8.0.0, @typescript-eslint/utils@npm:^8.15.0, @typescript-eslint/utils@npm:^8.8.1":
+"@typescript-eslint/utils@npm:8.48.0, @typescript-eslint/utils@npm:^7.13.1 || ^8.0.0, @typescript-eslint/utils@npm:^8.0.0, @typescript-eslint/utils@npm:^8.15.0":
   version: 8.48.0
   resolution: "@typescript-eslint/utils@npm:8.48.0"
   dependencies:
@@ -8645,18 +8644,6 @@ __metadata:
     eslint: ^6.0.0 || ^7.0.0 || ^8.0.0 || ^9.0.0
     typescript: ">=4.8.4"
   checksum: 10/61fd3d7751125fa0c1ed1a3be9b30c3f8f16b76b24732e4d2565076f1c5fc5a8e3746947f8adc7192061629882dbae513aa4b5558d867823439cca51ea6af718
-  languageName: node
-  linkType: hard
-
-"eslint-plugin-storybook@npm:^10.1.2":
-  version: 10.1.2
-  resolution: "eslint-plugin-storybook@npm:10.1.2"
-  dependencies:
-    "@typescript-eslint/utils": "npm:^8.8.1"
-  peerDependencies:
-    eslint: ">=8"
-    storybook: ^10.1.2
-  checksum: 10/113353c975ca527a41cedde71a28471d97a3ba511b1e6a7fe148271180eba08d4fb7b65becba98c96c02fa51529605767b33611621c5ee272622baaaa0d54686
   languageName: node
   linkType: hard
 
