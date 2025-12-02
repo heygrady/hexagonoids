@@ -1,5 +1,11 @@
 # @heygrady/hexagonoids-app
 
+## 0.3.3
+
+### Patch Changes
+
+- 79d2ac7: Restore extractModulePath function for proper production builds - the previous refactor broke module loading in production by removing the code that extracts bundled filenames from Vite's glob imports
+
 ## 0.3.2
 
 ### Patch Changes
