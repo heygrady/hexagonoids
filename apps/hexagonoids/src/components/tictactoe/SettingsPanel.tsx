@@ -294,7 +294,7 @@ export function SettingsPanel() {
                 min='0'
                 max={GENERATION_STEPS.length - 1}
                 value={generationsSliderIndex()}
-                class='range range-primary'
+                class='range range-primary w-full'
                 step='1'
                 onInput={handleGenerationsChange}
               />
@@ -422,7 +422,7 @@ export function SettingsPanel() {
                 when={!showResetConfirm()}
                 fallback={
                   <div class='flex flex-col gap-2'>
-                    <span class='text-sm text-warning'>
+                    <span class='text-sm text-error'>
                       This will delete all training progress for the current
                       population. Are you sure?
                     </span>
@@ -451,7 +451,7 @@ export function SettingsPanel() {
                 }
               >
                 <button
-                  class='btn btn-outline btn-warning btn-sm w-full'
+                  class='btn btn-outline btn-error btn-sm w-full'
                   onClick={() => setShowResetConfirm(true)}
                 >
                   Reset Current Population
