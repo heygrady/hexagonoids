@@ -27,12 +27,12 @@ export const defaultEnvironmentConfig: Partial<TicTacToeEnvironmentConfig> = {
     {
       opponent: 'minimaxAI',
       numGames: 5,
-      weight: 1 / 2,
+      weight: 0.6,
     },
     {
       opponent: 'sleeperAI',
       numGames: 30,
-      weight: 1 / 2,
+      weight: 0.4,
     },
   ],
 }
@@ -58,7 +58,7 @@ export const normalizationRanges = {
 export const defaultStrategyOptions: Partial<GlickoStrategyOptions<any>> = {
   matchPlayerSize: 2,
   individualSeeding: true,
-  numSeedTournaments: 20,
+  numSeedTournaments: 25,
   fitnessWeights: {
     seedWeight: 0.4,
     envWeight: 0.0,
