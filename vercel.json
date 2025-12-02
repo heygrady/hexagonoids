@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "corepack enable && ./scripts/inject-npm-auth.sh && yarn install",
+  "buildCommand": "yarn build",
+  "framework": "astro"
+}
