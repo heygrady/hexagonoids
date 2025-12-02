@@ -1,5 +1,18 @@
 # @heygrady/hexagonoids-app
 
+## 0.3.1
+
+### Patch Changes
+
+- 1312d28: Remove unused dependencies (tictactoe-game, @neat-evolution/evolution)
+- 1312d28: Improve reset button styling and generations slider UX in SettingsPanel
+- 1312d28: Simplify vite glob import using ?url query parameter
+- Updated dependencies [1312d28]
+- Updated dependencies [1312d28]
+- Updated dependencies [1312d28]
+  - @heygrady/tictactoe-demo@0.2.0
+  - @heygrady/tictactoe-environment@0.1.1
+
 ## 0.3.0
 
 ### Minor Changes
