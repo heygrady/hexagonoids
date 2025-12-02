@@ -50,7 +50,7 @@
     "@swc/helpers": "^0.5.17"
   },
   "devDependencies": {
-    "@heygrady/eslint-config": "^1.6.1",
+    "@heygrady/eslint-config": "^1.7.0",
     "@heygrady/tsconfig-bases": "^1.0.7",
     "@swc/cli": "^0.7.9",
     "@swc/core": "^1.15.3",
