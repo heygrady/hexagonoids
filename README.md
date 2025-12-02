@@ -7,9 +7,10 @@ along with a NEAT (NeuroEvolution of Augmenting Topologies) training system that
 uses Tic-Tac-Toe as a demonstration environment for evolving neural network
 agents.
 
-- [Play Hexagonoids Here](https://hexagonoids.heygrady.com/)
-- [Play Tictactoe Here](https://hexagonoids.heygrady.com/experiments/tictactoe)
-- [Read Here](https://heygrady.com/posts/2023-07-28-hexagonoids/)
+- [Play Hexagonoids](https://hexagonoids.heygrady.com/)
+- [Play Tic-Tac-Toe NEAT Demo](https://hexagonoids.heygrady.com/experiments/tictactoe)
+- [Read the Hexagonoids Blog Post](https://heygrady.com/posts/2023-07-28-hexagonoids/)
+- [Read the Tic-Tac-Toe NEAT Blog Post](https://heygrady.com/posts/2025-12-01-evolving-a-tic-tac-toe-ai-in-your-browser/)
 
 ## Purpose
 
