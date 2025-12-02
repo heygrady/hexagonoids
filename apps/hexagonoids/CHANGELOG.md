@@ -1,5 +1,11 @@
 # @heygrady/hexagonoids-app
 
+## 0.3.2
+
+### Patch Changes
+
+- 87709c2: Improve tic-tac-toe experiment page with comprehensive technical details about NEAT training, Swiss tournaments, Glicko-2 ratings, board canonicalization, and links to blog post and repository
+
 ## 0.3.1
 
 ### Patch Changes
