@@ -51,9 +51,7 @@
     "@neat-evolution/environment": "^0.5.0",
     "@neat-evolution/executor": "^0.3.5",
     "@neat-evolution/utils": "^0.2.5",
-    "@neat-evolution/worker-threads": "^0.4.2",
-    "@swc/helpers": "^0.5.17",
-    "proper-lockfile": "^4.1.2"
+    "@swc/helpers": "^0.5.17"
   },
   "devDependencies": {
     "@heygrady/eslint-config": "^1.7.0",
@@ -63,7 +61,6 @@
     "@swc/cli": "^0.7.9",
     "@swc/core": "^1.15.3",
     "@types/prettier": "^2",
-    "@types/proper-lockfile": "^4",
     "@vitest/coverage-v8": "^4.0.14",
     "concurrently": "^9.2.1",
     "eslint": "^9.39.1",
