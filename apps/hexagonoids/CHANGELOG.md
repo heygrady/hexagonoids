@@ -1,5 +1,16 @@
 # @heygrady/hexagonoids-app
 
+## 0.3.4
+
+### Patch Changes
+
+- 475dadb: Fix population switching race condition that caused wrong algorithm data to be saved to IndexedDB
+- 6defccb: Upgrade all @neat-evolution packages to latest versions (0.3.5 core, 0.6.2
+  algorithms, 0.5.2+ environment/evaluator)
+- Updated dependencies [6defccb]
+  - @heygrady/tictactoe-demo@0.2.1
+  - @heygrady/tictactoe-environment@0.1.2
+
 ## 0.3.3
 
 ### Patch Changes
