@@ -316,6 +316,27 @@ export const startBackgroundEvolution = ($game: GameStore) => {
       // Success handling...
       // NOTE: ignore best. It's not what we want.
 
+      // Validate algorithm hasn't changed during evolution (Layer 2 safety net)
+      const currentAlgorithm = $game.get().$settings.get().committed.algorithm
+      const currentActivation = $game.get().$settings.get().committed.activation
+
+      if (
+        currentAlgorithm !== saveAlgorithm ||
+        currentActivation !== saveActivation
+      ) {
+        console.log(
+          '[evolution.then] Algorithm/activation changed during evolution, skipping save',
+          {
+            saved: { algorithm: saveAlgorithm, activation: saveActivation },
+            current: {
+              algorithm: currentAlgorithm,
+              activation: currentActivation,
+            },
+          }
+        )
+        return best
+      }
+
       // Promote training to pending
       const training = $game.get().training
       if (training != null) {
@@ -361,11 +382,12 @@ export const startBackgroundEvolution = ($game: GameStore) => {
     })
     .catch((err: any) => {
       if (err.name === 'AbortError' || err.message === 'Aborted') {
-        // Expected during reset
-        return null
+        // Expected during reset - throw to skip .then() handler
+        // This prevents saving population data after algorithm has changed
+        throw err
       }
       console.error('[GameActions] Evolution error:', err)
-      return null
+      throw err
     })
     .finally(() => {
       // 2. Cleanup references
