@@ -1,5 +1,12 @@
 # @heygrady/tictactoe-environment
 
+## 0.1.2
+
+### Patch Changes
+
+- 6defccb: Upgrade all @neat-evolution packages to latest versions (0.3.5 core, 0.6.2
+  algorithms, 0.5.2+ environment/evaluator)
+
 ## 0.1.1
 
 ### Patch Changes
