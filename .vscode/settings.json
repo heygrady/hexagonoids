@@ -17,5 +17,6 @@
   },
   "files.insertFinalNewline": true,
   "editor.tabSize": 2,
-  "deno.lint": false
+  "deno.lint": false,
+  "vitest.disableWorkspaceWarning": true
 }
