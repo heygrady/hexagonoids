@@ -1,0 +1,253 @@
+import type { RNG } from '@neat-evolution/utils'
+import { beforeEach, describe, expect, it } from 'vitest'
+import type { GameState } from '../../src/index.js'
+import {
+  advanceGameTime,
+  BULLET_LIFETIME,
+  canRegenerate,
+  checkWaveSpawn,
+  createGame,
+  destroyRock,
+  destroyShip,
+  expireBullets,
+  FIRE_COOLDOWN,
+  fireBullet,
+  killPlayer,
+  PLAYER_STARTING_LIVES,
+  ROCK_LARGE_SIZE,
+  ROCK_LARGE_VALUE,
+  ROCK_MEDIUM_SIZE,
+  ROCK_MEDIUM_VALUE,
+  ROCK_SMALL_SIZE,
+  ROCK_WAVE_PERIOD,
+  regeneratePlayer,
+  resetIdCounter,
+  SHIP_REGENERATION_WAIT_PERIOD,
+  scorePlayer,
+  spawnRock,
+  spawnShip,
+  spawnWave,
+  splitRock,
+  startPlayer,
+} from '../../src/index.js'
+
+function createTestRng(): RNG {
+  let i = 0
+  const values = [
+    0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.15, 0.25, 0.35, 0.45, 0.55,
+    0.65, 0.75, 0.85, 0.95, 0.05, 0.12, 0.22, 0.32, 0.42, 0.52, 0.62, 0.72,
+    0.82, 0.92, 0.02, 0.11, 0.21, 0.31, 0.41, 0.51, 0.61, 0.71, 0.81,
+  ]
+  const next = () => values[i++ % values.length] ?? 0.5
+  return {
+    gen: () => next(),
+    genRange: (min: number, max: number) =>
+      Math.floor(next() * (max - min)) + min,
+    genBool: () => next() < 0.5,
+  }
+}
+
+describe('entity lifecycle', () => {
+  let game: GameState
+  let rng: RNG
+
+  beforeEach(() => {
+    resetIdCounter()
+    const result = createGame({ seed: 'test' })
+    game = result.state
+    rng = createTestRng()
+  })
+
+  describe('player lifecycle', () => {
+    it('can start a player (spawns ship)', () => {
+      startPlayer(game, 'p1', rng)
+
+      const player = game.players.get('p1')
+      expect(player).toBeDefined()
+      expect(player!.alive).toBe(true)
+      expect(player!.lives).toBe(PLAYER_STARTING_LIVES)
+      expect(player!.score).toBe(0)
+      expect(player!.shipId).not.toBeNull()
+      expect(player!.startedAt).toBe(0)
+
+      // Ship was spawned
+      expect(game.ships.size).toBe(1)
+      const ship = game.ships.get(player!.shipId!)
+      expect(ship).toBeDefined()
+      expect(ship!.playerId).toBe('p1')
+      expect(ship!.alive).toBe(true)
+    })
+
+    it('player dies → alive=false, diedAt set', () => {
+      startPlayer(game, 'p1', rng)
+      advanceGameTime(game, 1)
+
+      killPlayer(game, 'p1')
+
+      const player = game.players.get('p1')!
+      expect(player.alive).toBe(false)
+      expect(player.diedAt).toBe(game.now)
+      expect(player.shipId).toBeNull()
+      expect(game.ships.size).toBe(0)
+    })
+
+    it('player regenerates → new ship spawned, lives decremented', () => {
+      startPlayer(game, 'p1', rng)
+      advanceGameTime(game, 1)
+      killPlayer(game, 'p1')
+
+      // Advance past regeneration wait period
+      advanceGameTime(game, SHIP_REGENERATION_WAIT_PERIOD / 1000 + 0.1)
+
+      expect(canRegenerate(game, 'p1')).toBe(true)
+      regeneratePlayer(game, 'p1', rng)
+
+      const player = game.players.get('p1')!
+      expect(player.alive).toBe(true)
+      expect(player.lives).toBe(PLAYER_STARTING_LIVES - 1)
+      expect(player.shipId).not.toBeNull()
+      expect(game.ships.size).toBe(1)
+    })
+
+    it('game over when player dies with no lives', () => {
+      startPlayer(game, 'p1', rng)
+      const player = game.players.get('p1')!
+      player.lives = 0
+
+      killPlayer(game, 'p1')
+      expect(game.endedAt).toBe(game.now)
+    })
+
+    it('scorePlayer awards points', () => {
+      startPlayer(game, 'p1', rng)
+      scorePlayer(game, 'p1', 100)
+
+      const player = game.players.get('p1')!
+      expect(player.score).toBe(100)
+    })
+  })
+
+  describe('ship actions', () => {
+    it('spawnShip creates a ship in the game', () => {
+      const ship = spawnShip(game, 'p1', 10, 20, rng)
+      expect(game.ships.has(ship.id)).toBe(true)
+      expect(ship.playerId).toBe('p1')
+      expect(ship.alive).toBe(true)
+    })
+
+    it('destroyShip removes a ship', () => {
+      const ship = spawnShip(game, 'p1', 10, 20, rng)
+      expect(game.ships.size).toBe(1)
+      destroyShip(game, ship.id)
+      expect(game.ships.size).toBe(0)
+    })
+  })
+
+  describe('bullet lifecycle', () => {
+    it('can fire a bullet from a ship', () => {
+      const ship = spawnShip(game, 'p1', 0, 0, rng)
+
+      const bullet = fireBullet(game, ship, rng)
+      expect(bullet).not.toBeNull()
+      expect(game.bullets.size).toBe(1)
+      expect(bullet!.ownerId).toBe(ship.id)
+      expect(bullet!.firedAt).toBe(game.now)
+    })
+
+    it('fireBullet respects cooldown', () => {
+      const ship = spawnShip(game, 'p1', 0, 0, rng)
+
+      const bullet1 = fireBullet(game, ship, rng)
+      expect(bullet1).not.toBeNull()
+
+      // Immediately try again — should be on cooldown
+      const bullet2 = fireBullet(game, ship, rng)
+      expect(bullet2).toBeNull()
+
+      // Advance past cooldown
+      advanceGameTime(game, FIRE_COOLDOWN / 1000 + 0.01)
+      const bullet3 = fireBullet(game, ship, rng)
+      expect(bullet3).not.toBeNull()
+      expect(game.bullets.size).toBe(2)
+    })
+
+    it('expireBullets removes old bullets', () => {
+      const ship = spawnShip(game, 'p1', 0, 0, rng)
+      fireBullet(game, ship, rng)
+      expect(game.bullets.size).toBe(1)
+
+      // Advance past bullet lifetime
+      advanceGameTime(game, BULLET_LIFETIME / 1000 + 0.1)
+      expireBullets(game)
+      expect(game.bullets.size).toBe(0)
+    })
+  })
+
+  describe('rock lifecycle', () => {
+    it('can spawn a rock', () => {
+      const rock = spawnRock(game, 10, 20, ROCK_LARGE_SIZE, rng)
+      expect(game.rocks.has(rock.id)).toBe(true)
+      expect(rock.size).toBe(ROCK_LARGE_SIZE)
+      expect(rock.value).toBe(ROCK_LARGE_VALUE)
+    })
+
+    it('splitRock creates two smaller rocks from a large rock', () => {
+      const rock = spawnRock(game, 10, 20, ROCK_LARGE_SIZE, rng)
+      expect(game.rocks.size).toBe(1)
+
+      splitRock(game, rock, rng)
+
+      // Original destroyed, 2 new ones created
+      expect(game.rocks.has(rock.id)).toBe(false)
+      expect(game.rocks.size).toBe(2)
+
+      for (const child of game.rocks.values()) {
+        expect(child.size).toBe(ROCK_MEDIUM_SIZE)
+        expect(child.value).toBe(ROCK_MEDIUM_VALUE)
+      }
+    })
+
+    it('splitRock destroys small rocks', () => {
+      const rock = spawnRock(game, 10, 20, ROCK_SMALL_SIZE, rng)
+      splitRock(game, rock, rng)
+      expect(game.rocks.size).toBe(0)
+    })
+
+    it('destroyRock removes a rock', () => {
+      const rock = spawnRock(game, 10, 20, ROCK_LARGE_SIZE, rng)
+      destroyRock(game, rock.id)
+      expect(game.rocks.size).toBe(0)
+    })
+
+    it('spawnWave spawns rocks around a position', () => {
+      spawnWave(game, 0, 0, rng)
+      // ROCK_WAVE_SIZES[0] = 4
+      expect(game.rocks.size).toBe(4)
+      expect(game.wave).toBe(1)
+    })
+  })
+
+  describe('wave spawning via checkWaveSpawn', () => {
+    it('spawns a wave when enough time has elapsed', () => {
+      startPlayer(game, 'p1', rng)
+
+      // First wave should spawn immediately (waveSpawnedAt is null → elapsed = Infinity)
+      checkWaveSpawn(game, 'p1', rng)
+      expect(game.rocks.size).toBeGreaterThan(0)
+      expect(game.wave).toBe(1)
+
+      const firstWaveCount = game.rocks.size
+
+      // Not enough time for another wave
+      advanceGameTime(game, 1)
+      checkWaveSpawn(game, 'p1', rng)
+      expect(game.rocks.size).toBe(firstWaveCount)
+
+      // Advance past wave period
+      advanceGameTime(game, ROCK_WAVE_PERIOD / 1000 + 0.1)
+      checkWaveSpawn(game, 'p1', rng)
+      expect(game.rocks.size).toBeGreaterThan(firstWaveCount)
+      expect(game.wave).toBe(2)
+    })
+  })
+})
