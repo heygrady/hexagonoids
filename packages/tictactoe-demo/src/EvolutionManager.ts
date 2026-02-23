@@ -12,13 +12,13 @@ import {
   type TopologyConfigOptions,
 } from '@neat-evolution/des-hyperneat'
 import {
-  evolve as neatEvolve,
-  type EvolutionOptions,
   defaultEvolutionOptions,
   defaultPopulationOptions,
+  type EvolutionOptions,
+  evolve as neatEvolve,
+  Organism,
   type PopulationOptions,
   type ReproducerFactory,
-  Organism,
 } from '@neat-evolution/evolution'
 import { createExecutor, type SyncExecutor } from '@neat-evolution/executor'
 import { createEvaluator } from '@neat-evolution/worker-evaluator'
@@ -29,8 +29,8 @@ import {
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
 import {
-  getAlgorithmDefinition,
   allActivations,
+  getAlgorithmDefinition,
   type SupportedAlgorithm,
 } from './algorithmRegistry.js'
 import {
@@ -41,7 +41,7 @@ import {
 import { ModulePathnameKey, type ModulePathnames } from './modulePathnames.js'
 import type { AnyAlgorithm, AnyGenome, AnyPopulation } from './types.js'
 
-export { type SupportedAlgorithm } from './algorithmRegistry.js'
+export type { SupportedAlgorithm } from './algorithmRegistry.js'
 
 const workerEvaluatorThreadLimit = Math.floor(hardwareConcurrency - 1)
 const workerReproducerThreadLimit = Math.floor(hardwareConcurrency - 1)

@@ -29,7 +29,7 @@ export function handleHeroesUpdated<G extends AnyGenome<G>>(
 ) {
   const [hero] = heroes
   if (hero == null) return
-  fs.appendFile(heroesLogPath, JSON.stringify(hero) + '\n').catch((error) => {
+  fs.appendFile(heroesLogPath, `${JSON.stringify(hero)}\n`).catch((error) => {
     console.error('Error writing heroes log:', error)
   })
 }

@@ -5,26 +5,26 @@ import {
   defaultCPPNGenomeOptions,
 } from '@neat-evolution/cppn'
 import {
-  DESHyperNEATAlgorithm,
   createPopulation as createDESHyperNEATPopulation,
+  DESHyperNEATAlgorithm,
   defaultDESHyperNEATGenomeOptions,
   type TopologyConfigOptions,
 } from '@neat-evolution/des-hyperneat'
 import {
-  ESHyperNEATAlgorithm,
   createPopulation as createESHyperNEATPopulation,
   defaultESHyperNEATGenomeOptions,
+  ESHyperNEATAlgorithm,
 } from '@neat-evolution/es-hyperneat'
 import type { ReproducerFactory } from '@neat-evolution/evolution'
 import {
-  HyperNEATAlgorithm,
   createPopulation as createHyperNEATPopulation,
   defaultHyperNEATGenomeOptions,
+  HyperNEATAlgorithm,
 } from '@neat-evolution/hyperneat'
 import {
-  NEATAlgorithm,
   createPopulation as createNEATPopulation,
   defaultNEATGenomeOptions,
+  NEATAlgorithm,
 } from '@neat-evolution/neat'
 
 import type { AnyAlgorithm, AnyPopulation } from './types.js'

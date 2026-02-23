@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url'
 import {
   checkState,
   getInitialBoard,
-  type Player,
   minimaxAI,
   neatAI,
+  type Player,
 } from '@heygrady/tictactoe-game'
 import {
   createConfig as createCPPNConfig,
@@ -181,7 +181,7 @@ export async function getPlayerMove(board: number[]): Promise<number> {
     rl.question(prompt, (userInput) => {
       rl.close()
       const move = parseInt(userInput, 10) - 1
-      if (isNaN(move) || move < 0 || move > 8 || board[move] !== 0) {
+      if (Number.isNaN(move) || move < 0 || move > 8 || board[move] !== 0) {
         console.log(
           'Invalid move. Please enter a number between 1-9 for an empty square.'
         )
