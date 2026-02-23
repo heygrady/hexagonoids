@@ -69,7 +69,16 @@ const { state, rng } = createGame()
 | Ship physics | `accelerateShip(ship, duration)`, `turnShip(ship, direction, duration)`, `moveShip(ship, delta)` |
 | Bullet/Rock | `moveBullet(bullet, delta)`, `moveRock(rock, delta)` |
 | Quaternion primitives | `integrateAngularVelocity`, `headingToAngularVelocity`, `applyAngularFriction`, `clampAngularVelocity`, `getPositionFromQuaternion` |
-| Lat/lng utilities | `latLngToVector3`, `vector3ToLatLng`, `quaternionToLatLng` |
+| Lat/lng utilities | `latLngToVector3`, `vector3ToLatLng`, `quaternionToLatLng`, `latLngToQuaternion` |
+| ID generation | `generateId`, `resetIdCounter` |
+| Bullet actions | `spawnBullet`, `destroyBullet`, `expireBullets` |
+| Bullet setters | `setBulletLat`, `setBulletLng`, `setBulletLocation`, `setBulletAngularVelocity` |
+| Player actions | `startPlayer`, `killPlayer`, `regeneratePlayer`, `scorePlayer`, `canRegenerate`, `checkWaveSpawn` |
+| Player setters | `setLives`, `setScore`, `decrementLives`, `incrementScore` |
+| Rock actions | `spawnRock`, `spawnWave`, `destroyRock`, `splitRock` |
+| Rock setters | `setRockLat`, `setRockLng`, `setRockLocation`, `setRockSize`, `setRockAngularVelocity` |
+| Ship actions | `spawnShip`, `destroyShip`, `fireBullet` |
+| Ship setters | `setShipLat`, `setShipLng`, `setShipLocation`, `setShipYaw`, `setShipFiredAt`, `setShipAngularVelocity` |
 | Constants | `MAX_SPEED`, `FRICTION_COEFFICIENT`, `TURN_RATE`, `ACCELERATION_RATE`, `MAX_DURATION`, `ROCK_LARGE_SIZE`, `ROCK_MEDIUM_SIZE`, `ROCK_SMALL_SIZE`, and more |
 
 ### CJS
