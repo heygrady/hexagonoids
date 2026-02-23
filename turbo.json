@@ -9,19 +9,12 @@
         "*.config.{cjs,mjs,js,ts}",
         "package.json"
       ],
-      "outputs": [
-        "dist/**",
-        ".vercel/**"
-      ],
-      "dependsOn": [
-        "^build"
-      ],
+      "outputs": ["dist/**", ".vercel/**"],
+      "dependsOn": ["^build"],
       "cache": true
     },
     "dev": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "persistent": true,
       "cache": false
     },
@@ -42,12 +35,8 @@
         "test/**/*.{cjs,mjs,js,jsx,cts,mts,ts,tsx}",
         "package.json"
       ],
-      "outputs": [
-        "coverage/**"
-      ],
-      "dependsOn": [
-        "^test"
-      ],
+      "outputs": ["coverage/**"],
+      "dependsOn": ["^test"],
       "cache": true
     },
     "format": {
@@ -66,13 +55,14 @@
       ],
       "cache": true
     },
-    "precommit": {
+    "check": {
       "inputs": [
         "src/**/*.{cjs,mjs,js,jsx,cts,mts,ts,tsx}",
         "test/**/*.{cjs,mjs,js,jsx,cts,mts,ts,tsx}",
         "package.json"
       ],
-      "cache": false
+      "dependsOn": ["^build"],
+      "cache": true
     },
     "test": {
       "inputs": [

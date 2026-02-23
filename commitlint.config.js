@@ -1,3 +1,6 @@
 module.exports = {
-  extends: ['@commitlint/config-conventional', '@commitlint/config-workspace-scopes'],
+  extends: [
+    '@commitlint/config-conventional',
+    '@commitlint/config-workspace-scopes',
+  ],
 }

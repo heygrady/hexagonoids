@@ -145,6 +145,7 @@ packages/tictactoe-demo/best*.json
 
 # AI assistant config
 devlogs/
+.devlogs/
 .claude
 .gemini
 CLAUDE.md
