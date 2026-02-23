@@ -4,14 +4,18 @@ import type {
 } from '@neat-evolution/evaluation-strategy'
 import type {
   AnyGenome,
+  FitnessData,
   GenomeEntries,
   GenomeEntry,
-  FitnessData,
 } from '@neat-evolution/evaluator'
 import { Glicko2, type Player as GlickoPlayer } from 'glicko2'
 
 import { addFillers } from './entities/addFillers.js'
 import { toId } from './entities/toId.js'
+import {
+  defaultGlickoStrategyOptions,
+  type GlickoStrategyOptions,
+} from './GlickoStrategyOptions.js'
 import { createGlickoMatches } from './glicko/createMatches.js'
 import { scoreSeedTournaments } from './glicko/scoreSeedTournaments.js'
 import type {
@@ -20,24 +24,20 @@ import type {
   GlickoSettings,
 } from './glicko/types.js'
 import {
-  defaultGlickoStrategyOptions,
-  type GlickoStrategyOptions,
-} from './GlickoStrategyOptions.js'
-import {
   createMangledHeroEntry,
-  selectBestGenomeByRawRating,
   sampleHeroesUniformly,
+  selectBestGenomeByRawRating,
 } from './heroes/index.js'
 import type { HeroGenome } from './heroes/types.js'
 import { glickoFitnessCalculator } from './score/glickoFitnessCalculator.js'
 import type {
-  GlickoScoreComponents,
   GlickoFitnessWeights,
+  GlickoScoreComponents,
 } from './score/types.js'
 
-export class GlickoStrategy<
-  G extends AnyGenome<G>,
-> implements EvaluationStrategy<G> {
+export class GlickoStrategy<G extends AnyGenome<G>>
+  implements EvaluationStrategy<G>
+{
   public readonly options: GlickoStrategyOptions<G>
 
   private readonly glicko: Glicko2

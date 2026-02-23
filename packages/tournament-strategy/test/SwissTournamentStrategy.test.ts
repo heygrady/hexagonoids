@@ -1,10 +1,10 @@
 import type { EvaluationContext } from '@neat-evolution/evaluation-strategy'
 import type {
-  GenomeEntries,
   FitnessData,
+  GenomeEntries,
   GenomeEntry,
 } from '@neat-evolution/evaluator'
-import { describe, expect, test, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { SwissTournamentStrategy } from '../src/index.js'
 
@@ -28,7 +28,12 @@ describe('SwissTournamentStrategy', () => {
             return [speciesIndex, organismIndex, score] as FitnessData
           })
         }),
-    }
+      dispatch: vi.fn(),
+      request: vi.fn(),
+      broadcast: vi.fn(),
+      addActionHandler: vi.fn(),
+      removeActionHandler: vi.fn(),
+    } as unknown as EvaluationContext<any>
     mockGenomeEntries = [
       [1, 1, {}] as GenomeEntry<any>,
       [1, 2, {}] as GenomeEntry<any>,
@@ -96,7 +101,7 @@ describe('SwissTournamentStrategy', () => {
       individualSeeding: true,
     })
 
-    const mockContextWithSeeding: EvaluationContext<any> = {
+    const mockContextWithSeeding = {
       evaluateGenomeEntry: vi.fn().mockImplementation(async (entry) => {
         const [speciesIndex, organismIndex] = entry
         // Return individual fitness scores
@@ -111,7 +116,12 @@ describe('SwissTournamentStrategy', () => {
             return [speciesIndex, organismIndex, score] as FitnessData
           })
         }),
-    }
+      dispatch: vi.fn(),
+      request: vi.fn(),
+      broadcast: vi.fn(),
+      addActionHandler: vi.fn(),
+      removeActionHandler: vi.fn(),
+    } as unknown as EvaluationContext<any>
 
     const yieldedFitnessData: FitnessData[] = []
     for await (const fitnessData of seedingStrategy.evaluate(
@@ -123,11 +133,11 @@ describe('SwissTournamentStrategy', () => {
 
     // Verify individual evaluation was called for each genome
     expect(mockContextWithSeeding.evaluateGenomeEntry).toHaveBeenCalledTimes(
-      mockGenomeEntries.length
+      [...mockGenomeEntries].length
     )
 
     // Verify results were returned for all genomes
-    expect(yieldedFitnessData).toHaveLength(mockGenomeEntries.length)
+    expect(yieldedFitnessData).toHaveLength([...mockGenomeEntries].length)
   })
 
   test('calculateBuchholzScores sums opponents tournament scores', () => {
@@ -157,7 +167,7 @@ describe('SwissTournamentStrategy', () => {
       [toId(entryD), new Set([toId(entryB), toId(entryC)])], // D faced B, C
     ])
 
-    const buchholz = strategy['calculateBuchholzScores'](
+    const buchholz = (strategy as any)['calculateBuchholzScores'](
       tournamentScores,
       previousOpponents,
       entries
@@ -193,7 +203,7 @@ describe('SwissTournamentStrategy', () => {
       (entry[0] << 16) | entry[1]
 
     // Mark filler
-    strategy['fillerIds'].add(toId(entryFiller))
+    ;(strategy as any)['fillerIds'].add(toId(entryFiller))
 
     const tournamentScores = new Map([
       [0, 2.0], // A
@@ -209,7 +219,7 @@ describe('SwissTournamentStrategy', () => {
       [toId(entryFiller), new Set([toId(entryA), toId(entryC)])], // Filler faced A, C
     ])
 
-    const buchholz = strategy['calculateBuchholzScores'](
+    const buchholz = (strategy as any)['calculateBuchholzScores'](
       tournamentScores,
       previousOpponents,
       entries
@@ -235,7 +245,7 @@ describe('SwissTournamentStrategy', () => {
     })
 
     // Mock context with both individual and batch evaluation
-    const mockContextWithSeeding: EvaluationContext<any> = {
+    const mockContextWithSeeding = {
       evaluateGenomeEntry: vi.fn().mockImplementation(async (entry) => {
         const [speciesIndex, organismIndex] = entry
         // All genomes get same seed score for simplicity
@@ -251,7 +261,12 @@ describe('SwissTournamentStrategy', () => {
             return [speciesIndex, organismIndex, score] as FitnessData
           })
         }),
-    }
+      dispatch: vi.fn(),
+      request: vi.fn(),
+      broadcast: vi.fn(),
+      addActionHandler: vi.fn(),
+      removeActionHandler: vi.fn(),
+    } as unknown as EvaluationContext<any>
 
     const entries: Array<GenomeEntry<any>> = [
       [0, 0, {}],
@@ -324,7 +339,7 @@ describe('SwissTournamentStrategy', () => {
     }
 
     // Should complete without errors
-    expect(results).toHaveLength(Array.from(mockGenomeEntries).length)
+    expect(results).toHaveLength([...mockGenomeEntries].length)
 
     // All fitness values should be valid
     for (const [, , fitness] of results) {

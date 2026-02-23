@@ -48,13 +48,12 @@ export interface GlickoResultData {
   /** Final calculated fitness */
   fitness: number
 
-  /** All 5 normalized components [0, 1] */
+  /** All normalized components [0, 1] */
   components: {
     seedScore?: number
     environmentScore: number
     glickoScore: number
     conservativeScore: number
-    innovationScore: number
   }
 
   /** Raw data used to calculate components */

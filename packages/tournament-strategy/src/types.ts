@@ -1,6 +1,6 @@
 import type { AnyGenome } from '@neat-evolution/evaluator'
 
-import type { ScoreComponents, FitnessCalculator } from './score/types.js'
+import type { FitnessCalculator, ScoreComponents } from './score/types.js'
 
 // Re-export types for external consumers
 export type { ScoreComponents, FitnessCalculator }

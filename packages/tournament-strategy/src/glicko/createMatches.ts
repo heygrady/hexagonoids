@@ -54,7 +54,7 @@ export function createGlickoMatches<G extends AnyGenome<G>>(
 
       // Check if they've already played each other
       const potentialId = toId(potentialOpponent)
-      if (alreadyPlayed != null && alreadyPlayed.has(potentialId)) {
+      if (alreadyPlayed?.has(potentialId)) {
         continue // Skip this opponent, look for another
       }
 

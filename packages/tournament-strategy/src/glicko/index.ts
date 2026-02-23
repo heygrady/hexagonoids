@@ -1,11 +1,11 @@
 export { createGlickoMatches } from './createMatches.js'
 export {
-  scoreSeedTournaments,
   type SeedTournamentOptions,
+  scoreSeedTournaments,
 } from './scoreSeedTournaments.js'
 export type {
-  NormalizationRange,
   GlickoNormalizationRanges,
   GlickoObservedRanges,
   GlickoSettings,
+  NormalizationRange,
 } from './types.js'

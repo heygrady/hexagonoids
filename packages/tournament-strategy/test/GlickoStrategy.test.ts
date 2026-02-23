@@ -4,10 +4,9 @@ import type {
   FitnessData,
   GenomeEntry,
 } from '@neat-evolution/evaluator'
-import { describe, test, expect, vi } from 'vitest'
-
-import * as glickoScoreSeedTournaments from '../src/glicko/scoreSeedTournaments.js'
+import { describe, expect, test, vi } from 'vitest'
 import { GlickoStrategy } from '../src/GlickoStrategy.js'
+import * as glickoScoreSeedTournaments from '../src/glicko/scoreSeedTournaments.js'
 
 vi.mock('../src/glicko/scoreSeedTournaments.js', async (importOriginal) => {
   const actual = await importOriginal<typeof glickoScoreSeedTournaments>()
@@ -33,7 +32,12 @@ describe('GlickoStrategy', () => {
         return results
       }
     ),
-  }
+    dispatch: vi.fn(),
+    request: vi.fn(),
+    broadcast: vi.fn(),
+    addActionHandler: vi.fn(),
+    removeActionHandler: vi.fn(),
+  } as unknown as EvaluationContext<AnyGenome<any>>
 
   const mockGenomes: Array<GenomeEntry<AnyGenome<any>>> = Array.from(
     { length: 20 },
@@ -143,7 +147,7 @@ describe('GlickoStrategy', () => {
       // consume the async generator
     }
     expect(onHeroesUpdated).toHaveBeenCalled()
-    const heroes = onHeroesUpdated.mock.calls[0][0]
+    const heroes = onHeroesUpdated.mock.calls[0]![0]
     expect(heroes.length).toBeGreaterThan(0)
 
     // Heroes should have mangled IDs (species index >= 100_000)

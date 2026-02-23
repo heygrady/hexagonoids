@@ -3,16 +3,20 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import type { EvaluationContext } from '@neat-evolution/evaluation-strategy'
-import type { AnyGenome, GenomeEntry } from '@neat-evolution/evaluator'
-import { test, expect, vi } from 'vitest'
+import type {
+  AnyGenome,
+  FitnessData,
+  GenomeEntry,
+} from '@neat-evolution/evaluator'
+import { expect, test, vi } from 'vitest'
 
 import { toId } from '../../src/entities/toId.js'
 import { GlickoStrategy } from '../../src/GlickoStrategy.js'
 
 import type {
   GlickoEvaluationFixture,
-  GlickoResultData,
   GlickoHeroData,
+  GlickoResultData,
 } from './types.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -38,9 +42,10 @@ test.skip('generate fixture: 1 generation evaluation', async () => {
     minScore: -0.375,
     maxScore: 4.5,
     normalizationRanges: {
+      environmentFitness: { min: -0.375, max: 4.5 },
+      seedFitness: { min: -0.375, max: 4.5 },
       glickoRating: { min: 800, max: 3000 },
       conservativeRating: { min: 0, max: 2500 },
-      innovationBonus: { min: 0, max: 500 },
     },
   }
 
@@ -48,15 +53,19 @@ test.skip('generate fixture: 1 generation evaluation', async () => {
   const strategy = new GlickoStrategy(config)
 
   // Create deterministic mock context
-  const mockContext: EvaluationContext<AnyGenome> = {
-    evaluateGenomeEntry: vi.fn(async (entry: GenomeEntry<AnyGenome>) => {
-      const fitness =
-        (entry[1] / populationSize) * (config.maxScore - config.minScore) +
-        config.minScore
-      return [entry[0], entry[1], fitness]
-    }),
+  const mockContext = {
+    evaluateGenomeEntry: vi.fn(
+      async (entry: GenomeEntry<AnyGenome<any>>): Promise<FitnessData> => {
+        const fitness =
+          (entry[1] / populationSize) * (config.maxScore - config.minScore) +
+          config.minScore
+        return [entry[0], entry[1], fitness]
+      }
+    ),
     evaluateGenomeEntryBatch: vi.fn(
-      async (entries: Array<GenomeEntry<AnyGenome>>) => {
+      async (
+        entries: Array<GenomeEntry<AnyGenome<any>>>
+      ): Promise<FitnessData[]> => {
         if (entries.length === 2) {
           const [entryA, entryB] = entries
           if (entryA == null || entryB == null) return []
@@ -72,17 +81,21 @@ test.skip('generate fixture: 1 generation evaluation', async () => {
             [entryB[0], entryB[1], fitnessB],
           ]
         }
-        return entries.map((e) => [e[0], e[1], 0])
+        return entries.map((e): FitnessData => [e[0], e[1], 0])
       }
     ),
-  }
+  } as unknown as EvaluationContext<AnyGenome<any>>
 
-  const genomes: Array<GenomeEntry<AnyGenome>> = Array.from(
+  const genomes: Array<GenomeEntry<AnyGenome<any>>> = Array.from(
     { length: populationSize },
-    (_, i) => [0, i, { id: i, neurons: [], connections: [] }]
+    (_, i): GenomeEntry<AnyGenome<any>> => [
+      0,
+      i,
+      { id: i, neurons: [], connections: [] } as unknown as AnyGenome<any>,
+    ]
   )
 
-  let capturedHeroes: Array<[GenomeEntry<AnyGenome>, any]> = []
+  let capturedHeroes: Array<[GenomeEntry<AnyGenome<any>>, any]> = []
   strategy.options.onHeroesUpdated = (newHeroes) => {
     capturedHeroes = newHeroes
   }
@@ -106,7 +119,6 @@ test.skip('generate fixture: 1 generation evaluation', async () => {
         environmentScore: 0.5,
         glickoScore: 0.5,
         conservativeScore: 0.4,
-        innovationScore: 0,
       },
       rawData: {
         glickoRating: 1500,
@@ -153,24 +165,29 @@ test.skip('generate fixture: 3 generation progression', async () => {
     minScore: -0.375,
     maxScore: 4.5,
     normalizationRanges: {
+      environmentFitness: { min: -0.375, max: 4.5 },
+      seedFitness: { min: -0.375, max: 4.5 },
       glickoRating: { min: 800, max: 3000 },
       conservativeRating: { min: 0, max: 2500 },
-      innovationBonus: { min: 0, max: 500 },
     },
   }
 
   const populationSize = 20
   const strategy = new GlickoStrategy(config)
 
-  const mockContext: EvaluationContext<AnyGenome> = {
-    evaluateGenomeEntry: vi.fn(async (entry: GenomeEntry<AnyGenome>) => {
-      const fitness =
-        (entry[1] / populationSize) * (config.maxScore - config.minScore) +
-        config.minScore
-      return [entry[0], entry[1], fitness]
-    }),
+  const mockContext = {
+    evaluateGenomeEntry: vi.fn(
+      async (entry: GenomeEntry<AnyGenome<any>>): Promise<FitnessData> => {
+        const fitness =
+          (entry[1] / populationSize) * (config.maxScore - config.minScore) +
+          config.minScore
+        return [entry[0], entry[1], fitness]
+      }
+    ),
     evaluateGenomeEntryBatch: vi.fn(
-      async (entries: Array<GenomeEntry<AnyGenome>>) => {
+      async (
+        entries: Array<GenomeEntry<AnyGenome<any>>>
+      ): Promise<FitnessData[]> => {
         if (entries.length === 2) {
           const [entryA, entryB] = entries
           if (entryA == null || entryB == null) return []
@@ -186,22 +203,30 @@ test.skip('generate fixture: 3 generation progression', async () => {
             [entryB[0], entryB[1], fitnessB],
           ]
         }
-        return entries.map((e) => [e[0], e[1], 0])
+        return entries.map((e): FitnessData => [e[0], e[1], 0])
       }
     ),
-  }
+  } as unknown as EvaluationContext<AnyGenome<any>>
 
   let finalResults: GlickoResultData[] = []
   let finalHeroes: GlickoHeroData[] = []
 
   // Run 3 generations
   for (let gen = 0; gen < 3; gen++) {
-    const genomes: Array<GenomeEntry<AnyGenome>> = Array.from(
+    const genomes: Array<GenomeEntry<AnyGenome<any>>> = Array.from(
       { length: populationSize },
-      (_, i) => [0, i, { id: i + gen * 100, neurons: [], connections: [] }]
+      (_, i): GenomeEntry<AnyGenome<any>> => [
+        0,
+        i,
+        {
+          id: i + gen * 100,
+          neurons: [],
+          connections: [],
+        } as unknown as AnyGenome<any>,
+      ]
     )
 
-    let capturedHeroes: Array<[GenomeEntry<AnyGenome>, any]> = []
+    let capturedHeroes: Array<[GenomeEntry<AnyGenome<any>>, any]> = []
     strategy.options.onHeroesUpdated = (newHeroes) => {
       capturedHeroes = newHeroes
     }
@@ -222,7 +247,6 @@ test.skip('generate fixture: 3 generation progression', async () => {
           environmentScore: 0.5,
           glickoScore: 0.5 + gen * 0.1, // Simulate improvement
           conservativeScore: 0.4 + gen * 0.05,
-          innovationScore: gen > 0 ? 0.1 : 0, // Innovation after gen 0
         },
         rawData: {
           glickoRating: 1500 + gen * 100,
@@ -230,7 +254,7 @@ test.skip('generate fixture: 3 generation progression', async () => {
           glickoVol: 0.06,
           environmentTotal: 0,
           environmentCount: 1,
-          previousRating: gen > 0 ? 1500 + (gen - 1) * 100 : undefined,
+          ...(gen > 0 ? { previousRating: 1500 + (gen - 1) * 100 } : {}),
         },
       })
     }

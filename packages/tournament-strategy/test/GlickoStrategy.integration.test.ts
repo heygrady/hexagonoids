@@ -1,6 +1,10 @@
 import type { EvaluationContext } from '@neat-evolution/evaluation-strategy'
-import type { AnyGenome, GenomeEntry } from '@neat-evolution/evaluator'
-import { describe, test, expect, vi } from 'vitest'
+import type {
+  AnyGenome,
+  FitnessData,
+  GenomeEntry,
+} from '@neat-evolution/evaluator'
+import { describe, expect, test, vi } from 'vitest'
 
 import { toId } from '../src/entities/toId.js'
 import { GlickoStrategy } from '../src/GlickoStrategy.js'
@@ -21,42 +25,54 @@ describe('GlickoStrategy Integration - Multi-Component Scoring', () => {
   }
 
   // Create deterministic mock context (win = 1.0, loss = 0)
-  const createMockContext = (): EvaluationContext<AnyGenome> => {
+  const createMockContext = (): EvaluationContext<AnyGenome<any>> => {
     return {
-      evaluateGenomeEntry: vi.fn(async (entry: GenomeEntry<AnyGenome>) => {
+      evaluateGenomeEntry: vi.fn(async (entry: GenomeEntry<AnyGenome<any>>) => {
         // Simple fitness: higher organism index = better
         const fitness = entry[1] / 10
-        return [entry[0], entry[1], fitness]
+        return [entry[0], entry[1], fitness] as FitnessData
       }),
       evaluateGenomeEntryBatch: vi.fn(
-        async (entries: Array<GenomeEntry<AnyGenome>>) => {
+        async (entries: Array<GenomeEntry<AnyGenome<any>>>) => {
           // Deterministic 2-player match: higher index wins
           if (entries.length === 2) {
             const [entryA, entryB] = entries
-            const indexA = entryA[1]
-            const indexB = entryB[1]
+
+            const indexA = entryA![1]
+            const indexB = entryB![1]
 
             // Winner gets 3, loser gets -0.25 (TicTacToe scoring)
             const fitnessA = indexA > indexB ? 3 : -0.25
             const fitnessB = indexB > indexA ? 3 : -0.25
 
             return [
-              [entryA[0], entryA[1], fitnessA],
-              [entryB[0], entryB[1], fitnessB],
-            ]
+              [entryA![0], entryA![1], fitnessA],
+              [entryB![0], entryB![1], fitnessB],
+            ] as FitnessData[]
           }
-          return entries.map((e) => [e[0], e[1], 0])
+          return entries.map((e) => [e[0], e[1], 0] as FitnessData)
         }
       ),
-    }
+      dispatch: vi.fn(),
+      request: vi.fn(),
+      broadcast: vi.fn(),
+      addActionHandler: vi.fn(),
+      removeActionHandler: vi.fn(),
+    } as unknown as EvaluationContext<AnyGenome<any>>
   }
 
-  const createMockGenomes = (count: number): Array<GenomeEntry<AnyGenome>> => {
-    return Array.from({ length: count }, (_, i) => [
-      0, // All in same species
-      i,
-      { id: i, neurons: [], connections: [] },
-    ])
+  const createMockGenomes = (
+    count: number
+  ): Array<GenomeEntry<AnyGenome<any>>> => {
+    return Array.from(
+      { length: count },
+      (_, i) =>
+        [
+          0, // All in same species
+          i,
+          { id: i, neurons: [], connections: [] },
+        ] as unknown as GenomeEntry<AnyGenome<any>>
+    )
   }
 
   test('should evaluate 3 generations with multi-component scoring', async () => {
@@ -64,7 +80,7 @@ describe('GlickoStrategy Integration - Multi-Component Scoring', () => {
     const mockContext = createMockContext()
     const populationSize = 10
 
-    let heroes: Array<[GenomeEntry<AnyGenome>, any]> = []
+    let heroes: Array<[GenomeEntry<AnyGenome<any>>, any]> = []
     const allFitnessValues: number[] = []
 
     // Track heroes across generations

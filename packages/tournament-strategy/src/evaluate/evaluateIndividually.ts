@@ -1,8 +1,8 @@
 import type { EvaluationContext } from '@neat-evolution/evaluation-strategy'
 import type {
   AnyGenome,
-  GenomeEntry,
   FitnessData,
+  GenomeEntry,
 } from '@neat-evolution/evaluator'
 
 import { toId } from '../entities/toId.js'
