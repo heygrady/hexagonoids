@@ -1,4 +1,4 @@
-import type { Vector3 } from '@babylonjs/core/Maths/math.vector.js'
+import type { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 
 // ── Union types ──────────────────────────────────────────────────────────────
 
@@ -16,17 +16,15 @@ export interface EntityRef {
 }
 
 // ── Entity state interfaces ──────────────────────────────────────────────────
-//
-// TODO(Session 02): Add `orientation: Quaternion` to ShipState, RockState, and
-// BulletState. The SESSION_01 spec included orientation for quaternion spherical
-// physics. It was deferred — Session 02 will port those physics functions and
-// will need to retrofit this field onto all three entity types.
 
 export interface ShipState {
   id: string
 
   /** Player who owns this ship */
   playerId: string
+
+  /** Quaternion encoding the entity's position/orientation on the sphere */
+  orientation: Quaternion
 
   /** Latitude in degrees on the surface of the sphere */
   lat: number
@@ -54,6 +52,9 @@ export interface ShipState {
 export interface RockState {
   id: string
 
+  /** Quaternion encoding the entity's position/orientation on the sphere */
+  orientation: Quaternion
+
   /** Latitude in degrees on the surface of the sphere */
   lat: number
 
@@ -76,6 +77,9 @@ export interface RockState {
 
 export interface BulletState {
   id: string
+
+  /** Quaternion encoding the entity's position/orientation on the sphere */
+  orientation: Quaternion
 
   /** Latitude in degrees on the surface of the sphere */
   lat: number
