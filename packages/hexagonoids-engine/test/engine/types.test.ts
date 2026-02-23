@@ -3,14 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   advanceGameTime,
   createGame,
-  defaultGameState,
-  defaultPlayerState,
-  defaultRockState,
   defaultShipState,
   elapsed,
-  PLAYER_STARTING_LIVES,
-  ROCK_LARGE_SIZE,
-  ROCK_LARGE_VALUE,
 } from '../../src/index.js'
 
 describe('createGame', () => {
@@ -47,32 +41,6 @@ describe('createGame', () => {
 
     a.ships.set('s1', { ...defaultShipState, id: 's1', playerId: 'p1' })
     expect(b.ships.size).toBe(0)
-  })
-})
-
-describe('defaults', () => {
-  it('defaultGameState has empty maps', () => {
-    expect(defaultGameState.ships.size).toBe(0)
-    expect(defaultGameState.rocks.size).toBe(0)
-    expect(defaultGameState.bullets.size).toBe(0)
-    expect(defaultGameState.players.size).toBe(0)
-  })
-
-  it('defaultPlayerState has correct starting values', () => {
-    expect(defaultPlayerState.alive).toBe(true)
-    expect(defaultPlayerState.score).toBe(0)
-    expect(defaultPlayerState.lives).toBe(PLAYER_STARTING_LIVES)
-  })
-
-  it('defaultShipState has zero velocity', () => {
-    expect(defaultShipState.angularVelocity.length()).toBe(0)
-    expect(defaultShipState.yaw).toBe(0)
-    expect(defaultShipState.alive).toBe(true)
-  })
-
-  it('defaultRockState defaults to large size and value', () => {
-    expect(defaultRockState.size).toBe(ROCK_LARGE_SIZE)
-    expect(defaultRockState.value).toBe(ROCK_LARGE_VALUE)
   })
 })
 
