@@ -1,3 +1,5 @@
+// Collision detection & handling
+
 // Bullet — actions & setters
 export {
   destroyBullet,
@@ -10,6 +12,12 @@ export {
   setLng as setBulletLng,
   setLocation as setBulletLocation,
 } from './features/engine/bullet/bulletSetters.js'
+export type { CollisionPair } from './features/engine/collision/index.js'
+export {
+  detectCollisions,
+  greatCircleDistance,
+  handleCollisions,
+} from './features/engine/collision/index.js'
 // Constants
 export {
   ACCELERATION_RATE,
@@ -126,6 +134,8 @@ export {
   setLocation as setShipLocation,
   setYaw as setShipYaw,
 } from './features/engine/ship/shipSetters.js'
+// Step function — core game loop
+export { step } from './features/engine/step.js'
 export type {
   BulletState,
   CollisionType,

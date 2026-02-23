@@ -63,7 +63,7 @@ const { state, rng } = createGame()
 | Category | Exports |
 | --- | --- |
 | Factory | `createGame(options?)` |
-| Types | `GameState`, `ShipState`, `RockState`, `BulletState`, `PlayerState`, `PlayerInputState`, `PlayerInputs`, `EntityRef`, `EntityType`, `CollisionType`, `GameMode`, `EngineOptions`, `EngineHooks` |
+| Types | `GameState`, `ShipState`, `RockState`, `BulletState`, `PlayerState`, `PlayerInputState`, `PlayerInputs`, `EntityRef`, `EntityType`, `CollisionType`, `CollisionPair`, `GameMode`, `EngineOptions`, `EngineHooks` |
 | Defaults | `defaultGameState`, `defaultShipState`, `defaultRockState`, `defaultBulletState`, `defaultPlayerState` |
 | Game time | `advanceGameTime`, `elapsed` |
 | Ship physics | `accelerateShip(ship, duration)`, `turnShip(ship, direction, duration)`, `moveShip(ship, delta)` |
@@ -79,6 +79,8 @@ const { state, rng } = createGame()
 | Rock setters | `setRockLat`, `setRockLng`, `setRockLocation`, `setRockSize`, `setRockAngularVelocity` |
 | Ship actions | `spawnShip`, `destroyShip`, `fireBullet` |
 | Ship setters | `setShipLat`, `setShipLng`, `setShipLocation`, `setShipYaw`, `setShipFiredAt`, `setShipAngularVelocity` |
+| Collision | `detectCollisions(game)`, `handleCollisions(game, pairs)`, `greatCircleDistance(lat1, lng1, lat2, lng2)` |
+| Step | `step(game, inputs, delta)` |
 | Constants | `MAX_SPEED`, `FRICTION_COEFFICIENT`, `TURN_RATE`, `ACCELERATION_RATE`, `MAX_DURATION`, `ROCK_LARGE_SIZE`, `ROCK_MEDIUM_SIZE`, `ROCK_SMALL_SIZE`, and more |
 
 ### CJS
