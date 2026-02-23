@@ -1,6 +1,6 @@
 # @heygrady/hexagonoids-engine
 
-Headless game engine for Hexagonoids. Pure TypeScript with dual CJS/ESM builds, testing, and linting configured.
+Headless game engine for Hexagonoids. Pure TypeScript with dual CJS/ESM builds, testing, and linting configured. Includes an optional SolidJS reactive layer (`@heygrady/hexagonoids-engine/solid`).
 
 ## Installation
 
@@ -82,6 +82,22 @@ const { state, rng } = createGame()
 | Collision | `detectCollisions(game)`, `handleCollisions(game, pairs)`, `greatCircleDistance(lat1, lng1, lat2, lng2)` |
 | Step | `step(game, inputs, delta)` |
 | Constants | `MAX_SPEED`, `FRICTION_COEFFICIENT`, `TURN_RATE`, `ACCELERATION_RATE`, `MAX_DURATION`, `ROCK_LARGE_SIZE`, `ROCK_MEDIUM_SIZE`, `ROCK_SMALL_SIZE`, and more |
+
+### SolidJS reactive layer (`@heygrady/hexagonoids-engine/solid`)
+
+Requires `solid-js` peer dependency. Import from the `/solid` subpath.
+
+| Category | Exports |
+| --- | --- |
+| Reactive engine | `createReactiveEngine(options?, hooks?)`, `ReactiveEngine` |
+| Entity pool hook | `useEntityPool(engine, entityId, store)` |
+| Context | `GameStateContext`, `useGameState()` |
+| Entity hooks | `useBullet`, `useRock`, `useShip` |
+| Player hooks | `usePlayer`, `usePlayerLives`, `usePlayerScore` |
+| Pool hooks | `useBulletIds`, `usePlayerIds`, `useRockIds`, `useShipIds` |
+| Game hooks | `useGameOver`, `useGameTime`, `useWave` |
+
+`ReactiveEngine` exposes `state` (SolidJS store), `tick(inputs, dt)`, `mutate(fn)`, and `Accessor<string[]>` signals `shipIds`, `rockIds`, `bulletIds`, `playerIds`. All hooks take `ReactiveEngine` as their first argument. No JSX Provider is exported — consuming apps use `<GameStateContext.Provider>` directly.
 
 ### CJS
 
