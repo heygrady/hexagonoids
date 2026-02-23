@@ -1,4 +1,4 @@
-import { type Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 
 import { RADIUS } from '../constants.js'
 
@@ -48,4 +48,23 @@ export const quaternionToLatLng = (
 ): [lat: number, lng: number] => {
   const position = getPositionFromQuaternion(orientation, radius)
   return vector3ToLatLng(position)
+}
+
+/**
+ * Convert [lat, lng] in degrees to an orientation quaternion.
+ * Computes the rotation that moves the "up" vector to the surface point.
+ */
+export const latLngToQuaternion = (lat: number, lng: number): Quaternion => {
+  const position = latLngToVector3(lat, lng, 1)
+  const up = Vector3.Up()
+  const axis = Vector3.Cross(up, position)
+  const axisLen = axis.length()
+  if (axisLen < 0.00001) {
+    if (position.y > 0) return Quaternion.Identity()
+    return Quaternion.RotationAxis(new Vector3(1, 0, 0), Math.PI)
+  }
+  axis.scaleInPlace(1 / axisLen)
+  const dot = Vector3.Dot(up, position)
+  const angle = Math.acos(Math.max(-1, Math.min(1, dot)))
+  return Quaternion.RotationAxis(axis, angle)
 }
