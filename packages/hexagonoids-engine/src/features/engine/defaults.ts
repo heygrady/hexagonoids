@@ -1,4 +1,4 @@
-import { Vector3 } from '@babylonjs/core/Maths/math.vector.js'
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 
 import {
   PLAYER_STARTING_LIVES,
@@ -14,11 +14,12 @@ import type {
 } from './types.js'
 
 /**
- * Default ship state. `angularVelocity` is a shared Vector3 instance.
- * When constructing an entity, always supply a fresh `angularVelocity: new Vector3(0,0,0)`.
- * Never mutate `angularVelocity` in-place on a spread default — replace the field instead.
+ * Default ship state. `orientation` and `angularVelocity` are shared instances.
+ * When constructing an entity, always supply fresh instances for mutable value-type fields.
+ * Never mutate these fields in-place on a spread default — replace them instead.
  */
 export const defaultShipState: Omit<ShipState, 'id' | 'playerId'> = {
+  orientation: Quaternion.Identity(),
   lat: 0,
   lng: 0,
   angularVelocity: Vector3.Zero(),
@@ -28,11 +29,12 @@ export const defaultShipState: Omit<ShipState, 'id' | 'playerId'> = {
 }
 
 /**
- * Default rock state. `angularVelocity` is a shared Vector3 instance.
- * When constructing an entity, always supply a fresh `angularVelocity: new Vector3(0,0,0)`.
- * Never mutate `angularVelocity` in-place on a spread default — replace the field instead.
+ * Default rock state. `orientation` and `angularVelocity` are shared instances.
+ * When constructing an entity, always supply fresh instances for mutable value-type fields.
+ * Never mutate these fields in-place on a spread default — replace them instead.
  */
 export const defaultRockState: Omit<RockState, 'id'> = {
+  orientation: Quaternion.Identity(),
   lat: 0,
   lng: 0,
   angularVelocity: Vector3.Zero(),
@@ -41,11 +43,12 @@ export const defaultRockState: Omit<RockState, 'id'> = {
 }
 
 /**
- * Default bullet state. `angularVelocity` is a shared Vector3 instance.
- * When constructing an entity, always supply a fresh `angularVelocity: new Vector3(0,0,0)`.
- * Never mutate `angularVelocity` in-place on a spread default — replace the field instead.
+ * Default bullet state. `orientation` and `angularVelocity` are shared instances.
+ * When constructing an entity, always supply fresh instances for mutable value-type fields.
+ * Never mutate these fields in-place on a spread default — replace them instead.
  */
 export const defaultBulletState: Omit<BulletState, 'id' | 'ownerId'> = {
+  orientation: Quaternion.Identity(),
   lat: 0,
   lng: 0,
   angularVelocity: Vector3.Zero(),
