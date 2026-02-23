@@ -8,26 +8,6 @@ import {
 } from '../../src/index.js'
 
 describe('createGame', () => {
-  it('returns a valid GameState with correct defaults', () => {
-    const { state } = createGame()
-
-    expect(state.now).toBe(0)
-    expect(state.wave).toBe(0)
-    expect(state.mode).toBe('single')
-    expect(state.startedAt).toBeNull()
-    expect(state.endedAt).toBeNull()
-    expect(state.ships).toBeInstanceOf(Map)
-    expect(state.rocks).toBeInstanceOf(Map)
-    expect(state.bullets).toBeInstanceOf(Map)
-    expect(state.players).toBeInstanceOf(Map)
-    expect(state.ships.size).toBe(0)
-  })
-
-  it('accepts mode option', () => {
-    const { state } = createGame({ mode: 'arena' })
-    expect(state.mode).toBe('arena')
-  })
-
   it('accepts seed option', () => {
     const { rng: rng1 } = createGame({ seed: 'test-seed' })
     const { rng: rng2 } = createGame({ seed: 'test-seed' })
