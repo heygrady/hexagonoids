@@ -1,4 +1,4 @@
-import { simpleAI, minimaxAI } from '@heygrady/tictactoe-game'
+import { minimaxAI, simpleAI } from '@heygrady/tictactoe-game'
 import { createRNG } from '@neat-evolution/utils'
 import { describe, expect, test } from 'vitest'
 
@@ -16,7 +16,6 @@ describe('evaluateGauntlet', () => {
       opponent: 'simpleAI',
       numGames: 2,
       weight: 1.0,
-      normalizationBounds: { min: 0.05, max: 1.5 },
     },
   ]
 
@@ -25,19 +24,16 @@ describe('evaluateGauntlet', () => {
       opponent: 'minimaxAI',
       numGames: 2,
       weight: 0.4,
-      normalizationBounds: { min: 0.05, max: 0.5 },
     },
     {
       opponent: 'heuristicAI',
       numGames: 2,
       weight: 0.3,
-      normalizationBounds: { min: 0.05, max: [1.5, 0.5] }, // Different max for each position
     },
     {
       opponent: 'simpleAI',
       numGames: 2,
       weight: 0.3,
-      normalizationBounds: { min: 0.05, max: 1.5 },
     },
   ]
 
@@ -75,13 +71,11 @@ describe('evaluateGauntlet', () => {
         opponent: 'minimaxAI',
         numGames: 2,
         weight: 0.9,
-        normalizationBounds: { min: 0.05, max: 0.5 },
       },
       {
         opponent: 'simpleAI',
         numGames: 2,
         weight: 0.1,
-        normalizationBounds: { min: 0.05, max: 1.5 },
       },
     ]
 
@@ -114,7 +108,6 @@ describe('evaluateGauntlet', () => {
         opponent: 'simpleAI',
         numGames: 5,
         weight: 1.0,
-        normalizationBounds: { min: 0.05, max: 1.5 },
       },
     ]
 

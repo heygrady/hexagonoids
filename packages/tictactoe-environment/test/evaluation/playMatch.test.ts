@@ -1,4 +1,4 @@
-import { simpleAI, minimaxAI } from '@heygrady/tictactoe-game'
+import { minimaxAI, simpleAI } from '@heygrady/tictactoe-game'
 import { describe, expect, test } from 'vitest'
 
 import { playMatch } from '../../src/evaluation/playMatch.js'
@@ -196,8 +196,8 @@ describe('playMatch', () => {
 
   test('should support position-specific normalization bounds', () => {
     const positionSpecificBounds = {
-      min: [0.05, 0.1], // Different min for first vs second player
-      max: [1.5, 1.0], // Different max for first vs second player
+      min: [0.05, 0.1] as [number, number], // Different min for first vs second player
+      max: [1.5, 1.0] as [number, number], // Different max for first vs second player
     }
 
     const result = playMatch(

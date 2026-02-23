@@ -1,8 +1,8 @@
-import { simpleAI, type Board, type Player } from '@heygrady/tictactoe-game'
+import { type Board, type Player, simpleAI } from '@heygrady/tictactoe-game'
 import { createRNG } from '@neat-evolution/utils'
 import { describe, expect, test } from 'vitest'
 
-import { playGame, playAndScore } from '../../src/evaluation/playAndScore.js'
+import { playAndScore, playGame } from '../../src/evaluation/playAndScore.js'
 
 describe('playGame', () => {
   test('should play a complete game between two players', () => {

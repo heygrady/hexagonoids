@@ -11,16 +11,16 @@ import { describe, expect, test } from 'vitest'
 
 import { createEnvironment } from '../../src/createEnvironment.js'
 import {
+  type ConfidenceMultiplierConfig,
   calculateNormalizationBounds,
   calculateOpponentNormalizationBounds,
-  type ConfidenceMultiplierConfig,
   type GameOutcomeScores,
 } from '../../src/types/scoring.js'
 
 describe('Configuration Flow Integration Tests', () => {
   // Helper to create a test executor for Tic-Tac-Toe
   function createTestExecutor() {
-    const config = createConfig(defaultNEATConfigOptions)
+    const config = createConfig({ neat: defaultNEATConfigOptions })
     const state = createState()
     const genome = createGenome(
       config,

@@ -1,10 +1,10 @@
 import {
   heuristicAI,
   minimaxAI,
-  simpleAI,
-  randomAI,
-  sleeperAI,
   type PlayerFn,
+  randomAI,
+  simpleAI,
+  sleeperAI,
 } from '@heygrady/tictactoe-game'
 
 import type { OpponentType } from '../types/evaluation.js'
