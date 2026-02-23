@@ -1,12 +1,11 @@
-import { For, type Component } from 'solid-js'
+import { type Component, For } from 'solid-js'
 
 import { onAfterRender } from '../solid-babylon/hooks/onAfterRender'
 import { useSceneStore } from '../solid-babylon/hooks/useScene'
-
+import { Collision } from './Collision'
 import { detectCollisions } from './colission/detectCollisions'
 import { handleCollisionPartners } from './colission/handleCollisionPartners'
 import type { ProjectileStore, TargetStore } from './colission/typeCheck'
-import { Collision } from './Collision'
 import {
   BULLET_RESOLUTION,
   ROCK_LARGE_RESOLUTION,
@@ -56,7 +55,7 @@ export const Collisions: Component = () => {
     })
 
     // Manage collisions with actual frame delta
-    const collisionPartners = detectCollisions(targets, projectiles, deltaTime)
+    const collisionPartners = detectCollisions(targets, projectiles)
 
     if (collisionPartners.size > 0) {
       handleCollisionPartners(

@@ -6,8 +6,8 @@ import { ObjectPool } from '../../pool'
 import { resetControl } from '../control/ControlStore'
 import {
   createPlayerStore,
-  type PlayerStore,
   defaultPlayerState,
+  type PlayerStore,
 } from '../player/PlayerStore'
 import { resetShip } from '../ship/ShipStore'
 

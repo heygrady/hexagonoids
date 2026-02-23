@@ -1,7 +1,7 @@
 import { setStatus } from '../GameSetters.js'
 import {
-  GameStatus,
   EvolutionStatus,
+  GameStatus,
   type RuntimeGenerationSnapshot,
 } from '../GameState.js'
 import type { GameStore } from '../GameStore.js'
@@ -10,10 +10,10 @@ import {
   bindGameSetters,
   getOpponent,
   initializeOpponent,
-  startBackgroundEvolution,
-  waitForRunningStatus,
-  waitForEvolutionOrSkip,
   playMatch,
+  startBackgroundEvolution,
+  waitForEvolutionOrSkip,
+  waitForRunningStatus,
 } from './shared.js'
 
 export const start = async ($game: GameStore) => {

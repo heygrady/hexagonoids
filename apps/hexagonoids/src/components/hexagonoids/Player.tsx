@@ -14,8 +14,8 @@ import {
 import { useGame } from './hooks/useGame'
 import { useRockPool } from './hooks/useRockPool'
 import {
-  type SpawnWaveOptions,
   getScreenCenter,
+  type SpawnWaveOptions,
   spawnWave,
 } from './store/player/PlayerActions'
 import type { PlayerStore } from './store/player/PlayerStore'

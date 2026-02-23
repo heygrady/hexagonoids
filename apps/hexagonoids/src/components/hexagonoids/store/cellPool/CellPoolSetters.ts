@@ -1,7 +1,7 @@
 import { requestIdleCallback } from 'idle-callback'
 import { action } from 'nanostores'
-import type { OmitFirstArg } from 'nanostores/action'
 import { unwrap } from 'solid-js/store'
+import type { OmitFirstArg } from '../../../../types/nanostores.js'
 
 import type { CellStore } from '../cell/CellStore'
 

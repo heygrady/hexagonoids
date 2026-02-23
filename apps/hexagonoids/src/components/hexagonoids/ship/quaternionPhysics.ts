@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
+import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
 
 import { RADIUS } from '../constants'
 
@@ -27,7 +27,7 @@ export const getPositionFromQuaternion = (
   radius: number = RADIUS
 ): Vector3 => {
   const up = Vector3.Up()
-  const rotationMatrix = rotationQuaternion.toRotationMatrix()
+  const rotationMatrix = rotationQuaternion.toRotationMatrix(new Matrix())
   return Vector3.TransformCoordinates(up, rotationMatrix).scale(radius)
 }
 

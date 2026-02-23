@@ -1,5 +1,5 @@
-import { createSignal, createEffect, on } from 'solid-js'
 import type { Component } from 'solid-js'
+import { createEffect, createSignal, on } from 'solid-js'
 
 import type { PlayerToken } from './stores/player/PlayerState.js'
 
@@ -99,7 +99,7 @@ export const Cell: Component<CellProps> = (props) => {
       onClick={props.onClick}
     >
       <span
-        class='text-7xl'
+        class="text-7xl"
         style={{
           opacity: showGhost() ? '0.25' : '1',
         }}

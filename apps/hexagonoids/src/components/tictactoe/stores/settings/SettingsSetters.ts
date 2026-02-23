@@ -1,6 +1,6 @@
-import { type Activation } from '@neat-evolution/core'
+import type { Activation } from '@neat-evolution/core'
 import { action } from 'nanostores'
-import type { OmitFirstArg } from 'nanostores/action'
+import type { OmitFirstArg } from '../../../../types/nanostores.js'
 
 import type { AlgorithmType, SettingsStore } from './SettingsStore.js'
 

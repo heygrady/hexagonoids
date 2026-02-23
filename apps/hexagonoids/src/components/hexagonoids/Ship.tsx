@@ -19,8 +19,8 @@ import {
   rightAck,
 } from './store/control/ControlActions'
 import {
-  type ShipActionsWithBulletPool,
   bindShipActions,
+  type ShipActionsWithBulletPool,
 } from './store/ship/ShipActions'
 import { resetShip, type ShipStore } from './store/ship/ShipStore'
 import { releaseShipStore } from './store/shipPool/ShipPool'

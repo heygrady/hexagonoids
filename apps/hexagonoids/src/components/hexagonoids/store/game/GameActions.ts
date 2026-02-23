@@ -1,28 +1,28 @@
 import type { Scene } from '@babylonjs/core/scene'
 import { action } from 'nanostores'
-import type { OmitFirstArg } from 'nanostores/action'
+import type { OmitFirstArg } from '../../../../types/nanostores.js'
 
 import {
   type BulletPoolActions,
   bindBulletPoolActions,
 } from '../bulletPool/BulletPoolActions'
 import {
-  type CellPoolActions,
   bindCellPoolActions,
+  type CellPoolActions,
 } from '../cellPool/CellPoolActions'
 import { startPlayer } from '../player/PlayerActions'
 import type { PlayerStore } from '../player/PlayerStore'
 import {
-  type PlayerPoolActions,
   bindPlayerPoolActions,
+  type PlayerPoolActions,
 } from '../playerPool/PlayerPoolActions'
 import {
-  type RockPoolActions,
   bindRockPoolActions,
+  type RockPoolActions,
 } from '../rockPool/RockPoolActions'
 import {
-  type ShipPoolActions,
   bindShipPoolActions,
+  type ShipPoolActions,
 } from '../shipPool/ShipPoolActions'
 
 import { setEndedAt, setPlayer, setStartedAt } from './GameSetters'

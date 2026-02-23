@@ -5,7 +5,7 @@ import { map } from 'nanostores'
 
 import { BULLET_CACHE_SIZE } from '../../constants'
 import { ObjectPool } from '../../pool'
-import { defaultBulletState, type BulletState } from '../bullet/BulletState'
+import { type BulletState, defaultBulletState } from '../bullet/BulletState'
 import type { BulletStore } from '../bullet/BulletStore'
 
 /**
@@ -91,7 +91,7 @@ let bulletIdCounter = 0
  * @param {Mesh | null} [_globe] - Globe mesh (unused, kept for backward compatibility)
  * @returns {BulletStore} New bullet store with default state
  */
-const createBulletStore = (scene: Scene, _globe: Mesh | null = null) => {
+const createBulletStore = (_scene: Scene, _globe: Mesh | null = null) => {
   const id = `bullet-${bulletIdCounter++}`
   const $bullet = map<BulletState>({ ...defaultBulletState, id })
   return $bullet

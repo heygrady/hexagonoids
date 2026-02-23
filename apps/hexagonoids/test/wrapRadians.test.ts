@@ -2,8 +2,8 @@ import { degsToRads } from 'h3-js'
 import { describe, expect, test } from 'vitest'
 
 import {
-  wrapRadians,
   wrapHalfCircle,
+  wrapRadians,
 } from '../src/components/hexagonoids/ship/orientation'
 
 describe('wrapRadians', () => {

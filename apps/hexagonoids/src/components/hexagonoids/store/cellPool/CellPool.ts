@@ -4,8 +4,8 @@ import type { Scene } from '@babylonjs/core/scene'
 import { CELL_CACHE_SIZE, CELL_VISITED_OPACITY } from '../../constants'
 import { ObjectPool } from '../../pool'
 import {
-  createCellStore,
   type CellStore,
+  createCellStore,
   defaultCellState,
 } from '../cell/CellStore'
 

@@ -1,8 +1,8 @@
 import type { Component, JSX } from 'solid-js'
 import {
+  createContext,
   createRenderEffect,
   onCleanup,
-  createContext,
   useContext,
 } from 'solid-js'
 

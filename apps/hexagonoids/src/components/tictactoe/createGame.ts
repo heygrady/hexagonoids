@@ -1,10 +1,10 @@
 import {
   EvolutionManager,
   InteractiveGame,
-  type ModulePathnames,
   ModulePathnameKey,
-  validateModulePathnames,
+  type ModulePathnames,
   type SupportedAlgorithm,
+  validateModulePathnames,
 } from '@heygrady/tictactoe-demo'
 // Vite worker URL imports - must use ?worker&url suffix for Vite to bundle correctly
 // eslint-disable-next-line import/default

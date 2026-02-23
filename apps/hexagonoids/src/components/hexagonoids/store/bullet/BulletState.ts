@@ -2,10 +2,10 @@ import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { InstancedMesh } from '@babylonjs/core/Meshes/instancedMesh'
 import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 
-import {
-  type ROCK_LARGE_SIZE,
-  type ROCK_MEDIUM_SIZE,
-  type ROCK_SMALL_SIZE,
+import type {
+  ROCK_LARGE_SIZE,
+  ROCK_MEDIUM_SIZE,
+  ROCK_SMALL_SIZE,
 } from '../../constants'
 import type { ShipStore } from '../ship/ShipStore'
 

@@ -2,7 +2,7 @@ import { NullEngine } from '@babylonjs/core/Engines/nullEngine'
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import { Scene } from '@babylonjs/core/scene'
-import { beforeEach, afterEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 
 import { getNextPosition } from '../src/components/hexagonoids/ship/getNextPosition'
 import { moveNodeBy } from '../src/components/hexagonoids/ship/orientation'

@@ -1,5 +1,5 @@
 import { Vector2 } from '@babylonjs/core/Maths/math.vector'
-import { type InstancedMesh } from '@babylonjs/core/Meshes/instancedMesh'
+import type { InstancedMesh } from '@babylonjs/core/Meshes/instancedMesh'
 import type { Mesh } from '@babylonjs/core/Meshes/mesh'
 import { PolygonMeshBuilder } from '@babylonjs/core/Meshes/polygonMesh'
 import type { Scene } from '@babylonjs/core/scene'

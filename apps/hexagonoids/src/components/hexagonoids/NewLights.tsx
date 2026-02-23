@@ -7,8 +7,8 @@ import { cellToLatLng, latLngToCell } from 'h3-js'
 import {
   type Component,
   createContext,
-  onCleanup,
   type JSX,
+  onCleanup,
   useContext,
 } from 'solid-js'
 

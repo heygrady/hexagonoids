@@ -1,12 +1,12 @@
 import type { Scene } from '@babylonjs/core/scene'
 import { action } from 'nanostores'
-import type { OmitFirstArg } from 'nanostores/action'
+import type { OmitFirstArg } from '../../../../types/nanostores.js'
 
 import type { ProjectileStore, TargetStore } from '../../colission/typeCheck'
+import type { CameraContextValue } from '../../ShipCamera'
 import type { SegmentStores } from '../../ship/createSergmentNodes'
 import { explodeShipSegments } from '../../ship/explodeShipSegments'
 import { generateShip as _generateShip } from '../../ship/generateShip'
-import type { CameraContextValue } from '../../ShipCamera'
 import { die } from '../player/PlayerActions'
 import { createShipStore, type ShipStore } from '../ship/ShipStore'
 
@@ -87,7 +87,7 @@ export const explodeShip = ($ships: ShipPoolStore, $ship: ShipStore) => {
 export const collideWithTarget = (
   $ships: ShipPoolStore,
   $ship: ShipStore,
-  $target: TargetStore | ProjectileStore,
+  _$target: TargetStore | ProjectileStore,
   cameraContext?: CameraContextValue
 ) => {
   const { $player, originNode } = $ship.get()

@@ -2,8 +2,8 @@ import pDefer from 'p-defer'
 
 import {
   DEFAULT_PLAYER_GLICKO_DATA,
-  GLICKO_WINDOW_SIZE,
   GLICKO_MAX_HISTORY,
+  GLICKO_WINDOW_SIZE,
   PLAYER_GLICKO_RD_FLOOR,
 } from '../../../constants/glickoSettings.js'
 import { getModulePathnamesForAlgorithm } from '../../../createGame.js'
@@ -14,15 +14,15 @@ import { bindGameSetters } from '../GameSetters.js'
 import {
   EvolutionStatus,
   type GameOutcome,
-  type RuntimeGenerationSnapshot,
   type MatchRecord,
+  type RuntimeGenerationSnapshot,
 } from '../GameState.js'
 import type { GameStore } from '../GameStore.js'
 import { savePlayerDataToStorage } from '../PlayerPersistence.js'
 import {
-  savePopulationToStorage,
   loadPopulationFromStorage,
   pruneOldPopulations,
+  savePopulationToStorage,
 } from '../PopulationPersistence.js'
 
 // Default population size (matches NEAT-JS defaultPopulationOptions)

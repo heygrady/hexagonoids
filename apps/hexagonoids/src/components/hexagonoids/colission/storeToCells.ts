@@ -1,7 +1,7 @@
 import { BoundingSphere } from '@babylonjs/core/Culling/boundingSphere'
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
-import { cellToBoundary, type CoordPair, gridDisk, latLngToCell } from 'h3-js'
+import { type CoordPair, cellToBoundary, gridDisk, latLngToCell } from 'h3-js'
 import QuickLRU from 'quick-lru'
 
 import {
@@ -20,9 +20,7 @@ import { LoopGuard } from '../utils/performanceMonitor'
 
 import {
   isRockState,
-  isRockStore,
   isShipState,
-  isShipStore,
   type ProjectileStore,
   type TargetStore,
 } from './typeCheck'
@@ -77,13 +75,13 @@ const isSphereInside = (
 export const storeToRadius = ($store: TargetStore | ProjectileStore) => {
   const state = $store.get()
 
-  if (isRockStore($store)) {
+  if (isRockState(state)) {
     return state.size === ROCK_LARGE_SIZE
       ? ROCK_LARGE_RADIUS
       : state.size === ROCK_MEDIUM_SIZE
         ? ROCK_MEDIUM_RADIUS
         : ROCK_SMALL_RADIUS
-  } else if (isShipStore($store)) {
+  } else if (isShipState(state)) {
     return SHIP_RADIUS
   } else {
     return BULLET_RADIUS

@@ -2,7 +2,7 @@ import type { AbstractEngineOptions } from '@babylonjs/core/Engines/abstractEngi
 import { Color4 } from '@babylonjs/core/Maths/math.color'
 import type { SceneOptions } from '@babylonjs/core/scene'
 import type { Component, JSX } from 'solid-js'
-import { Show, createSignal } from 'solid-js'
+import { createSignal, Show } from 'solid-js'
 
 import { type ReadyCallback, SceneCanvas } from '../solid-babylon/SceneCanvas'
 
@@ -23,11 +23,12 @@ import { Score } from './Score'
 import { ShipCamera } from './ShipCamera'
 import { Ships } from './Ships'
 import { StartScreen } from './StartScreen'
-import { type GameActions, bindGameActions } from './store/game/GameActions'
-import { type GameStore, createGameStore } from './store/game/GameStore'
+import { bindGameActions, type GameActions } from './store/game/GameActions'
+import { createGameStore, type GameStore } from './store/game/GameStore'
 import { UI } from './UI'
 
-export interface HexagonoidsCanvasProps extends JSX.CanvasHTMLAttributes<HTMLCanvasElement> {
+export interface HexagonoidsCanvasProps
+  extends JSX.CanvasHTMLAttributes<HTMLCanvasElement> {
   enableWebGPU?: boolean
   debug?: boolean
 }

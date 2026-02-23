@@ -1,7 +1,8 @@
 import { Color3 } from '@babylonjs/core/Maths/math.color'
+import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh'
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
-import type { Scene, AbstractMesh } from '@babylonjs/core/scene'
+import type { Scene } from '@babylonjs/core/scene'
 import QuickLRU from 'quick-lru'
 
 import { getCommonMaterial } from '../common/commonMaterial'
@@ -12,7 +13,7 @@ export const cellMarkersCache = new QuickLRU<
   AbstractMesh[] | TransformNode[]
 >({
   maxSize: CELL_CACHE_SIZE,
-  onEviction(key, value) {
+  onEviction(_key, value) {
     value.forEach((v) => {
       v.dispose()
     })

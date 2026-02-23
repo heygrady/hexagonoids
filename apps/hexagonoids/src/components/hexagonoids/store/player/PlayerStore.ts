@@ -1,4 +1,4 @@
-import { map, type MapStore } from 'nanostores'
+import { type MapStore, map } from 'nanostores'
 import { createUniqueId } from 'solid-js'
 
 import { defaultPlayerState, type PlayerState } from './PlayerState'

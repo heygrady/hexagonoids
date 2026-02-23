@@ -1,9 +1,9 @@
-import { map, type MapStore } from 'nanostores'
+import { type MapStore, map } from 'nanostores'
 
 import {
   defaultPlayerState,
-  type PlayerToken,
   type PlayerState,
+  type PlayerToken,
 } from './PlayerState.js'
 
 export type PlayerStore = MapStore<PlayerState>

@@ -1,5 +1,5 @@
 import { Quaternion } from '@babylonjs/core/Maths/math.vector'
-import { map, type MapStore } from 'nanostores'
+import { type MapStore, map } from 'nanostores'
 import { createUniqueId } from 'solid-js'
 
 import { createControlStore, resetControl } from '../control/ControlStore'

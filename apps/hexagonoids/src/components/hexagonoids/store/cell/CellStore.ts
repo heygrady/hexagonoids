@@ -1,8 +1,8 @@
-import { map, type MapStore } from 'nanostores'
+import { type MapStore, map } from 'nanostores'
 
 import { CELL_VISITED_OPACITY } from '../../constants'
 
-import { defaultCellState, type CellState } from './CellState'
+import { type CellState, defaultCellState } from './CellState'
 
 export { defaultCellState }
 

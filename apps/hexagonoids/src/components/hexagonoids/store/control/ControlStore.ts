@@ -1,6 +1,6 @@
-import { map, type MapStore } from 'nanostores'
+import { type MapStore, map } from 'nanostores'
 
-import { defaultControlState, type ControlState } from './ControlState'
+import { type ControlState, defaultControlState } from './ControlState'
 
 export type ControlStore = MapStore<ControlState>
 

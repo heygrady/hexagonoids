@@ -1,5 +1,7 @@
+import type { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { CreatePolyhedron } from '@babylonjs/core/Meshes/Builders/polyhedronBuilder'
-import type { Mesh, Scene, Vector3 } from '@babylonjs/core/scene'
+import type { Mesh } from '@babylonjs/core/Meshes/mesh'
+import type { Scene } from '@babylonjs/core/scene'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
 import {
   type CoordPair,
@@ -18,7 +20,7 @@ const createGlobe = (points: Vector3[]) => {
 
 export const createRes0Polyhedron = (scene: Scene): Mesh => {
   const cells = getRes0Cells()
-  const vertexes = cells.map((h) => cellToVertexes(h)).flat()
+  const vertexes = cells.flatMap((h) => cellToVertexes(h))
   const vertexSet = new Set(vertexes)
 
   const coordPairs = new Set<CoordPair>()

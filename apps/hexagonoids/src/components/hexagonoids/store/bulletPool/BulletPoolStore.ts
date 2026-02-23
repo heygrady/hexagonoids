@@ -1,4 +1,4 @@
-import { map, type MapStore } from 'nanostores'
+import { type MapStore, map } from 'nanostores'
 
 import type { BulletRecord } from './BulletPoolState'
 

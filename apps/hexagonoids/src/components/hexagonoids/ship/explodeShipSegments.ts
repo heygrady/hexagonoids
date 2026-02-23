@@ -5,14 +5,14 @@ import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import { EXPLOSION_LARGE_SPEED } from '../constants'
 import { headingToAngularVelocity } from '../ship/quaternionPhysics'
 import {
+  setAngularVelocity,
   setGeneratedAt,
   setLocation,
   setYaw,
-  setAngularVelocity,
 } from '../store/ship/ShipSetters'
 import type { ShipStore } from '../store/ship/ShipStore'
 
-import { type SegmentStores, createSegmentNodes } from './createSergmentNodes'
+import { createSegmentNodes, type SegmentStores } from './createSergmentNodes'
 import { getOrientation } from './orientation'
 
 const angleDifference = (angle1: number, angle2: number): number => {
@@ -26,7 +26,7 @@ const angleDifference = (angle1: number, angle2: number): number => {
 }
 
 export const explodeShipSegment = (
-  scene: Scene,
+  _scene: Scene,
   $ship: ShipStore,
   $segment: ShipStore
 ) => {

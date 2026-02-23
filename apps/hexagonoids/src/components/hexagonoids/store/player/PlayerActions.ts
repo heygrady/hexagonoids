@@ -12,7 +12,7 @@ import {
   latLngToCell,
 } from 'h3-js'
 import { action } from 'nanostores'
-import type { OmitFirstArg } from 'nanostores/action'
+import type { OmitFirstArg } from '../../../../types/nanostores.js'
 
 import {
   PLAYER_STARTING_LIVES,
@@ -22,8 +22,8 @@ import {
   SHIP_VALUE,
 } from '../../constants'
 import { pickPoint } from '../../rock/pickPoint'
-import { generateShip as _generateShip } from '../../ship/generateShip'
 import type { CameraContextValue } from '../../ShipCamera'
+import { generateShip as _generateShip } from '../../ship/generateShip'
 import { generateRock } from '../rockPool/RockPoolActions'
 import type { RockPoolStore } from '../rockPool/RockPoolStore'
 import type { ShipState } from '../ship/ShipState'

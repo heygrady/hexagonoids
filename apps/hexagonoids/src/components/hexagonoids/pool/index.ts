@@ -14,7 +14,7 @@
  */
 
 export { DisposalQueue } from './DisposalQueue'
-export { MasterMeshManager } from './MasterMeshManager'
 export type { MasterMeshFactory } from './MasterMeshManager'
+export { MasterMeshManager } from './MasterMeshManager'
 export { ObjectPool } from './ObjectPool'
-export type { PoolConfig, PooledObject, PoolStats } from './PooledObject'
+export type { PoolConfig, PoolStats } from './PooledObject'

@@ -183,7 +183,7 @@ describe('getYawPitch', () => {
 
       const rotationQuaternion = Quaternion.RotationYawPitchRoll(yaw, pitch, 0)
       parent.rotationQuaternion =
-        parent.rotationQuaternion.multiply(rotationQuaternion)
+        parent.rotationQuaternion!.multiply(rotationQuaternion)
 
       computeWorldMatrix()
 
@@ -196,7 +196,7 @@ describe('getYawPitch', () => {
 
       const rotationQuaternion = Quaternion.RotationYawPitchRoll(yaw, pitch, 0)
       parent.rotationQuaternion =
-        parent.rotationQuaternion.multiply(rotationQuaternion)
+        parent.rotationQuaternion!.multiply(rotationQuaternion)
 
       computeWorldMatrix()
 
@@ -209,7 +209,7 @@ describe('getYawPitch', () => {
 
       const rotationQuaternion = Quaternion.RotationYawPitchRoll(yaw, pitch, 0)
       parent.rotationQuaternion =
-        parent.rotationQuaternion.multiply(rotationQuaternion)
+        parent.rotationQuaternion!.multiply(rotationQuaternion)
 
       computeWorldMatrix()
 
@@ -222,7 +222,7 @@ describe('getYawPitch', () => {
 
       const rotationQuaternion = Quaternion.RotationYawPitchRoll(yaw, pitch, 0)
       parent.rotationQuaternion =
-        parent.rotationQuaternion.multiply(rotationQuaternion)
+        parent.rotationQuaternion!.multiply(rotationQuaternion)
 
       computeWorldMatrix()
 
@@ -235,7 +235,7 @@ describe('getYawPitch', () => {
 
       const rotationQuaternion = Quaternion.RotationYawPitchRoll(yaw, pitch, 0)
       parent.rotationQuaternion =
-        parent.rotationQuaternion.multiply(rotationQuaternion)
+        parent.rotationQuaternion!.multiply(rotationQuaternion)
 
       computeWorldMatrix()
 
@@ -264,7 +264,7 @@ describe('getYawPitch', () => {
             0
           )
           parent.rotationQuaternion =
-            parent.rotationQuaternion.multiply(rotationQuaternion)
+            parent.rotationQuaternion!.multiply(rotationQuaternion)
 
           computeWorldMatrix()
           expect(child.absolutePosition).equalsWithEpsilon(target[i][0])
@@ -292,7 +292,7 @@ describe('getYawPitch', () => {
             0
           )
           parent.rotationQuaternion =
-            parent.rotationQuaternion.multiply(rotationQuaternion)
+            parent.rotationQuaternion!.multiply(rotationQuaternion)
 
           computeWorldMatrix()
           expect(child.absolutePosition).equalsWithEpsilon(target[i][0])
@@ -320,7 +320,7 @@ describe('getYawPitch', () => {
             0
           )
           parent.rotationQuaternion =
-            parent.rotationQuaternion.multiply(rotationQuaternion)
+            parent.rotationQuaternion!.multiply(rotationQuaternion)
 
           computeWorldMatrix()
           expect(child.absolutePosition).equalsWithEpsilon(target[i][0])

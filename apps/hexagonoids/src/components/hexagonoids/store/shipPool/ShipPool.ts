@@ -7,8 +7,8 @@ import { ObjectPool } from '../../pool'
 import { resetControl } from '../control/ControlStore'
 import {
   createShipStore,
-  type ShipStore,
   defaultShipState,
+  type ShipStore,
 } from '../ship/ShipStore'
 
 /**

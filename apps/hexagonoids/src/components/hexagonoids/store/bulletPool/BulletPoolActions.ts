@@ -1,5 +1,5 @@
 import { action } from 'nanostores'
-import type { OmitFirstArg } from 'nanostores/action'
+import type { OmitFirstArg } from '../../../../types/nanostores.js'
 
 import { explode as _explode } from '../../bullet/explode'
 import { fireBullet as _fireBullet } from '../../bullet/fireBullet'

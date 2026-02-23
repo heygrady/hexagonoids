@@ -2,10 +2,10 @@ import type { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
 import {
   type CoordPair,
+  cellToLatLng,
   cellToVertexes,
   getRes0Cells,
   vertexToLatLng,
-  cellToLatLng,
 } from 'h3-js'
 import qh from 'quickhull3d'
 import { describe, expect, test } from 'vitest'
@@ -20,7 +20,7 @@ describe('h3', () => {
   test('cells share vertices', () => {
     // get all res 0 cells
     const cells = getRes0Cells()
-    const vertexes = cells.map((h) => cellToVertexes(h)).flat()
+    const vertexes = cells.flatMap((h) => cellToVertexes(h))
     const vertexSet = new Set(vertexes)
 
     expect(vertexes.length).toBeGreaterThan(vertexSet.size)

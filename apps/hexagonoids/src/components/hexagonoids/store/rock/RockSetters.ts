@@ -1,6 +1,6 @@
 import type { CoordPair } from 'h3-js'
 import { action } from 'nanostores'
-import type { OmitFirstArg } from 'nanostores/action'
+import type { OmitFirstArg } from '../../../../types/nanostores.js'
 
 import { storeToCells } from '../../colission/storeToCells'
 import { wrapHalfCircle } from '../../ship/orientation'

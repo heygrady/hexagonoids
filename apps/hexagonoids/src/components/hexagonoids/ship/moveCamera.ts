@@ -1,4 +1,4 @@
-import { Vector3, Matrix } from '@babylonjs/core/Maths/math.vector'
+import { Matrix, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import { easeQuadIn } from 'd3-ease'
 

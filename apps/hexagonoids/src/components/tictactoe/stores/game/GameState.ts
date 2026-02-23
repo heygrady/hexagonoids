@@ -6,7 +6,7 @@ import type { SyncExecutor } from '@neat-evolution/executor'
 import type { Glicko2 } from 'glicko2'
 
 import type { BoardStore } from '../board/BoardStore.js'
-import { type PlayerToken } from '../player/PlayerState.js'
+import type { PlayerToken } from '../player/PlayerState.js'
 import type { PlayerStore } from '../player/PlayerStore.js'
 import type { SettingsStore } from '../settings/SettingsStore.js'
 
@@ -74,7 +74,8 @@ export interface SerializableGenerationSnapshot {
 /**
  * Runtime snapshot of a generation's state (with executor)
  */
-export interface RuntimeGenerationSnapshot extends SerializableGenerationSnapshot {
+export interface RuntimeGenerationSnapshot
+  extends SerializableGenerationSnapshot {
   executor: SyncExecutor
 }
 

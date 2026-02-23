@@ -1,6 +1,6 @@
 import type { Scene } from '@babylonjs/core/scene'
 import { action } from 'nanostores'
-import type { OmitFirstArg } from 'nanostores/action'
+import type { OmitFirstArg } from '../../../../types/nanostores.js'
 
 import { generateRock as _generateRock } from '../../rock/generateRock'
 import { splitRock as _splitRock } from '../../rock/splitRock'

@@ -11,8 +11,8 @@
     "check": "astro check",
     "preview": "astro preview",
     "astro": "astro",
-    "format": "eslint \"**/*.{astro,md,cjs,mjs,js,jsx,cts,mts,ts,tsx,json}\" --fix",
-    "lint": "eslint \"**/*.{astro,md,cjs,mjs,js,jsx,cts,mts,ts,tsx,json}\"",
+    "format": "biome check --write",
+    "lint": "biome lint",
     "test": "vitest --run --passWithNoTests"
   },
   "dependencies": {
@@ -53,10 +53,9 @@
     "tailwindcss": "^4.1.17"
   },
   "devDependencies": {
-    "@heygrady/eslint-config": "^1.7.0",
+    "@biomejs/biome": "^2.4.2",
     "@types/d3-ease": "^3",
     "@types/earcut": "^2",
-    "eslint": "^9.39.1",
     "turbo": "^2.6.1",
     "typescript": "^5.9.3",
     "vite-plugin-node-polyfills": "^0.24.0",

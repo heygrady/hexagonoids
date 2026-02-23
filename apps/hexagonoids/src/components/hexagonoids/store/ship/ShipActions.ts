@@ -1,5 +1,5 @@
 import { action } from 'nanostores'
-import type { OmitFirstArg } from 'nanostores/action'
+import type { OmitFirstArg } from '../../../../types/nanostores.js'
 
 import { accelerateShip } from '../../ship/accelerateShip'
 import { moveShip } from '../../ship/moveShip'

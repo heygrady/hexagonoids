@@ -1,17 +1,17 @@
 import { setStatus } from '../GameSetters.js'
-import { GameStatus, EvolutionStatus } from '../GameState.js'
+import { EvolutionStatus, GameStatus } from '../GameState.js'
 import type { GameStore } from '../GameStore.js'
 
 import {
-  DEFAULT_POPULATION_SIZE,
   bindGameSetters,
-  playerToToken,
-  stopBackgroundEvolution,
-  stopMatch,
   clearGenerationSnapshots,
-  restoreSnapshotsFromStorage,
+  DEFAULT_POPULATION_SIZE,
   getModulePathnamesForAlgorithm,
   loadPopulationFromStorage,
+  playerToToken,
+  restoreSnapshotsFromStorage,
+  stopBackgroundEvolution,
+  stopMatch,
 } from './shared.js'
 import { start } from './start.js'
 

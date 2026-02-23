@@ -6,8 +6,8 @@ import { ROCK_CACHE_SIZE } from '../../constants'
 import { ObjectPool } from '../../pool'
 import {
   createRockStore,
-  type RockStore,
   defaultRockState,
+  type RockStore,
 } from '../rock/RockStore'
 
 /**

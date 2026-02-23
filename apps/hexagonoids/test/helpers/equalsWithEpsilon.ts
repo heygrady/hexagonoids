@@ -2,8 +2,8 @@ import type { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { expect } from 'vitest'
 
 expect.extend({
-  equalsWithEpsilon(received: Vector3, expected: Vector3) {
-    const pass = received.equalsWithEpsilon(expected)
+  equalsWithEpsilon(received: Vector3, expected: Vector3, epsilon?: number) {
+    const pass = received.equalsWithEpsilon(expected, epsilon)
 
     if (pass) {
       return {

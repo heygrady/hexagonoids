@@ -3,9 +3,9 @@ import { latLngToVector3 } from '@heygrady/h3-babylon'
 import {
   type Component,
   createContext,
+  type JSX,
   onCleanup,
   useContext,
-  type JSX,
 } from 'solid-js'
 
 import { useScene, useSceneStore } from '../solid-babylon/hooks/useScene'
@@ -15,8 +15,8 @@ import { useGame } from './hooks/useGame'
 import { getYawPitch } from './ship/getYawPitch'
 import { moveNodeTo } from './ship/orientation'
 import {
-  type SphereArenaCamera,
   createSphereArenaCamera,
+  type SphereArenaCamera,
 } from './sphereArenaCamera/SphereArenaCamera'
 
 export type CameraContextValue = SphereArenaCamera

@@ -2,7 +2,7 @@ import { Quaternion } from '@babylonjs/core/Maths/math.vector'
 import { type MapStore, map } from 'nanostores'
 import { createUniqueId } from 'solid-js'
 
-import { type RockState, defaultRockState } from './RockState'
+import { defaultRockState, type RockState } from './RockState'
 
 export { defaultRockState }
 

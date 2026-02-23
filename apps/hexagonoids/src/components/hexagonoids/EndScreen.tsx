@@ -10,9 +10,9 @@ import { getCommonMaterial } from './common/commonMaterial'
 import { useGame } from './hooks/useGame'
 import { createTextMesh } from './hud/createTextMesh'
 import { usePlayer } from './KeyboardPlayer'
+import { useCamera } from './ShipCamera'
 import { getYawPitch } from './ship/getYawPitch'
 import { moveNodeTo } from './ship/orientation'
-import { useCamera } from './ShipCamera'
 import { useUI } from './UI'
 
 const allowedKeys = new Set<string>([' ', 'Spacebar'])

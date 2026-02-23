@@ -1,4 +1,4 @@
-import { map, type MapStore } from 'nanostores'
+import { type MapStore, map } from 'nanostores'
 
 import { createBulletPoolStore } from '../bulletPool/BulletPoolStore'
 import { createCellPoolStore } from '../cellPool/CellPoolStore'

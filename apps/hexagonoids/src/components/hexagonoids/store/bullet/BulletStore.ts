@@ -1,8 +1,8 @@
 import { Quaternion } from '@babylonjs/core/Maths/math.vector'
-import { map, type MapStore } from 'nanostores'
+import { type MapStore, map } from 'nanostores'
 import { createUniqueId } from 'solid-js'
 
-import { defaultBulletState, type BulletState } from './BulletState'
+import { type BulletState, defaultBulletState } from './BulletState'
 
 export type BulletStore = MapStore<BulletState>
 

@@ -1,11 +1,9 @@
 import { Quaternion } from '@babylonjs/core/Maths/math.vector'
+import type { AbstractMesh } from '@babylonjs/core/Meshes/abstractMesh'
 import { CreateText } from '@babylonjs/core/Meshes/Builders/textBuilder'
-import type {
-  Scene,
-  TransformNode,
-  Mesh,
-  AbstractMesh,
-} from '@babylonjs/core/scene'
+import type { Mesh } from '@babylonjs/core/Meshes/mesh'
+import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import type { Scene } from '@babylonjs/core/scene'
 import earcut from 'earcut'
 
 import { getCommonMaterial } from '../common/commonMaterial'
