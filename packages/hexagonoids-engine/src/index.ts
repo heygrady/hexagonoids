@@ -1,3 +1,15 @@
+// Bullet — actions & setters
+export {
+  destroyBullet,
+  expireBullets,
+  spawnBullet,
+} from './features/engine/bullet/bulletActions.js'
+export {
+  setAngularVelocity as setBulletAngularVelocity,
+  setLat as setBulletLat,
+  setLng as setBulletLng,
+  setLocation as setBulletLocation,
+} from './features/engine/bullet/bulletSetters.js'
 // Constants
 export {
   ACCELERATION_RATE,
@@ -49,10 +61,13 @@ export {
 } from './features/engine/defaults.js'
 // Game time
 export { advanceGameTime, elapsed } from './features/engine/gameTime.js'
+// ID generation
+export { generateId, resetIdCounter } from './features/engine/generateId.js'
 export type { EngineHooks } from './features/engine/hooks.js'
 // Physics — quaternion spherical movement
 export { accelerateShip } from './features/engine/physics/accelerateShip.js'
 export {
+  latLngToQuaternion,
   latLngToVector3,
   quaternionToLatLng,
   vector3ToLatLng,
@@ -68,6 +83,49 @@ export {
   integrateAngularVelocity,
 } from './features/engine/physics/quaternionPhysics.js'
 export { turnShip } from './features/engine/physics/turnShip.js'
+// Player — actions & setters
+export {
+  canRegenerate,
+  checkWaveSpawn,
+  killPlayer,
+  regeneratePlayer,
+  scorePlayer,
+  startPlayer,
+} from './features/engine/player/playerActions.js'
+export {
+  decrementLives,
+  incrementScore,
+  setLives,
+  setScore,
+} from './features/engine/player/playerSetters.js'
+// Rock — actions & setters
+export {
+  destroyRock,
+  spawnRock,
+  spawnWave,
+  splitRock,
+} from './features/engine/rock/rockActions.js'
+export {
+  setAngularVelocity as setRockAngularVelocity,
+  setLat as setRockLat,
+  setLng as setRockLng,
+  setLocation as setRockLocation,
+  setSize as setRockSize,
+} from './features/engine/rock/rockSetters.js'
+// Ship — actions & setters
+export {
+  destroyShip,
+  fireBullet,
+  spawnShip,
+} from './features/engine/ship/shipActions.js'
+export {
+  setAngularVelocity as setShipAngularVelocity,
+  setFiredAt as setShipFiredAt,
+  setLat as setShipLat,
+  setLng as setShipLng,
+  setLocation as setShipLocation,
+  setYaw as setShipYaw,
+} from './features/engine/ship/shipSetters.js'
 export type {
   BulletState,
   CollisionType,
