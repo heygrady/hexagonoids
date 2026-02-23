@@ -46,10 +46,31 @@ This package supports both CJS and ESM formats. You will see `cjs`, `esm` and `t
 Node ESM and TypeScript support the same modern syntax for imports.
 
 ```ts
-import { createGame } from '@heygrady/hexagonoids-engine'
+import {
+  createGame,
+  accelerateShip,
+  turnShip,
+  moveShip,
+  moveBullet,
+  moveRock,
+} from '@heygrady/hexagonoids-engine'
 
 const { state, rng } = createGame()
 ```
+
+### Key exports
+
+| Category | Exports |
+| --- | --- |
+| Factory | `createGame(options?)` |
+| Types | `GameState`, `ShipState`, `RockState`, `BulletState`, `PlayerState`, `PlayerInputState`, `PlayerInputs`, `EntityRef`, `EntityType`, `CollisionType`, `GameMode`, `EngineOptions`, `EngineHooks` |
+| Defaults | `defaultGameState`, `defaultShipState`, `defaultRockState`, `defaultBulletState`, `defaultPlayerState` |
+| Game time | `advanceGameTime`, `elapsed` |
+| Ship physics | `accelerateShip(ship, duration)`, `turnShip(ship, direction, duration)`, `moveShip(ship, delta)` |
+| Bullet/Rock | `moveBullet(bullet, delta)`, `moveRock(rock, delta)` |
+| Quaternion primitives | `integrateAngularVelocity`, `headingToAngularVelocity`, `applyAngularFriction`, `clampAngularVelocity`, `getPositionFromQuaternion` |
+| Lat/lng utilities | `latLngToVector3`, `vector3ToLatLng`, `quaternionToLatLng` |
+| Constants | `MAX_SPEED`, `FRICTION_COEFFICIENT`, `TURN_RATE`, `ACCELERATION_RATE`, `MAX_DURATION`, `ROCK_LARGE_SIZE`, `ROCK_MEDIUM_SIZE`, `ROCK_SMALL_SIZE`, and more |
 
 ### CJS
 

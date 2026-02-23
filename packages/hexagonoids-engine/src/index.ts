@@ -50,6 +50,24 @@ export {
 // Game time
 export { advanceGameTime, elapsed } from './features/engine/gameTime.js'
 export type { EngineHooks } from './features/engine/hooks.js'
+// Physics — quaternion spherical movement
+export { accelerateShip } from './features/engine/physics/accelerateShip.js'
+export {
+  latLngToVector3,
+  quaternionToLatLng,
+  vector3ToLatLng,
+} from './features/engine/physics/latLng.js'
+export { moveBullet } from './features/engine/physics/moveBullet.js'
+export { moveRock } from './features/engine/physics/moveRock.js'
+export { moveShip } from './features/engine/physics/moveShip.js'
+export {
+  applyAngularFriction,
+  clampAngularVelocity,
+  getPositionFromQuaternion,
+  headingToAngularVelocity,
+  integrateAngularVelocity,
+} from './features/engine/physics/quaternionPhysics.js'
+export { turnShip } from './features/engine/physics/turnShip.js'
 export type {
   BulletState,
   CollisionType,
