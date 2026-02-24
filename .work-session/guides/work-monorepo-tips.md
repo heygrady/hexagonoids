@@ -99,6 +99,9 @@ required after adding a workspace package before Yarn will resolve it.
 To run Node through Yarn v4, use `yarn node`. The `-s` flag is not supported for
 this invocation (`yarn -s node` fails).
 
+`yarn node --input-type=module -e` throws `ERR_INPUT_TYPE_NOT_ALLOWED`; drop the
+`--input-type` flag and use `yarn node -e` for inline scripts instead.
+
 ## Generated Artifact Cleanup
 
 If policy blocks direct `rm` on generated artifacts, use `apply_patch` deletions
