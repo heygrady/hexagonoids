@@ -24,6 +24,13 @@ If the trainer already has the run-best organism, expose it via `TrainingRunResu
 
 `loadGenome` should remain pure deserialization with minimal shape checks (root object + genome/config/state). Avoid algorithm-specific parsing in this layer so replay stays stable and safe across algorithm changes.
 
+
+## Serialize/Replay Discriminator
+
+Replay can silently collapse if live `Organism` instances are misclassified as serialized payloads and rehydrated without factory wiring. Treat rehydration as a strict boundary: only rehydrate when the payload explicitly matches the serialized-organism contract (ex: `__kind` + `version`, or a serialized `genome.factoryOptions`). If it is already a live `Organism`, pass it through unchanged.
+
+Centralize serialized-organism validation in a shared helper and use it in both persistence load and manager hydration so replay behavior matches training evaluation.
+
 ## Node-Only Entry Point
 
 Keep Node-only exports (CLI, persistence, train utilities) in a dedicated `./node` entrypoint so the default package surface remains browser-safe while still supporting Node consumers.

@@ -5,9 +5,12 @@ import {
   createGenomeFromSerialized,
   createPhenotypeForGenome,
   HEXAGONOIDS_IO,
-  type SerializedGenome,
   type SupportedAlgorithm,
 } from './algorithmRegistry.js'
+import {
+  isSerializedOrganism,
+  type SerializedOrganism,
+} from './serialization/serializedOrganism.js'
 import type { TrainingRunResult, TrainOptions, TrainResult } from './train.js'
 
 export interface HexagonoidsEvolutionManagerOptions
@@ -15,15 +18,6 @@ export interface HexagonoidsEvolutionManagerOptions
   method?: SupportedAlgorithm | undefined
   trainer?: (options: TrainOptions) => Promise<TrainResult>
   deserializeOrganism?: (pathname: string) => unknown
-}
-
-interface SerializedOrganism {
-  genome: SerializedGenome
-  organismState?: {
-    generation?: number | undefined
-    fitness?: number | undefined
-    adjustedFitness?: number | undefined
-  }
 }
 
 interface OrganismLike {
@@ -36,19 +30,6 @@ const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return value != null && typeof value === 'object'
-}
-
-const asSerializedOrganism = (value: unknown): SerializedOrganism | null => {
-  if (!isRecord(value)) {
-    return null
-  }
-  if (!isRecord(value.genome)) {
-    return null
-  }
-  if (!isRecord(value.genome.config) || !isRecord(value.genome.state)) {
-    return null
-  }
-  return value as unknown as SerializedOrganism
 }
 
 export class HexagonoidsEvolutionManager {
@@ -130,12 +111,11 @@ export class HexagonoidsEvolutionManager {
       )
     }
 
-    const parsed = asSerializedOrganism(organismData)
-    if (parsed == null) {
+    if (!isSerializedOrganism(organismData)) {
       throw new Error('Invalid serialized organism payload.')
     }
 
-    const genomeData = parsed.genome
+    const genomeData = (organismData as SerializedOrganism).genome
     const genomeOptions = genomeData.genomeOptions
     const initConfig = isRecord(genomeOptions?.initConfig)
       ? genomeOptions.initConfig
@@ -146,20 +126,18 @@ export class HexagonoidsEvolutionManager {
       genomeData,
       initConfig
     )
+    const organismState = (organismData as SerializedOrganism).organismState
     const generation =
-      parsed.organismState != null &&
-      typeof parsed.organismState.generation === 'number'
-        ? parsed.organismState.generation
+      organismState != null && typeof organismState.generation === 'number'
+        ? organismState.generation
         : 0
     const fitness =
-      parsed.organismState != null &&
-      typeof parsed.organismState.fitness === 'number'
-        ? parsed.organismState.fitness
+      organismState != null && typeof organismState.fitness === 'number'
+        ? organismState.fitness
         : null
     const adjustedFitness =
-      parsed.organismState != null &&
-      typeof parsed.organismState.adjustedFitness === 'number'
-        ? parsed.organismState.adjustedFitness
+      organismState != null && typeof organismState.adjustedFitness === 'number'
+        ? organismState.adjustedFitness
         : null
 
     return new Organism(genome as never, generation, {
@@ -169,9 +147,8 @@ export class HexagonoidsEvolutionManager {
   }
 
   organismToExecutor(organism: unknown): SyncExecutor {
-    const hydratedOrganism = asSerializedOrganism(organism)
-    const candidate = hydratedOrganism
-      ? this.createOrganism(this.method, hydratedOrganism)
+    const candidate = isSerializedOrganism(organism)
+      ? this.createOrganism(this.method, organism)
       : organism
 
     if (!isRecord(candidate) || !('genome' in candidate)) {

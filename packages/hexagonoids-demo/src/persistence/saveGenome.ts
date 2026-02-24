@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import type { SupportedAlgorithm } from '../algorithmRegistry.js'
+import { ensureSerializedOrganismMarker } from '../serialization/serializedOrganism.js'
 
 const DEFAULT_OUTPUT_DIR = fileURLToPath(new URL('../../../', import.meta.url))
 
@@ -32,7 +33,8 @@ export async function saveGenome(
 ): Promise<string> {
   const filePath = resolveBestGenomePath(method, outputDir)
   await mkdir(dirname(filePath), { recursive: true })
-  const json = JSON.stringify(toSerializable(organism), null, 2)
+  const serialized = ensureSerializedOrganismMarker(toSerializable(organism))
+  const json = JSON.stringify(serialized, null, 2)
   await writeFile(filePath, `${json}\n`, 'utf8')
   return filePath
 }

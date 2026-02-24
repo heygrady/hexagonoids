@@ -1,38 +1,6 @@
 import { readFileSync } from 'node:fs'
 
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === 'object' && value != null
-}
-
-function assertSerializedOrganismShape(
-  value: unknown,
-  pathname: string
-): asserts value is Record<string, unknown> {
-  if (!isRecord(value)) {
-    throw new Error(
-      `Genome file "${pathname}" must contain a JSON object at the root.`
-    )
-  }
-
-  const genome = value.genome
-  if (!isRecord(genome)) {
-    throw new Error(
-      `Genome file "${pathname}" is missing required "genome" object.`
-    )
-  }
-
-  if (!isRecord(genome.config)) {
-    throw new Error(
-      `Genome file "${pathname}" is missing required "genome.config" object.`
-    )
-  }
-
-  if (!isRecord(genome.state)) {
-    throw new Error(
-      `Genome file "${pathname}" is missing required "genome.state" object.`
-    )
-  }
-}
+import { assertSerializedOrganism } from '../serialization/serializedOrganism.js'
 
 export function loadGenome(pathname: string): unknown {
   let raw = ''
@@ -51,6 +19,6 @@ export function loadGenome(pathname: string): unknown {
     throw new Error(`Failed to parse genome JSON at "${pathname}": ${reason}`)
   }
 
-  assertSerializedOrganismShape(parsed, pathname)
+  assertSerializedOrganism(parsed, pathname)
   return parsed
 }
