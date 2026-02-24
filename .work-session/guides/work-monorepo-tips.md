@@ -50,6 +50,20 @@ in per-package `CLAUDE.md` files.
 Do not create stub docs/ directories or placeholder files — update the relevant
 `CLAUDE.md` instead.
 
+## TypeScript vs Biome: Bracket Notation Conflict
+
+`Record<string, unknown>` property access creates a conflict between two tools:
+
+- **TypeScript** (`noPropertyAccessFromIndexSignature` or strict index access)
+  requires **bracket notation**: `obj['key']`
+- **Biome** (`useLiteralKeys` lint rule) flags bracket notation as unnecessary
+  when the key is a string literal, requiring **dot notation**: `obj.key`
+
+The two rules are irreconcilable for the same expression. The existing codebase
+convention (established in `seekDestroyAgent` and `neatAgent`) is to use bracket
+notation to satisfy TypeScript and leave the Biome `info` diagnostics as-is.
+Do not attempt to suppress either tool — just leave the bracket notation.
+
 ## Documentation Triage Rule
 
 When deciding which packages need doc updates after a session:
