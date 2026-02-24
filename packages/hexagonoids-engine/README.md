@@ -64,7 +64,7 @@ const { state, rng } = createGame()
 | --- | --- |
 | Factory | `createGame(options?)` |
 | Types | `GameState`, `ShipState`, `RockState`, `BulletState`, `PlayerState`, `PlayerInputState`, `PlayerInputs`, `EntityRef`, `EntityType`, `CollisionType`, `CollisionPair`, `GameMode`, `EngineOptions`, `EngineHooks` |
-| Defaults | `defaultGameState`, `defaultShipState`, `defaultRockState`, `defaultBulletState`, `defaultPlayerState` |
+| Defaults | `defaultShipState`, `defaultRockState`, `defaultBulletState`, `defaultPlayerState` |
 | Game time | `advanceGameTime`, `elapsed` |
 | Ship physics | `accelerateShip(ship, duration)`, `turnShip(ship, direction, duration)`, `moveShip(ship, delta)` |
 | Bullet/Rock | `moveBullet(bullet, delta)`, `moveRock(rock, delta)` |

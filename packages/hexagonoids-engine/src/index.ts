@@ -62,7 +62,6 @@ export { createGame } from './features/engine/createGame.js'
 // Defaults
 export {
   defaultBulletState,
-  defaultGameState,
   defaultPlayerState,
   defaultRockState,
   defaultShipState,
