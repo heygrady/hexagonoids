@@ -1,6 +1,7 @@
 // Agents
 export { doNothingAgent } from './agents/doNothingAgent.js'
 export { randomAgent } from './agents/randomAgent.js'
+export { seekDestroyAgent } from './agents/seekDestroyAgent.js'
 
 // Types
 export type { AgentContext, AgentFn, SyncExecutor } from './agents/types.js'
