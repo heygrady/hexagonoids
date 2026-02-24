@@ -1,14 +1,37 @@
 ---
 name: monorepo-tips
-description: Cross-cutting gotchas and conventions for the hexagonoids monorepo — TypeScript exactOptionalPropertyTypes, prebuild:cjs script defect history, and documentation structure.
+description: Cross-cutting gotchas and conventions for the hexagonoids monorepo — TypeScript strict config overrides, exactOptionalPropertyTypes, prebuild:cjs history, and documentation structure.
 tags: [work-session, typescript, monorepo]
 ---
 
 # Monorepo Tips
 
+## TypeScript: noPropertyAccessFromIndexSignature (Fixed)
+
+The base tsconfig chain extends `@tsconfig/strictest`, which sets
+`noPropertyAccessFromIndexSignature: true`. This forces bracket notation
+(`obj['key']`) for `Record<string, unknown>` access, which conflicts with
+Biome's `useLiteralKeys` rule (requires dot notation `obj.key`).
+
+**Resolution**: All 8 library package `tsconfig.json` files override this:
+
+```json
+{
+  "compilerOptions": {
+    "noPropertyAccessFromIndexSignature": false
+  }
+}
+```
+
+This allows dot notation everywhere, eliminating the Biome conflict. If you
+create a new package by copying `template-ts`, verify this override is present.
+
+The ideal fix would be to set this in `@heygrady/tsconfig-bases` so individual
+packages don't need to repeat it, but that's an external dependency.
+
 ## TypeScript: exactOptionalPropertyTypes
 
-`exactOptionalPropertyTypes` is enabled in all package tsconfigs. This has a
+`exactOptionalPropertyTypes` is enabled via `@tsconfig/strictest`. This has a
 non-obvious consequence when constructing objects where optional fields might
 be `undefined` at runtime:
 
@@ -27,6 +50,16 @@ any interface where the runtime value may literally be `undefined`. Type the
 property as `prop?: T | undefined` (not just `prop?: T`) to satisfy exact
 optional assignment constraints.
 
+## TypeScript: noUncheckedIndexedAccess
+
+Also from `@tsconfig/strictest`. Array indexing returns `T | undefined` even
+when you've verified the index is in-bounds (e.g., with `Math.min` clamping).
+Use `?? fallback` to satisfy TypeScript:
+
+```typescript
+const count = ROCK_WAVE_SIZES[waveIndex] ?? 0
+```
+
 ## prebuild:cjs Append Bug (Fixed)
 
 The `prebuild:cjs` script in `template-ts` originally used `>>` (append) instead
@@ -34,11 +67,8 @@ of `>` (overwrite). This defect propagated to every package copied from the
 template. Running `prebuild:cjs` without a clean step would silently produce
 invalid JSON by appending a second object to the file.
 
-**Status**: Fixed in all affected `package.json` files (all 8 template-derived
-packages). Future packages from the template should inherit the corrected `>`.
-
-If you add a new package by copying the template, verify the `prebuild:cjs`
-script uses `>`, not `>>`.
+**Status**: Fixed in all 8 template-derived packages. Future packages copied
+from the template inherit the corrected `>`.
 
 ## Documentation Structure
 
@@ -50,20 +80,6 @@ in per-package `CLAUDE.md` files.
 Do not create stub docs/ directories or placeholder files — update the relevant
 `CLAUDE.md` instead.
 
-## TypeScript vs Biome: Bracket Notation Conflict
-
-`Record<string, unknown>` property access creates a conflict between two tools:
-
-- **TypeScript** (`noPropertyAccessFromIndexSignature` or strict index access)
-  requires **bracket notation**: `obj['key']`
-- **Biome** (`useLiteralKeys` lint rule) flags bracket notation as unnecessary
-  when the key is a string literal, requiring **dot notation**: `obj.key`
-
-The two rules are irreconcilable for the same expression. The existing codebase
-convention (established in `seekDestroyAgent` and `neatAgent`) is to use bracket
-notation to satisfy TypeScript and leave the Biome `info` diagnostics as-is.
-Do not attempt to suppress either tool — just leave the bracket notation.
-
 ## Documentation Triage Rule
 
 When deciding which packages need doc updates after a session:
@@ -71,3 +87,14 @@ When deciding which packages need doc updates after a session:
   script fixes) or test-only changes.
 - **Update** only packages with semantic API changes (exported symbol added,
   renamed, or removed) or behavioral changes visible to consumers.
+
+## New Package Checklist
+
+When creating a new package by copying `template-ts`:
+
+1. `cp -r packages/template-ts packages/new-package`
+2. Update `package.json`: name, version, dependencies
+3. Verify `tsconfig.json` has `"noPropertyAccessFromIndexSignature": false`
+4. Verify `prebuild:cjs` uses `>` (not `>>`)
+5. Clear template placeholder files from `src/` and `test/`
+6. Add runtime dependencies via `yarn workspace @heygrady/new-package add ...`
