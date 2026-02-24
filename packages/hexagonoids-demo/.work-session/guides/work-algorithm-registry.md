@@ -17,3 +17,7 @@ Prefer typed factory stubs with `satisfies` over cast-based stubs. It keeps test
 DES-HyperNEAT mutates `genomeOptions.initConfig` during population creation. Always deep-clone default genome options before passing them into `createPopulation` to keep registry calls repeatable.
 
 Use `structuredClone` for defaults instead of JSON serialization to avoid lossy cloning when option shapes evolve.
+
+## Centralize Algorithm Selection
+
+When choosing training algorithms (or mapping method names to implementations), reuse the algorithm registry as the single source of truth instead of hand-maintained switch statements. This keeps method support in one place, reduces drift, and avoids shotgun-surgery updates across worker and manager paths.

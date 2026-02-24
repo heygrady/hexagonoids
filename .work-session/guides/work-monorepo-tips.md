@@ -94,6 +94,17 @@ When a newly added workspace is not recognized by `yarn workspace ...` commands,
 run `yarn install` at the repo root to refresh the workspace graph. This is
 required after adding a workspace package before Yarn will resolve it.
 
+## Yarn v4 Node Shim
+
+To run Node through Yarn v4, use `yarn node`. The `-s` flag is not supported for
+this invocation (`yarn -s node` fails).
+
+## Generated Artifact Cleanup
+
+If policy blocks direct `rm` on generated artifacts, use `apply_patch` deletions
+to remove files instead. Plan cleanup in the patch so the removal is tracked and
+repeatable.
+
 ## New Package Checklist
 
 When creating a new package by copying `template-ts`:
