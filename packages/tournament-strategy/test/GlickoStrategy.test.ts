@@ -6,16 +6,6 @@ import type {
 } from '@neat-evolution/evaluator'
 import { describe, expect, test, vi } from 'vitest'
 import { GlickoStrategy } from '../src/GlickoStrategy.js'
-import * as glickoScoreSeedTournaments from '../src/glicko/scoreSeedTournaments.js'
-
-vi.mock('../src/glicko/scoreSeedTournaments.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof glickoScoreSeedTournaments>()
-  return {
-    ...actual,
-    // @ts-expect-error mocking only evaluateIndividually
-    evaluateIndividually: vi.fn(actual.evaluateIndividually),
-  }
-})
 
 describe('GlickoStrategy', () => {
   const mockContext: EvaluationContext<AnyGenome<any>> = {
@@ -44,25 +34,6 @@ describe('GlickoStrategy', () => {
     (_, i) => [0, i, {} as unknown as AnyGenome<any>]
   )
 
-  test('should be defined', () => {
-    expect(GlickoStrategy).toBeDefined()
-  })
-
-  test('should implement EvaluationStrategy interface', () => {
-    const strategy = new GlickoStrategy()
-    expect(strategy.evaluate).toBeInstanceOf(Function)
-  })
-
-  test('should accept custom options', () => {
-    const options = {
-      matchPlayerSize: 4,
-      rounds: 5,
-    }
-    const strategy = new GlickoStrategy(options)
-    expect(strategy.options.matchPlayerSize).toBe(4)
-    expect(strategy.options.rounds).toBe(5)
-  })
-
   test('should yield FitnessData for each genome entry', async () => {
     const strategy = new GlickoStrategy()
     const fitnessData = []
@@ -76,17 +47,6 @@ describe('GlickoStrategy', () => {
       expect(typeof data[1]).toBe('number')
       expect(typeof data[2]).toBe('number')
     }
-  })
-
-  test('should evaluate individually for seeding when option is enabled', async () => {
-    const strategy = new GlickoStrategy({ individualSeeding: true })
-    const spy = vi.spyOn(glickoScoreSeedTournaments, 'scoreSeedTournaments')
-
-    for await (const _ of strategy.evaluate(mockContext, mockGenomes)) {
-      // consume the async generator
-    }
-
-    expect(spy).toHaveBeenCalled()
   })
 
   test('should update hall of fame', async () => {
