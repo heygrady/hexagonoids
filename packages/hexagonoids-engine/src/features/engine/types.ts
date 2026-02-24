@@ -4,7 +4,11 @@ import type { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 
 export type EntityType = 'ship' | 'rock' | 'bullet'
 
-export type CollisionType = 'bullet-rock' | 'ship-rock' | 'ship-ship'
+export type CollisionType =
+  | 'bullet-rock'
+  | 'bullet-ship'
+  | 'ship-rock'
+  | 'ship-ship'
 
 export type GameMode = 'single' | 'arena'
 
