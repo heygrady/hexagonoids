@@ -42,7 +42,7 @@
     "dev:types": "tsc --watch --declaration --emitDeclarationOnly --project tsconfig.types.json --outDir dist/types",
     "format": "biome check --write",
     "lint": "biome lint",
-    "prebuild:cjs": "mkdir -p dist/cjs && echo '{\"type\":\"commonjs\",\"main\":\"./index.js\"}' >> dist/cjs/package.json",
+    "prebuild:cjs": "mkdir -p dist/cjs && echo '{\"type\":\"commonjs\",\"main\":\"./index.js\"}' > dist/cjs/package.json",
     "test": "vitest --run --passWithNoTests",
     "test:dev": "vitest"
   },
