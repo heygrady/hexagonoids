@@ -2,11 +2,19 @@ import { defaultNEATConfigOptions } from '@neat-evolution/core'
 import {
   CPPNAlgorithm,
   type CPPNReproducerFactory,
+  createConfig as createCPPNConfig,
+  createGenome as createCPPNGenome,
+  createPhenotype as createCPPNPhenotype,
   createPopulation as createCPPNPopulation,
+  createState as createCPPNState,
   defaultCPPNGenomeOptions,
 } from '@neat-evolution/cppn'
 import {
+  createConfig as createDESHyperNEATConfig,
+  createGenome as createDESHyperNEATGenome,
+  createPhenotype as createDESHyperNEATPhenotype,
   createPopulation as createDESHyperNEATPopulation,
+  createState as createDESHyperNEATState,
   DESHyperNEATAlgorithm,
   type DESHyperNEATReproducerFactory,
   defaultDESHyperNEATGenomeOptions,
@@ -14,7 +22,11 @@ import {
 } from '@neat-evolution/des-hyperneat'
 import type { Environment } from '@neat-evolution/environment'
 import {
+  createConfig as createESHyperNEATConfig,
+  createGenome as createESHyperNEATGenome,
+  createPhenotype as createESHyperNEATPhenotype,
   createPopulation as createESHyperNEATPopulation,
+  createState as createESHyperNEATState,
   defaultESHyperNEATGenomeOptions,
   ESHyperNEATAlgorithm,
   type ESHyperNEATReproducerFactory,
@@ -23,13 +35,21 @@ import type { Evaluator } from '@neat-evolution/evaluator'
 import { defaultPopulationOptions } from '@neat-evolution/evolution'
 import type { Executor, SyncExecutor } from '@neat-evolution/executor'
 import {
+  createConfig as createHyperNEATConfig,
+  createGenome as createHyperNEATGenome,
+  createPhenotype as createHyperNEATPhenotype,
   createPopulation as createHyperNEATPopulation,
+  createState as createHyperNEATState,
   defaultHyperNEATGenomeOptions,
   HyperNEATAlgorithm,
   type HyperNEATReproducerFactory,
 } from '@neat-evolution/hyperneat'
 import {
+  createConfig as createNEATConfig,
+  createGenome as createNEATGenome,
+  createPhenotype as createNEATPhenotype,
   createPopulation as createNEATPopulation,
+  createState as createNEATState,
   defaultNEATGenomeOptions,
   NEATAlgorithm,
   type NEATReproducerFactory,
@@ -80,6 +100,13 @@ export interface TrainingPopulationOptions {
   createReproducer: AnyReproducerFactory
   evaluator: Evaluator<unknown>
   populationSize: number
+}
+
+export interface SerializedGenome {
+  config: unknown
+  state: unknown
+  genomeOptions?: Record<string, unknown> | undefined
+  factoryOptions?: unknown
 }
 
 export const HEXAGONOIDS_IO: AlgorithmIO = {
@@ -315,5 +342,72 @@ export const createPopulationForTraining = (
           outputConfig: 'line',
         }
       )
+  }
+}
+
+export const createGenomeFromSerialized = (
+  method: SupportedAlgorithm,
+  genomeData: SerializedGenome,
+  initConfig: unknown
+): unknown => {
+  switch (method) {
+    case 'NEAT':
+      return createNEATGenome(
+        createNEATConfig(genomeData.config as never),
+        createNEATState(genomeData.state as never),
+        genomeData.genomeOptions as never,
+        initConfig as never,
+        genomeData.factoryOptions as never
+      )
+    case 'CPPN':
+      return createCPPNGenome(
+        createCPPNConfig(genomeData.config as never),
+        createCPPNState(genomeData.state as never),
+        genomeData.genomeOptions as never,
+        initConfig as never,
+        genomeData.factoryOptions as never
+      )
+    case 'HyperNEAT':
+      return createHyperNEATGenome(
+        createHyperNEATConfig(genomeData.config as never),
+        createHyperNEATState(genomeData.state as never),
+        genomeData.genomeOptions as never,
+        initConfig as never,
+        genomeData.factoryOptions as never
+      )
+    case 'ES-HyperNEAT':
+      return createESHyperNEATGenome(
+        createESHyperNEATConfig(genomeData.config as never),
+        createESHyperNEATState(genomeData.state as never),
+        genomeData.genomeOptions as never,
+        initConfig as never,
+        genomeData.factoryOptions as never
+      )
+    case 'DES-HyperNEAT':
+      return createDESHyperNEATGenome(
+        createDESHyperNEATConfig(genomeData.config as never),
+        createDESHyperNEATState(genomeData.state as never),
+        genomeData.genomeOptions as never,
+        initConfig as never,
+        genomeData.factoryOptions as never
+      )
+  }
+}
+
+export const createPhenotypeForGenome = (
+  method: SupportedAlgorithm,
+  genome: unknown
+): unknown => {
+  switch (method) {
+    case 'NEAT':
+      return createNEATPhenotype(genome as never)
+    case 'CPPN':
+      return createCPPNPhenotype(genome as never)
+    case 'HyperNEAT':
+      return createHyperNEATPhenotype(genome as never)
+    case 'ES-HyperNEAT':
+      return createESHyperNEATPhenotype(genome as never)
+    case 'DES-HyperNEAT':
+      return createDESHyperNEATPhenotype(genome as never)
   }
 }

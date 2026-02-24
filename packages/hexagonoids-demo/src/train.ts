@@ -254,6 +254,7 @@ export interface TrainingRunResult {
   mode: 'training'
   method: SupportedAlgorithm
   bestFitness: number
+  bestOrganism: unknown
   bestFilePath: string
   heroesLogPath: string
 }
@@ -399,6 +400,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     if (best == null) {
       throw new Error('No best organism available after evolution run')
     }
+    bestOrganism = best
 
     const heroWriteResults = await Promise.all(pendingHeroWrites)
     const firstFailedWrite = heroWriteResults.find((result) => !result.ok)
@@ -426,6 +428,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
       mode: 'training',
       method,
       bestFitness,
+      bestOrganism,
       bestFilePath,
       heroesLogPath: resolveHeroesLogPath(config.outputDir),
     }
