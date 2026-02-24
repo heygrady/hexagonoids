@@ -1,13 +1,9 @@
 import {
-  type AgentFn,
   createEnvironment,
-  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   doNothingAgent,
   type RawMetrics,
   randomAgent,
   seekDestroyAgent,
-  simulateGame,
-  weightedFitnessSum,
 } from '@heygrady/hexagonoids-environment'
 import type {
   CPPNGenome,
@@ -42,10 +38,12 @@ import {
   getAlgorithmDefinition,
 } from './algorithmRegistry.js'
 import { DEMO_DEFAULTS } from './configDefaults.js'
+import { summarizeBaselineAgent } from './evaluation/baselines.js'
 import {
   evaluateOrganismMultiSeed,
   type FitnessAggregator,
 } from './evaluation/evaluateOrganism.js'
+import { mean, median } from './evaluation/metrics.js'
 import { generationSeedPack } from './evaluation/seedSchedule.js'
 import {
   appendHeroesLog,
@@ -58,13 +56,6 @@ const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
 const DEFAULT_BASE_SEED = 'hexagonoids-phase03'
 const CREATE_ENVIRONMENT_PATHNAME = '@heygrady/hexagonoids-environment'
 const CREATE_EXECUTOR_PATHNAME = '@neat-evolution/executor'
-
-const mean = (values: readonly number[]): number => {
-  if (values.length === 0) {
-    throw new Error('Cannot calculate mean of empty values')
-  }
-  return values.reduce((sum, value) => sum + value, 0) / values.length
-}
 
 class MultiSeedGenerationStrategy {
   private generation = 0
@@ -185,43 +176,6 @@ const toRunConfig = (options: TrainOptions) => {
   }
 }
 
-const aggregateRawMetrics = (runs: RawMetrics[]): RawMetrics => {
-  return {
-    score: mean(runs.map((run) => run.score)),
-    rocksDestroyed: mean(runs.map((run) => run.rocksDestroyed)),
-    accuracy: mean(runs.map((run) => run.accuracy)),
-    distanceTraveled: mean(runs.map((run) => run.distanceTraveled)),
-    livesRemaining: mean(runs.map((run) => run.livesRemaining)),
-    deaths: mean(runs.map((run) => run.deaths)),
-    shotsFired: mean(runs.map((run) => run.shotsFired)),
-    shotsHit: mean(runs.map((run) => run.shotsHit)),
-    timeAlive: mean(runs.map((run) => run.timeAlive)),
-    wavesSpawned: mean(runs.map((run) => run.wavesSpawned)),
-  }
-}
-
-const summarizeBaselineAgent = (
-  name: string,
-  agent: AgentFn,
-  seeds: string[],
-  simulation: { maxTicks: number; dtMs: number }
-) => {
-  const metrics = seeds.map((seed) => simulateGame(agent, simulation, seed))
-  const fitnessBySeed = metrics.map((raw) =>
-    weightedFitnessSum(
-      raw,
-      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
-      simulation
-    )
-  )
-
-  return {
-    name,
-    meanFitness: mean(fitnessBySeed),
-    metrics: aggregateRawMetrics(metrics),
-  }
-}
-
 export interface TrainOptions {
   method?: SupportedAlgorithm | undefined
   baselineOnly?: boolean | undefined
@@ -254,6 +208,8 @@ export interface TrainingRunResult {
   mode: 'training'
   method: SupportedAlgorithm
   bestFitness: number
+  populationFitnessMean: number | null
+  populationFitnessMedian: number | null
   bestOrganism: unknown
   bestFilePath: string
   heroesLogPath: string
@@ -309,6 +265,8 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   const runStart = Date.now()
   let bestOrganism: unknown
   let bestFitness = Number.NEGATIVE_INFINITY
+  let populationFitnessMean: number | null = null
+  let populationFitnessMedian: number | null = null
 
   const environment = createEnvironment({
     simulation: {
@@ -422,12 +380,27 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
       bestFitness = best.fitness
     }
 
+    const fitnessValues: number[] = []
+    for (const organism of population.organismValues() as Iterable<{
+      fitness: number | null
+    }>) {
+      if (organism.fitness != null) {
+        fitnessValues.push(organism.fitness)
+      }
+    }
+    if (fitnessValues.length > 0) {
+      populationFitnessMean = mean(fitnessValues)
+      populationFitnessMedian = median(fitnessValues)
+    }
+
     const bestFilePath = await saveGenome(method, best, config.outputDir)
 
     return {
       mode: 'training',
       method,
       bestFitness,
+      populationFitnessMean,
+      populationFitnessMedian,
       bestOrganism,
       bestFilePath,
       heroesLogPath: resolveHeroesLogPath(config.outputDir),

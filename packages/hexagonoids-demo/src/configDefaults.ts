@@ -9,11 +9,11 @@ export interface DemoDefaults {
 }
 
 export const DEMO_DEFAULTS: DemoDefaults = {
-  populationSize: 60,
-  iterations: 120,
+  populationSize: 64,
+  iterations: 90,
   secondsLimit: 900,
-  earlyStopPatience: 25,
-  evaluationSeedsPerOrganism: 3,
+  earlyStopPatience: 18,
+  evaluationSeedsPerOrganism: 4,
   maxTicks: 1500,
   dtMs: 33,
 }
