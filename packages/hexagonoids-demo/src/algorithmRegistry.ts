@@ -62,11 +62,24 @@ export type AlgorithmPopulation =
   | ReturnType<typeof createESHyperNEATPopulation>
   | ReturnType<typeof createDESHyperNEATPopulation>
 
+export type AnyReproducerFactory =
+  | NEATReproducerFactory
+  | CPPNReproducerFactory
+  | HyperNEATReproducerFactory
+  | ESHyperNEATReproducerFactory
+  | DESHyperNEATReproducerFactory
+
 export interface AlgorithmDefinition {
   method: SupportedAlgorithm
   createAlgorithm: () => AlgorithmFactory
   createPopulation: (size: number, io: AlgorithmIO) => AlgorithmPopulation
   usesCPPNActivations: boolean
+}
+
+export interface TrainingPopulationOptions {
+  createReproducer: AnyReproducerFactory
+  evaluator: Evaluator<unknown>
+  populationSize: number
 }
 
 export const HEXAGONOIDS_IO: AlgorithmIO = {
@@ -240,3 +253,67 @@ export const getAlgorithmDefinitions =
   (): ReadonlyArray<AlgorithmDefinition> => {
     return SUPPORTED_ALGORITHMS.map((method) => algorithmRegistry[method])
   }
+
+export const createPopulationForTraining = (
+  method: SupportedAlgorithm,
+  options: TrainingPopulationOptions
+): AlgorithmPopulation => {
+  const populationOptions = createPopulationOptions(options.populationSize)
+  const neatOptions = defaultNEATConfigOptions
+
+  switch (method) {
+    case 'NEAT':
+      return createNEATPopulation(
+        options.createReproducer as NEATReproducerFactory,
+        options.evaluator,
+        neatOptions,
+        populationOptions,
+        cloneDefaultOptions(defaultNEATGenomeOptions)
+      )
+    case 'CPPN':
+      return createCPPNPopulation(
+        options.createReproducer as CPPNReproducerFactory,
+        options.evaluator,
+        neatOptions,
+        populationOptions,
+        cloneDefaultOptions(defaultCPPNGenomeOptions)
+      )
+    case 'HyperNEAT':
+      return createHyperNEATPopulation(
+        options.createReproducer as HyperNEATReproducerFactory,
+        options.evaluator,
+        neatOptions,
+        populationOptions,
+        {
+          ...cloneDefaultOptions(defaultHyperNEATGenomeOptions),
+          inputConfig: 'line',
+          outputConfig: 'line',
+        }
+      )
+    case 'ES-HyperNEAT':
+      return createESHyperNEATPopulation(
+        options.createReproducer as ESHyperNEATReproducerFactory,
+        options.evaluator,
+        neatOptions,
+        populationOptions,
+        {
+          ...cloneDefaultOptions(defaultESHyperNEATGenomeOptions),
+          inputConfig: 'line',
+          outputConfig: 'line',
+        }
+      )
+    case 'DES-HyperNEAT':
+      return createDESHyperNEATPopulation(
+        options.createReproducer as DESHyperNEATReproducerFactory,
+        options.evaluator,
+        cloneDefaultOptions(defaultTopologyConfigOptions),
+        neatOptions,
+        populationOptions,
+        {
+          ...cloneDefaultOptions(defaultDESHyperNEATGenomeOptions),
+          inputConfig: 'line',
+          outputConfig: 'line',
+        }
+      )
+  }
+}

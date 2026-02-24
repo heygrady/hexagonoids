@@ -1,2 +1,7 @@
 export * from './algorithmRegistry.js'
 export * from './configDefaults.js'
+export * from './evaluation/evaluateOrganism.js'
+export * from './evaluation/seedSchedule.js'
+export * from './persistence/appendHeroesLog.js'
+export * from './persistence/saveGenome.js'
+export * from './train.js'
