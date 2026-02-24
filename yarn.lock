@@ -1553,7 +1553,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@heygrady/hexagonoids-engine@workspace:packages/hexagonoids-engine":
+"@heygrady/hexagonoids-engine@workspace:^, @heygrady/hexagonoids-engine@workspace:packages/hexagonoids-engine":
   version: 0.0.0-use.local
   resolution: "@heygrady/hexagonoids-engine@workspace:packages/hexagonoids-engine"
   dependencies:
@@ -1578,6 +1578,28 @@ __metadata:
   peerDependenciesMeta:
     solid-js:
       optional: true
+  languageName: unknown
+  linkType: soft
+
+"@heygrady/hexagonoids-environment@workspace:packages/hexagonoids-environment":
+  version: 0.0.0-use.local
+  resolution: "@heygrady/hexagonoids-environment@workspace:packages/hexagonoids-environment"
+  dependencies:
+    "@biomejs/biome": "npm:^2.4.2"
+    "@heygrady/hexagonoids-engine": "workspace:^"
+    "@heygrady/tsconfig-bases": "npm:^1.0.7"
+    "@neat-evolution/utils": "npm:^0.2.5"
+    "@swc/cli": "npm:^0.7.9"
+    "@swc/core": "npm:^1.15.3"
+    "@swc/helpers": "npm:^0.5.19"
+    "@typescript/native-preview": "npm:latest"
+    "@vitest/coverage-v8": "npm:^4.0.14"
+    concurrently: "npm:^9.2.1"
+    nodemon: "npm:^3.0.1"
+    rimraf: "npm:^5.0.5"
+    turbo: "npm:^2.6.1"
+    typescript: "npm:^5.9.3"
+    vitest: "npm:^4.0.14"
   languageName: unknown
   linkType: soft
 
@@ -3261,6 +3283,15 @@ __metadata:
   dependencies:
     tslib: "npm:^2.8.0"
   checksum: 10/1fc8312a78f1f99c8ec838585445e99763eeebff2356100738cdfdb8ad47d2d38df678ee6edd93a90fe319ac52da67adc14ac00eb82b606c5fb8ebc5d06ec2a2
+  languageName: node
+  linkType: hard
+
+"@swc/helpers@npm:^0.5.19":
+  version: 0.5.19
+  resolution: "@swc/helpers@npm:0.5.19"
+  dependencies:
+    tslib: "npm:^2.8.0"
+  checksum: 10/3fd365fb3265f97e1241bcbcea9bfa5e15e03c630424e1b54597e00d30be2c271cb0c74f45e1739c6bc5ae892647302fab412de5138941aa96e66aebf4586700
   languageName: node
   linkType: hard
 
