@@ -1,0 +1,242 @@
+import { defaultNEATConfigOptions } from '@neat-evolution/core'
+import {
+  CPPNAlgorithm,
+  type CPPNReproducerFactory,
+  createPopulation as createCPPNPopulation,
+  defaultCPPNGenomeOptions,
+} from '@neat-evolution/cppn'
+import {
+  createPopulation as createDESHyperNEATPopulation,
+  DESHyperNEATAlgorithm,
+  type DESHyperNEATReproducerFactory,
+  defaultDESHyperNEATGenomeOptions,
+  defaultTopologyConfigOptions,
+} from '@neat-evolution/des-hyperneat'
+import type { Environment } from '@neat-evolution/environment'
+import {
+  createPopulation as createESHyperNEATPopulation,
+  defaultESHyperNEATGenomeOptions,
+  ESHyperNEATAlgorithm,
+  type ESHyperNEATReproducerFactory,
+} from '@neat-evolution/es-hyperneat'
+import type { Evaluator } from '@neat-evolution/evaluator'
+import { defaultPopulationOptions } from '@neat-evolution/evolution'
+import type { Executor, SyncExecutor } from '@neat-evolution/executor'
+import {
+  createPopulation as createHyperNEATPopulation,
+  defaultHyperNEATGenomeOptions,
+  HyperNEATAlgorithm,
+  type HyperNEATReproducerFactory,
+} from '@neat-evolution/hyperneat'
+import {
+  createPopulation as createNEATPopulation,
+  defaultNEATGenomeOptions,
+  NEATAlgorithm,
+  type NEATReproducerFactory,
+} from '@neat-evolution/neat'
+import type { RNG } from '@neat-evolution/utils'
+
+export interface AlgorithmIO {
+  inputs: number
+  outputs: number
+}
+
+export type SupportedAlgorithm =
+  | 'NEAT'
+  | 'CPPN'
+  | 'HyperNEAT'
+  | 'ES-HyperNEAT'
+  | 'DES-HyperNEAT'
+
+export type AlgorithmFactory =
+  | typeof NEATAlgorithm
+  | typeof CPPNAlgorithm
+  | typeof HyperNEATAlgorithm
+  | typeof ESHyperNEATAlgorithm
+  | typeof DESHyperNEATAlgorithm
+
+export type AlgorithmPopulation =
+  | ReturnType<typeof createNEATPopulation>
+  | ReturnType<typeof createCPPNPopulation>
+  | ReturnType<typeof createHyperNEATPopulation>
+  | ReturnType<typeof createESHyperNEATPopulation>
+  | ReturnType<typeof createDESHyperNEATPopulation>
+
+export interface AlgorithmDefinition {
+  method: SupportedAlgorithm
+  createAlgorithm: () => AlgorithmFactory
+  createPopulation: (size: number, io: AlgorithmIO) => AlgorithmPopulation
+  usesCPPNActivations: boolean
+}
+
+export const HEXAGONOIDS_IO: AlgorithmIO = {
+  inputs: 30,
+  outputs: 4,
+}
+
+const cloneDefaultOptions = <T>(defaults: T): T => structuredClone(defaults)
+
+const createEvaluatorStub = (
+  io: AlgorithmIO
+): Evaluator<Record<string, never>> => {
+  const environment = {
+    description: io,
+    isAsync: false,
+    evaluate: (_executor: SyncExecutor, _rng?: RNG) => 0,
+    evaluateBatch: (_executors: SyncExecutor[], _rng?: RNG) => [],
+    evaluateAsync: async (_executor: Executor, _rng?: RNG) => 0,
+    evaluateBatchAsync: async (_executors: Executor[], _rng?: RNG) => [],
+    toFactoryOptions: () => ({}),
+  } satisfies Environment<Record<string, never>>
+
+  return {
+    environment,
+    initGenomeFactory: async () => {},
+    evaluate: async function* (_genomeEntries) {
+      // The constructor only needs the evaluator shape; this iterator is unused in registry tests.
+    },
+  } satisfies Evaluator<Record<string, never>>
+}
+
+const createPopulationOptions = (size: number) => {
+  return {
+    ...defaultPopulationOptions,
+    populationSize: size,
+  }
+}
+
+const createNEATReproducerStub: NEATReproducerFactory = (_population) => ({
+  copyElites: async (_speciesIds: number[]) => [],
+  reproduce: async (_speciesIds: number[]) => [],
+})
+
+const createCPPNReproducerStub: CPPNReproducerFactory = (_population) => ({
+  copyElites: async (_speciesIds: number[]) => [],
+  reproduce: async (_speciesIds: number[]) => [],
+})
+
+const createHyperNEATReproducerStub: HyperNEATReproducerFactory = (
+  _population
+) => ({
+  copyElites: async (_speciesIds: number[]) => [],
+  reproduce: async (_speciesIds: number[]) => [],
+})
+
+const createESHyperNEATReproducerStub: ESHyperNEATReproducerFactory = (
+  _population
+) => ({
+  copyElites: async (_speciesIds: number[]) => [],
+  reproduce: async (_speciesIds: number[]) => [],
+})
+
+const createDESHyperNEATReproducerStub: DESHyperNEATReproducerFactory = (
+  _population
+) => ({
+  copyElites: async (_speciesIds: number[]) => [],
+  reproduce: async (_speciesIds: number[]) => [],
+})
+
+const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
+  NEAT: {
+    method: 'NEAT',
+    createAlgorithm: () => NEATAlgorithm,
+    createPopulation: (size, io) => {
+      return createNEATPopulation(
+        createNEATReproducerStub,
+        createEvaluatorStub(io),
+        defaultNEATConfigOptions,
+        createPopulationOptions(size),
+        cloneDefaultOptions(defaultNEATGenomeOptions)
+      )
+    },
+    usesCPPNActivations: false,
+  },
+  CPPN: {
+    method: 'CPPN',
+    createAlgorithm: () => CPPNAlgorithm,
+    createPopulation: (size, io) => {
+      return createCPPNPopulation(
+        createCPPNReproducerStub,
+        createEvaluatorStub(io),
+        defaultNEATConfigOptions,
+        createPopulationOptions(size),
+        cloneDefaultOptions(defaultCPPNGenomeOptions)
+      )
+    },
+    usesCPPNActivations: true,
+  },
+  HyperNEAT: {
+    method: 'HyperNEAT',
+    createAlgorithm: () => HyperNEATAlgorithm,
+    createPopulation: (size, io) => {
+      return createHyperNEATPopulation(
+        createHyperNEATReproducerStub,
+        createEvaluatorStub(io),
+        defaultNEATConfigOptions,
+        createPopulationOptions(size),
+        {
+          ...cloneDefaultOptions(defaultHyperNEATGenomeOptions),
+          inputConfig: 'line',
+          outputConfig: 'line',
+        }
+      )
+    },
+    usesCPPNActivations: true,
+  },
+  'ES-HyperNEAT': {
+    method: 'ES-HyperNEAT',
+    createAlgorithm: () => ESHyperNEATAlgorithm,
+    createPopulation: (size, io) => {
+      return createESHyperNEATPopulation(
+        createESHyperNEATReproducerStub,
+        createEvaluatorStub(io),
+        defaultNEATConfigOptions,
+        createPopulationOptions(size),
+        {
+          ...cloneDefaultOptions(defaultESHyperNEATGenomeOptions),
+          inputConfig: 'line',
+          outputConfig: 'line',
+        }
+      )
+    },
+    usesCPPNActivations: true,
+  },
+  'DES-HyperNEAT': {
+    method: 'DES-HyperNEAT',
+    createAlgorithm: () => DESHyperNEATAlgorithm,
+    createPopulation: (size, io) => {
+      return createDESHyperNEATPopulation(
+        createDESHyperNEATReproducerStub,
+        createEvaluatorStub(io),
+        cloneDefaultOptions(defaultTopologyConfigOptions),
+        defaultNEATConfigOptions,
+        createPopulationOptions(size),
+        {
+          ...cloneDefaultOptions(defaultDESHyperNEATGenomeOptions),
+          inputConfig: 'line',
+          outputConfig: 'line',
+        }
+      )
+    },
+    usesCPPNActivations: true,
+  },
+}
+
+export const SUPPORTED_ALGORITHMS: SupportedAlgorithm[] = [
+  'NEAT',
+  'CPPN',
+  'HyperNEAT',
+  'ES-HyperNEAT',
+  'DES-HyperNEAT',
+]
+
+export const getAlgorithmDefinition = (
+  method: SupportedAlgorithm
+): AlgorithmDefinition => {
+  return algorithmRegistry[method]
+}
+
+export const getAlgorithmDefinitions =
+  (): ReadonlyArray<AlgorithmDefinition> => {
+    return SUPPORTED_ALGORITHMS.map((method) => algorithmRegistry[method])
+  }

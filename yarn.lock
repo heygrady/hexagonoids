@@ -1553,6 +1553,39 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@heygrady/hexagonoids-demo@workspace:packages/hexagonoids-demo":
+  version: 0.0.0-use.local
+  resolution: "@heygrady/hexagonoids-demo@workspace:packages/hexagonoids-demo"
+  dependencies:
+    "@biomejs/biome": "npm:^2.4.2"
+    "@heygrady/hexagonoids-environment": "workspace:^"
+    "@heygrady/tsconfig-bases": "npm:^1.0.7"
+    "@neat-evolution/core": "npm:^0.3.5"
+    "@neat-evolution/cppn": "npm:^0.6.2"
+    "@neat-evolution/des-hyperneat": "npm:^0.6.2"
+    "@neat-evolution/es-hyperneat": "npm:^0.6.2"
+    "@neat-evolution/evaluator": "npm:^0.5.2"
+    "@neat-evolution/evolution": "npm:^0.5.2"
+    "@neat-evolution/executor": "npm:^0.3.7"
+    "@neat-evolution/hyperneat": "npm:^0.6.2"
+    "@neat-evolution/neat": "npm:^0.6.2"
+    "@neat-evolution/worker-evaluator": "npm:^0.7.2"
+    "@neat-evolution/worker-reproducer": "npm:^0.7.2"
+    "@neat-evolution/worker-threads": "npm:^0.4.2"
+    "@swc/cli": "npm:^0.7.9"
+    "@swc/core": "npm:^1.15.3"
+    "@swc/helpers": "npm:^0.5.19"
+    "@typescript/native-preview": "npm:latest"
+    "@vitest/coverage-v8": "npm:^4.0.14"
+    concurrently: "npm:^9.2.1"
+    nodemon: "npm:^3.0.1"
+    rimraf: "npm:^5.0.5"
+    turbo: "npm:^2.6.1"
+    typescript: "npm:^5.9.3"
+    vitest: "npm:^4.0.14"
+  languageName: unknown
+  linkType: soft
+
 "@heygrady/hexagonoids-engine@workspace:^, @heygrady/hexagonoids-engine@workspace:packages/hexagonoids-engine":
   version: 0.0.0-use.local
   resolution: "@heygrady/hexagonoids-engine@workspace:packages/hexagonoids-engine"
@@ -1581,7 +1614,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@heygrady/hexagonoids-environment@workspace:packages/hexagonoids-environment":
+"@heygrady/hexagonoids-environment@workspace:^, @heygrady/hexagonoids-environment@workspace:packages/hexagonoids-environment":
   version: 0.0.0-use.local
   resolution: "@heygrady/hexagonoids-environment@workspace:packages/hexagonoids-environment"
   dependencies:

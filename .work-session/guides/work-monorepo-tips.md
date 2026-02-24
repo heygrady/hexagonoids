@@ -88,6 +88,12 @@ When deciding which packages need doc updates after a session:
 - **Update** only packages with semantic API changes (exported symbol added,
   renamed, or removed) or behavioral changes visible to consumers.
 
+## Yarn Workspace Graph Refresh
+
+When a newly added workspace is not recognized by `yarn workspace ...` commands,
+run `yarn install` at the repo root to refresh the workspace graph. This is
+required after adding a workspace package before Yarn will resolve it.
+
 ## New Package Checklist
 
 When creating a new package by copying `template-ts`:
