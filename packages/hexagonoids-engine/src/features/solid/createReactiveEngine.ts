@@ -7,9 +7,30 @@ import type { EngineHooks } from '../engine/hooks.js'
 import { step } from '../engine/step.js'
 import type { EngineOptions, GameState, PlayerInputs } from '../engine/types.js'
 
+/** Compare two string arrays for equality by value */
+function idsEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false
+  }
+  return true
+}
+
+/** Only update signal if the ID list actually changed */
+function syncIds(
+  map: Map<string, unknown>,
+  getCurrent: Accessor<string[]>,
+  setter: (ids: string[]) => void
+): void {
+  const next = Array.from(map.keys())
+  if (!idsEqual(getCurrent(), next)) {
+    setter(next)
+  }
+}
+
 export interface ReactiveEngine {
   state: GameState
-  tick: (inputs: PlayerInputs, dt: number) => void
+  tick: (inputs: PlayerInputs, dtMs: number) => void
   mutate: (fn: (draft: GameState) => void) => void
   rng: RNG
   shipIds: Accessor<string[]>
@@ -36,17 +57,20 @@ export function createReactiveEngine(
   // Maps are passed by reference inside the SolidJS store, so the proxy
   // always points to the same Map object that produce() mutated. The keys
   // are read after produce() returns, so they reflect the final state.
+  //
+  // Only triggers SolidJS subscribers when the ID list actually changed,
+  // avoiding unnecessary re-renders on ticks where entity pools are stable.
   function syncPoolSignals() {
-    setShipIds(Array.from(state.ships.keys()))
-    setRockIds(Array.from(state.rocks.keys()))
-    setBulletIds(Array.from(state.bullets.keys()))
-    setPlayerIds(Array.from(state.players.keys()))
+    syncIds(state.ships, shipIds, setShipIds)
+    syncIds(state.rocks, rockIds, setRockIds)
+    syncIds(state.bullets, bulletIds, setBulletIds)
+    syncIds(state.players, playerIds, setPlayerIds)
   }
 
-  function tick(inputs: PlayerInputs, dt: number) {
+  function tick(inputs: PlayerInputs, dtMs: number) {
     setState(
       produce((draft) => {
-        step(draft, inputs, dt, rng, hooks)
+        step(draft, inputs, dtMs, rng, hooks)
       })
     )
     syncPoolSignals()
@@ -62,6 +86,9 @@ export function createReactiveEngine(
     setState(produce(fn))
     syncPoolSignals()
   }
+
+  // Initialize signals with any pre-existing entities in the initial state
+  syncPoolSignals()
 
   return { state, tick, mutate, rng, shipIds, rockIds, bulletIds, playerIds }
 }
