@@ -25,7 +25,7 @@ import type { GameState, PlayerInputs } from './types.js'
 function applyInputs(
   state: GameState,
   inputs: PlayerInputs,
-  dt: number,
+  dtMs: number,
   rng: RNG
 ): void {
   for (const [playerId, input] of Object.entries(inputs)) {
@@ -34,9 +34,9 @@ function applyInputs(
     const ship = state.ships.get(player.shipId)
     if (ship == null) continue
 
-    if (input.left) turnShip(ship, -1, dt, MAX_DURATION)
-    if (input.right) turnShip(ship, 1, dt, MAX_DURATION)
-    accelerateShip(ship, input.thrust, dt, MAX_DURATION)
+    if (input.left) turnShip(ship, -1, dtMs, MAX_DURATION)
+    if (input.right) turnShip(ship, 1, dtMs, MAX_DURATION)
+    accelerateShip(ship, input.thrust, dtMs, MAX_DURATION)
     if (input.fire) fireBullet(state, ship, rng)
   }
 }
@@ -44,15 +44,15 @@ function applyInputs(
 /**
  * Move all active entities by integrating their angular velocities.
  */
-function moveEntities(state: GameState, dt: number): void {
+function moveEntities(state: GameState, dtMs: number): void {
   for (const ship of state.ships.values()) {
-    moveShip(ship, dt)
+    moveShip(ship, dtMs)
   }
   for (const rock of state.rocks.values()) {
-    moveRock(rock, dt)
+    moveRock(rock, dtMs)
   }
   for (const bullet of state.bullets.values()) {
-    moveBullet(bullet, dt)
+    moveBullet(bullet, dtMs)
   }
 }
 
@@ -70,10 +70,13 @@ function moveEntities(state: GameState, dt: number): void {
  * 8. Spawn rock waves
  * 9. Game over — endedAt set by killPlayer; onGameOver hook fired by handleCollisions
  */
+/**
+ * @param dtMs - Time delta in milliseconds
+ */
 export function step(
   state: GameState,
   inputs: PlayerInputs,
-  dt: number,
+  dtMs: number,
   rng: RNG,
   hooks?: EngineHooks
 ): void {
@@ -81,13 +84,13 @@ export function step(
   if (state.endedAt != null) return
 
   // 1. Advance game time
-  advanceGameTime(state, dt)
+  advanceGameTime(state, dtMs)
 
   // 2. Apply inputs
-  applyInputs(state, inputs, dt, rng)
+  applyInputs(state, inputs, dtMs, rng)
 
   // 3. Move entities
-  moveEntities(state, dt)
+  moveEntities(state, dtMs)
 
   // 4. Expire bullets
   expireBullets(state)

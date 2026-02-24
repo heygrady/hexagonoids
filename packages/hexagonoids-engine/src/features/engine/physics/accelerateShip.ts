@@ -22,13 +22,13 @@ const easeQuadOut = (t: number): number => t * (2 - t)
  *
  * @param ship - The ship state to mutate
  * @param thrusting - Whether the ship is currently thrusting
- * @param dt - Time delta in milliseconds
+ * @param dtMs - Time delta in milliseconds
  * @param duration - Milliseconds of continuous acceleration (for easing). Pass 0 on first frame.
  */
 export const accelerateShip = (
   ship: ShipState,
   thrusting: boolean,
-  dt: number,
+  dtMs: number,
   duration: number
 ): void => {
   if (thrusting) {
@@ -36,7 +36,7 @@ export const accelerateShip = (
     const t = Math.min(Math.max(duration / MAX_DURATION, 0), 1)
     const et = easeQuadOut(t)
     const halfRate = ACCELERATION_RATE / 1000 / 2
-    const accelMagnitude = (et * halfRate + halfRate) * dt
+    const accelMagnitude = (et * halfRate + halfRate) * dtMs
 
     if (accelMagnitude > 0) {
       // Get world up (position on sphere) from orientation quaternion
@@ -67,7 +67,7 @@ export const accelerateShip = (
 
   // Apply friction when not thrusting
   if (!thrusting && ship.angularVelocity.length() > 0) {
-    const dragFactor = Math.exp(-FRICTION_COEFFICIENT * (dt / 1000))
+    const dragFactor = Math.exp(-FRICTION_COEFFICIENT * (dtMs / 1000))
     ship.angularVelocity.scaleInPlace(dragFactor)
   }
 

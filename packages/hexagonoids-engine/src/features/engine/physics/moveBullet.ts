@@ -10,19 +10,19 @@ import { integrateAngularVelocity } from './quaternionPhysics.js'
  * Mutates `bullet.orientation`, `bullet.lat`, `bullet.lng`.
  *
  * @param bullet - The bullet state to mutate
- * @param dt - Time delta in milliseconds
+ * @param dtMs - Time delta in milliseconds
  * @param radius - Sphere radius
  */
 export const moveBullet = (
   bullet: BulletState,
-  dt: number,
+  dtMs: number,
   radius: number = RADIUS
 ): void => {
   if (bullet.angularVelocity.length() < 0.00001) {
     return
   }
 
-  const dtSeconds = dt / 1000
+  const dtSeconds = dtMs / 1000
   bullet.orientation = integrateAngularVelocity(
     bullet.orientation,
     bullet.angularVelocity,

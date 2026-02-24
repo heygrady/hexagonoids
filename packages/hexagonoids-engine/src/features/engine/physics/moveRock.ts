@@ -10,19 +10,19 @@ import { integrateAngularVelocity } from './quaternionPhysics.js'
  * Mutates `rock.orientation`, `rock.lat`, `rock.lng`.
  *
  * @param rock - The rock state to mutate
- * @param dt - Time delta in milliseconds
+ * @param dtMs - Time delta in milliseconds
  * @param radius - Sphere radius
  */
 export const moveRock = (
   rock: RockState,
-  dt: number,
+  dtMs: number,
   radius: number = RADIUS
 ): void => {
   if (rock.angularVelocity.length() < 0.00001) {
     return
   }
 
-  const dtSeconds = dt / 1000
+  const dtSeconds = dtMs / 1000
   rock.orientation = integrateAngularVelocity(
     rock.orientation,
     rock.angularVelocity,
