@@ -18,8 +18,11 @@ export interface AgentContext {
 }
 
 /**
- * Minimal SyncExecutor interface (type-only).
- * The full @neat-evolution/executor package is not added until Phase 02b.
+ * Structural subset of @neat-evolution/executor's SyncExecutor.
+ * Only `execute()` is required for agent and simulation use.
+ * The real SyncExecutor (isAsync + execute + executeBatch) satisfies this
+ * interface via duck-typing. Import from @neat-evolution/executor directly
+ * when the full interface is needed.
  */
 export interface SyncExecutor {
   execute(inputs: number[]): number[]

@@ -8,18 +8,12 @@ import {
 
 import type { AgentContext, AgentFn, SyncExecutor } from '../agents/types.js'
 import { MEMORY_LAST_DT_MS, MEMORY_PREV_DISTANCES } from '../agents/types.js'
+import {
+  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
+  type SimulationConfig,
+} from '../HexagonoidsEnvironmentConfig.js'
 import type { RawMetrics } from './RawMetrics.js'
 import { createMetricsCollector } from './RawMetrics.js'
-
-export interface SimulationConfig {
-  maxTicks: number
-  dtMs: number
-}
-
-const DEFAULT_CONFIG: SimulationConfig = {
-  maxTicks: 3000,
-  dtMs: 33,
-}
 
 const PLAYER_ID = 'player-1'
 
@@ -35,7 +29,10 @@ export function simulateGame(
   seed: string,
   executor?: SyncExecutor
 ): RawMetrics {
-  const { maxTicks, dtMs } = { ...DEFAULT_CONFIG, ...config }
+  const { maxTicks, dtMs } = {
+    ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation,
+    ...config,
+  }
 
   // 1. Create game
   const { state, rng } = createGame({ seed })

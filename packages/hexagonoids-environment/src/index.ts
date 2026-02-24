@@ -3,20 +3,33 @@ export { doNothingAgent } from './agents/doNothingAgent.js'
 export { neatAgent } from './agents/neatAgent.js'
 export { randomAgent } from './agents/randomAgent.js'
 export { seekDestroyAgent } from './agents/seekDestroyAgent.js'
+export type { AgentContext, AgentFn } from './agents/types.js'
 
-// Types
-export type { AgentContext, AgentFn, SyncExecutor } from './agents/types.js'
-
+// Environment
+export { createEnvironment } from './createEnvironment.js'
 // Encoding
 export { decodeOutputs } from './encoding/decodeOutputs.js'
 export { encodeGameState, INPUT_COUNT } from './encoding/encodeGameState.js'
 export { bearingToSector } from './encoding/sectorUtils.js'
-
 // Evaluation
+export {
+  calculateFitness,
+  weightedFitnessSum,
+  zScore,
+} from './evaluation/calculateFitness.js'
 export type { MetricsCollector, RawMetrics } from './evaluation/RawMetrics.js'
 export { createMetricsCollector } from './evaluation/RawMetrics.js'
-export type { SimulationConfig } from './evaluation/simulateGame.js'
 export { simulateGame } from './evaluation/simulateGame.js'
+export { HexagonoidsEnvironment } from './HexagonoidsEnvironment.js'
+export type {
+  FitnessWeights,
+  HexagonoidsEnvironmentConfig,
+  SimulationConfig,
+} from './HexagonoidsEnvironmentConfig.js'
+export {
+  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
+  mergeConfig,
+} from './HexagonoidsEnvironmentConfig.js'
 
 // Utils
 export {
