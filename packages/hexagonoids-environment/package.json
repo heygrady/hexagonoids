@@ -47,7 +47,9 @@
     "test:dev": "vitest"
   },
   "dependencies": {
+    "@babylonjs/core": "^8.52.0",
     "@heygrady/hexagonoids-engine": "workspace:^",
+    "@neat-evolution/executor": "^0.3.7",
     "@neat-evolution/utils": "^0.2.5",
     "@swc/helpers": "^0.5.19"
   },

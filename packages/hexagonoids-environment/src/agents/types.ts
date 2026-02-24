@@ -24,3 +24,10 @@ export interface AgentContext {
 export interface SyncExecutor {
   execute(inputs: number[]): number[]
 }
+
+/**
+ * Memory keys shared between neatAgent and simulateGame.
+ * Using named constants prevents silent breakage from string drift.
+ */
+export const MEMORY_PREV_DISTANCES = 'prevDistances'
+export const MEMORY_LAST_DT_MS = 'lastDtMs'

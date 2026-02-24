@@ -1,10 +1,16 @@
 // Agents
 export { doNothingAgent } from './agents/doNothingAgent.js'
+export { neatAgent } from './agents/neatAgent.js'
 export { randomAgent } from './agents/randomAgent.js'
 export { seekDestroyAgent } from './agents/seekDestroyAgent.js'
 
 // Types
 export type { AgentContext, AgentFn, SyncExecutor } from './agents/types.js'
+
+// Encoding
+export { decodeOutputs } from './encoding/decodeOutputs.js'
+export { encodeGameState, INPUT_COUNT } from './encoding/encodeGameState.js'
+export { bearingToSector } from './encoding/sectorUtils.js'
 
 // Evaluation
 export type { MetricsCollector, RawMetrics } from './evaluation/RawMetrics.js'

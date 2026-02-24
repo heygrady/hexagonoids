@@ -7,6 +7,7 @@ import {
 } from '@heygrady/hexagonoids-engine'
 
 import type { AgentContext, AgentFn, SyncExecutor } from '../agents/types.js'
+import { MEMORY_LAST_DT_MS, MEMORY_PREV_DISTANCES } from '../agents/types.js'
 import type { RawMetrics } from './RawMetrics.js'
 import { createMetricsCollector } from './RawMetrics.js'
 
@@ -96,6 +97,39 @@ export function simulateGame(
     if (newBullets > 0) {
       collector.addShotsFired(newBullets)
     }
+
+    // Update prevDistances for approach speed tracking (used by neatAgent encoding)
+    const playerAfter = state.players.get(PLAYER_ID)
+    const shipAfter =
+      playerAfter?.shipId != null
+        ? state.ships.get(playerAfter.shipId)
+        : undefined
+    if (shipAfter?.alive) {
+      const prevDistances = context.memory[MEMORY_PREV_DISTANCES] as
+        | Map<string, number>
+        | undefined
+      if (prevDistances != null) {
+        for (const rock of state.rocks.values()) {
+          const dist = greatCircleDistance(
+            shipAfter.lat,
+            shipAfter.lng,
+            rock.lat,
+            rock.lng,
+            RADIUS
+          )
+          prevDistances.set(rock.id, dist)
+        }
+        // Remove destroyed rocks
+        for (const id of prevDistances.keys()) {
+          if (!state.rocks.has(id)) {
+            prevDistances.delete(id)
+          }
+        }
+      }
+    }
+
+    // Store dtMs for encoding approach speed calculation
+    context.memory[MEMORY_LAST_DT_MS] = dtMs
   }
 
   // Final distance update
