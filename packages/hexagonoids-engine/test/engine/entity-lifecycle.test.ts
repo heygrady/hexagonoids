@@ -65,7 +65,7 @@ describe('entity lifecycle', () => {
 
     it('player dies → alive=false, diedAt set', () => {
       startPlayer(game, 'p1', rng)
-      advanceGameTime(game, 1)
+      advanceGameTime(game, 1000)
 
       killPlayer(game, 'p1')
 
@@ -78,11 +78,11 @@ describe('entity lifecycle', () => {
 
     it('player regenerates → new ship spawned, lives decremented', () => {
       startPlayer(game, 'p1', rng)
-      advanceGameTime(game, 1)
+      advanceGameTime(game, 1000)
       killPlayer(game, 'p1')
 
       // Advance past regeneration wait period
-      advanceGameTime(game, SHIP_REGENERATION_WAIT_PERIOD / 1000 + 0.1)
+      advanceGameTime(game, SHIP_REGENERATION_WAIT_PERIOD + 100)
 
       expect(canRegenerate(game, 'p1')).toBe(true)
       regeneratePlayer(game, 'p1', rng)
@@ -150,7 +150,7 @@ describe('entity lifecycle', () => {
       expect(bullet2).toBeNull()
 
       // Advance past cooldown
-      advanceGameTime(game, FIRE_COOLDOWN / 1000 + 0.01)
+      advanceGameTime(game, FIRE_COOLDOWN + 10)
       const bullet3 = fireBullet(game, ship, rng)
       expect(bullet3).not.toBeNull()
       expect(game.bullets.size).toBe(2)
@@ -162,7 +162,7 @@ describe('entity lifecycle', () => {
       expect(game.bullets.size).toBe(1)
 
       // Advance past bullet lifetime
-      advanceGameTime(game, BULLET_LIFETIME / 1000 + 0.1)
+      advanceGameTime(game, BULLET_LIFETIME + 100)
       expireBullets(game)
       expect(game.bullets.size).toBe(0)
     })
@@ -224,12 +224,12 @@ describe('entity lifecycle', () => {
       const firstWaveCount = game.rocks.size
 
       // Not enough time for another wave
-      advanceGameTime(game, 1)
+      advanceGameTime(game, 1000)
       checkWaveSpawn(game, 'p1', rng)
       expect(game.rocks.size).toBe(firstWaveCount)
 
       // Advance past wave period
-      advanceGameTime(game, ROCK_WAVE_PERIOD / 1000 + 0.1)
+      advanceGameTime(game, ROCK_WAVE_PERIOD + 100)
       checkWaveSpawn(game, 'p1', rng)
       expect(game.rocks.size).toBeGreaterThan(firstWaveCount)
       expect(game.wave).toBe(2)

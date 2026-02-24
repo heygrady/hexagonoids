@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-
+import type { ShipState } from '../../src/index.js'
 import {
   advanceGameTime,
   createGame,
@@ -19,15 +19,19 @@ describe('createGame', () => {
     const { state: a } = createGame()
     const { state: b } = createGame()
 
-    a.ships.set('s1', { ...defaultShipState, id: 's1', playerId: 'p1' })
+    a.ships.set('s1', {
+      ...defaultShipState,
+      id: 's1',
+      playerId: 'p1',
+    } as ShipState)
     expect(b.ships.size).toBe(0)
   })
 })
 
 describe('gameTime', () => {
-  it('advanceGameTime increments now by dt in seconds', () => {
+  it('advanceGameTime increments now by dt in milliseconds', () => {
     const { state } = createGame()
-    advanceGameTime(state, 1 / 60)
+    advanceGameTime(state, 1000 / 60)
     expect(state.now).toBeCloseTo(1000 / 60)
   })
 

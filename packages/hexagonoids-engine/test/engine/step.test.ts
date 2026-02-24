@@ -35,7 +35,7 @@ describe('step function', () => {
   describe('basic stepping', () => {
     it('advances game time', () => {
       startPlayer(game, 'p1', rng)
-      step(game, NO_INPUT, 0.016, rng)
+      step(game, NO_INPUT, 16, rng)
       expect(game.now).toBeCloseTo(16, 0)
     })
 
@@ -43,7 +43,7 @@ describe('step function', () => {
       startPlayer(game, 'p1', rng)
       game.endedAt = game.now
       const nowBefore = game.now
-      step(game, NO_INPUT, 0.016, rng)
+      step(game, NO_INPUT, 16, rng)
       expect(game.now).toBe(nowBefore)
     })
 
@@ -58,7 +58,7 @@ describe('step function', () => {
       const latBefore = ship.lat
       const lngBefore = ship.lng
 
-      step(game, NO_INPUT, 0.016, rng)
+      step(game, NO_INPUT, 16, rng)
 
       // Position should have changed
       const moved = ship.lat !== latBefore || ship.lng !== lngBefore
@@ -74,7 +74,7 @@ describe('step function', () => {
       const inputs: PlayerInputs = {
         p1: { left: false, right: false, thrust: false, fire: true },
       }
-      step(game, inputs, 0.016, rng)
+      step(game, inputs, 16, rng)
 
       expect(game.bullets.size).toBe(1)
     })
@@ -88,7 +88,7 @@ describe('step function', () => {
       const inputs: PlayerInputs = {
         p1: { left: true, right: false, thrust: false, fire: false },
       }
-      step(game, inputs, 0.016, rng)
+      step(game, inputs, 16, rng)
 
       expect(ship.yaw).not.toBe(yawBefore)
     })
@@ -101,7 +101,7 @@ describe('step function', () => {
       const inputs: PlayerInputs = {
         p1: { left: false, right: false, thrust: true, fire: false },
       }
-      step(game, inputs, 0.016, rng)
+      step(game, inputs, 16, rng)
 
       // Angular velocity should be non-zero after thrust
       expect(ship.angularVelocity.length()).toBeGreaterThan(0)
@@ -116,13 +116,13 @@ describe('step function', () => {
       const fireInputs: PlayerInputs = {
         p1: { left: false, right: false, thrust: false, fire: true },
       }
-      step(game, fireInputs, 0.016, rng)
+      step(game, fireInputs, 16, rng)
       expect(game.bullets.size).toBe(1)
 
       // Step past bullet lifetime
       const stepsNeeded = Math.ceil(BULLET_LIFETIME / 16) + 2
       for (let i = 0; i < stepsNeeded; i++) {
-        step(game, IDLE_INPUT('p1'), 0.016, rng)
+        step(game, IDLE_INPUT('p1'), 16, rng)
       }
 
       expect(game.bullets.size).toBe(0)
@@ -150,12 +150,7 @@ describe('step function', () => {
       }
       game.bullets.set(bullet.id, bullet)
 
-      const hooks: EngineHooks = {
-        onCollision: vi.fn(),
-        onScoreChanged: vi.fn(),
-      }
-
-      step(game, NO_INPUT, 0.016, rng, hooks)
+      step(game, NO_INPUT, 16, rng)
 
       // Bullet should be destroyed
       expect(game.bullets.has('test-bullet')).toBe(false)
@@ -176,7 +171,7 @@ describe('step function', () => {
       spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
 
       // Advance past grace period so collision is detected
-      advanceGameTime(game, SHIP_REGENERATION_GRACE_PERIOD / 1000 + 0.1)
+      advanceGameTime(game, SHIP_REGENERATION_GRACE_PERIOD + 100)
       // Set regeneratedAt far enough in the past
       player.regeneratedAt = 0
 
@@ -184,7 +179,7 @@ describe('step function', () => {
         onPlayerDied: vi.fn(),
       }
 
-      step(game, NO_INPUT, 0.016, rng, hooks)
+      step(game, NO_INPUT, 16, rng, hooks)
 
       expect(player.alive).toBe(false)
       expect(hooks.onPlayerDied).toHaveBeenCalledWith('p1')
@@ -208,7 +203,7 @@ describe('step function', () => {
       // Step past wait period
       const stepsNeeded = Math.ceil(SHIP_REGENERATION_WAIT_PERIOD / 16) + 2
       for (let i = 0; i < stepsNeeded; i++) {
-        step(game, NO_INPUT, 0.016, rng)
+        step(game, NO_INPUT, 16, rng)
       }
 
       expect(player.alive).toBe(true)
@@ -221,7 +216,7 @@ describe('step function', () => {
     it('spawns initial wave', () => {
       startPlayer(game, 'p1', rng)
       // First step should trigger wave spawn (waveSpawnedAt is null)
-      step(game, NO_INPUT, 0.016, rng)
+      step(game, NO_INPUT, 16, rng)
 
       expect(game.rocks.size).toBeGreaterThan(0)
       expect(game.wave).toBe(1)
@@ -231,12 +226,12 @@ describe('step function', () => {
       startPlayer(game, 'p1', rng)
 
       // First step triggers initial wave
-      step(game, NO_INPUT, 0.016, rng)
+      step(game, NO_INPUT, 16, rng)
 
       // Step past wave period
       const stepsNeeded = Math.ceil(ROCK_WAVE_PERIOD / 16) + 2
       for (let i = 0; i < stepsNeeded; i++) {
-        step(game, IDLE_INPUT('p1'), 0.016, rng)
+        step(game, IDLE_INPUT('p1'), 16, rng)
       }
 
       expect(game.wave).toBe(2)
@@ -254,11 +249,79 @@ describe('step function', () => {
       // Place rock at ship position and advance past grace
       spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
       player.regeneratedAt = 0
-      advanceGameTime(game, SHIP_REGENERATION_GRACE_PERIOD / 1000 + 0.1)
+      advanceGameTime(game, SHIP_REGENERATION_GRACE_PERIOD + 100)
 
-      step(game, NO_INPUT, 0.016, rng)
+      step(game, NO_INPUT, 16, rng)
 
       expect(game.endedAt).not.toBeNull()
+    })
+  })
+
+  describe('engine hooks', () => {
+    it('onCollision fires with bullet-rock type on bullet-rock hit', () => {
+      startPlayer(game, 'p1', rng)
+      const player = game.players.get('p1')!
+      const ship = game.ships.get(player.shipId!)!
+
+      // Place a rock at ship position
+      const rock = spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+
+      // Place a bullet at the rock's position
+      const bullet = {
+        id: 'test-bullet',
+        orientation: rock.orientation.clone(),
+        lat: rock.lat,
+        lng: rock.lng,
+        angularVelocity: ship.angularVelocity.clone(),
+        firedAt: game.now,
+        ownerId: ship.id,
+      }
+      game.bullets.set(bullet.id, bullet)
+
+      const hooks: EngineHooks = {
+        onCollision: vi.fn(),
+        onScoreChanged: vi.fn(),
+      }
+
+      step(game, NO_INPUT, 16, rng, hooks)
+
+      expect(hooks.onCollision).toHaveBeenCalledWith(
+        { id: 'test-bullet', type: 'bullet' },
+        { id: rock.id, type: 'rock' },
+        'bullet-rock'
+      )
+      expect(hooks.onScoreChanged).toHaveBeenCalledWith(
+        'p1',
+        rock.value,
+        rock.value
+      )
+    })
+
+    it('onPlayerRegenerated fires when dead player regenerates', () => {
+      startPlayer(game, 'p1', rng)
+      const player = game.players.get('p1')!
+      player.lives = 2
+
+      // Kill player manually
+      player.alive = false
+      player.diedAt = game.now
+      if (player.shipId != null) {
+        game.ships.delete(player.shipId)
+        player.shipId = null
+      }
+
+      const hooks: EngineHooks = {
+        onPlayerRegenerated: vi.fn(),
+      }
+
+      // Step past wait period
+      const stepsNeeded = Math.ceil(SHIP_REGENERATION_WAIT_PERIOD / 16) + 2
+      for (let i = 0; i < stepsNeeded; i++) {
+        step(game, NO_INPUT, 16, rng, hooks)
+      }
+
+      expect(player.alive).toBe(true)
+      expect(hooks.onPlayerRegenerated).toHaveBeenCalledWith('p1')
     })
   })
 
@@ -275,7 +338,7 @@ describe('step function', () => {
       }
 
       for (let i = 0; i < 10; i++) {
-        step(run1.state, inputs, 0.016, rng1)
+        step(run1.state, inputs, 16, rng1)
       }
 
       // Run 2 — same seed, same inputs
@@ -285,7 +348,7 @@ describe('step function', () => {
       startPlayer(run2.state, 'p1', rng2)
 
       for (let i = 0; i < 10; i++) {
-        step(run2.state, inputs, 0.016, rng2)
+        step(run2.state, inputs, 16, rng2)
       }
 
       // States should be identical

@@ -131,7 +131,7 @@ describe('collision detection', () => {
       spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
 
       // Advance past grace period
-      advanceGameTime(game, SHIP_REGENERATION_GRACE_PERIOD / 1000 + 0.1)
+      advanceGameTime(game, SHIP_REGENERATION_GRACE_PERIOD + 100)
 
       const pairs = detectCollisions(game, RADIUS)
       expect(pairs.filter((p) => p.type === 'ship-rock').length).toBe(1)

@@ -36,7 +36,7 @@ describe('createReactiveEngine', () => {
       expect(engine.state.now).toBe(0)
 
       engine.mutate((state) => startPlayer(state, 'p1', engine.rng))
-      engine.tick(IDLE_INPUT('p1'), 0.016)
+      engine.tick(IDLE_INPUT('p1'), 16)
 
       expect(engine.state.now).toBeGreaterThan(0)
       dispose()
@@ -51,7 +51,7 @@ describe('createReactiveEngine', () => {
       expect(gameTime()).toBe(0)
 
       engine.mutate((state) => startPlayer(state, 'p1', engine.rng))
-      engine.tick(IDLE_INPUT('p1'), 0.016)
+      engine.tick(IDLE_INPUT('p1'), 16)
 
       expect(gameTime()).toBeGreaterThan(0)
       dispose()
@@ -79,7 +79,7 @@ describe('createReactiveEngine', () => {
       const engine = createReactiveEngine({ seed: 'test' })
 
       engine.mutate((state) => startPlayer(state, 'p1', engine.rng))
-      engine.tick(IDLE_INPUT('p1'), 0.016)
+      engine.tick(IDLE_INPUT('p1'), 16)
 
       const ids = engine.shipIds()
       expect(ids.length).toBeGreaterThan(0)
@@ -91,7 +91,7 @@ describe('createReactiveEngine', () => {
       // Tick with thrust to change ship state
       engine.tick(
         { p1: { left: false, right: false, thrust: true, fire: false } },
-        0.1
+        100
       )
 
       const updatedShip = engine.state.ships.get(shipId)
@@ -129,12 +129,12 @@ describe('createReactiveEngine', () => {
       expect(engine.bulletIds()).toHaveLength(0)
 
       engine.mutate((state) => startPlayer(state, 'p1', engine.rng))
-      engine.tick(IDLE_INPUT('p1'), 0.016)
+      engine.tick(IDLE_INPUT('p1'), 16)
 
       // Fire a bullet
       engine.tick(
         { p1: { left: false, right: false, thrust: false, fire: true } },
-        0.016
+        16
       )
 
       expect(engine.bulletIds().length).toBeGreaterThan(0)

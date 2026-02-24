@@ -81,12 +81,12 @@ describe('useBullet', () => {
       const engine = createReactiveEngine({ seed: 'test' })
 
       engine.mutate((state) => startPlayer(state, 'p1', engine.rng))
-      engine.tick(IDLE_INPUT('p1'), 0.016)
+      engine.tick(IDLE_INPUT('p1'), 16)
 
       // Fire a bullet
       engine.tick(
         { p1: { left: false, right: false, thrust: false, fire: true } },
-        0.016
+        16
       )
 
       const bulletId = engine.bulletIds()[0]!
