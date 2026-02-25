@@ -83,14 +83,17 @@ describe('step function', () => {
       startPlayer(game, 'p1', rng)
       const player = game.players.get('p1')!
       const ship = game.ships.get(player.shipId!)!
-      const yawBefore = ship.yaw
 
       const inputs: PlayerInputs = {
         p1: { left: true, right: false, thrust: false, fire: false },
       }
+      // First step records the input hold start (duration=0, easing=0%).
+      // Second step has duration > 0, so the turn easing kicks in.
+      step(game, inputs, 16, rng)
+      const yawAfterFirstStep = ship.yaw
       step(game, inputs, 16, rng)
 
-      expect(ship.yaw).not.toBe(yawBefore)
+      expect(ship.yaw).not.toBe(yawAfterFirstStep)
     })
 
     it('ship accelerates with thrust input', () => {

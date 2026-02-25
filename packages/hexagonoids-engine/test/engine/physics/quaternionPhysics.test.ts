@@ -7,6 +7,7 @@ import {
   getPositionFromQuaternion,
   headingToAngularVelocity,
   integrateAngularVelocity,
+  latLngToQuaternion,
   latLngToVector3,
   quaternionToLatLng,
   vector3ToLatLng,
@@ -129,5 +130,33 @@ describe('lat/lng round-trip', () => {
   it('latLngToVector3 produces a vector at the correct radius', () => {
     const v = latLngToVector3(45, 90, 10)
     expect(v.length()).toBeCloseTo(10, 5)
+  })
+
+  it('latLngToQuaternion aligns forward with geographic east at non-zero longitude', () => {
+    const lat = 0
+    const lng = 45
+    const q = latLngToQuaternion(lat, lng)
+
+    const worldForward = Vector3.Forward()
+      .applyRotationQuaternion(q)
+      .normalize()
+    const east = new Vector3(
+      -Math.sin((lng * Math.PI) / 180),
+      0,
+      Math.cos((lng * Math.PI) / 180)
+    )
+
+    expect(Vector3.Dot(worldForward, east)).toBeCloseTo(1, 6)
+  })
+
+  it('latLngToQuaternion keeps up aligned to the surface normal', () => {
+    const lat = 30
+    const lng = -120
+    const q = latLngToQuaternion(lat, lng)
+
+    const worldUp = Vector3.Up().applyRotationQuaternion(q).normalize()
+    const expectedUp = latLngToVector3(lat, lng, 1).normalize()
+
+    expect(Vector3.Dot(worldUp, expectedUp)).toBeCloseTo(1, 6)
   })
 })
