@@ -1,84 +1,139 @@
-import type { RockState } from '@heygrady/hexagonoids-engine'
 import {
-  BULLET_LIFETIME,
-  BULLET_SPEED,
   elapsed,
   FIRE_COOLDOWN,
   greatCircleDistance,
+  MAX_SPEED,
   RADIUS,
-  ROCK_LARGE_RADIUS,
-  SHIP_RADIUS,
 } from '@heygrady/hexagonoids-engine'
 
-import { relativeBearing, sphericalBearing } from '../utils/sphericalBearing.js'
+import {
+  relativeBearing,
+  sphericalBearing,
+  yawToBearing,
+} from '../utils/sphericalBearing.js'
+import {
+  BULLET_RANGE,
+  collisionRadius,
+  computeClosingSpeed,
+  computeLeadAim,
+  computeThreatLevel,
+  computeTTC,
+  rockRadius,
+} from './seekDestroyUtils.js'
 import type { AgentFn } from './types.js'
+
+// ── Tuning constants ───────────────────────────────────────────────────
+
+/** Fire within this fraction of max bullet range */
+const FIRE_RANGE_FACTOR = 0.9
+
+/** Turn threshold for steering dead-zone */
+const TURN_THRESHOLD = 0.01
+
+// ── Derived ────────────────────────────────────────────────────────────
+
+const EFFECTIVE_RANGE = BULLET_RANGE * FIRE_RANGE_FACTOR
+
+// ── Memory ─────────────────────────────────────────────────────────────
 
 interface SeekDestroyMemory {
   lastTargetId: string | null
+  mode: 'hunt' | 'engage' | 'evade'
+  tick: number
 }
 
-interface RockInfo {
-  rock: RockState
-  arcDist: number
-  relBearing: number
-}
-
-/** Maximum arc distance (world units) a bullet can travel before expiring. */
-const BULLET_RANGE = (BULLET_SPEED * BULLET_LIFETIME * RADIUS) / 1000
-
-/** Turning dead-zone to prevent oscillation (~3°). */
-const TURN_THRESHOLD = 0.05
-
-/** Arc distance at which a rock triggers dodge override (world units). */
-const DANGER_DISTANCE = SHIP_RADIUS + ROCK_LARGE_RADIUS + 0.05
-
-/**
- * Fire half-angle: fire when any rock within range is within ±PI/2 of heading.
- * This gives broad hemisphere coverage while avoiding shooting backwards.
- */
-const FIRE_CONE = Math.PI / 2
-
-/** Initialize and return typed agent memory from the shared context.memory bag. */
 function getMemory(context: Parameters<AgentFn>[2]): SeekDestroyMemory {
   const mem = context.memory
-  if (mem['lastTargetId'] === undefined) {
-    mem['lastTargetId'] = null
-  }
+  if (mem['lastTargetId'] === undefined) mem['lastTargetId'] = null
+  if (mem['mode'] === undefined) mem['mode'] = 'hunt'
+  if (mem['tick'] === undefined) mem['tick'] = 0
   return mem as unknown as SeekDestroyMemory
 }
 
+// ── Per-rock analysis ──────────────────────────────────────────────────
+
+interface RockAnalysis {
+  rock: { id: string; size: 0 | 1 | 2 }
+  arcDist: number
+  closingSpeed: number
+  ttc: number
+  threatLevel: number
+  relBearing: number
+  leadBearing: number // Absolute bearing to intercept point
+  interceptDist: number
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────
+
+function steerToward(relBearing: number): { left: boolean; right: boolean } {
+  return {
+    left: relBearing < -TURN_THRESHOLD,
+    right: relBearing > TURN_THRESHOLD,
+  }
+}
+
 /**
- * Deterministic seek-and-destroy agent — the near-optimal baseline.
- * Strategy: always thrust for mobility, steer toward the easiest-to-hit rock,
- * fire when any rock is in the forward hemisphere for high coverage. Dodge
- * only when a rock is at collision distance.
- *
- * Intentional spec deviations (documented in SESSION_02 learnings):
- * - Fire uses a flat PI/2 hemisphere (FIRE_CONE) rather than per-rock angular
- *   size. This improves coverage at the cost of some wasted shots.
- * - Thrust is always-on rather than modulated by distance. Simpler and
- *   sufficient for a deterministic baseline; overshooting is acceptable.
+ * Wider fire window used by seekDestroy for aggressive spray.
+ * Uses 2.5x rock radius + 0.15 rad base (~8.5°) vs the precision
+ * window in seekDestroyUtils (1.6x + 0.12 rad) — trades accuracy for
+ * higher hit rate when engaging multiple rocks at close range.
  */
+function aggressiveFireWindow(
+  rockSize: 0 | 1 | 2,
+  interceptDist: number
+): number {
+  const r = rockRadius(rockSize)
+  const dist = Math.max(interceptDist, 0.001)
+  return Math.max(0.15, (r / dist) * 2.5)
+}
+
+/** Check if we should fire: any rock currently aligned. */
+function shouldFire(
+  analyses: RockAnalysis[],
+  engineYawInBearing: number,
+  canFire: boolean
+): boolean {
+  if (!canFire) return false
+  // Aggressive: Fire if ANY rock is in a generous forward cone or aligned with lead
+  for (const a of analyses) {
+    if (a.arcDist > EFFECTIVE_RANGE) continue
+
+    // Check lead alignment
+    const relLead = relativeBearing(a.leadBearing, engineYawInBearing)
+    if (Math.abs(relLead) <= aggressiveFireWindow(a.rock.size, a.interceptDist))
+      return true
+
+    // Check current position alignment (opportunistic spray)
+    if (Math.abs(a.relBearing) < 0.4) return true
+  }
+  return false
+}
+
+// ── Agent ──────────────────────────────────────────────────────────────
+
 export const seekDestroyAgent: AgentFn = (state, playerId, context) => {
   const noOp = { left: false, right: false, thrust: false, fire: false }
 
-  // Look up ship
   const player = state.players.get(playerId)
   if (player == null) return noOp
   const ship =
     player.shipId != null ? state.ships.get(player.shipId) : undefined
   if (ship == null || !ship.alive) return noOp
 
-  const canFire = elapsed(state, ship.firedAt) >= FIRE_COOLDOWN
-
-  // Memory for target persistence
   const mem = getMemory(context)
+  mem.tick += 1
 
-  // --- Pre-compute bearings for all rocks ---
-  let closestDanger: RockInfo | undefined
-  let anyRockAhead = false
-  let bestTarget: RockInfo | undefined
-  let bestScore = Infinity
+  const canFire = elapsed(state, ship.firedAt) >= FIRE_COOLDOWN
+  const shipSpeed = ship.angularVelocity.length()
+
+  // CRITICAL: The engine's yaw 0 is East (PI/2), while sphericalBearing 0 is North.
+  const engineYawInBearing = yawToBearing(ship.yaw)
+
+  // ── Analyze all rocks ──────────────────────────────────────────────
+
+  const analyses: RockAnalysis[] = []
+  let worstThreat: RockAnalysis | null = null
+  let worstThreatLevel = 0
 
   for (const rock of state.rocks.values()) {
     const arcDist = greatCircleDistance(
@@ -88,60 +143,110 @@ export const seekDestroyAgent: AgentFn = (state, playerId, context) => {
       rock.lng,
       RADIUS
     )
+    const closingSpeed = computeClosingSpeed(ship.lat, ship.lng, rock)
+    const ttc = computeTTC(arcDist, closingSpeed, collisionRadius(rock.size))
+    const threatLevel = computeThreatLevel(ttc, rock.size)
+
+    // Lead aim calculation
+    const { bearing: leadBearing, interceptDist } = computeLeadAim(
+      ship.lat,
+      ship.lng,
+      rock,
+      shipSpeed
+    )
+
+    // Relative bearing to current position (for evasion logic)
     const absBearing = sphericalBearing(ship.lat, ship.lng, rock.lat, rock.lng)
-    const relBear = relativeBearing(absBearing, ship.yaw)
-    const info: RockInfo = { rock, arcDist, relBearing: relBear }
+    const relBearing = relativeBearing(absBearing, engineYawInBearing)
 
-    // Track if any rock is in the forward hemisphere and in bullet range
-    if (arcDist <= BULLET_RANGE && Math.abs(relBear) < FIRE_CONE) {
-      anyRockAhead = true
+    const analysis: RockAnalysis = {
+      rock: { id: rock.id, size: rock.size },
+      arcDist,
+      closingSpeed,
+      ttc,
+      threatLevel,
+      relBearing,
+      leadBearing,
+      interceptDist,
     }
+    analyses.push(analysis)
 
-    // Track closest danger
-    if (
-      arcDist < DANGER_DISTANCE &&
-      (closestDanger == null || arcDist < closestDanger.arcDist)
-    ) {
-      closestDanger = info
-    }
-
-    // Track best target by rotational distance
-    if (arcDist <= BULLET_RANGE) {
-      const rotDist = Math.abs(relBear)
-      const bias = rock.id === mem.lastTargetId ? 0.15 : 0
-      const score = rotDist - bias
-      if (score < bestScore) {
-        bestScore = score
-        bestTarget = info
-      }
+    if (threatLevel > worstThreatLevel) {
+      worstThreat = analysis
+      worstThreatLevel = threatLevel
     }
   }
 
-  // --- Danger avoidance override ---
-  if (closestDanger != null) {
-    return {
-      left: closestDanger.relBearing > 0,
-      right: closestDanger.relBearing <= 0,
-      thrust: true,
-      fire: canFire && anyRockAhead,
+  // ── Threat assessment ──────────────────────────────────────────────
+
+  const EVADE_TTC_THRESHOLD = 0.6 // Even more aggressive, wait longer
+  const URGENT_TTC_THRESHOLD = 0.3
+
+  const isDangerous =
+    worstThreat != null && worstThreat.ttc < EVADE_TTC_THRESHOLD
+  const isUrgent = worstThreat != null && worstThreat.ttc < URGENT_TTC_THRESHOLD
+
+  // ── Target selection ───────────────────────────────────────────────
+
+  let bestTarget: RockAnalysis | null = null
+  let bestTargetScore = Number.POSITIVE_INFINITY
+
+  for (const a of analyses) {
+    const relLead = relativeBearing(a.leadBearing, engineYawInBearing)
+    const angularOffset = Math.abs(relLead)
+
+    // Scoring for target prioritization
+    const inRange = a.arcDist <= EFFECTIVE_RANGE
+    const rangePenalty = inRange ? 0 : 2.0 // Strong preference for in-range
+    const stickiness = a.rock.id === mem.lastTargetId ? -0.8 : 0
+
+    const score =
+      angularOffset + (a.arcDist / RADIUS) * 0.2 + rangePenalty + stickiness
+
+    if (score < bestTargetScore) {
+      bestTarget = a
+      bestTargetScore = score
     }
   }
 
-  if (bestTarget == null) {
-    mem.lastTargetId = null
-    // No target in range — thrust forward
-    return { left: false, right: false, thrust: true, fire: false }
+  // ── Decision Making ────────────────────────────────────────────────
+
+  let targetBearing: number
+  let thrust = false
+  const fire = shouldFire(analyses, engineYawInBearing, canFire)
+
+  // Determine if we should be evading or targeting
+  // If we are already shooting at something, only evade if it is extremely urgent
+  const shouldEvade = isUrgent || (isDangerous && !fire)
+
+  if (shouldEvade && worstThreat) {
+    mem.mode = 'evade'
+    // Turn 90 degrees away from threat
+    const evadeDir = worstThreat.relBearing > 0 ? -1 : 1
+    targetBearing =
+      worstThreat.relBearing + (Math.PI / 2) * evadeDir + engineYawInBearing
+    thrust = true
+  } else if (bestTarget) {
+    mem.mode = 'engage'
+    mem.lastTargetId = bestTarget.rock.id
+    targetBearing = bestTarget.leadBearing
+
+    // Speed up engagement: fast enough to close distance
+    thrust = shipSpeed < MAX_SPEED * 0.6
+  } else {
+    mem.mode = 'hunt'
+    targetBearing = engineYawInBearing
+    thrust = shipSpeed < MAX_SPEED * 0.3
   }
 
-  mem.lastTargetId = bestTarget.rock.id
+  // ── Execute movement ───────────────────────────────────────────────
 
-  // --- Turn toward target ---
-  const left = bestTarget.relBearing < -TURN_THRESHOLD
-  const right = bestTarget.relBearing > TURN_THRESHOLD
+  const finalRelBearing = relativeBearing(targetBearing, engineYawInBearing)
+  const steer = steerToward(finalRelBearing)
 
-  // --- Fire when any rock is in the forward hemisphere ---
-  const fire = canFire && anyRockAhead
-
-  // --- Always thrust ---
-  return { left, right, thrust: true, fire }
+  return {
+    ...steer,
+    thrust,
+    fire,
+  }
 }
