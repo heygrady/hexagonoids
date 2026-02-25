@@ -61,6 +61,39 @@ expect(stub.bulletNode.isVisible).toBe(false)
 This pattern avoids complex mocking of the full `createFn` path while still
 covering the reset/cleanup behavior.
 
+## getCommonMaterial Triggers solid-js Hydration Error in Tests
+
+`getCommonMaterial` calls `solid-js createUniqueId()` **at the module level** to generate stable material cache keys. Any test that transitively imports a module depending on `getCommonMaterial` will fail:
+
+> `getNextContextId cannot be used under non-hydrating context`
+
+**Fix**: Mock `getCommonMaterial` at the top of the test file:
+
+```typescript
+vi.mock('../../src/components/hexagonoids/engine/commonMaterial', () => ({
+  getCommonMaterial: vi.fn().mockReturnValue(null),
+}))
+```
+
+The mock returns `null` because material assignment is not what's under test — only mesh creation and idempotency matter. Apply this mock to any test file that imports a module transitively touching `getCommonMaterial` (e.g., `initializeBulletMaster`, ship/rock node factories).
+
+## Singleton Tests: Combine Creation and Idempotency
+
+Module-level singletons (e.g., `bulletMaster` in `createBulletNodes.ts`) do not reset between Vitest test cases — there is no exported reset function. Splitting creation and idempotency into separate tests would require test ordering guarantees.
+
+**Pattern**: Cover both in a single test case:
+
+```typescript
+it('creates bullet master and is idempotent', () => {
+  const first = initializeBulletMaster(scene)
+  expect(first).toBeDefined()
+  const second = initializeBulletMaster(scene)
+  expect(second).toBe(first)  // same reference — no double-init
+})
+```
+
+If a reset is needed across test suites, export a `resetForTesting()` or restructure the singleton into a factory function.
+
 ## RockNodes Location
 
 `RockNodes` is defined inline in `engine/nodeTypes.ts` alongside `ShipNodes`

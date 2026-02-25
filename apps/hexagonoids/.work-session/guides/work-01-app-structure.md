@@ -89,6 +89,44 @@ Consumers keep a local `const PLAYER_ID = DEFAULT_PLAYER_ID` rather than
 importing `DEFAULT_PLAYER_ID` at every call site — preserves readability and
 eliminates string literal drift risk.
 
+## SceneStore Must Not Be Deleted
+
+`store/scene/` (`SceneStore.ts`, `SceneSetters.ts`) is **rendering infrastructure**, not game logic. It holds the Babylon `Scene`, globe mesh, camera context, and running flag. It is consumed by `solid-babylon/SceneCanvas.tsx` and `SceneContext.ts`.
+
+When deleting nanostore game-state directories, do **not** delete `store/scene/`. It was accidentally removed alongside the game stores in a mass cleanup and had to be restored from git.
+
+## Cell System Was Removed (Intentionally Inert)
+
+The cell pool system (`store/cell/`, `store/cellPool/`, `hooks/useCellPool`, `Cells.tsx`, `Cell.tsx`, `cell/generateCell.ts`) was deleted entirely. The rationale: `PoolInitializer` was never rendered, `Collision.tsx` was never rendered, so no cells were ever created or visited. Keeping a broken dependency chain through `GameStore` was worse than deleting. Do not try to restore this system unless a collision/cell feature is being actively built.
+
+## EngineGameLoop: startPlayer Belongs in onMount()
+
+Calling side-effectful engine mutations (`startPlayer`, `engine.mutate()`) **during component render** is incorrect in SolidJS — it runs synchronously during the reactive graph build. Wrap any engine init calls in `onMount()`:
+
+```typescript
+onMount(() => {
+  engine.mutate((state) => { startPlayer(state, PLAYER_ID, engine.rng) })
+})
+```
+
+`startPlayer` is idempotent (no-ops if player already exists), so the practical risk of calling it in render was low — but it violates SolidJS conventions. The `onMount` form is correct.
+
+## ShipCamera Default Position
+
+`ShipCamera.tsx` was simplified to always use the default starting position `latLngToVector3(0, 0, RADIUS)`. The old code read `$player.$ship.positionNode` from the nanostore but fell back to the same default anyway. No behavioral change.
+
+## bullet/createBulletNodes.ts — initializeBulletMaster Only
+
+After cleanup, `bullet/createBulletNodes.ts` retains only:
+- `initializeBulletMaster()` — used by `engine/bulletNodePool.ts`
+- `getBulletMaster()` — accessor added for completeness
+
+The old `createBulletNodes` function and `BulletStore` type import were removed. Do not re-add `BulletStore` imports to this file.
+
+## SphereArenaCamera: Vector3[] Not Tuple
+
+The `CameraPoints` 5-tuple was replaced with `Vector3[]` on the `SphereArenaCamera` interface. The ray-pick loop only rejects 0-length results, so a 1–4-length pick would under-fill a 5-tuple at runtime. `Vector3[]` matches runtime behavior without requiring a length guard.
+
 ## useInputBridge — Plain Object, Not Signal
 
 `useInputBridge` stores the current key state in a plain mutable object rather

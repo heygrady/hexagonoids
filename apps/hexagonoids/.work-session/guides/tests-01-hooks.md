@@ -51,6 +51,25 @@ const callback = mockScene.onBeforeRenderObservable.add.mock.calls[0][0]
 callback()  // simulate one frame
 ```
 
+## vi.stubGlobal for globalThis Side-Effects
+
+When a module modifies `globalThis` (e.g., `globalThis.devicePixelRatio`) as a side-effect inside a factory or constructor, use `vi.stubGlobal` to install a clean stub **inside the test body** (not at describe scope). Always restore with `afterEach(() => vi.unstubAllGlobals())`:
+
+```typescript
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+it('reads devicePixelRatio', () => {
+  vi.stubGlobal('devicePixelRatio', 2)
+  // ... test body
+})
+```
+
+Placing the stub inside the test body rather than `beforeEach` prevents the stub value leaking into other test files. Using `vi.unstubAllGlobals()` is more reliable than manually restoring the original value.
+
+This pattern was applied in `test/utils/screenDimensions.test.ts` to isolate the `Object.defineProperty(globalThis, 'devicePixelRatio', ...)` side-effect inside `getScreenDimensions`.
+
 ## Avoid Implementation Inspector Tests
 
 Do not write tests that assert internal wiring details with no behavioral value.
