@@ -21,6 +21,7 @@
     "@astrojs/vercel": "9.0.2",
     "@babylonjs/core": "^8.37.3",
     "@heygrady/h3-babylon": "workspace:^",
+    "@heygrady/hexagonoids-engine": "workspace:^",
     "@heygrady/tictactoe-demo": "workspace:^",
     "@heygrady/tictactoe-environment": "workspace:^",
     "@nanostores/solid": "^1.1.1",
