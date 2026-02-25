@@ -36,8 +36,9 @@ const isSupportedAlgorithm = (value: string): value is SupportedAlgorithm => {
 const usage = () => {
   return [
     'Usage:',
+    '  hexagonoids-demo replay --path <best-genome.json> [--method <name>] [--seed <seed>]',
+    '  hexagonoids-demo replay <best-genome.json> [method]',
     '  hexagonoids-replay --path <best-genome.json> [--method <name>] [--seed <seed>]',
-    '  hexagonoids-replay <best-genome.json> [method]',
     '',
     `Methods: ${SUPPORTED_ALGORITHMS.join(', ')}`,
   ].join('\n')
@@ -187,6 +188,10 @@ export async function runCli(args = argv.slice(2)): Promise<number> {
     options = parseReplayOptions(args)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    if (message === usage()) {
+      console.log(message)
+      return 0
+    }
     console.error(message)
     return 1
   }

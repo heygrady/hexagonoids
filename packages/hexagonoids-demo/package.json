@@ -15,6 +15,7 @@
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/types/index.d.ts",
+  "bin": "./bin/index.js",
   "exports": {
     ".": {
       "types": "./dist/types/index.d.ts",
@@ -29,7 +30,9 @@
   },
   "files": [
     "dist/**/*",
-    "src/**/*"
+    "src/**/*",
+    "bin/**/*",
+    "README.md"
   ],
   "scripts": {
     "build": "yarn clean && concurrently --timings --prefix --names \"cjs,esm,tsc\" \"yarn build:cjs\" \"yarn build:esm\" \"yarn build:types\"",
@@ -47,6 +50,7 @@
     "dev:types": "tsc --watch --declaration --emitDeclarationOnly --project tsconfig.types.json --outDir dist/types",
     "format": "biome check --write",
     "lint": "biome lint",
+    "demo": "node ./bin/index.js",
     "prebuild:cjs": "mkdir -p dist/cjs && echo '{\"type\":\"commonjs\",\"main\":\"./index.js\"}' > dist/cjs/package.json",
     "test": "vitest --run --passWithNoTests",
     "test:dev": "vitest"
