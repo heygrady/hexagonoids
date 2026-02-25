@@ -102,6 +102,18 @@ this invocation (`yarn -s node` fails).
 `yarn node --input-type=module -e` throws `ERR_INPUT_TYPE_NOT_ALLOWED`; drop the
 `--input-type` flag and use `yarn node -e` for inline scripts instead.
 
+## Edit Tool: "File Has Not Been Read Yet"
+
+The Edit tool rejects writes if the file hasn't been read in the current session
+**or** if the file was modified by a linter/formatter between the read and the
+edit. This can recur even for files read earlier in the session.
+
+**Workaround**: Do a short `Read` (e.g., `limit: 3`) immediately before each
+`Edit` or `Write` call. This re-establishes the read state and clears the error.
+
+For `Write` calls on files that will be fully rewritten, a short read is also
+required even if the file was read earlier.
+
 ## Generated Artifact Cleanup
 
 If policy blocks direct `rm` on generated artifacts, use `apply_patch` deletions
