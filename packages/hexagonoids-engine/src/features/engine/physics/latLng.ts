@@ -52,19 +52,41 @@ export const quaternionToLatLng = (
 
 /**
  * Convert [lat, lng] in degrees to an orientation quaternion.
- * Computes the rotation that moves the "up" vector to the surface point.
+ * Aligns local +Y with the surface normal and local +Z (forward) with
+ * geographic east so yaw=0 is always east, regardless of longitude.
  */
 export const latLngToQuaternion = (lat: number, lng: number): Quaternion => {
-  const position = latLngToVector3(lat, lng, 1)
+  const position = latLngToVector3(lat, lng, 1).normalize()
+  const lngRad = lng * DEG_TO_RAD
+  const east = new Vector3(-Math.sin(lngRad), 0, Math.cos(lngRad)).normalize()
+
   const up = Vector3.Up()
   const axis = Vector3.Cross(up, position)
   const axisLen = axis.length()
+  let upAligned: Quaternion
   if (axisLen < 0.00001) {
-    if (position.y > 0) return Quaternion.Identity()
-    return Quaternion.RotationAxis(new Vector3(1, 0, 0), Math.PI)
+    upAligned =
+      position.y > 0
+        ? Quaternion.Identity()
+        : Quaternion.RotationAxis(new Vector3(1, 0, 0), Math.PI)
+  } else {
+    axis.scaleInPlace(1 / axisLen)
+    const dot = Vector3.Dot(up, position)
+    const angle = Math.acos(Math.max(-1, Math.min(1, dot)))
+    upAligned = Quaternion.RotationAxis(axis, angle)
   }
-  axis.scaleInPlace(1 / axisLen)
-  const dot = Vector3.Dot(up, position)
-  const angle = Math.acos(Math.max(-1, Math.min(1, dot)))
-  return Quaternion.RotationAxis(axis, angle)
+
+  // Resolve the twist around the normal so forward matches geographic east.
+  const forwardAfterUpAlign = Vector3.Forward()
+    .applyRotationQuaternion(upAligned)
+    .normalize()
+  const cross = Vector3.Cross(forwardAfterUpAlign, east)
+  const signedSin = Vector3.Dot(position, cross)
+  const signedCos = Vector3.Dot(forwardAfterUpAlign, east)
+  const twist = Math.atan2(signedSin, signedCos)
+
+  const twistQuaternion = Quaternion.RotationAxis(position, twist)
+  const result = twistQuaternion.multiply(upAligned)
+  result.normalize()
+  return result
 }
