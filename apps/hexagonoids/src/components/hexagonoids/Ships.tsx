@@ -1,7 +1,10 @@
+import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import type { Component, JSX } from 'solid-js'
 import { For } from 'solid-js'
 
-import { subscribeShipPool } from './hooks/useShipPool'
+import { useScene } from '../solid-babylon/hooks/useScene'
+
+import { createShipNodePool } from './engine/shipNodePool'
 import { Ship } from './Ship'
 
 export interface ShipsProps {
@@ -9,18 +12,15 @@ export interface ShipsProps {
 }
 
 export const Ships: Component<ShipsProps> = (props) => {
-  const ships = subscribeShipPool()
+  const engine = useGameState()
+  const scene = useScene()
+  const globe = scene.getMeshByName('globe')
+  const pool = createShipNodePool(scene, globe)
 
   return (
     <>
-      <For each={Object.keys(ships())}>
-        {(id) => {
-          const $ship = ships()[id]
-          if ($ship == null) {
-            return
-          }
-          return <Ship id={id} store={$ship} />
-        }}
+      <For each={engine.shipIds()}>
+        {(id) => <Ship shipId={id} pool={pool} />}
       </For>
       {props.children}
     </>

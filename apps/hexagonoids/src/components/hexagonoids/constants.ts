@@ -116,6 +116,9 @@ export const SHIP_VALUE = 400
 
 export const PLAYER_STARTING_LIVES = 3
 
+/** Default player ID for single-player mode */
+export const DEFAULT_PLAYER_ID = 'player-1'
+
 export const CELL_VISITED_DURATION = MAX_DURATION * 2
 export const CELL_IMPACTED_DURATION = MAX_DURATION * 10
 export const CELL_VISITED_OPACITY = 0.35

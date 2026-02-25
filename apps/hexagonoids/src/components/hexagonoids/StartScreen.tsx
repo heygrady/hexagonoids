@@ -2,14 +2,15 @@ import type { Material } from '@babylonjs/core/Materials/material'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { Node } from '@babylonjs/core/node'
+import { latLngToVector3 } from '@heygrady/h3-babylon'
+import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import { type Component, onCleanup } from 'solid-js'
 
 import { useScene } from '../solid-babylon/hooks/useScene'
 
 import { getCommonMaterial } from './common/commonMaterial'
-import { useGame } from './hooks/useGame'
+import { DEFAULT_PLAYER_ID, RADIUS } from './constants'
 import { createTextMesh } from './hud/createTextMesh'
-import { usePlayer } from './KeyboardPlayer'
 import { useCamera } from './ShipCamera'
 import { getYawPitch } from './ship/getYawPitch'
 import { moveNodeTo } from './ship/orientation'
@@ -32,10 +33,11 @@ export const allowedKeys = new Set([
   'Space',
 ])
 
+const PLAYER_ID = DEFAULT_PLAYER_ID
+
 export const StartScreen: Component = () => {
   const scene = useScene()
-  const [, { start }] = useGame()
-  const [$player] = usePlayer()
+  const engine = useGameState()
   const hudNode = useUI()
   const { originNode: cameraOriginNode } = useCamera()
 
@@ -45,7 +47,6 @@ export const StartScreen: Component = () => {
     emissiveColor: Color3.White(),
   })
 
-  // before the game starts
   const line1 = createTextMesh(scene, 'Hexagonoids')
   line1.scaling.setAll(0.2)
   line1.parent = hudNode
@@ -70,12 +71,23 @@ export const StartScreen: Component = () => {
       return
     }
     hideScreen()
-    start($player, scene)
-    const shipPositionNode = $player.get().$ship?.get().positionNode
-    if (shipPositionNode != null) {
-      const [yaw, pitch] = getYawPitch(shipPositionNode.absolutePosition)
-      moveNodeTo(cameraOriginNode, yaw, pitch)
+
+    // Mark the game as started in engine state
+    engine.mutate((state) => {
+      state.startedAt = state.now
+    })
+
+    // Move camera to the player's ship position
+    const player = engine.state.players.get(PLAYER_ID)
+    if (player?.shipId != null) {
+      const ship = engine.state.ships.get(player.shipId)
+      if (ship != null) {
+        const pos = latLngToVector3(ship.lat, ship.lng, RADIUS)
+        const [yaw, pitch] = getYawPitch(pos)
+        moveNodeTo(cameraOriginNode, yaw, pitch)
+      }
     }
+
     window.removeEventListener('keydown', handleKeyDown)
   }
 
@@ -87,5 +99,6 @@ export const StartScreen: Component = () => {
       d.dispose()
     })
   })
+
   return null
 }

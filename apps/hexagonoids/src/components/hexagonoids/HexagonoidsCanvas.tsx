@@ -10,8 +10,8 @@ import { type ReadyCallback, SceneCanvas } from '../solid-babylon/SceneCanvas'
 
 import { Bullets } from './Bullets'
 import { Cells } from './Cells'
-import { Collisions } from './Collisions'
 import { Culling } from './Culling'
+import { DEFAULT_PLAYER_ID } from './constants'
 import { EndScreen } from './EndScreen'
 import { EngineProvider } from './engine/EngineProvider'
 import { useGameLoop } from './engine/useGameLoop'
@@ -21,7 +21,6 @@ import { Globe } from './Globe'
 import { KeyboardPlayer } from './KeyboardPlayer'
 import { Lights } from './Lights'
 import { CameraLighting } from './NewLights'
-import { Players } from './Players'
 import { Rocks } from './Rocks'
 import { Score } from './Score'
 import { ShipCamera } from './ShipCamera'
@@ -31,7 +30,7 @@ import { bindGameActions, type GameActions } from './store/game/GameActions'
 import { createGameStore, type GameStore } from './store/game/GameStore'
 import { UI } from './UI'
 
-const PLAYER_ID = 'player-1'
+const PLAYER_ID = DEFAULT_PLAYER_ID
 
 export interface HexagonoidsCanvasProps
   extends JSX.CanvasHTMLAttributes<HTMLCanvasElement> {
@@ -98,7 +97,6 @@ export const HexagonoidsCanvas: Component<HexagonoidsCanvasProps> = (props) => {
             <Globe>
               <EngineGameLoop />
               <Ships />
-              <Players />
               <Bullets />
               <Rocks />
               <Cells />
@@ -112,7 +110,6 @@ export const HexagonoidsCanvas: Component<HexagonoidsCanvasProps> = (props) => {
                       <StartScreen />
                       <EndScreen />
                     </UI>
-                    <Collisions />
                   </CameraLighting>
                 </ShipCamera>
               </KeyboardPlayer>
