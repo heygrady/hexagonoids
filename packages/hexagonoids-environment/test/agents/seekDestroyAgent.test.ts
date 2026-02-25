@@ -1,5 +1,10 @@
+import { Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import type { RockState } from '@heygrady/hexagonoids-engine'
-import { createGame, startPlayer } from '@heygrady/hexagonoids-engine'
+import {
+  createGame,
+  latLngToQuaternion,
+  startPlayer,
+} from '@heygrady/hexagonoids-engine'
 import { createRNG } from '@neat-evolution/utils'
 import { describe, expect, it } from 'vitest'
 import { seekDestroyAgent } from '../../src/agents/seekDestroyAgent.js'
@@ -21,23 +26,45 @@ function getShip(state: ReturnType<typeof createGame>['state']) {
   return ship
 }
 
-/** Create a mock rock at given lat/lng. Uses type assertion for test convenience. */
+/** Create a mock rock at given lat/lng with proper Babylon types and consistent orientation. */
 function mockRock(
   id: string,
   lat: number,
   lng: number,
-  size: 0 | 1 | 2 = 2
+  size: 0 | 1 | 2 = 2,
+  angularVelocity: Vector3 = Vector3.Zero()
 ): RockState {
   return {
     id,
-    orientation: { x: 0, y: 0, z: 0, w: 1 },
+    orientation: latLngToQuaternion(lat, lng),
     lat,
     lng,
-    angularVelocity: { x: 0, y: 0, z: 0 },
+    angularVelocity,
     size,
     value: size === 2 ? 50 : size === 1 ? 100 : 200,
-  } as unknown as RockState
+  }
 }
+
+/**
+ * Place ship at equator (0, 0) with a specific yaw.
+ * Updates orientation, lat, lng, and yaw consistently.
+ */
+function placeShipAtOrigin(
+  state: ReturnType<typeof createGame>['state'],
+  yaw: number
+) {
+  const ship = getShip(state)
+  ship.orientation = latLngToQuaternion(0, 0)
+  ship.lat = 0
+  ship.lng = 0
+  ship.yaw = yaw
+  ship.angularVelocity = Vector3.Zero()
+  state.rocks.clear()
+  return ship
+}
+
+// Engine convention: yaw 0 = East, -PI/2 = North, PI/2 = South, PI = West
+const YAW_NORTH = -Math.PI / 2
 
 describe('seekDestroyAgent', () => {
   it('returns no-op when ship is dead', () => {
@@ -75,16 +102,10 @@ describe('seekDestroyAgent', () => {
     const { state, rng } = createGame({ seed: 'turn-test' })
     startPlayer(state, PLAYER_ID, rng)
 
-    const ship = getShip(state)
+    // Ship at equator facing North (yaw = -PI/2)
+    placeShipAtOrigin(state, YAW_NORTH)
 
-    // Place ship at equator facing north (yaw = 0)
-    ship.lat = 0
-    ship.lng = 0
-    ship.yaw = 0
-
-    // Clear existing rocks and place one to the right (east)
-    // 10° longitude at equator = ~0.87 world units — outside danger zone
-    state.rocks.clear()
+    // Rock to the East (right when facing North)
     state.rocks.set('rock-right', mockRock('rock-right', 0, 10))
 
     const inputs = seekDestroyAgent(state, PLAYER_ID, createTestContext())
@@ -98,17 +119,11 @@ describe('seekDestroyAgent', () => {
     const { state, rng } = createGame({ seed: 'fire-test' })
     startPlayer(state, PLAYER_ID, rng)
 
-    const ship = getShip(state)
-
-    // Place ship at equator facing north
-    ship.lat = 0
-    ship.lng = 0
-    ship.yaw = 0
+    // Ship at equator facing North
+    const ship = placeShipAtOrigin(state, YAW_NORTH)
     ship.firedAt = null // ensure cooldown is clear
 
-    // Place rock directly ahead (north), outside danger zone
-    // 10° latitude = ~0.87 world units
-    state.rocks.clear()
+    // Rock directly ahead (North)
     state.rocks.set('rock-ahead', mockRock('rock-ahead', 10, 0))
 
     const inputs = seekDestroyAgent(state, PLAYER_ID, createTestContext())
@@ -118,52 +133,98 @@ describe('seekDestroyAgent', () => {
     expect(inputs.right).toBe(false)
   })
 
-  it('dodges a dangerously close rock', () => {
+  it('dodges a rock on collision course', () => {
     const { state, rng } = createGame({ seed: 'dodge-test' })
     startPlayer(state, PLAYER_ID, rng)
 
-    const ship = getShip(state)
+    // Ship at equator facing North
+    const ship = placeShipAtOrigin(state, YAW_NORTH)
+    ship.firedAt = state.now
 
-    // Place ship at equator facing north
-    ship.lat = 0
-    ship.lng = 0
-    ship.yaw = 0
-
-    // Place rock very close — 2° longitude at equator = ~0.175 world units
-    state.rocks.clear()
-    state.rocks.set('danger-rock', mockRock('danger-rock', 0, 2))
+    // Rock slightly north, closing south toward ship
+    // Angular velocity (-0.2, 0, 0) rotates around -X axis → moves south at equator
+    state.rocks.set(
+      'danger-rock',
+      mockRock('danger-rock', 3, 0, 2, new Vector3(-0.2, 0, 0))
+    )
 
     const inputs = seekDestroyAgent(state, PLAYER_ID, createTestContext())
 
-    // Danger override: rock is to the east (positive relative bearing from
-    // north-facing ship), so agent turns left to flee and thrusts out.
+    // Should evade: turn to dodge, thrust to escape
+    expect(inputs.left || inputs.right).toBe(true)
+    expect(inputs.left && inputs.right).toBe(false)
     expect(inputs.thrust).toBe(true)
-    expect(inputs.left).toBe(true)
-    expect(inputs.right).toBe(false)
+  })
+
+  it('does not evade a stationary non-threatening rock', () => {
+    const { state, rng } = createGame({ seed: 'receding-test' })
+    startPlayer(state, PLAYER_ID, rng)
+
+    // Ship at equator facing North
+    placeShipAtOrigin(state, YAW_NORTH)
+
+    // Stationary rock behind — closingSpeed = 0, TTC = Infinity, no evasion
+    state.rocks.set('safe-rock', mockRock('safe-rock', -8, 0))
+
+    const ctx = createTestContext()
+    seekDestroyAgent(state, PLAYER_ID, ctx)
+    const mem = ctx.memory as Record<string, unknown>
+
+    // Should NOT be in evade mode — rock is not approaching
+    expect(mem['mode']).not.toBe('evade')
   })
 
   it('selects rock with less rotational distance', () => {
     const { state, rng } = createGame({ seed: 'target-select' })
     startPlayer(state, PLAYER_ID, rng)
 
-    const ship = getShip(state)
+    // Ship at equator facing North
+    placeShipAtOrigin(state, YAW_NORTH)
 
-    // Place ship at equator facing north
-    ship.lat = 0
-    ship.lng = 0
-    ship.yaw = 0
+    // Rock A: behind (south) — in effective range
+    state.rocks.set('rock-behind', mockRock('rock-behind', -8, 0))
 
-    state.rocks.clear()
-
-    // Rock A: behind (south, ~1.05 units) — outside danger zone
-    state.rocks.set('rock-behind', mockRock('rock-behind', -12, 0))
-
-    // Rock B: ahead (north, ~1.22 units) — outside danger zone
-    state.rocks.set('rock-ahead', mockRock('rock-ahead', 14, 0))
+    // Rock B: ahead (north) — in effective range, less rotational distance
+    state.rocks.set('rock-ahead', mockRock('rock-ahead', 8, 0))
 
     const inputs = seekDestroyAgent(state, PLAYER_ID, createTestContext())
 
     // Should not be turning — the ahead rock has less rotational distance
+    expect(inputs.left).toBe(false)
+    expect(inputs.right).toBe(false)
+  })
+
+  it('pursues out-of-range targets when nothing is in range', () => {
+    const { state, rng } = createGame({ seed: 'out-of-range-pursuit' })
+    startPlayer(state, PLAYER_ID, rng)
+
+    // Ship at equator facing North
+    placeShipAtOrigin(state, YAW_NORTH)
+
+    // Rock far to the East (~2.6 world units, outside bullet range ~= 1.41)
+    state.rocks.set('far-right', mockRock('far-right', 0, 30))
+
+    const inputs = seekDestroyAgent(state, PLAYER_ID, createTestContext())
+
+    expect(inputs.right).toBe(true)
+    expect(inputs.left).toBe(false)
+  })
+
+  it('fires and manages speed when engaging an aligned rock', () => {
+    const { state, rng } = createGame({ seed: 'stately-speed' })
+    startPlayer(state, PLAYER_ID, rng)
+
+    // Ship at equator facing North
+    const ship = placeShipAtOrigin(state, YAW_NORTH)
+    ship.firedAt = null
+
+    // Rock directly ahead (north)
+    state.rocks.set('rock-ahead', mockRock('rock-ahead', 10, 0))
+
+    const inputs = seekDestroyAgent(state, PLAYER_ID, createTestContext())
+
+    expect(inputs.fire).toBe(true)
+    // Should not turn — rock is straight ahead
     expect(inputs.left).toBe(false)
     expect(inputs.right).toBe(false)
   })
