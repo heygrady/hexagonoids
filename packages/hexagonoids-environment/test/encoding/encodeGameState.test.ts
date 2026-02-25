@@ -117,25 +117,14 @@ describe('encodeGameState', () => {
   })
 
   it('dead ship returns zeros with sector distances at 1.0', () => {
-    // Run until ship dies
-    const { state, rng } = setupGame('test-enc-dead', 0)
+    const { state } = setupGame('test-enc-dead', 1)
 
-    // Force many ticks until ship is dead
-    for (let i = 0; i < 3000; i++) {
-      step(
-        state,
-        {
-          [PLAYER_ID]: {
-            thrust: false,
-            fire: false,
-            left: false,
-            right: false,
-          },
-        },
-        33,
-        rng
-      )
-      if (state.endedAt != null) break
+    // Force the ship to be dead so we reliably test the dead-ship branch
+    const player = state.players.get(PLAYER_ID)
+    const ship =
+      player?.shipId != null ? state.ships.get(player.shipId) : undefined
+    if (ship != null) {
+      ship.alive = false
     }
 
     const result = encodeGameState(state, PLAYER_ID, new Map(), 33)
