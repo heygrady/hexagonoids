@@ -14,7 +14,7 @@ import type { Scene } from '@babylonjs/core/scene'
 import { getCommonMaterial } from '../common/commonMaterial'
 import { CAMERA_RADIUS } from '../constants'
 import { pickPoint } from '../rock/pickPoint'
-import { getScreenDimensions } from '../store/player/PlayerActions'
+import { getScreenDimensions } from '../utils/screenDimensions'
 
 export interface SphereArenaCameraOptions {
   radius: number
@@ -23,14 +23,6 @@ export interface SphereArenaCameraOptions {
   debug?: boolean
 }
 
-type CameraPoints = [
-  topLeft: Vector3,
-  topRight: Vector3,
-  bottomLeft: Vector3,
-  bottomRight: Vector3,
-  center: Vector3,
-]
-
 export interface SphereArenaCamera {
   camera: FreeCamera
   originNode: TransformNode
@@ -38,7 +30,7 @@ export interface SphereArenaCamera {
   equatorialPlane: Mesh
   globe: Mesh
   boxNode: Mesh
-  points: CameraPoints
+  points: Vector3[]
 }
 
 const createEquatorialPlane = (scene: Scene, camera: FreeCamera) => {
@@ -226,6 +218,6 @@ export const createSphereArenaCamera = (
     equatorialPlane,
     globe,
     boxNode,
-    points: points as CameraPoints,
+    points,
   }
 }

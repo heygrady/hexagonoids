@@ -1,4 +1,3 @@
-import type { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
 import {
   type Component,
@@ -11,7 +10,6 @@ import {
 import { useScene, useSceneStore } from '../solid-babylon/hooks/useScene'
 
 import { CAMERA_RADIUS, RADIUS } from './constants'
-import { useGame } from './hooks/useGame'
 import { getYawPitch } from './ship/getYawPitch'
 import { moveNodeTo } from './ship/orientation'
 import {
@@ -24,7 +22,7 @@ export const CameraContext = createContext<CameraContextValue>()
 export const useCamera = () => {
   const context = useContext(CameraContext)
   if (context == null) {
-    throw new Error('useGame: cannot find a CameraContext.Provider')
+    throw new Error('useCamera: cannot find a CameraContext.Provider')
   }
   return context
 }
@@ -37,19 +35,8 @@ export interface ShipCameraProps {
 export const ShipCamera: Component<ShipCameraProps> = (props) => {
   const [, { setCameraContext }] = useSceneStore()
   const scene = useScene()
-  const [$game] = useGame()
-  const { $player } = $game.get()
 
-  if ($player == null) {
-    throw new Error('ShipCamera: no player found')
-  }
-
-  const { positionNode } = $player.get().$ship?.get() ?? {}
-  // if (positionNode == null) {
-  //   // throw new Error('ShipCamera:  no positionNode found')
-  // }
-
-  const createCamera = (lookAt: Vector3) => {
+  const createCamera = () => {
     // Retrieve the globe mesh from scene state
     const [$scene] = useSceneStore()
     const globe = $scene.get().globe
@@ -67,7 +54,9 @@ export const ShipCamera: Component<ShipCameraProps> = (props) => {
       debug: props.debug,
     })
 
-    const position = lookAt.normalize().scaleInPlace(CAMERA_RADIUS)
+    // Use default starting position (ship starts at origin)
+    const defaultPosition = latLngToVector3(0, 0, RADIUS)
+    const position = defaultPosition.normalize().scaleInPlace(CAMERA_RADIUS)
 
     const [yaw, pitch] = getYawPitch(position)
 
@@ -77,10 +66,7 @@ export const ShipCamera: Component<ShipCameraProps> = (props) => {
     return sphereArenaCamera
   }
 
-  const defaultPosition = latLngToVector3(0, 0, RADIUS)
-  const cameraContext = createCamera(
-    positionNode?.absolutePosition ?? defaultPosition
-  )
+  const cameraContext = createCamera()
 
   // tell the scene about it
   setCameraContext(cameraContext)

@@ -4,21 +4,18 @@ import type { SceneOptions } from '@babylonjs/core/scene'
 import { startPlayer } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import type { Component, JSX } from 'solid-js'
-import { createSignal, Show } from 'solid-js'
+import { createSignal, onMount, Show } from 'solid-js'
 
 import { type ReadyCallback, SceneCanvas } from '../solid-babylon/SceneCanvas'
 
 import { Bullets } from './Bullets'
-import { Cells } from './Cells'
 import { Culling } from './Culling'
 import { DEFAULT_PLAYER_ID } from './constants'
 import { EndScreen } from './EndScreen'
 import { EngineProvider } from './engine/EngineProvider'
 import { useGameLoop } from './engine/useGameLoop'
 import { useInputBridge } from './engine/useInputBridge'
-import { GameContext } from './GameContext'
 import { Globe } from './Globe'
-import { KeyboardPlayer } from './KeyboardPlayer'
 import { Lights } from './Lights'
 import { CameraLighting } from './NewLights'
 import { Rocks } from './Rocks'
@@ -26,8 +23,6 @@ import { Score } from './Score'
 import { ShipCamera } from './ShipCamera'
 import { Ships } from './Ships'
 import { StartScreen } from './StartScreen'
-import { bindGameActions, type GameActions } from './store/game/GameActions'
-import { createGameStore, type GameStore } from './store/game/GameStore'
 import { UI } from './UI'
 
 const PLAYER_ID = DEFAULT_PLAYER_ID
@@ -47,9 +42,11 @@ function EngineGameLoop() {
   const engine = useGameState()
   const inputs = useInputBridge()
 
-  // Start the player in the engine
-  engine.mutate((state) => {
-    startPlayer(state, PLAYER_ID, engine.rng)
+  // Start the player once on mount (startPlayer is idempotent but side-effectful)
+  onMount(() => {
+    engine.mutate((state) => {
+      startPlayer(state, PLAYER_ID, engine.rng)
+    })
   })
 
   // Register the game loop tick (before entity render callbacks)
@@ -59,13 +56,6 @@ function EngineGameLoop() {
 }
 
 export const HexagonoidsCanvas: Component<HexagonoidsCanvasProps> = (props) => {
-  const $game = createGameStore()
-  const gameActions = bindGameActions($game)
-  const gameContext: [$game: GameStore, actions: GameActions] = [
-    $game,
-    gameActions,
-  ]
-
   const antialias = true
   const adaptToDeviceRatio = true
 
@@ -91,32 +81,27 @@ export const HexagonoidsCanvas: Component<HexagonoidsCanvasProps> = (props) => {
       enableWebGPU={props.enableWebGPU}
       {...props}
     >
-      <GameContext.Provider value={gameContext}>
-        <EngineProvider>
-          <Show when={ready()}>
-            <Globe>
-              <EngineGameLoop />
-              <Ships />
-              <Bullets />
-              <Rocks />
-              <Cells />
-              <Lights />
-              <KeyboardPlayer>
-                <ShipCamera debug={props.debug}>
-                  <CameraLighting>
-                    <Culling />
-                    <UI>
-                      <Score />
-                      <StartScreen />
-                      <EndScreen />
-                    </UI>
-                  </CameraLighting>
-                </ShipCamera>
-              </KeyboardPlayer>
-            </Globe>
-          </Show>
-        </EngineProvider>
-      </GameContext.Provider>
+      <EngineProvider>
+        <Show when={ready()}>
+          <Globe>
+            <EngineGameLoop />
+            <Ships />
+            <Bullets />
+            <Rocks />
+            <Lights />
+            <ShipCamera debug={props.debug}>
+              <CameraLighting>
+                <Culling />
+                <UI>
+                  <Score />
+                  <StartScreen />
+                  <EndScreen />
+                </UI>
+              </CameraLighting>
+            </ShipCamera>
+          </Globe>
+        </Show>
+      </EngineProvider>
     </SceneCanvas>
   )
 }
