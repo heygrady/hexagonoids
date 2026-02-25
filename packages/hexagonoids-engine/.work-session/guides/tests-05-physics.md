@@ -56,6 +56,27 @@ expect(onScoreChanged).toHaveBeenCalledWith(playerId, expect.any(Number), expect
 If you do not need to verify the hook was called, remove it from the test setup
 rather than leaving it as dead setup.
 
+## Cohesive Domain Exception to File Size Rule
+
+The 300-line split threshold has an explicit exception: **do not split a file
+whose tests form one cohesive domain**, even if it exceeds the threshold.
+
+Two confirmed examples in this package:
+
+- **`step.test.ts` (372 lines)** — 10 sub-domains, all share one `beforeEach`
+  factory, all test the single `step()` function. Splitting would fragment what
+  reads as one coherent validation story.
+
+- **`test/engine/physics/getYawPitch.test.ts` (332 lines)** — two `describe`
+  blocks (pure unit tests + Babylon rotate-child integration tests) both test
+  the same function from complementary angles. The complementary coverage makes
+  them a single cohesive story.
+
+The guiding principle: "a file with 40 tests across one cohesive domain is
+better than four files with 10 tests each that share the same setup." Apply
+the split when domains are genuinely independent — not when they share setup
+and test the same function.
+
 ## Hook Wiring Gap
 
 `onEntitySpawned`, `onEntityDestroyed`, and `onWaveSpawned` are defined in
