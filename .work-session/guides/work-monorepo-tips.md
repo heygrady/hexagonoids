@@ -120,6 +120,22 @@ If policy blocks direct `rm` on generated artifacts, use `apply_patch` deletions
 to remove files instead. Plan cleanup in the patch so the removal is tracked and
 repeatable.
 
+## Bash Tool: Use Absolute Paths for File Operations
+
+The Bash tool does **not** inherit the project's working directory. Commands using relative paths (e.g., `rm -f src/foo.ts`) silently no-op if the shell's CWD differs from the project root. This causes repeated failed attempts before the correct form is found.
+
+**Always use absolute paths** for file operations in Bash:
+
+```bash
+rm -f /Users/heygrady/projects/hexagonoids/apps/hexagonoids/src/components/foo.ts
+```
+
+Alternatively, explicitly `cd` to the target directory first:
+
+```bash
+cd /Users/heygrady/projects/hexagonoids && rm -f apps/hexagonoids/src/components/foo.ts
+```
+
 ## New Package Checklist
 
 When creating a new package by copying `template-ts`:
