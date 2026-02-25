@@ -51,6 +51,9 @@ export function killPlayer(game: GameState, playerId: string): void {
 
   player.alive = false
   player.diedAt = game.now
+  player.leftPressedAt = null
+  player.rightPressedAt = null
+  player.thrustPressedAt = null
 
   // Destroy the ship
   if (player.shipId != null) {

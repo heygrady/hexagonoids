@@ -89,7 +89,10 @@ export {
   headingToAngularVelocity,
   integrateAngularVelocity,
 } from './features/engine/physics/quaternionPhysics.js'
-export { turnShip } from './features/engine/physics/turnShip.js'
+export {
+  easeCircleOut,
+  turnShip,
+} from './features/engine/physics/turnShip.js'
 // Player — actions & setters
 export {
   canRegenerate,

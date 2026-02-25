@@ -2,7 +2,7 @@ import type { RNG } from '@neat-evolution/utils'
 
 import { expireBullets } from './bullet/bulletActions.js'
 import { detectCollisions, handleCollisions } from './collision/index.js'
-import { MAX_DURATION, RADIUS } from './constants.js'
+import { RADIUS } from './constants.js'
 import { advanceGameTime } from './gameTime.js'
 import type { EngineHooks } from './hooks.js'
 import { accelerateShip } from './physics/accelerateShip.js'
@@ -20,7 +20,8 @@ import type { GameState, PlayerInputs } from './types.js'
 
 /**
  * Apply player inputs to their ships.
- * Uses MAX_DURATION for easing (full-speed inputs, no hold tracking).
+ * Tracks per-player input hold timestamps to compute easing durations,
+ * matching the app's behavior where turn/thrust ramp up over time.
  */
 function applyInputs(
   state: GameState,
@@ -34,9 +35,39 @@ function applyInputs(
     const ship = state.ships.get(player.shipId)
     if (ship == null) continue
 
-    if (input.left) turnShip(ship, -1, dtMs, MAX_DURATION)
-    if (input.right) turnShip(ship, 1, dtMs, MAX_DURATION)
-    accelerateShip(ship, input.thrust, dtMs, MAX_DURATION)
+    // Track left input hold
+    if (input.left && player.leftPressedAt == null) {
+      player.leftPressedAt = state.now
+    } else if (!input.left) {
+      player.leftPressedAt = null
+    }
+
+    // Track right input hold
+    if (input.right && player.rightPressedAt == null) {
+      player.rightPressedAt = state.now
+    } else if (!input.right) {
+      player.rightPressedAt = null
+    }
+
+    // Track thrust input hold
+    if (input.thrust && player.thrustPressedAt == null) {
+      player.thrustPressedAt = state.now
+    } else if (!input.thrust) {
+      player.thrustPressedAt = null
+    }
+
+    if (input.left) {
+      const leftDuration = state.now - player.leftPressedAt!
+      turnShip(ship, -1, dtMs, leftDuration)
+    }
+    if (input.right) {
+      const rightDuration = state.now - player.rightPressedAt!
+      turnShip(ship, 1, dtMs, rightDuration)
+    }
+    const thrustDuration = input.thrust
+      ? state.now - player.thrustPressedAt!
+      : 0
+    accelerateShip(ship, input.thrust, dtMs, thrustDuration)
     if (input.fire) fireBullet(state, ship, rng)
   }
 }

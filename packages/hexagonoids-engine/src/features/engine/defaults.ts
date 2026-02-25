@@ -65,6 +65,9 @@ export const defaultPlayerState: Omit<PlayerState, 'id'> = {
   diedAt: null,
   regeneratedAt: null,
   waveSpawnedAt: null,
+  leftPressedAt: null,
+  rightPressedAt: null,
+  thrustPressedAt: null,
 }
 
 export const defaultGameState: GameState = {

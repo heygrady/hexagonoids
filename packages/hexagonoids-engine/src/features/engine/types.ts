@@ -127,6 +127,15 @@ export interface PlayerState {
 
   /** Timestamp (game time ms) when the last wave was spawned for this player */
   waveSpawnedAt: number | null
+
+  /** Timestamp (game time ms) when the left turn input started being held */
+  leftPressedAt: number | null
+
+  /** Timestamp (game time ms) when the right turn input started being held */
+  rightPressedAt: number | null
+
+  /** Timestamp (game time ms) when the thrust input started being held */
+  thrustPressedAt: number | null
 }
 
 // ── Player inputs ────────────────────────────────────────────────────────────

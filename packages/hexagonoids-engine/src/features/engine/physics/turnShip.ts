@@ -5,7 +5,7 @@ import type { ShipState } from '../types.js'
  * Easing function: circle out — sqrt(1 - (t - 1)^2)
  * Equivalent to d3-ease easeCircleOut.
  */
-const easeCircleOut = (t: number): number => Math.sqrt(1 - (t - 1) ** 2)
+export const easeCircleOut = (t: number): number => Math.sqrt(1 - (t - 1) ** 2)
 
 /**
  * Rotate the ship's yaw by the given direction.
