@@ -22,7 +22,11 @@ If the trainer already has the run-best organism, expose it via `TrainingRunResu
 
 ## Keep loadGenome Minimal
 
-`loadGenome` should remain pure deserialization with minimal shape checks (root object + genome/config/state). Avoid algorithm-specific parsing in this layer so replay stays stable and safe across algorithm changes.
+`loadGenome` should remain pure deserialization with shape checks via
+`assertSerializedOrganism` — validates `__kind === 'SerializedOrganism'`,
+`version === 1`, `genome` (record), `genome.config` (record), `genome.state`
+(record), and `factoryOptions`. Avoid algorithm-specific parsing in this layer
+so replay stays stable and safe across algorithm changes.
 
 
 ## Serialize/Replay Discriminator
