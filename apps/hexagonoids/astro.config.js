@@ -1,17 +1,15 @@
 import path from 'node:path'
-
+import node from '@astrojs/node'
 import solid from '@astrojs/solid-js'
-import vercel from '@astrojs/vercel'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'astro/config'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://astro.build/config
 export default defineConfig({
+  output: 'server',
   integrations: [solid()],
-  adapter: vercel({
-    analytics: true,
-  }),
+  adapter: node({ mode: 'standalone' }),
   vite: {
     optimizeDeps: {
       include: ['async-sema'],
