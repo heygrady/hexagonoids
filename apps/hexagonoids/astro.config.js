@@ -3,7 +3,6 @@ import node from '@astrojs/node'
 import solid from '@astrojs/solid-js'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'astro/config'
-import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://astro.build/config
 export default defineConfig({
@@ -29,13 +28,7 @@ export default defineConfig({
         '@heygrady/tictactoe-game',
       ],
     },
-    plugins: [
-      tailwindcss(),
-      {
-        ...nodePolyfills(),
-        apply: 'serve', // Only apply in dev mode
-      },
-    ],
+    plugins: [tailwindcss()],
     build: {
       sourcemap: true,
       rollupOptions: {
