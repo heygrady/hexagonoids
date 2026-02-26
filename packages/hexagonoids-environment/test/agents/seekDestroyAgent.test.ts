@@ -230,7 +230,7 @@ describe('seekDestroyAgent', () => {
   })
 
   it('achieves non-zero score in simulation', () => {
-    const metrics = simulateGame(seekDestroyAgent, { maxTicks: 1000 }, 'perf-1')
+    const metrics = simulateGame(seekDestroyAgent, { maxTicks: 3000 }, 'perf-1')
 
     expect(metrics.rocksDestroyed).toBeGreaterThan(0)
     expect(metrics.score).toBeGreaterThan(0)

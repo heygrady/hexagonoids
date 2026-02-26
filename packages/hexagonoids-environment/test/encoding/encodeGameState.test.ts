@@ -93,7 +93,7 @@ describe('encodeGameState', () => {
   })
 
   it('rock outside SOI is not encoded', () => {
-    const { state } = setupGame('test-enc-soi', 1)
+    const { state } = setupGame('test-enc-soi', 70)
 
     // Get ship position
     const player = state.players.get(PLAYER_ID)
@@ -160,7 +160,7 @@ describe('encodeGameState', () => {
   })
 
   it('approach speed uses prevDistances when available', () => {
-    const { state } = setupGame('test-approach', 2)
+    const { state } = setupGame('test-approach', 70)
 
     const player = state.players.get(PLAYER_ID)
     const ship =
