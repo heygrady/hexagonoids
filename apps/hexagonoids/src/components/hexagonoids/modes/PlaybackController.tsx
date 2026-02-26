@@ -1,6 +1,6 @@
 import { MAX_DELTA } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
-import { createSignal, onCleanup } from 'solid-js'
+import { createSignal, Match, onCleanup, Switch } from 'solid-js'
 import { useScene } from '../../solid-babylon/hooks/useScene'
 import { DEFAULT_PLAYER_ID } from '../constants'
 import { useInputs } from '../engine/useInputBridge'
@@ -8,29 +8,39 @@ import { unpackInputs } from '../types'
 import { useAppMode } from './AppModeProvider'
 import { BENCHMARK_SEEDS } from './constants'
 import { PlaybackOverlay } from './PlaybackOverlay'
+import { SessionBrowser } from './SessionBrowser'
 import { trpc } from './trpc'
-
-const PLAYER_ID = DEFAULT_PLAYER_ID
 
 interface SessionFrame {
   dt: number
   i: number
 }
 
+interface SeedScoreStats {
+  bestScore: number
+  avgScore: number
+}
+
+type PlaybackPhase = 'browse' | 'playing'
+
 /**
- * Playback-mode controller. When active, hooks into the Babylon render loop,
- * replays recorded sessions using accumulator-based timing, and advances
- * through benchmark seeds. Returns to play mode when all sessions are done.
+ * Playback-mode controller. Shows a session browser first, then replays
+ * selected sessions using accumulator-based timing. Returns to play mode
+ * when all sessions are done or the user presses Escape.
  */
 export function PlaybackController() {
   const engine = useGameState()
   const inputs = useInputs()
   const scene = useScene()
-  const { setAppMode } = useAppMode()
+  const { setAppMode, playerId } = useAppMode()
+  const PLAYER_ID = playerId() || DEFAULT_PLAYER_ID
 
+  const [phase, setPhase] = createSignal<PlaybackPhase>('browse')
   const [seedIndex, setSeedIndex] = createSignal(0)
   const [frameIndex, setFrameIndex] = createSignal(0)
   const [totalFrames, setTotalFrames] = createSignal(0)
+  const [currentSeedStats, setCurrentSeedStats] =
+    createSignal<SeedScoreStats | null>(null)
 
   let frames: SessionFrame[] = []
   let currentFrameIndex = 0
@@ -38,6 +48,7 @@ export function PlaybackController() {
   let loading = true
   let disposed = false
   let availableSeeds: string[] = []
+  const seedStatsMap: Record<string, SeedScoreStats> = {}
 
   function exitPlayback() {
     inputs.reset()
@@ -53,6 +64,23 @@ export function PlaybackController() {
     }
   }
   window.addEventListener('keydown', handleKeyDown)
+
+  async function fetchStats() {
+    try {
+      const result = await trpc.sessions.exportBenchmarks.query({
+        playerId: PLAYER_ID,
+      })
+      if (disposed) return
+      for (const [seed, stats] of Object.entries(result.seeds)) {
+        seedStatsMap[seed] = {
+          bestScore: stats.bestScore,
+          avgScore: stats.avgScore,
+        }
+      }
+    } catch {
+      // Stats are optional — continue without them
+    }
+  }
 
   async function loadSession(index: number): Promise<boolean> {
     const seed = availableSeeds[index]
@@ -73,6 +101,7 @@ export function PlaybackController() {
     setSeedIndex(index)
     setFrameIndex(0)
     setTotalFrames(frames.length)
+    setCurrentSeedStats(seedStatsMap[seed] ?? null)
 
     // Reseed the engine to match the recorded session
     engine.reseed(seed, PLAYER_ID)
@@ -85,7 +114,6 @@ export function PlaybackController() {
     const nextIndex = seedIndex() + 1
 
     if (nextIndex >= availableSeeds.length) {
-      // All sessions done
       console.log('[PLAYBACK] All sessions complete')
       exitPlayback()
       return
@@ -101,14 +129,14 @@ export function PlaybackController() {
     }
   }
 
-  // Start by fetching available sessions and loading the first one
-  async function initialize() {
-    try {
-      availableSeeds = await trpc.sessions.list.query({ playerId: PLAYER_ID })
-      if (disposed) return
+  async function startPlayback(seeds: string[]) {
+    availableSeeds = seeds
+    loading = true
+    setPhase('playing')
 
-      // Filter to only seeds that match benchmark seeds
-      availableSeeds = availableSeeds.filter((s) => BENCHMARK_SEEDS.includes(s))
+    try {
+      await fetchStats()
+      if (disposed) return
 
       if (availableSeeds.length === 0) {
         console.warn(
@@ -131,11 +159,35 @@ export function PlaybackController() {
     }
   }
 
-  void initialize()
+  function handleSelectAll() {
+    // Get all benchmark seeds that have recordings — will be filtered server-side
+    void (async () => {
+      try {
+        const allSeeds = await trpc.sessions.list.query({
+          playerId: PLAYER_ID,
+        })
+        if (disposed) return
+        const filtered = allSeeds.filter((s) => BENCHMARK_SEEDS.includes(s))
+        startPlayback(filtered)
+      } catch (err) {
+        if (disposed) return
+        console.error('[PLAYBACK] Failed to list sessions:', err)
+        exitPlayback()
+      }
+    })()
+  }
+
+  function handleSelectSeed(seed: string) {
+    void startPlayback([seed])
+  }
+
+  function handleCancel() {
+    exitPlayback()
+  }
 
   // Hook into the render loop for accumulator-based replay
   const observer = scene.onBeforeRenderObservable.add(() => {
-    if (loading) return
+    if (loading || phase() !== 'playing') return
 
     const actualDt = Math.min(scene.getEngine().getDeltaTime(), MAX_DELTA)
     accumulator += actualDt
@@ -172,12 +224,26 @@ export function PlaybackController() {
   })
 
   return (
-    <PlaybackOverlay
-      seedIndex={seedIndex()}
-      seedName={availableSeeds[seedIndex()] ?? 'unknown'}
-      totalSeeds={availableSeeds.length}
-      frameIndex={frameIndex()}
-      totalFrames={totalFrames()}
-    />
+    <Switch>
+      <Match when={phase() === 'browse'}>
+        <SessionBrowser
+          onSelectAll={handleSelectAll}
+          onSelectSeed={handleSelectSeed}
+          onCancel={handleCancel}
+        />
+      </Match>
+      <Match when={phase() === 'playing'}>
+        <PlaybackOverlay
+          playerId={PLAYER_ID}
+          seedIndex={seedIndex()}
+          seedName={availableSeeds[seedIndex()] ?? 'unknown'}
+          totalSeeds={availableSeeds.length}
+          frameIndex={frameIndex()}
+          totalFrames={totalFrames()}
+          bestScore={currentSeedStats()?.bestScore}
+          avgScore={currentSeedStats()?.avgScore}
+        />
+      </Match>
+    </Switch>
   )
 }

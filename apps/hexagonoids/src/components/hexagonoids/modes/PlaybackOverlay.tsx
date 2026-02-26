@@ -1,14 +1,15 @@
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
-import { type Component, createMemo } from 'solid-js'
-
-import { DEFAULT_PLAYER_ID } from '../constants'
+import { type Component, createMemo, Show } from 'solid-js'
 
 export interface PlaybackOverlayProps {
+  playerId: string
   seedIndex: number
   seedName: string
   totalSeeds: number
   frameIndex: number
   totalFrames: number
+  bestScore?: number
+  avgScore?: number
 }
 
 /**
@@ -19,7 +20,7 @@ export const PlaybackOverlay: Component<PlaybackOverlayProps> = (props) => {
   const engine = useGameState()
 
   const score = createMemo(() => {
-    const player = engine.state.players.get(DEFAULT_PLAYER_ID)
+    const player = engine.state.players.get(props.playerId)
     return player?.score ?? 0
   })
 
@@ -79,8 +80,14 @@ export const PlaybackOverlay: Component<PlaybackOverlayProps> = (props) => {
         />
       </div>
 
-      {/* Score */}
+      {/* Score with comparison */}
       <div>Score: {score()}</div>
+      <Show when={props.bestScore != null}>
+        <div style={{ 'font-size': '12px', opacity: '0.7' }}>
+          Best: {props.bestScore} | Avg:{' '}
+          {props.avgScore != null ? Math.round(props.avgScore) : '—'}
+        </div>
+      </Show>
 
       {/* Escape hint */}
       <div style={{ 'font-size': '12px', opacity: '0.7' }}>
