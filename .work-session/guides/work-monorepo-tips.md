@@ -13,7 +13,7 @@ The base tsconfig chain extends `@tsconfig/strictest`, which sets
 (`obj['key']`) for `Record<string, unknown>` access, which conflicts with
 Biome's `useLiteralKeys` rule (requires dot notation `obj.key`).
 
-**Resolution**: All 8 library package `tsconfig.json` files override this:
+**Resolution**: All library package `tsconfig.json` files override this:
 
 ```json
 {
@@ -67,7 +67,7 @@ of `>` (overwrite). This defect propagated to every package copied from the
 template. Running `prebuild:cjs` without a clean step would silently produce
 invalid JSON by appending a second object to the file.
 
-**Status**: Fixed in all 8 template-derived packages. Future packages copied
+**Status**: Fixed in all template-derived packages. Future packages copied
 from the template inherit the corrected `>`.
 
 ## Documentation Structure
@@ -101,60 +101,6 @@ this invocation (`yarn -s node` fails).
 
 `yarn node --input-type=module -e` throws `ERR_INPUT_TYPE_NOT_ALLOWED`; drop the
 `--input-type` flag and use `yarn node -e` for inline scripts instead.
-
-## Edit Tool: "File Has Not Been Read Yet"
-
-The Edit tool rejects writes if the file hasn't been read in the current session
-**or** if the file was modified by a linter/formatter between the read and the
-edit. This can recur even for files read earlier in the session.
-
-**Workaround**: Do a short `Read` (e.g., `limit: 3`) immediately before each
-`Edit` or `Write` call. This re-establishes the read state and clears the error.
-
-For `Write` calls on files that will be fully rewritten, a short read is also
-required even if the file was read earlier.
-
-## Code Edit: Never Insert Variable Declarations Before Import Statements
-
-`import` statements must come first in an ES module. Inserting a `let` or
-`const` declaration before any `import` line is a syntax error. When adding
-a new module-level variable, always insert it **after the last import statement**,
-not before the first one.
-
-```typescript
-// WRONG — let before import:
-let counter = 0
-import { foo } from './foo'
-
-// CORRECT — declaration after all imports:
-import { foo } from './foo'
-let counter = 0
-```
-
-When using the Edit tool to add a declaration, match against a line that is
-clearly past the last import to avoid misplacement.
-
-## Generated Artifact Cleanup
-
-If policy blocks direct `rm` on generated artifacts, use `apply_patch` deletions
-to remove files instead. Plan cleanup in the patch so the removal is tracked and
-repeatable.
-
-## Bash Tool: Use Absolute Paths for File Operations
-
-The Bash tool does **not** inherit the project's working directory. Commands using relative paths (e.g., `rm -f src/foo.ts`) silently no-op if the shell's CWD differs from the project root. This causes repeated failed attempts before the correct form is found.
-
-**Always use absolute paths** for file operations in Bash:
-
-```bash
-rm -f /Users/heygrady/projects/hexagonoids/apps/hexagonoids/src/components/foo.ts
-```
-
-Alternatively, explicitly `cd` to the target directory first:
-
-```bash
-cd /Users/heygrady/projects/hexagonoids && rm -f apps/hexagonoids/src/components/foo.ts
-```
 
 ## New Package Checklist
 
