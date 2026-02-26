@@ -1,3 +1,4 @@
+import { Quaternion } from '@babylonjs/core/Maths/math.vector'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import type { Component } from 'solid-js'
 import { onCleanup, onMount } from 'solid-js'
@@ -9,6 +10,7 @@ import {
   TAIL_BLINK_DURATION,
 } from './constants'
 import type { ShipNodes } from './engine/nodeTypes'
+import { useNodeRegistry } from './NodeRegistry'
 import type { ObjectPool } from './pool/ObjectPool'
 
 export interface ShipProps {
@@ -19,6 +21,7 @@ export interface ShipProps {
 export const Ship: Component<ShipProps> = (props) => {
   const engine = useGameState()
   const scene = useScene()
+  const registry = useNodeRegistry()
 
   let nodes: ShipNodes
   let observer: ReturnType<typeof scene.onBeforeRenderObservable.add>
@@ -27,6 +30,12 @@ export const Ship: Component<ShipProps> = (props) => {
     nodes = props.pool.acquire()
     nodes.shipNode.isVisible = true
     nodes.originNode.setEnabled(true)
+
+    registry.register(`ship:${props.shipId}`, {
+      originNode: nodes.originNode,
+      visualNode: nodes.shipNode,
+      positionNode: nodes.positionNode,
+    })
 
     observer = scene.onBeforeRenderObservable.add(() => {
       const ship = engine.state.ships.get(props.shipId)
@@ -37,7 +46,9 @@ export const Ship: Component<ShipProps> = (props) => {
       nodes.originNode.rotationQuaternion!.copyFromFloats(o.x, o.y, o.z, o.w)
 
       // Heading (yaw)
-      nodes.orientationNode.rotation.y = ship.yaw
+      nodes.orientationNode.rotationQuaternion!.copyFrom(
+        Quaternion.RotationYawPitchRoll(ship.yaw, 0, 0)
+      )
 
       // Regeneration grace period blink
       const player = engine.state.players.get(ship.playerId)
@@ -73,6 +84,7 @@ export const Ship: Component<ShipProps> = (props) => {
   })
 
   onCleanup(() => {
+    registry.unregister(`ship:${props.shipId}`)
     scene.onBeforeRenderObservable.remove(observer)
     if (nodes != null) {
       props.pool.release(nodes)

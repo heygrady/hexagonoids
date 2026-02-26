@@ -5,6 +5,7 @@ import { onCleanup, onMount } from 'solid-js'
 import { useScene } from '../solid-babylon/hooks/useScene'
 
 import type { BulletNodes } from './engine/nodeTypes'
+import { useNodeRegistry } from './NodeRegistry'
 import type { ObjectPool } from './pool/ObjectPool'
 
 export interface BulletProps {
@@ -15,6 +16,7 @@ export interface BulletProps {
 export const Bullet: Component<BulletProps> = (props) => {
   const engine = useGameState()
   const scene = useScene()
+  const registry = useNodeRegistry()
 
   let nodes: BulletNodes
   let observer: ReturnType<typeof scene.onBeforeRenderObservable.add>
@@ -23,6 +25,11 @@ export const Bullet: Component<BulletProps> = (props) => {
     nodes = props.pool.acquire()
     nodes.bulletNode.isVisible = true
     nodes.originNode.setEnabled(true)
+
+    registry.register(`bullet:${props.bulletId}`, {
+      originNode: nodes.originNode,
+      visualNode: nodes.bulletNode,
+    })
 
     observer = scene.onBeforeRenderObservable.add(() => {
       const bullet = engine.state.bullets.get(props.bulletId)
@@ -35,6 +42,7 @@ export const Bullet: Component<BulletProps> = (props) => {
   })
 
   onCleanup(() => {
+    registry.unregister(`bullet:${props.bulletId}`)
     scene.onBeforeRenderObservable.remove(observer)
     if (nodes != null) {
       props.pool.release(nodes)

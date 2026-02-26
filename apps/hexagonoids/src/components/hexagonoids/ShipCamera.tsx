@@ -1,4 +1,5 @@
 import { latLngToVector3 } from '@heygrady/h3-babylon'
+import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import {
   type Component,
   createContext,
@@ -8,9 +9,10 @@ import {
 } from 'solid-js'
 
 import { useScene, useSceneStore } from '../solid-babylon/hooks/useScene'
-
-import { CAMERA_RADIUS, RADIUS } from './constants'
+import { CAMERA_RADIUS, DEFAULT_PLAYER_ID, RADIUS } from './constants'
+import { useNodeRegistry } from './NodeRegistry'
 import { getYawPitch } from './ship/getYawPitch'
+import { moveCamera } from './ship/moveCamera'
 import { moveNodeTo } from './ship/orientation'
 import {
   createSphereArenaCamera,
@@ -32,9 +34,13 @@ export interface ShipCameraProps {
   debug?: boolean
 }
 
+const PLAYER_ID = DEFAULT_PLAYER_ID
+
 export const ShipCamera: Component<ShipCameraProps> = (props) => {
   const [, { setCameraContext }] = useSceneStore()
   const scene = useScene()
+  const engine = useGameState()
+  const registry = useNodeRegistry()
 
   const createCamera = () => {
     // Retrieve the globe mesh from scene state
@@ -71,7 +77,18 @@ export const ShipCamera: Component<ShipCameraProps> = (props) => {
   // tell the scene about it
   setCameraContext(cameraContext)
 
+  // Per-frame camera tracking: follow the player's ship
+  const trackingObserver = scene.onBeforeRenderObservable.add(() => {
+    const player = engine.state.players.get(PLAYER_ID)
+    if (player?.shipId == null) return
+    const entry = registry.get(`ship:${player.shipId}`)
+    if (entry?.positionNode == null) return
+    const delta = scene.getEngine().getDeltaTime()
+    moveCamera(entry.positionNode, delta)
+  })
+
   onCleanup(() => {
+    scene.onBeforeRenderObservable.remove(trackingObserver)
     cameraContext.camera.dispose()
     cameraContext.originNode.dispose(false, true)
   })

@@ -1,10 +1,6 @@
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
-import {
-  useGameState,
-  usePlayerLives,
-  usePlayerScore,
-} from '@heygrady/hexagonoids-engine/solid'
+import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import { type Component, onCleanup } from 'solid-js'
 
 import { useScene } from '../solid-babylon/hooks/useScene'
@@ -20,13 +16,10 @@ export const Score: Component = () => {
   const scene = useScene()
   const engine = useGameState()
   const hudNode = useUI()
-  const score = usePlayerScore(engine, PLAYER_ID)
-  const lives = usePlayerLives(engine, PLAYER_ID)
-
   let scoreNode: TransformNode | null = null
   let livesNode: TransformNode | null = null
-  let prevScore = 0
-  let prevLives = 0
+  let prevScore = -1
+  let prevLives = -1
   let started = false
 
   // Create HUD nodes
@@ -72,8 +65,8 @@ export const Score: Component = () => {
       })
     }
 
-    const currentScore = score()
-    const currentLives = lives()
+    const currentScore = player?.score ?? 0
+    const currentLives = player?.lives ?? 0
 
     if (currentScore !== prevScore && scoreNode != null) {
       updateScore(scoreNode, String(currentScore))

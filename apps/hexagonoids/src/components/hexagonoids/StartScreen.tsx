@@ -3,6 +3,7 @@ import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { Node } from '@babylonjs/core/node'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
+import { restartGame } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import { type Component, onCleanup } from 'solid-js'
 
@@ -10,13 +11,14 @@ import { useScene } from '../solid-babylon/hooks/useScene'
 
 import { getCommonMaterial } from './common/commonMaterial'
 import { DEFAULT_PLAYER_ID, RADIUS } from './constants'
+import { useInputs } from './engine/useInputBridge'
 import { createTextMesh } from './hud/createTextMesh'
 import { useCamera } from './ShipCamera'
 import { getYawPitch } from './ship/getYawPitch'
 import { moveNodeTo } from './ship/orientation'
 import { useUI } from './UI'
 
-export const allowedKeys = new Set([
+const allowedKeys = new Set([
   'a',
   'A',
   'ArrowLeft',
@@ -38,6 +40,7 @@ const PLAYER_ID = DEFAULT_PLAYER_ID
 export const StartScreen: Component = () => {
   const scene = useScene()
   const engine = useGameState()
+  const inputs = useInputs()
   const hudNode = useUI()
   const { originNode: cameraOriginNode } = useCamera()
 
@@ -70,11 +73,13 @@ export const StartScreen: Component = () => {
     if (!allowedKeys.has(event.key)) {
       return
     }
+    event.preventDefault()
     hideScreen()
 
-    // Mark the game as started in engine state
+    // Clear attract-mode rocks and start a fresh game
+    inputs.reset()
     engine.mutate((state) => {
-      state.startedAt = state.now
+      restartGame(state, PLAYER_ID, engine.rng)
     })
 
     // Move camera to the player's ship position

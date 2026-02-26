@@ -1,5 +1,22 @@
 import type { PlayerInputState } from '@heygrady/hexagonoids-engine'
-import { onCleanup } from 'solid-js'
+import { createContext, onCleanup, useContext } from 'solid-js'
+
+export interface InputBridge extends PlayerInputState {
+  reset(): void
+}
+
+const InputBridgeContext = createContext<InputBridge>()
+
+/** Access the shared input bridge to reset inputs (e.g. after starting a game). */
+export const useInputs = (): InputBridge => {
+  const ctx = useContext(InputBridgeContext)
+  if (ctx == null) {
+    throw new Error('useInputs: must be inside InputBridgeContext.Provider')
+  }
+  return ctx
+}
+
+export { InputBridgeContext }
 
 /**
  * Bridges keyboard events to PlayerInputState for the engine.
@@ -12,30 +29,44 @@ import { onCleanup } from 'solid-js'
  * - Thrust: w, W, ArrowUp
  * - Fire: s, S, ArrowDown, Space
  */
-export function useInputBridge(): PlayerInputState {
-  const inputs: PlayerInputState = {
+export function useInputBridge(): InputBridge {
+  const inputs: InputBridge = {
     left: false,
     right: false,
     thrust: false,
     fire: false,
+    reset() {
+      inputs.left = false
+      inputs.right = false
+      inputs.thrust = false
+      inputs.fire = false
+    },
   }
 
   function onKeyDown(e: KeyboardEvent) {
     const key = e.key
     if (key === 'a' || key === 'A' || key === 'ArrowLeft') inputs.left = true
-    if (key === 'd' || key === 'D' || key === 'ArrowRight') inputs.right = true
-    if (key === 'w' || key === 'W' || key === 'ArrowUp') inputs.thrust = true
-    if (key === 's' || key === 'S' || key === 'ArrowDown' || key === ' ')
+    else if (key === 'd' || key === 'D' || key === 'ArrowRight')
+      inputs.right = true
+    else if (key === 'w' || key === 'W' || key === 'ArrowUp')
+      inputs.thrust = true
+    else if (key === 's' || key === 'S' || key === 'ArrowDown' || key === ' ')
       inputs.fire = true
+    else return
+    e.preventDefault()
   }
 
   function onKeyUp(e: KeyboardEvent) {
     const key = e.key
     if (key === 'a' || key === 'A' || key === 'ArrowLeft') inputs.left = false
-    if (key === 'd' || key === 'D' || key === 'ArrowRight') inputs.right = false
-    if (key === 'w' || key === 'W' || key === 'ArrowUp') inputs.thrust = false
-    if (key === 's' || key === 'S' || key === 'ArrowDown' || key === ' ')
+    else if (key === 'd' || key === 'D' || key === 'ArrowRight')
+      inputs.right = false
+    else if (key === 'w' || key === 'W' || key === 'ArrowUp')
+      inputs.thrust = false
+    else if (key === 's' || key === 'S' || key === 'ArrowDown' || key === ' ')
       inputs.fire = false
+    else return
+    e.preventDefault()
   }
 
   window.addEventListener('keydown', onKeyDown)

@@ -12,6 +12,7 @@ import {
   ROCK_SMALL_SCALE,
 } from './constants'
 import type { RockNodes } from './engine/nodeTypes'
+import { useNodeRegistry } from './NodeRegistry'
 import type { ObjectPool } from './pool/ObjectPool'
 
 export interface RockProps {
@@ -22,6 +23,7 @@ export interface RockProps {
 export const Rock: Component<RockProps> = (props) => {
   const engine = useGameState()
   const scene = useScene()
+  const registry = useNodeRegistry()
 
   let nodes: RockNodes
   let observer: ReturnType<typeof scene.onBeforeRenderObservable.add>
@@ -44,6 +46,11 @@ export const Rock: Component<RockProps> = (props) => {
     nodes.rockNode.isVisible = true
     nodes.originNode.setEnabled(true)
 
+    registry.register(`rock:${props.rockId}`, {
+      originNode: nodes.originNode,
+      visualNode: nodes.rockNode,
+    })
+
     observer = scene.onBeforeRenderObservable.add(() => {
       const rock = engine.state.rocks.get(props.rockId)
       if (rock == null) return
@@ -55,6 +62,7 @@ export const Rock: Component<RockProps> = (props) => {
   })
 
   onCleanup(() => {
+    registry.unregister(`rock:${props.rockId}`)
     scene.onBeforeRenderObservable.remove(observer)
     if (nodes != null) {
       props.pool.release(nodes)

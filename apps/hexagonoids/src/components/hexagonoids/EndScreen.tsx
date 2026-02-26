@@ -2,7 +2,7 @@ import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { Node } from '@babylonjs/core/node'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
-import { startPlayer } from '@heygrady/hexagonoids-engine'
+import { restartGame } from '@heygrady/hexagonoids-engine'
 import { useGameOver, useGameState } from '@heygrady/hexagonoids-engine/solid'
 import { type Component, onCleanup } from 'solid-js'
 
@@ -10,6 +10,7 @@ import { useScene } from '../solid-babylon/hooks/useScene'
 
 import { getCommonMaterial } from './common/commonMaterial'
 import { DEFAULT_PLAYER_ID, RADIUS } from './constants'
+import { useInputs } from './engine/useInputBridge'
 import { createTextMesh } from './hud/createTextMesh'
 import { useCamera } from './ShipCamera'
 import { getYawPitch } from './ship/getYawPitch'
@@ -23,6 +24,7 @@ const PLAYER_ID = DEFAULT_PLAYER_ID
 export const EndScreen: Component = () => {
   const scene = useScene()
   const engine = useGameState()
+  const inputs = useInputs()
   const hudNode = useUI()
   const { originNode: cameraOriginNode } = useCamera()
   const gameOver = useGameOver(engine)
@@ -69,6 +71,7 @@ export const EndScreen: Component = () => {
     if (!allowedKeys.has(event.key)) {
       return
     }
+    event.preventDefault()
 
     // Wait a second before allowing restart
     const endedAt = engine.state.endedAt
@@ -78,18 +81,11 @@ export const EndScreen: Component = () => {
 
     hideScreen()
 
-    // Restart the game via engine. All clears + startPlayer run in one batch so
-    // SolidJS sees the final state atomically: old <For> items are removed (pool
-    // released) before new items are added (pool acquired). SolidJS processes
-    // removals before additions in <For>, so pool ordering is safe.
+    // Restart via engine — restartGame resets all state (wave, entities, etc.)
+    // in one batch so SolidJS sees the final state atomically.
+    inputs.reset()
     engine.mutate((state) => {
-      state.endedAt = null
-      state.players.delete(PLAYER_ID)
-      state.ships.clear()
-      state.rocks.clear()
-      state.bullets.clear()
-      startPlayer(state, PLAYER_ID, engine.rng)
-      state.startedAt = state.now
+      restartGame(state, PLAYER_ID, engine.rng)
     })
 
     // Move camera to the new ship position
