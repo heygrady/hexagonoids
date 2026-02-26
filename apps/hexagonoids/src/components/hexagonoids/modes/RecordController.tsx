@@ -11,8 +11,6 @@ import { BENCHMARK_SEEDS, SESSION_DURATION } from './constants'
 import { RecordOverlay } from './RecordOverlay'
 import { trpc } from './trpc'
 
-const PLAYER_ID = DEFAULT_PLAYER_ID
-
 /**
  * Record-mode controller. When active, hooks into the Babylon render loop,
  * captures per-tick inputs, and saves sessions to the server via tRPC.
@@ -22,7 +20,8 @@ export function RecordController() {
   const engine = useGameState()
   const inputs = useInputs()
   const scene = useScene()
-  const { setAppMode } = useAppMode()
+  const { setAppMode, playerId } = useAppMode()
+  const PLAYER_ID = playerId() || DEFAULT_PLAYER_ID
 
   const [seedIndex, setSeedIndex] = createSignal(0)
   const [sessionStartTime, setSessionStartTime] = createSignal(0)
@@ -77,6 +76,8 @@ export function RecordController() {
         seed: BENCHMARK_SEEDS[currentSeedIndex]!,
         duration,
         frames: frames.map((f) => ({ dt: f.dt, i: f.i })),
+        score,
+        wave,
       })
       .catch((err: unknown) => {
         console.error('Failed to save session:', err)

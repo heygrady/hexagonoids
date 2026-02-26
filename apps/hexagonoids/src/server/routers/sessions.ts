@@ -23,9 +23,18 @@ const sessionRecordingSchema = z.object({
   seed: safeIdSchema,
   duration: z.number(),
   frames: z.array(frameRecordSchema),
+  score: z.number().optional(),
+  wave: z.number().optional(),
 })
 
 type SessionRecording = z.infer<typeof sessionRecordingSchema>
+
+interface SeedBenchmarkStats {
+  bestScore: number
+  avgScore: number
+  attempts: number
+  bestWave: number
+}
 
 function sessionPath(playerId: string, seed: string): string {
   // path.basename() strips any remaining path separators as defense-in-depth
@@ -106,4 +115,71 @@ export const sessionsRouter = router({
     seeds: BENCHMARK_SEEDS,
     duration: SESSION_DURATION,
   })),
+
+  exportBenchmarks: publicProcedure
+    .input(z.object({ playerId: safeIdSchema }))
+    .query(
+      async ({
+        input,
+      }): Promise<{
+        playerId: string
+        seeds: Record<string, SeedBenchmarkStats>
+      }> => {
+        const seeds: Record<string, SeedBenchmarkStats> = {}
+
+        for (const seed of BENCHMARK_SEEDS) {
+          const filePath = sessionPath(input.playerId, seed)
+          let content: string
+          try {
+            content = await readFile(filePath, 'utf-8')
+          } catch (err) {
+            if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: `Failed to read session file: ${(err as Error).message}`,
+              cause: err,
+            })
+          }
+
+          const lines = content.trim().split('\n').filter(Boolean)
+          if (lines.length === 0) continue
+
+          let totalScore = 0
+          let bestScore = 0
+          let bestWave = 0
+          let attempts = 0
+
+          for (const line of lines) {
+            let parsed: unknown
+            try {
+              parsed = JSON.parse(line)
+            } catch {
+              continue
+            }
+            const result = sessionRecordingSchema.safeParse(parsed)
+            if (!result.success) continue
+
+            const recording = result.data
+            const score = recording.score ?? 0
+            const wave = recording.wave ?? 0
+
+            attempts++
+            totalScore += score
+            if (score > bestScore) bestScore = score
+            if (wave > bestWave) bestWave = wave
+          }
+
+          if (attempts > 0) {
+            seeds[seed] = {
+              bestScore,
+              avgScore: totalScore / attempts,
+              attempts,
+              bestWave,
+            }
+          }
+        }
+
+        return { playerId: input.playerId, seeds }
+      }
+    ),
 })
