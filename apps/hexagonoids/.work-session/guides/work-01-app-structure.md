@@ -153,6 +153,40 @@ clean explicit parameter types in the named functions.
 Do not create `collision/setupCollisionHooks.ts` or `effects/setupExplosionEffects.ts`
 files — external extraction would break the inline wiring intent documented above.
 
+## ModeGameLoop: One Tick Source at a Time
+
+`ModeGameLoop` uses a SolidJS `<Switch>`/`<Match>` to mount exactly one tick
+source based on the current app mode:
+
+```tsx
+<Switch>
+  <Match when={mode() === 'play'}><PlayModeGameLoop /></Match>
+  <Match when={mode() === 'record'}><RecordController /></Match>
+</Switch>
+```
+
+`EngineGameLoop` was split into two parts: hook setup (always active,
+e.g., input bridge, collision) and `PlayModeGameLoop` (the Babylon
+`beforeRender` loop, play-mode only).
+
+`RecordController` owns its own `beforeRender` tick loop — it does **not**
+share `useGameLoop`. This matches the architecture guide's Option 2
+(controller owns tick timing) and leaves play mode completely unaffected.
+Do not pass the scene tick into RecordController from outside.
+
+## modes/constants.ts — Server Can Import Plain Primitive Constants
+
+`BENCHMARK_SEEDS` and `SESSION_DURATION` live in
+`modes/constants.ts` (a client-components path). The server router
+(`server/routers/sessions.ts`) imports from this file directly.
+
+This crosses the conceptual server/client boundary but is safe: the file
+contains only plain primitive values with no browser APIs. The alternative
+(fetching seeds via tRPC at runtime) adds async complexity for no benefit.
+
+Rule: server files **may** import from client component paths if and only
+if the imported file is pure primitives with zero browser API usage.
+
 ## useInputBridge — Plain Object, Not Signal
 
 `useInputBridge` stores the current key state in a plain mutable object rather
