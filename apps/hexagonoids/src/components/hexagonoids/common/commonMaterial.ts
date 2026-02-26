@@ -2,7 +2,6 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import type { Scene } from '@babylonjs/core/scene'
 import QuickLRU from 'quick-lru'
-import { createUniqueId } from 'solid-js'
 
 import { CELL_CACHE_SIZE } from '../constants'
 
@@ -22,6 +21,7 @@ export const materialCache = new QuickLRU<string, StandardMaterial>({
 })
 
 export const COMMON_MATERIAL_KEY_PREFIX = 'commonMaterial'
+let materialIdCounter = 0
 
 export const getMaterialKey = (
   options?: Partial<CommonMaterialOptions>
@@ -58,7 +58,8 @@ export const getCommonMaterial = (
     return materialCache.get(key) as StandardMaterial
   }
 
-  const id = createUniqueId()
+  materialIdCounter += 1
+  const id = materialIdCounter
 
   // get the no-options material
   const commonMaterial = materialCache.get(COMMON_MATERIAL_KEY_PREFIX)
