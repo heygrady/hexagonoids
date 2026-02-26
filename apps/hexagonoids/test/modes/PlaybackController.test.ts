@@ -1,3 +1,4 @@
+import { render, waitFor } from '@solidjs/testing-library'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // --- Hoisted mocks (vi.hoisted runs at hoist time alongside vi.mock) ---
@@ -11,7 +12,7 @@ const {
   mockObservableRemove,
   mockListQuery,
   mockGetQuery,
-  mockOnCleanup,
+  triggerSelectAll,
 } = vi.hoisted(() => ({
   mockTick: vi.fn(),
   mockReseed: vi.fn(),
@@ -22,27 +23,10 @@ const {
   mockObservableRemove: vi.fn(),
   mockListQuery: vi.fn(),
   mockGetQuery: vi.fn(),
-  mockOnCleanup: vi.fn(),
+  triggerSelectAll: { current: null as null | (() => void) },
 }))
 
 // --- Module mocks ---
-vi.mock('solid-js', () => ({
-  createSignal: (init: unknown) => {
-    let value = init
-    const getter = () => value
-    const setter = (v: unknown) => {
-      value =
-        typeof v === 'function' ? (v as (prev: unknown) => unknown)(value) : v
-    }
-    return [getter, setter]
-  },
-  onCleanup: mockOnCleanup,
-  Switch: (props: { children: unknown }) => props.children,
-  Match: (props: { when: unknown; children: unknown }) =>
-    props.when ? props.children : null,
-  DEV: true,
-}))
-
 vi.mock('@heygrady/hexagonoids-engine/solid', () => ({
   useGameState: () => ({
     tick: mockTick,
@@ -100,35 +84,33 @@ vi.mock('../../src/components/hexagonoids/modes/PlaybackOverlay.js', () => ({
 
 vi.mock('../../src/components/hexagonoids/modes/SessionBrowser.js', () => ({
   SessionBrowser: (props: { onSelectAll: () => void }) => {
-    // Auto-trigger "select all" to simulate user clicking play
-    props.onSelectAll()
+    triggerSelectAll.current = props.onSelectAll
     return null
   },
 }))
 
-// Stub window for keydown listener
-const keydownHandlers: ((e: Partial<KeyboardEvent>) => void)[] = []
-vi.stubGlobal('window', {
-  addEventListener: (
-    type: string,
-    handler: (e: Partial<KeyboardEvent>) => void
-  ) => {
-    if (type === 'keydown') keydownHandlers.push(handler)
-  },
-  removeEventListener: vi.fn(),
-})
-
 import { PlaybackController } from '../../src/components/hexagonoids/modes/PlaybackController.js'
 
 describe('PlaybackController', () => {
+  let warnSpy: ReturnType<typeof vi.spyOn> | null = null
+  let errorSpy: ReturnType<typeof vi.spyOn> | null = null
+  let logSpy: ReturnType<typeof vi.spyOn> | null = null
+
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.useFakeTimers()
-    keydownHandlers.length = 0
+    triggerSelectAll.current = null
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
   })
 
   afterEach(() => {
-    vi.useRealTimers()
+    warnSpy?.mockRestore()
+    errorSpy?.mockRestore()
+    logSpy?.mockRestore()
+    warnSpy = null
+    errorSpy = null
+    logSpy = null
   })
 
   it('replays frames using accumulator-based timing with recorded dt values', async () => {
@@ -142,10 +124,12 @@ describe('PlaybackController', () => {
       ],
     })
 
-    PlaybackController()
+    render(() => PlaybackController())
+    triggerSelectAll.current?.()
 
-    // Flush async init (handleSelectAll → list query → startPlayback → fetchStats → loadSession → get query)
-    for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(0)
+    await waitFor(() => {
+      expect(mockGetQuery).toHaveBeenCalled()
+    })
 
     // Get the beforeRender callback
     const beforeRenderCallback = mockObservableAdd.mock
@@ -177,7 +161,8 @@ describe('PlaybackController', () => {
     // Arrange: list query returns a promise that never resolves
     mockListQuery.mockReturnValue(new Promise(() => {}))
 
-    PlaybackController()
+    render(() => PlaybackController())
+    triggerSelectAll.current?.()
 
     // Get the beforeRender callback
     const beforeRenderCallback = mockObservableAdd.mock
@@ -196,8 +181,11 @@ describe('PlaybackController', () => {
     mockListQuery.mockResolvedValue(['benchmark-003'])
     mockGetQuery.mockResolvedValue({ frames: [{ dt: 10, i: 0 }] })
 
-    PlaybackController()
-    for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(0)
+    render(() => PlaybackController())
+    triggerSelectAll.current?.()
+    await waitFor(() => {
+      expect(mockReseed).toHaveBeenCalledWith('benchmark-003', 'test-player')
+    })
 
     // Assert: engine was reseeded with the session seed
     expect(mockReseed).toHaveBeenCalledWith('benchmark-003', 'test-player')
@@ -208,12 +196,14 @@ describe('PlaybackController', () => {
     mockListQuery.mockResolvedValue(['benchmark-001'])
     mockGetQuery.mockResolvedValue({ frames: [{ dt: 10, i: 0 }] })
 
-    PlaybackController()
-    for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(0)
+    render(() => PlaybackController())
+    triggerSelectAll.current?.()
+    await waitFor(() => {
+      expect(mockGetQuery).toHaveBeenCalled()
+    })
 
     // Act: simulate Escape keydown
-    const handler = keydownHandlers[0]!
-    handler({ key: 'Escape', preventDefault: vi.fn() })
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
 
     // Assert: exits back to play mode
     expect(mockSetAppMode).toHaveBeenCalledWith('play')
@@ -224,8 +214,11 @@ describe('PlaybackController', () => {
     // Arrange: server returns seeds but none match benchmarks
     mockListQuery.mockResolvedValue(['custom-seed-xyz'])
 
-    PlaybackController()
-    for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(0)
+    render(() => PlaybackController())
+    triggerSelectAll.current?.()
+    await waitFor(() => {
+      expect(mockSetAppMode).toHaveBeenCalledWith('play')
+    })
 
     // Assert: falls back to play mode since no benchmark seeds matched
     expect(mockSetAppMode).toHaveBeenCalledWith('play')

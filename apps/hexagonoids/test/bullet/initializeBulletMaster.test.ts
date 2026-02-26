@@ -1,11 +1,6 @@
 import { NullEngine } from '@babylonjs/core/Engines/nullEngine'
 import { Scene } from '@babylonjs/core/scene'
-import { afterAll, describe, expect, test, vi } from 'vitest'
-
-// Mock getCommonMaterial to avoid solid-js createUniqueId dependency
-vi.mock('../../src/components/hexagonoids/common/commonMaterial', () => ({
-  getCommonMaterial: () => null,
-}))
+import { afterAll, describe, expect, test } from 'vitest'
 
 import { initializeBulletMaster } from '../../src/components/hexagonoids/bullet/createBulletNodes'
 

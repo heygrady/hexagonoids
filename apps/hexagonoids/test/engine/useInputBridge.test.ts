@@ -1,35 +1,30 @@
-import { describe, expect, it, vi } from 'vitest'
-
-// Mock solid-js onCleanup to capture the cleanup callback
-vi.mock('solid-js', () => ({
-  createContext: vi.fn(),
-  useContext: vi.fn(),
-  onCleanup: vi.fn(),
-}))
-
-// Mock window.addEventListener/removeEventListener to capture handlers
-const listeners = new Map<string, EventListenerOrEventListenerObject>()
-vi.stubGlobal('window', {
-  addEventListener: vi.fn(
-    (type: string, handler: EventListenerOrEventListenerObject) => {
-      listeners.set(type, handler)
-    }
-  ),
-  removeEventListener: vi.fn(),
-})
+import { createRoot } from 'solid-js'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { useInputBridge } from '../../src/components/hexagonoids/engine/useInputBridge.js'
 
-function fireKey(type: 'keydown' | 'keyup', key: string) {
-  const handler = listeners.get(type)
-  if (typeof handler === 'function') {
-    handler({ key, preventDefault: () => {} } as unknown as KeyboardEvent)
+let dispose: (() => void) | null = null
+
+afterEach(() => {
+  dispose?.()
+  dispose = null
+})
+
+function setupInputs() {
+  let inputs: ReturnType<typeof useInputBridge> | null = null
+  createRoot((rootDispose) => {
+    dispose = rootDispose
+    inputs = useInputBridge()
+  })
+  if (inputs == null) {
+    throw new Error('Expected useInputBridge to initialize')
   }
+  return inputs
 }
 
 describe('useInputBridge', () => {
   it('returns all-false inputs initially', () => {
-    const inputs = useInputBridge()
+    const inputs = setupInputs()
 
     expect(inputs).toMatchObject({
       left: false,
@@ -40,38 +35,48 @@ describe('useInputBridge', () => {
   })
 
   it('sets left flag on ArrowLeft keydown and clears on keyup', () => {
-    const inputs = useInputBridge()
+    const inputs = setupInputs()
 
-    fireKey('keydown', 'ArrowLeft')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }))
     expect(inputs.left).toBe(true)
 
-    fireKey('keyup', 'ArrowLeft')
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft' }))
     expect(inputs.left).toBe(false)
   })
 
   it('maps WASD keys to correct input flags', () => {
-    const inputs = useInputBridge()
+    const inputs = setupInputs()
 
-    fireKey('keydown', 'a')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }))
     expect(inputs.left).toBe(true)
 
-    fireKey('keydown', 'd')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }))
     expect(inputs.right).toBe(true)
 
-    fireKey('keydown', 'w')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'w' }))
     expect(inputs.thrust).toBe(true)
 
-    fireKey('keydown', 's')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's' }))
     expect(inputs.fire).toBe(true)
   })
 
   it('maps Space to fire', () => {
-    const inputs = useInputBridge()
+    const inputs = setupInputs()
 
-    fireKey('keydown', ' ')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
     expect(inputs.fire).toBe(true)
 
-    fireKey('keyup', ' ')
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }))
     expect(inputs.fire).toBe(false)
+  })
+
+  it('removes listeners on dispose', () => {
+    const inputs = setupInputs()
+
+    dispose?.()
+    dispose = null
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }))
+    expect(inputs.left).toBe(false)
   })
 })

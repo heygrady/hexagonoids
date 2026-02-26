@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const { mockAppendFile, mockMkdir, mockReaddir, mockReadFile } = vi.hoisted(
   () => ({
@@ -25,6 +25,8 @@ vi.mock('node:fs/promises', () => ({
 import { sessionsRouter } from '../../src/server/routers/sessions'
 
 const caller = sessionsRouter.createCaller({})
+let warnSpy: ReturnType<typeof vi.spyOn> | null = null
+let errorSpy: ReturnType<typeof vi.spyOn> | null = null
 
 function validRecording(overrides?: Record<string, unknown>) {
   return {
@@ -38,6 +40,15 @@ function validRecording(overrides?: Record<string, unknown>) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+})
+
+afterEach(() => {
+  warnSpy?.mockRestore()
+  errorSpy?.mockRestore()
+  warnSpy = null
+  errorSpy = null
 })
 
 describe('sessions.seeds', () => {

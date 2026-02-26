@@ -1,5 +1,6 @@
 import { MAX_DELTA } from '@heygrady/hexagonoids-engine'
-import { describe, expect, it, vi } from 'vitest'
+import { createRoot } from 'solid-js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // Capture the beforeRender callback
 let beforeRenderCallback: (() => void) | null = null
@@ -25,10 +26,6 @@ const mockEngine = {
   tick: mockTick,
 }
 
-vi.mock('solid-js', () => ({
-  onCleanup: vi.fn(),
-}))
-
 vi.mock('../../src/components/solid-babylon/hooks/useScene.js', () => ({
   useScene: () => mockScene,
 }))
@@ -39,13 +36,33 @@ vi.mock('@heygrady/hexagonoids-engine/solid', () => ({
 
 import { useGameLoop } from '../../src/components/hexagonoids/engine/useGameLoop.js'
 
+let dispose: (() => void) | null = null
+
+afterEach(() => {
+  dispose?.()
+  dispose = null
+  beforeRenderCallback = null
+})
+
+function setupGameLoop(inputs: {
+  left: boolean
+  right: boolean
+  thrust: boolean
+  fire: boolean
+}) {
+  createRoot((rootDispose) => {
+    dispose = rootDispose
+    useGameLoop(inputs, 'player-1')
+  })
+}
+
 describe('useGameLoop', () => {
   it('calls engine.tick with inputs and clamped delta', () => {
     mockTick.mockClear()
     mockGetDeltaTime.mockReturnValue(16.67)
 
     const inputs = { left: true, right: false, thrust: false, fire: false }
-    useGameLoop(inputs, 'player-1')
+    setupGameLoop(inputs)
 
     // Simulate a frame
     beforeRenderCallback!()
@@ -58,7 +75,7 @@ describe('useGameLoop', () => {
     mockGetDeltaTime.mockReturnValue(200) // extreme hitch
 
     const inputs = { left: false, right: false, thrust: false, fire: false }
-    useGameLoop(inputs, 'player-1')
+    setupGameLoop(inputs)
 
     beforeRenderCallback!()
 
