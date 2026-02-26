@@ -28,10 +28,21 @@ existing timestamp pattern (`diedAt`, `regeneratedAt`):
 
 ```typescript
 // in detectCollisions — ship needs full GameState, not just entity maps
+if (!ship.alive) continue
+
 const player = state.players.get(ship.playerId)
-const grace = player?.regeneratedAt != null &&
-  elapsed(state, player.regeneratedAt) < RESPAWN_GRACE_PERIOD
-if (!grace) collisions.push({ type: 'ship-rock', shipId, rockId })
+if (player != null && player.regeneratedAt != null) {
+  if (elapsed(state, player.regeneratedAt) < SHIP_REGENERATION_GRACE_PERIOD)
+    continue
+}
+
+// CollisionPair uses EntityRef (id + type), not raw IDs
+pairs.push({
+  a: { id: ship.id, type: 'ship' },
+  b: { id: rock.id, type: 'rock' },
+  type: 'ship-rock',
+  distance: dist,
+})
 ```
 
 `detectCollisions` therefore requires the full `GameState`, not just entity
@@ -45,13 +56,20 @@ prevent double-processing when one entity appears in multiple pairs:
 ```typescript
 const processedBullets = new Set<string>()
 const processedRocks = new Set<string>()
+const processedShips = new Set<string>()
 
 for (const pair of collisions) {
-  if (processedBullets.has(pair.bulletId)) continue
-  if (processedRocks.has(pair.rockId)) continue
-  // apply mutation
-  processedBullets.add(pair.bulletId)
-  processedRocks.add(pair.rockId)
+  if (pair.type === 'bullet-rock') {
+    if (processedBullets.has(pair.a.id) || processedRocks.has(pair.b.id)) continue
+    processedBullets.add(pair.a.id)
+    processedRocks.add(pair.b.id)
+    // apply bullet-rock mutation
+  } else if (pair.type === 'ship-rock') {
+    if (processedShips.has(pair.a.id) || processedRocks.has(pair.b.id)) continue
+    processedShips.add(pair.a.id)
+    processedRocks.add(pair.b.id)
+    // apply ship-rock mutation
+  }
 }
 ```
 
@@ -62,11 +80,13 @@ pool breaks further collision checks naturally.
 
 ## Collision Ordering in step()
 
-`step()` calls collisions after expiry and before lifecycle:
+`step()` calls collisions after expiry and before regeneration:
 
 ```
-inputs → physics → expire → collisions → lifecycle → waves → game-over
+time → inputs → move → expire → collisions → regenerate → waves
 ```
 
-Expiry runs first so that bullets at max lifetime are removed before collision
-checks — avoids spurious scores from already-expired bullets.
+Game-over is handled inline by `handleCollisions` (sets `endedAt`, fires
+`onGameOver` hook), not as a separate step. Expiry runs first so that bullets
+at max lifetime are removed before collision checks — avoids spurious scores
+from already-expired bullets.

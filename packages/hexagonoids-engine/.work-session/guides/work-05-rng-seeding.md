@@ -13,18 +13,22 @@ that `reseed()` can replace the RNG and all callers reading `engine.rng`
 immediately get the new value without a signal:
 
 ```typescript
-let _rng: RNG = createRNG(seed)
-get rng() { return _rng }
+// closure-based pattern in createReactiveEngine
+let rng: RNG = createRNG(seed)
 
-reseed(seed: number) {
-  _rng = createRNG(seed)
-  // mutate game state...
+// returned on the engine object literal as a getter
+get rng() { return rng }
+
+function reseed(seed: string, playerId: string) {
+  rng = createRNG(seed)
+  // mutate game state via setState...
 }
 ```
 
-The public interface is unchanged — `rng` still appears as a plain
-property to consumers. Do not convert `rng` to a SolidJS signal; it is
-read synchronously in `beforeRender` and signal overhead adds no value.
+The `reseed` signature takes `(seed: string, playerId: string)`. The public
+interface exposes `rng` as a getter on the returned object literal (not a class).
+Do not convert `rng` to a SolidJS signal; it is read synchronously in
+`beforeRender` and signal overhead adds no value.
 
 ## reseedGame — resetIdCounter for Deterministic IDs
 
@@ -68,9 +72,9 @@ assert that the same ship ID is produced both times. This avoids inspecting
 counter internals:
 
 ```typescript
-engine.reseed(42)
+engine.reseed('42', 'player-1')
 const id1 = [...engine.state.ships.keys()][0]
-engine.reseed(42)
+engine.reseed('42', 'player-1')
 const id2 = [...engine.state.ships.keys()][0]
 expect(id1).toBe(id2)
 ```

@@ -22,10 +22,14 @@ rather than growing the existing file past 300 lines.
 Example:
 ```
 test/engine/physics/
-  accelerateShip.test.ts            # qualitative: applies thrust, respects MAX_SPEED
+  shipPhysics.test.ts                  # qualitative: acceleration, turning, movement
   accelerateShip.quantitative.test.ts  # quantitative: exact rad/s values per dt
-  turnShip.test.ts
   turnShip.quantitative.test.ts
+  moveBullet.test.ts                   # qualitative: bullet movement
+  moveBullet.quantitative.test.ts
+  moveRock.test.ts                     # qualitative: rock movement
+  moveRock.quantitative.test.ts
+  quaternionPhysics.test.ts            # quaternion integration tests
 ```
 
 The quantitative files were split out rather than merged into existing files
@@ -63,14 +67,9 @@ whose tests form one cohesive domain**, even if it exceeds the threshold.
 
 Two confirmed examples in this package:
 
-- **`step.test.ts` (372 lines)** — 10 sub-domains, all share one `beforeEach`
+- **`step.test.ts` (~395 lines)** — 10 sub-domains, all share one `beforeEach`
   factory, all test the single `step()` function. Splitting would fragment what
   reads as one coherent validation story.
-
-- **`test/engine/physics/getYawPitch.test.ts` (332 lines)** — two `describe`
-  blocks (pure unit tests + Babylon rotate-child integration tests) both test
-  the same function from complementary angles. The complementary coverage makes
-  them a single cohesive story.
 
 The guiding principle: "a file with 40 tests across one cohesive domain is
 better than four files with 10 tests each that share the same setup." Apply
@@ -82,6 +81,10 @@ and test the same function.
 `onEntitySpawned`, `onEntityDestroyed`, and `onWaveSpawned` are defined in
 `EngineHooks` but are **not called anywhere in `step()`**. Do not write tests
 that assert on these hooks — they will never fire.
+
+The following hooks ARE wired and can be asserted on: `onCollision`,
+`onScoreChanged`, `onPlayerDied`, `onPlayerRegenerated`, `onGameOver`,
+`getRegenerationPosition`, `verifyCollision`.
 
 To test wave spawning, read `state.wave` directly after `step()`.
 To test entity counts, compare `state.bullets.size` or `state.rocks.size`
