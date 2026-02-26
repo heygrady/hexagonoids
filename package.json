@@ -33,7 +33,7 @@
     "test:ci": "turbo run test --concurrency=2 -- --passWithNoTests --run",
     "vercel-build": "./scripts/inject-npm-auth.sh && yarn install && yarn build",
     "version": "changeset version && yarn install",
-    "work-session": "node /Users/heygrady/projects/tone-studio/scripts/work-session/bin/index.js"
+    "work-session": "node ../tone-studio/scripts/work-session/bin/index.js"
   },
   "packageManager": "yarn@4.12.0",
   "volta": {
