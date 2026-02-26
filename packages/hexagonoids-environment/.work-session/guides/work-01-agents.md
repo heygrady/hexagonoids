@@ -9,13 +9,15 @@ tags: [hexagonoids-environment, work-session, testing]
 ## DT_MS — Intentional Fixed Simulation Rate
 
 `DT_MS = 33` in `seekDestroyUtils` is intentional, not a bug. Agents are
-evaluated at a fixed simulation rate matching the engine's default `dtMs`. This
-constant is exported from `seekDestroyUtils` so it is the single source of truth
-for environment-layer agent tick assumptions:
+evaluated at a fixed simulation rate matching the environment's default
+`SimulationConfig.dtMs` (33ms, approximately the engine's `MAX_DELTA` of
+~33.3ms). The engine itself has no default `dtMs` — it takes `dtMs` as a
+parameter to `step()`. This constant is exported from `seekDestroyUtils` so
+it is the single source of truth for environment-layer agent tick assumptions:
 
 ```typescript
 // seekDestroyUtils.ts
-export const DT_MS = 33  // matches default engine dtMs
+export const DT_MS = 33  // matches environment SimulationConfig default
 ```
 
 Import `DT_MS` from `seekDestroyUtils` in any agent or test that needs to
@@ -28,9 +30,10 @@ pattern (`mockRock`, `placeShipAtOrigin`, `createTestContext`) but they are
 **not** in a shared file — they are intentionally duplicated per the DAMP-over-DRY
 convention.
 
-If a **third** agent test file is added, extracting these helpers into a shared
-`test/agents/testHelpers.ts` module would be worthwhile. Until then, keep
-helpers local to each test file.
+A third test file (`seekDestroyUtils.test.ts`) also has a `mockRock` helper,
+so the extraction threshold has been met. Consider extracting shared helpers
+(`mockRock`, `placeShipAtOrigin`, `createTestContext`) into a shared
+`test/agents/testHelpers.ts` module.
 
 ## Agent Test Structure
 
