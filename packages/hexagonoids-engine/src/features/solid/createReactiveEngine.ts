@@ -1,9 +1,10 @@
-import type { RNG } from '@neat-evolution/utils'
+import { createRNG, type RNG } from '@neat-evolution/utils'
 import { type Accessor, createSignal } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
 
 import { createGame } from '../engine/createGame.js'
 import type { EngineHooks } from '../engine/hooks.js'
+import { reseedGame } from '../engine/player/reseedGame.js'
 import { step } from '../engine/step.js'
 import type { EngineOptions, GameState, PlayerInputs } from '../engine/types.js'
 
@@ -32,6 +33,7 @@ export interface ReactiveEngine {
   state: GameState
   tick: (inputs: PlayerInputs, dtMs: number) => void
   mutate: (fn: (draft: GameState) => void) => void
+  reseed: (seed: string, playerId: string) => void
   rng: RNG
   shipIds: Accessor<string[]>
   rockIds: Accessor<string[]>
@@ -43,7 +45,8 @@ export function createReactiveEngine(
   options?: EngineOptions,
   hooks?: EngineHooks
 ): ReactiveEngine {
-  const { state: initialState, rng } = createGame(options)
+  const { state: initialState, rng: initialRng } = createGame(options)
+  let rng: RNG = initialRng
   const [state, setState] = createStore(initialState)
 
   // SolidJS stores don't track Map mutations, so we maintain
@@ -87,8 +90,37 @@ export function createReactiveEngine(
     syncPoolSignals()
   }
 
+  /**
+   * Replace the RNG with a new seed and reset all game state.
+   * Used by record mode to cycle through benchmark seeds without
+   * re-mounting the Babylon scene.
+   */
+  function reseed(seed: string, playerId: string) {
+    rng = createRNG(seed)
+    setState(
+      produce((draft) => {
+        reseedGame(draft, playerId, rng)
+      })
+    )
+    syncPoolSignals()
+  }
+
   // Initialize signals with any pre-existing entities in the initial state
   syncPoolSignals()
 
-  return { state, tick, mutate, rng, shipIds, rockIds, bulletIds, playerIds }
+  const engine: ReactiveEngine = {
+    state,
+    tick,
+    mutate,
+    reseed,
+    get rng() {
+      return rng
+    },
+    shipIds,
+    rockIds,
+    bulletIds,
+    playerIds,
+  }
+
+  return engine
 }

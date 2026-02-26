@@ -114,6 +114,7 @@ export {
   setLives,
   setScore,
 } from './features/engine/player/playerSetters.js'
+export { reseedGame } from './features/engine/player/reseedGame.js'
 // Rock — actions & setters
 export {
   destroyRock,
