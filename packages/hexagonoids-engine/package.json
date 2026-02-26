@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "@babylonjs/core": "^8.52.0",
-    "@neat-evolution/utils": "^0.2.5",
+    "@neat-evolution/utils": "^0.4.0",
     "@swc/helpers": "^0.5.17"
   },
   "devDependencies": {
