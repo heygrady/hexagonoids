@@ -70,6 +70,67 @@ Placing the stub inside the test body rather than `beforeEach` prevents the stub
 
 This pattern was applied in `test/utils/screenDimensions.test.ts` to isolate the `Object.defineProperty(globalThis, 'devicePixelRatio', ...)` side-effect inside `getScreenDimensions`.
 
+## vi.hoisted() for Mock Functions Inside vi.mock() Factories
+
+Vitest hoists `vi.mock()` factory calls to the top of the file before any
+top-level `const` declarations. If you declare a mock function at the top level
+and reference it inside a `vi.mock()` factory, you get
+`Cannot access '<name>' before initialization`:
+
+```typescript
+// WRONG — mockFn is not initialized when the factory runs:
+const mockFn = vi.fn()
+vi.mock('../myModule', () => ({ doThing: mockFn }))
+```
+
+Use `vi.hoisted()` to declare functions that need to be referenced inside a
+`vi.mock()` factory:
+
+```typescript
+// CORRECT — vi.hoisted() runs at hoist time alongside the factory:
+const { mockFn } = vi.hoisted(() => ({ mockFn: vi.fn() }))
+vi.mock('../myModule', () => ({ doThing: mockFn }))
+```
+
+The hoisted function and the factory are both moved to the top, so `mockFn`
+is available when the factory executes.
+
+## Mocking node:fs/promises — Include a Default Export
+
+When mocking `node:fs/promises` with a `vi.mock()` factory, omitting a
+`default` export causes a Vitest error: `No default export is defined on the mock`.
+The module uses both named exports and a default export, so the factory must
+include both:
+
+```typescript
+vi.mock('node:fs/promises', () => {
+  const { readFile, writeFile } = vi.hoisted(() => ({
+    readFile: vi.fn(),
+    writeFile: vi.fn(),
+  }))
+  return {
+    readFile,
+    writeFile,
+    default: { readFile, writeFile },
+  }
+})
+```
+
+`importOriginal` cannot be used here when mock functions come from `vi.hoisted()`.
+Mirror the named exports as the `default` key to satisfy both import styles.
+
+## BabylonJS Collision Tests — Skip When NullEngine Is Required
+
+Tests for functions that require a live Babylon world matrix
+(e.g., `verifyShipRockCollision`) need a `NullEngine` + `Scene` setup plus
+mesh creation and positioning. The test complexity vs. coverage tradeoff
+typically does not justify the effort when:
+- Internal pure helpers (`isPointInsidePolygon`, `isPolygonInsidePolygon`) are unexported
+- The public function surface is thin (one exported function)
+
+Use `it.skip` with a comment explaining the NullEngine requirement, and cover
+edge cases through integration-level tests instead.
+
 ## Avoid Implementation Inspector Tests
 
 Do not write tests that assert internal wiring details with no behavioral value.

@@ -46,13 +46,12 @@ Additionally, all module-level singletons inside pool factory files
 (`bulletMaster`, `poolCounter`, etc.) must be moved into the factory function
 closure. Each `createXxxNodePool()` call gets fresh state.
 
-## Culling.tsx Is Stubbed to a No-Op
+## Culling.tsx Uses NodeRegistry
 
-`Culling.tsx` was stubbed to return `null` rather than adapted. The original
-implementation iterated nanostores to toggle visibility; with nodes now managed
-inside individual entity component lifecycles there is no shared registry.
-Babylon's built-in frustum culling is acceptable for now. Re-add custom
-culling only when a node registry is available.
+`Culling.tsx` uses the `NodeRegistryProvider` context to toggle node visibility
+based on camera frustum distance. The `NodeRegistry` tracks all entity nodes
+(ships, rocks, bullets) and `Culling` iterates them each frame to show/hide
+nodes outside the camera's view.
 
 ## EndScreen Restart Pattern
 
@@ -61,26 +60,30 @@ EndScreen clears all engine state then re-initializes inside a **single
 
 ```typescript
 engine.mutate((state) => {
+  state.endedAt = null
+  state.players.delete(PLAYER_ID)
   state.ships.clear()
   state.rocks.clear()
   state.bullets.clear()
-  state.players.clear()
-  startPlayer(state, playerId, engine.rng)
+  startPlayer(state, PLAYER_ID, engine.rng)
+  state.startedAt = state.now
 })
 ```
 
-This mirrors initial setup in EngineGameLoop. A dedicated `restartGame()`
+This mirrors the StartScreen initialization pattern. A dedicated `restartGame()`
 engine action was intentionally skipped to avoid modifying the engine package.
 
-## StartScreen Is a UI Gate, Not an Initializer
+## StartScreen Is the Game Initializer
 
-StartScreen no longer calls `start()` (old nanostore action). It only:
-1. Calls `engine.mutate()` to set `game.startedAt`
-2. Moves the camera using the engine's ship position
+StartScreen creates the player when the user presses a key. In its
+`engine.mutate()` call it:
+1. Clears attract-mode rocks (`state.rocks.clear()`)
+2. Resets the wave counter (`state.wave = 0`)
+3. Creates the player and ship (`startPlayer(state, PLAYER_ID, engine.rng)`)
+4. Sets `state.startedAt = state.now`
 
-The player and ship already exist when StartScreen renders because
-`EngineGameLoop` calls `startPlayer()` at mount time. StartScreen is purely
-a UI gate.
+Then it moves the camera to the new ship's position. No player or ship exists
+before the user presses a key — `EngineGameLoop` only spawns attract-mode rocks.
 
 ## DEFAULT_PLAYER_ID Constant
 
@@ -99,17 +102,14 @@ When deleting nanostore game-state directories, do **not** delete `store/scene/`
 
 The cell pool system (`store/cell/`, `store/cellPool/`, `hooks/useCellPool`, `Cells.tsx`, `Cell.tsx`, `cell/generateCell.ts`) was deleted entirely. The rationale: `PoolInitializer` was never rendered, `Collision.tsx` was never rendered, so no cells were ever created or visited. Keeping a broken dependency chain through `GameStore` was worse than deleting. Do not try to restore this system unless a collision/cell feature is being actively built.
 
-## EngineGameLoop: startPlayer Belongs in onMount()
+## EngineGameLoop: Attract-Mode Rocks in onMount()
 
-Calling side-effectful engine mutations (`startPlayer`, `engine.mutate()`) **during component render** is incorrect in SolidJS — it runs synchronously during the reactive graph build. Wrap any engine init calls in `onMount()`:
+`EngineGameLoop.onMount()` spawns attract-mode rocks via `spawnWave(state, 0, 0, engine.rng)`.
+It does **not** call `startPlayer` — the player is created later by `StartScreen` when the
+user presses a key. This ensures the title screen shows rocks flying without a ship.
 
-```typescript
-onMount(() => {
-  engine.mutate((state) => { startPlayer(state, PLAYER_ID, engine.rng) })
-})
-```
-
-`startPlayer` is idempotent (no-ops if player already exists), so the practical risk of calling it in render was low — but it violates SolidJS conventions. The `onMount` form is correct.
+Engine mutations must be wrapped in `onMount()` (not called during render) to respect
+SolidJS reactive graph build timing.
 
 ## ShipCamera Default Position
 
@@ -126,6 +126,32 @@ The old `createBulletNodes` function and `BulletStore` type import were removed.
 ## SphereArenaCamera: Vector3[] Not Tuple
 
 The `CameraPoints` 5-tuple was replaced with `Vector3[]` on the `SphereArenaCamera` interface. The ray-pick loop only rejects 0-length results, so a 1–4-length pick would under-fill a 5-tuple at runtime. `Vector3[]` matches runtime behavior without requiring a length guard.
+
+## EngineGameLoop: Named Inner Functions Over Module Extraction
+
+When `EngineGameLoop` grows to include distinct concerns (collision hooks,
+explosion effects, etc.), refactor to **named inner functions with section-comment
+headers** — do not extract to separate module files:
+
+```typescript
+// --- Collision hooks ---
+function setupCollisionHooks(collisionType: CollisionType, ref: EntityRef) {
+  // ...
+}
+
+// --- Explosion effects ---
+function setupExplosionEffects(ref: EntityRef) {
+  // ...
+}
+```
+
+This preserves the deliberate inline wiring pattern (single-file, no reuse
+outside the canvas) while addressing single-responsibility at the function level.
+Import `CollisionType` and `EntityRef` from `@heygrady/hexagonoids-engine` for
+clean explicit parameter types in the named functions.
+
+Do not create `collision/setupCollisionHooks.ts` or `effects/setupExplosionEffects.ts`
+files — external extraction would break the inline wiring intent documented above.
 
 ## useInputBridge — Plain Object, Not Signal
 

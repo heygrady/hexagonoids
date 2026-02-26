@@ -114,6 +114,26 @@ edit. This can recur even for files read earlier in the session.
 For `Write` calls on files that will be fully rewritten, a short read is also
 required even if the file was read earlier.
 
+## Code Edit: Never Insert Variable Declarations Before Import Statements
+
+`import` statements must come first in an ES module. Inserting a `let` or
+`const` declaration before any `import` line is a syntax error. When adding
+a new module-level variable, always insert it **after the last import statement**,
+not before the first one.
+
+```typescript
+// WRONG — let before import:
+let counter = 0
+import { foo } from './foo'
+
+// CORRECT — declaration after all imports:
+import { foo } from './foo'
+let counter = 0
+```
+
+When using the Edit tool to add a declaration, match against a line that is
+clearly past the last import to avoid misplacement.
+
 ## Generated Artifact Cleanup
 
 If policy blocks direct `rm` on generated artifacts, use `apply_patch` deletions
