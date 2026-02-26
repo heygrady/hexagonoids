@@ -172,4 +172,43 @@ describe('createReactiveEngine', () => {
       dispose()
     })
   })
+
+  it('reseed clears entities and resets game time', () => {
+    createRoot((dispose) => {
+      const engine = createReactiveEngine({ seed: 'test' })
+
+      // Add entities and advance time
+      engine.mutate((state) => startPlayer(state, 'p1', engine.rng))
+      engine.tick(IDLE_INPUT('p1'), 16)
+      engine.mutate((state) => spawnWave(state, 0, 0, engine.rng))
+
+      expect(engine.state.now).toBeGreaterThan(0)
+      expect(engine.rockIds().length).toBeGreaterThan(0)
+
+      // Reseed should clear everything and start fresh
+      engine.reseed('new-seed', 'p1')
+
+      expect(engine.state.now).toBe(0)
+      expect(engine.state.wave).toBe(0)
+      expect(engine.rockIds()).toHaveLength(0)
+      expect(engine.bulletIds()).toHaveLength(0)
+      // startPlayer is called inside reseed, so ship/player exist
+      expect(engine.shipIds().length).toBe(1)
+      expect(engine.playerIds().length).toBe(1)
+      dispose()
+    })
+  })
+
+  it('reseed with a different seed produces a different RNG', () => {
+    createRoot((dispose) => {
+      const engine = createReactiveEngine({ seed: 'seed-a' })
+      const rngBefore = engine.rng
+
+      engine.reseed('seed-b', 'p1')
+
+      // The rng getter should return a new RNG instance
+      expect(engine.rng).not.toBe(rngBefore)
+      dispose()
+    })
+  })
 })
