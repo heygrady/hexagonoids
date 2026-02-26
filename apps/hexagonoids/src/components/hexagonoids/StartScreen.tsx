@@ -82,6 +82,16 @@ export const StartScreen: Component = () => {
       return
     }
 
+    // Shift+P enters playback mode
+    if (event.shiftKey && event.key === 'P') {
+      event.preventDefault()
+      hideScreen()
+      inputs.reset()
+      setAppMode('playback')
+      window.removeEventListener('keydown', handleKeyDown)
+      return
+    }
+
     if (!allowedKeys.has(event.key)) {
       return
     }

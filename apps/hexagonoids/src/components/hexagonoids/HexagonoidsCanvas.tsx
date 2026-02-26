@@ -45,6 +45,7 @@ import {
 import { Globe } from './Globe'
 import { Lights } from './Lights'
 import { AppModeProvider, useAppMode } from './modes/AppModeProvider'
+import { PlaybackController } from './modes/PlaybackController'
 import { RecordController } from './modes/RecordController'
 import { CameraLighting } from './NewLights'
 import { NodeRegistryProvider, useNodeRegistry } from './NodeRegistry'
@@ -221,6 +222,9 @@ function ModeGameLoop() {
       </Match>
       <Match when={appMode() === 'record'}>
         <RecordController />
+      </Match>
+      <Match when={appMode() === 'playback'}>
+        <PlaybackController />
       </Match>
     </Switch>
   )
