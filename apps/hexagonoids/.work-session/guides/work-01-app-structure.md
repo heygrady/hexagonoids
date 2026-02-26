@@ -162,6 +162,7 @@ source based on the current app mode:
 <Switch>
   <Match when={mode() === 'play'}><PlayModeGameLoop /></Match>
   <Match when={mode() === 'record'}><RecordController /></Match>
+  <Match when={mode() === 'playback'}><PlaybackController /></Match>
 </Switch>
 ```
 
@@ -169,10 +170,23 @@ source based on the current app mode:
 e.g., input bridge, collision) and `PlayModeGameLoop` (the Babylon
 `beforeRender` loop, play-mode only).
 
-`RecordController` owns its own `beforeRender` tick loop — it does **not**
-share `useGameLoop`. This matches the architecture guide's Option 2
-(controller owns tick timing) and leaves play mode completely unaffected.
-Do not pass the scene tick into RecordController from outside.
+Each controller owns its own `beforeRender` tick loop — do **not** share
+`useGameLoop`. This matches the architecture guide's Option 2 (controller
+owns tick timing) and leaves play mode completely unaffected.
+
+Controllers may use a plain mutable boolean flag (not a signal) to gate
+the `beforeRender` observer while async setup is pending. The flag is only
+read inside the callback, not in JSX, so a signal adds no value:
+
+```typescript
+let loading = true
+// async init...
+loading = false
+scene.onBeforeRenderObservable.add(() => {
+  if (loading) return
+  // tick logic
+})
+```
 
 ## modes/constants.ts — Server Can Import Plain Primitive Constants
 
@@ -186,6 +200,21 @@ contains only plain primitive values with no browser APIs. The alternative
 
 Rule: server files **may** import from client component paths if and only
 if the imported file is pure primitives with zero browser API usage.
+
+## modes/trpc.ts — Shared tRPC Client
+
+Both `RecordController` and `PlaybackController` use an identical
+`createTRPCClient<AppRouter>` with an HTTP batch link. Extract it once to
+`modes/trpc.ts` and import it in both controllers. This ensures consistent
+configuration and lets HTTP batching coalesce requests across both controllers.
+
+## Controller Escape Key — Self-Contained window.addEventListener
+
+Mode controllers (RecordController, PlaybackController) wire the Escape key
+directly via `window.addEventListener` inside the component body, mirroring
+`StartScreen`'s pattern. Do **not** route playback/record exit logic through
+`useInputBridge`. Keeping exit handling self-contained avoids polluting the
+shared input bridge with mode-specific key logic.
 
 ## useInputBridge — Plain Object, Not Signal
 

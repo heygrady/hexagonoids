@@ -131,6 +131,70 @@ typically does not justify the effort when:
 Use `it.skip` with a comment explaining the NullEngine requirement, and cover
 edge cases through integration-level tests instead.
 
+## SolidJS JSX in Vitest — React is not defined
+
+SolidJS components that return JSX (e.g., `<PlaybackOverlay />`) compile to
+`React.createElement()` calls by default in vitest/esbuild because
+`tsconfig` has `jsx: 'preserve'` and `vite-plugin-solid` is not present in
+the vitest config. The test fails at runtime with `React is not defined`.
+
+Fix: stub `React` as a global no-op at the top of the test file:
+
+```typescript
+vi.stubGlobal('React', { createElement: () => null })
+```
+
+This lets the component body execute and return value is safely ignored. The
+stub must appear before any imports that trigger the JSX transform, so place
+it before `vi.mock` factories or use inside `beforeAll`.
+
+## Testing SolidJS Components as Plain Functions
+
+For mode controllers (RecordController, PlaybackController), call the
+component function directly as a plain function — do not mount it with a
+renderer. Mock all SolidJS hooks (`createSignal`, `onCleanup`) and external
+dependencies (Babylon, tRPC, AppMode) via `vi.mock`.
+
+Capture the `beforeRender` callback from the observable mock and invoke it
+directly to exercise accumulator logic:
+
+```typescript
+const callback = mockObservableAdd.mock.calls[0][0]
+callback() // simulate one frame tick
+```
+
+This follows the established `useGameLoop.test.ts` pattern.
+
+## Minimal createSignal Stub
+
+When mocking `solid-js` for a component test, use the minimal `createSignal`
+stub unless a test exercises a path where the getter must reflect an updated
+value:
+
+```typescript
+vi.mock('solid-js', () => ({
+  createSignal: (init: unknown) => [() => init, vi.fn()],
+  onCleanup: vi.fn(),
+}))
+```
+
+Do **not** build a full stateful reimplementation (closure over a mutable
+variable) unless a specific test requires getter updates — it couples tests
+to SolidJS signal semantics unnecessarily.
+
+## What Needs Tests: Behavioral Logic Only
+
+Only the file(s) with behavioral logic need tests among a batch of changes.
+Files classified as wiring or trivial presentation can be skipped:
+
+- **Pure JSX presentation** (`PlaybackOverlay.tsx`) — no logic, skip
+- **One-liner wiring additions** (adding one `<Match>` case to a `<Switch>`) — skip
+- **Identical conditional added to existing handler** — skip
+- **Import path swap** (no logic change) — skip
+- **Pure config** (`trpc.ts` with `createTRPCClient`) — skip
+
+Focus test effort on the file that owns the accumulator / state machine logic.
+
 ## Avoid Implementation Inspector Tests
 
 Do not write tests that assert internal wiring details with no behavioral value.
