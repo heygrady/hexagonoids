@@ -61,16 +61,21 @@ expect(stub.bulletNode.isVisible).toBe(false)
 This pattern avoids complex mocking of the full `createFn` path while still
 covering the reset/cleanup behavior.
 
-## getCommonMaterial Triggers solid-js Hydration Error in Tests
+## getCommonMaterial and Solid Root Context
 
-`getCommonMaterial` calls `solid-js createUniqueId()` **at the module level** to generate stable material cache keys. Any test that transitively imports a module depending on `getCommonMaterial` will fail:
+`getCommonMaterial` calls `solid-js createUniqueId()` when the function runs.
+If a test path executes it outside a Solid root, it can fail with:
 
 > `getNextContextId cannot be used under non-hydrating context`
 
-**Fix**: Mock `getCommonMaterial` at the top of the test file:
+Primary fix: run the code path inside `createRoot(...)` when you need real
+material behavior.
+
+For tests that do not care about material behavior (e.g., singleton creation /
+idempotency only), mock `getCommonMaterial` at the top of the test file:
 
 ```typescript
-vi.mock('../../src/components/hexagonoids/engine/commonMaterial', () => ({
+vi.mock('../../src/components/hexagonoids/common/commonMaterial', () => ({
   getCommonMaterial: vi.fn().mockReturnValue(null),
 }))
 ```

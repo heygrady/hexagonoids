@@ -6,7 +6,20 @@ tags: [hexagonoids-app, solidjs, babylonjs, testing, work-session]
 
 # Hooks Testing Guide
 
-## useInputBridge — Mock window.addEventListener
+## Solid Testing Rig (Vitest + Solid)
+
+Use Solid's official test stack in app-level Vitest:
+
+- `vite-plugin-solid` in `vitest.config.ts`
+- `test.environment = 'jsdom'`
+- `setupFiles` including:
+  - `@solidjs/testing-library` (auto-cleanup)
+  - `@testing-library/jest-dom/vitest` (DOM matchers)
+
+This enables JSX compilation, DOM rendering, and `jest-dom` assertions without
+test-local runtime shims.
+
+## useInputBridge — Prefer Real Keyboard Events
 
 Vitest runs with `jsdom`, so keyboard behavior can be tested by dispatching real
 `KeyboardEvent`s on `window`:
@@ -24,16 +37,22 @@ needs to assert listener wiring directly.
 
 This keeps tests aligned with runtime behavior while still avoiding a real browser.
 
-## useGameLoop — Mock Solid-js Lifecycle and Context
+## useGameLoop — Use createRoot + Context Mocks
 
-Mock `solid-js` (`onCleanup`), `useScene`, and `useGameState` via `vi.mock` so
-the Babylon observer registration and MAX_DELTA clamping can be verified without
-a real scene or engine:
+Run the hook inside a real Solid root (`createRoot`) so `onCleanup` wiring is
+real. Mock only context dependencies (`useScene`, `useGameState`) so Babylon
+observer registration and MAX_DELTA clamping can be verified without a real
+scene or engine:
 
 ```typescript
-vi.mock('solid-js', () => ({ onCleanup: vi.fn() }))
 vi.mock('../SceneContext', () => ({ useScene: () => mockScene }))
 vi.mock('../useGameState', () => ({ useGameState: () => mockEngine }))
+
+createRoot((dispose) => {
+  useGameLoop(inputs, 'player-1')
+  // ... assertions
+  dispose()
+})
 ```
 
 Capture the registered `beforeRender` callback from the observable mock and
@@ -141,7 +160,10 @@ export default defineConfig({
   plugins: [solid({ dev: false, hot: false })],
   test: {
     environment: 'jsdom',
-    setupFiles: ['./test/helpers/equalsWithEpsilon.ts'],
+    setupFiles: [
+      './test/helpers/setupTests.ts',
+      './test/helpers/equalsWithEpsilon.ts',
+    ],
   },
 })
 ```
@@ -149,16 +171,15 @@ export default defineConfig({
 Do not stub `React` globals in tests. Fix the transform once in Vitest config
 so JSX behaves like the app runtime.
 
-## Testing SolidJS Components as Plain Functions
+## Testing SolidJS Components
 
-For mode controllers (RecordController, PlaybackController), call the
-component function directly as a plain function — do not mount it with a
-renderer. Mock all SolidJS hooks (`createSignal`, `onCleanup`) and external
-dependencies (Babylon, tRPC, AppMode) via `vi.mock`.
+Default to rendering components with `@solidjs/testing-library` and asserting
+observable UI behavior. This keeps tests aligned with Solid ownership/lifecycle
+semantics and avoids root/disposal warnings.
 
-If a test starts depending on Solid ownership/lifecycle semantics, run the
-component logic inside `createRoot` (or a renderer harness) instead of calling
-the function directly.
+For mode controllers where direct invocation is still useful, keep the scope
+focused on behavioral logic and prefer `createRoot`/render harnesses if tests
+touch ownership, cleanup, or effects.
 
 Capture the `beforeRender` callback from the observable mock and invoke it
 directly to exercise accumulator logic:
@@ -170,11 +191,13 @@ callback() // simulate one frame tick
 
 This follows the established `useGameLoop.test.ts` pattern.
 
-## Minimal createSignal Stub
+## Avoid Mocking solid-js in Component Tests
 
-When mocking `solid-js` for a component test, use the minimal `createSignal`
-stub unless a test exercises a path where the getter must reflect an updated
-value:
+With the Solid testing rig configured, prefer `render(...)` and real Solid
+primitives. Mocking `solid-js` (`createSignal`, `Switch`, `Match`) should be a
+last resort for narrowly isolated logic.
+
+If mocking is unavoidable, keep stubs minimal and scoped to the specific test:
 
 ```typescript
 vi.mock('solid-js', () => ({
@@ -183,16 +206,16 @@ vi.mock('solid-js', () => ({
 }))
 ```
 
-Do **not** build a full stateful reimplementation (closure over a mutable
-variable) unless a specific test requires getter updates — it couples tests
-to SolidJS signal semantics unnecessarily.
+Do **not** build full stateful reimplementations unless a specific assertion
+requires it.
 
 ## What Needs Tests: Behavioral Logic Only
 
 Only the file(s) with behavioral logic need tests among a batch of changes.
-Files classified as wiring or trivial presentation can be skipped:
+Files classified as wiring or trivial presentation are lower priority:
 
-- **Pure JSX presentation** (`PlaybackOverlay.tsx`) — no logic, skip
+- **Pure static JSX presentation** — often skippable
+- **UI with derived/critical display behavior** (formatting, conditional sections) — add a lightweight render test
 - **One-liner wiring additions** (adding one `<Match>` case to a `<Switch>`) — skip
 - **Identical conditional added to existing handler** — skip
 - **Import path swap** (no logic change) — skip
@@ -200,20 +223,17 @@ Files classified as wiring or trivial presentation can be skipped:
 
 Focus test effort on the file that owns the accumulator / state machine logic.
 
-## AppModeProvider — Skip Tests (Private slugify, SolidJS Boundary)
+## AppModeProvider — Test Through Provider Boundary
 
-`AppModeProvider` can be skipped for unit tests even though it contains `slugify`
-logic and wrapped `setPlayerId` behavior. `slugify` is private (not exported) and
-`setPlayerId` is only exercisable through the SolidJS component boundary, requiring
-`createRoot` or a renderer harness. TypeScript catches most error classes at the
-boundary, so the testing cost outweighs the coverage value.
+Do not skip this by default. If behavior changes around `playerId` sanitization
+or persistence, test it through a provider/render harness and assert observable
+results (`setPlayerId` output, localStorage interactions).
 
-## PlaybackController Tests — SessionBrowser Mock Auto-Triggers onSelectAll
+## PlaybackController Tests — Prefer Explicit Progression
 
-Mock `SessionBrowser` to auto-trigger `onSelectAll` immediately. This drives the
-component through the `'browse'` → `'playing'` phase transition implicitly, so
-tests exercise the full new phase flow without additional setup. Existing tests
-required no updates when the browse/playing phase was added.
+Auto-triggering `onSelectAll` inside a `SessionBrowser` mock is a valid shortcut
+but should be used deliberately. Prefer explicit progression (`render`, then
+`waitFor`/event trigger) when clarity matters more than setup brevity.
 
 ## exportBenchmarks — mockRejectedValue for ENOENT (All Seeds)
 

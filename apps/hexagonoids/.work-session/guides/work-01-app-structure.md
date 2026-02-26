@@ -92,15 +92,32 @@ Consumers keep a local `const PLAYER_ID = DEFAULT_PLAYER_ID` rather than
 importing `DEFAULT_PLAYER_ID` at every call site — preserves readability and
 eliminates string literal drift risk.
 
-## SceneStore Must Not Be Deleted
+## SceneStore Is Rendering Infrastructure
 
-`store/scene/` (`SceneStore.ts`, `SceneSetters.ts`) is **rendering infrastructure**, not game logic. It holds the Babylon `Scene`, globe mesh, camera context, and running flag. It is consumed by `solid-babylon/SceneCanvas.tsx` and `SceneContext.ts`.
+`store/scene/` holds the Babylon `Scene`, globe mesh, camera context, and
+running flag. It is consumed by `solid-babylon/SceneCanvas.tsx` and
+`SceneContext.ts`. This is rendering infrastructure, not game logic.
 
-When deleting nanostore game-state directories, do **not** delete `store/scene/`. It was accidentally removed alongside the game stores in a mass cleanup and had to be restored from git.
+## Cell System Is Vital to Game Visuals
 
-## Cell System Was Removed (Intentionally Inert)
+The cell visualization system renders H3 hexagonal cells on the globe surface
+as entities move through them — it is a core visual feature of the game.
 
-The cell pool system (`store/cell/`, `store/cellPool/`, `hooks/useCellPool`, `Cells.tsx`, `Cell.tsx`, `cell/generateCell.ts`) was deleted entirely. The rationale: `PoolInitializer` was never rendered, `Collision.tsx` was never rendered, so no cells were ever created or visited. Keeping a broken dependency chain through `GameStore` was worse than deleting. Do not try to restore this system unless a collision/cell feature is being actively built.
+The cell system uses the engine's reactive state pattern (not nanostores):
+
+- `Cells.tsx` — imperative component, reads engine state per-frame, visits
+  cells under ships/rocks/bullets, manages fade via `CellManager`
+- `cell/CellManager.ts` — class-based manager with `ObjectPool` for node reuse,
+  `NodeRegistry` for frustum culling, `StandardMaterial` with inline creation,
+  fade-out via `easeCubicIn`
+- `cell/entityToCells.ts` — `entityToCell()` returns a single H3 cell at
+  resolution 1
+- `cell/createCellPolygon.ts` — creates 3D polyhedron meshes from H3 cell
+  vertices
+- `CellNodes` interface in `engine/nodeTypes.ts` and cell constants in
+  `constants.ts` are active production code
+
+Do NOT delete cell system files. Do NOT treat the cell system as dead code.
 
 ## EngineGameLoop: Attract-Mode Rocks in onMount()
 
@@ -113,45 +130,28 @@ SolidJS reactive graph build timing.
 
 ## ShipCamera Default Position
 
-`ShipCamera.tsx` was simplified to always use the default starting position `latLngToVector3(0, 0, RADIUS)`. The old code read `$player.$ship.positionNode` from the nanostore but fell back to the same default anyway. No behavioral change.
+`ShipCamera.tsx` uses the default starting position `latLngToVector3(0, 0, RADIUS)`.
 
 ## bullet/createBulletNodes.ts — initializeBulletMaster Only
 
-After cleanup, `bullet/createBulletNodes.ts` retains only:
-- `initializeBulletMaster()` — used by `engine/bulletNodePool.ts`
-- `getBulletMaster()` — accessor added for completeness
-
-The old `createBulletNodes` function and `BulletStore` type import were removed. Do not re-add `BulletStore` imports to this file.
+`bullet/createBulletNodes.ts` exports only `initializeBulletMaster()`.
+`getBulletMaster()` is a local closure function inside `engine/bulletNodePool.ts`
+(not in `createBulletNodes.ts`). Note: `bulletMaster` is still a module-level
+singleton in `createBulletNodes.ts` — it has not been moved into a factory
+closure as the Node Pools section above prescribes.
 
 ## SphereArenaCamera: Vector3[] Not Tuple
 
 The `CameraPoints` 5-tuple was replaced with `Vector3[]` on the `SphereArenaCamera` interface. The ray-pick loop only rejects 0-length results, so a 1–4-length pick would under-fill a 5-tuple at runtime. `Vector3[]` matches runtime behavior without requiring a length guard.
 
-## EngineGameLoop: Named Inner Functions Over Module Extraction
+## EngineGameLoop: Named Inner Functions
 
-When `EngineGameLoop` grows to include distinct concerns (collision hooks,
-explosion effects, etc.), refactor to **named inner functions with section-comment
-headers** — do not extract to separate module files:
+`EngineGameLoop` uses named inner functions with section-comment headers for
+distinct concerns (collision hooks, explosion effects, attract-mode spawning).
+This keeps the wiring inline in `HexagonoidsCanvas.tsx`.
 
-```typescript
-// --- Collision hooks ---
-function setupCollisionHooks(collisionType: CollisionType, ref: EntityRef) {
-  // ...
-}
-
-// --- Explosion effects ---
-function setupExplosionEffects(ref: EntityRef) {
-  // ...
-}
-```
-
-This preserves the deliberate inline wiring pattern (single-file, no reuse
-outside the canvas) while addressing single-responsibility at the function level.
-Import `CollisionType` and `EntityRef` from `@heygrady/hexagonoids-engine` for
-clean explicit parameter types in the named functions.
-
-Do not create `collision/setupCollisionHooks.ts` or `effects/setupExplosionEffects.ts`
-files — external extraction would break the inline wiring intent documented above.
+If `EngineGameLoop` grows significantly or functions need independent testing,
+extracting them to separate module files is acceptable.
 
 ## ModeGameLoop: One Tick Source at a Time
 
