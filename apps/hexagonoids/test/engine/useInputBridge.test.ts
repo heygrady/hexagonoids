@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 // Mock solid-js onCleanup to capture the cleanup callback
 vi.mock('solid-js', () => ({
+  createContext: vi.fn(),
+  useContext: vi.fn(),
   onCleanup: vi.fn(),
 }))
 
@@ -21,7 +23,7 @@ import { useInputBridge } from '../../src/components/hexagonoids/engine/useInput
 function fireKey(type: 'keydown' | 'keyup', key: string) {
   const handler = listeners.get(type)
   if (typeof handler === 'function') {
-    handler({ key } as KeyboardEvent)
+    handler({ key, preventDefault: () => {} } as unknown as KeyboardEvent)
   }
 }
 
@@ -29,7 +31,7 @@ describe('useInputBridge', () => {
   it('returns all-false inputs initially', () => {
     const inputs = useInputBridge()
 
-    expect(inputs).toEqual({
+    expect(inputs).toMatchObject({
       left: false,
       right: false,
       thrust: false,

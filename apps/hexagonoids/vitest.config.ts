@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
+    environment: 'jsdom',
     /* for example, use global to avoid globals imports (describe, test, expect): */
     // globals: true,
     setupFiles: ['./test/helpers/equalsWithEpsilon.ts'],
