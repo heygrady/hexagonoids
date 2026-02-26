@@ -46,6 +46,7 @@ import { Globe } from './Globe'
 import { Lights } from './Lights'
 import { AppModeProvider, useAppMode } from './modes/AppModeProvider'
 import { PlaybackController } from './modes/PlaybackController'
+import { PlayerIdentity } from './modes/PlayerIdentity'
 import { RecordController } from './modes/RecordController'
 import { CameraLighting } from './NewLights'
 import { NodeRegistryProvider, useNodeRegistry } from './NodeRegistry'
@@ -267,6 +268,7 @@ export const HexagonoidsCanvas: Component<HexagonoidsCanvasProps> = (props) => {
     >
       <EngineProvider>
         <AppModeProvider>
+          <PlayerIdentity />
           <Show when={ready()}>
             <Globe>
               <InputBridgeProvider>

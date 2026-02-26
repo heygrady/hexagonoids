@@ -63,13 +63,31 @@ export const StartScreen: Component = () => {
   line2.position = new Vector3(0, 0, 0.15)
   line2.material = material
 
+  const hintMaterial = getCommonMaterial(scene, {
+    emissiveColor: new Color3(0.5, 0.5, 0.5),
+  })
+
+  // Only show the record/playback hint in dev mode — not in production builds
+  const line3 = import.meta.env.DEV
+    ? createTextMesh(scene, 'Shift+R: Record | Shift+P: Playback')
+    : null
+  if (line3 != null) {
+    line3.scaling.setAll(0.045)
+    line3.parent = hudNode
+    line3.position = new Vector3(0, 0, 0.25)
+    line3.material = hintMaterial
+  }
+
   const hideScreen = () => {
     line1.dispose()
     line2.dispose()
+    line3?.dispose()
   }
 
   disposables.add(line1)
   disposables.add(line2)
+  if (line3 != null) disposables.add(line3)
+  disposables.add(hintMaterial)
 
   const handleKeyDown = (event: KeyboardEvent) => {
     // Shift+R enters record mode
