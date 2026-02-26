@@ -8,28 +8,21 @@ tags: [hexagonoids-app, solidjs, babylonjs, testing, work-session]
 
 ## useInputBridge — Mock window.addEventListener
 
-The app's vitest config has no DOM environment, so tests cannot rely on jsdom.
-Use `vi.stubGlobal` to mock `window.addEventListener` at the module level and
-capture handlers in a `Map`:
+Vitest runs with `jsdom`, so keyboard behavior can be tested by dispatching real
+`KeyboardEvent`s on `window`:
 
 ```typescript
-const handlers = new Map<string, EventListener>()
-vi.stubGlobal('window', {
-  addEventListener: (type: string, handler: EventListener) => {
-    handlers.set(type, handler)
-  },
-  removeEventListener: vi.fn(),
-})
-```
-
-Then replay captured handlers to simulate key events:
-
-```typescript
-handlers.get('keydown')?.({ key: 'ArrowLeft' } as KeyboardEvent)
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }))
 expect(result.left).toBe(true)
+
+window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft' }))
+expect(result.left).toBe(false)
 ```
 
-This exercises the pure key-mapping logic without a browser environment.
+Use `vi.spyOn(window, 'addEventListener')` or targeted stubs only when the test
+needs to assert listener wiring directly.
+
+This keeps tests aligned with runtime behavior while still avoiding a real browser.
 
 ## useGameLoop — Mock Solid-js Lifecycle and Context
 
@@ -133,20 +126,28 @@ edge cases through integration-level tests instead.
 
 ## SolidJS JSX in Vitest — React is not defined
 
-SolidJS components that return JSX (e.g., `<PlaybackOverlay />`) compile to
-`React.createElement()` calls by default in vitest/esbuild because
-`tsconfig` has `jsx: 'preserve'` and `vite-plugin-solid` is not present in
-the vitest config. The test fails at runtime with `React is not defined`.
+SolidJS components that return JSX (e.g., `<PlaybackOverlay />`) can fail under
+plain Vitest/esbuild transforms (`React is not defined` or `jsxDEV is not a function`)
+when Solid's compiler plugin is missing.
 
-Fix: stub `React` as a global no-op at the top of the test file:
+Fix: configure Vitest to use `vite-plugin-solid` in
+`apps/hexagonoids/vitest.config.ts`:
 
 ```typescript
-vi.stubGlobal('React', { createElement: () => null })
+import solid from 'vite-plugin-solid'
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  plugins: [solid({ dev: false, hot: false })],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./test/helpers/equalsWithEpsilon.ts'],
+  },
+})
 ```
 
-This lets the component body execute and return value is safely ignored. The
-stub must appear before any imports that trigger the JSX transform, so place
-it before `vi.mock` factories or use inside `beforeAll`.
+Do not stub `React` globals in tests. Fix the transform once in Vitest config
+so JSX behaves like the app runtime.
 
 ## Testing SolidJS Components as Plain Functions
 
@@ -154,6 +155,10 @@ For mode controllers (RecordController, PlaybackController), call the
 component function directly as a plain function — do not mount it with a
 renderer. Mock all SolidJS hooks (`createSignal`, `onCleanup`) and external
 dependencies (Babylon, tRPC, AppMode) via `vi.mock`.
+
+If a test starts depending on Solid ownership/lifecycle semantics, run the
+component logic inside `createRoot` (or a renderer harness) instead of calling
+the function directly.
 
 Capture the `beforeRender` callback from the observable mock and invoke it
 directly to exercise accumulator logic:
@@ -194,6 +199,33 @@ Files classified as wiring or trivial presentation can be skipped:
 - **Pure config** (`trpc.ts` with `createTRPCClient`) — skip
 
 Focus test effort on the file that owns the accumulator / state machine logic.
+
+## AppModeProvider — Skip Tests (Private slugify, SolidJS Boundary)
+
+`AppModeProvider` can be skipped for unit tests even though it contains `slugify`
+logic and wrapped `setPlayerId` behavior. `slugify` is private (not exported) and
+`setPlayerId` is only exercisable through the SolidJS component boundary, requiring
+`createRoot` or a renderer harness. TypeScript catches most error classes at the
+boundary, so the testing cost outweighs the coverage value.
+
+## PlaybackController Tests — SessionBrowser Mock Auto-Triggers onSelectAll
+
+Mock `SessionBrowser` to auto-trigger `onSelectAll` immediately. This drives the
+component through the `'browse'` → `'playing'` phase transition implicitly, so
+tests exercise the full new phase flow without additional setup. Existing tests
+required no updates when the browse/playing phase was added.
+
+## exportBenchmarks — mockRejectedValue for ENOENT (All Seeds)
+
+Use `mockReadFile.mockRejectedValue(...)` (not `mockRejectedValueOnce`) to test
+the ENOENT/skip behavior so **all** benchmark seed reads fail, producing an empty
+seeds map. This verifies skip-on-missing without enumerating each seed individually.
+
+## exportBenchmarks Tests — Extend Existing sessions.test.ts
+
+Add `exportBenchmarks` tests to the existing `sessions.test.ts` rather than a new
+file. The procedure has pure aggregation logic (best/avg score, wave across JSONL
+lines) fully exercisable through the existing tRPC caller fixture and `mockReadFile`.
 
 ## Avoid Implementation Inspector Tests
 

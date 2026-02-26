@@ -235,3 +235,46 @@ window.addEventListener('keydown', (e) => {
 The plain object approach is already documented in the devlog at
 `.devlogs/neat-hexagonoids/phase-04a/guide/work-02-input-and-gameloop.md`.
 Do not refactor to signals.
+
+## AppModeProvider — playerId with Wrapped Setter and SSR Guard
+
+`playerId` is stored via `createSignal` backed by `localStorage`. The exported
+`setPlayerId` is a wrapper (not the raw `Setter<string>`) so every write goes
+through a `slugify` helper (lowercase, replace non-alphanumeric runs with `-`)
+and `localStorage.setItem` atomically. Exposing the raw setter was rejected
+because callers would bypass sanitization.
+
+Guard all `localStorage` access with `typeof window !== 'undefined'`. On the
+server the initial value returns `''`; `PlayerIdentity` will prompt on first
+client render. Recording/playback are client-only features.
+
+## PlaybackController — browse/playing Phase Signal
+
+PlaybackController uses a `'browse' | 'playing'` phase signal:
+- `'browse'` phase: shows `SessionBrowser`
+- `'playing'` phase: shows `PlaybackOverlay`
+
+The `beforeRender` observer gates on `loading && phase`, so no replay ticks fire
+while browsing. All playback state stays co-located in one component.
+
+## SessionBrowser — Single Round-Trip via exportBenchmarks
+
+`SessionBrowser` fetches stats via the `exportBenchmarks` endpoint only (not
+`sessions.list` + `sessions.get` per seed). `exportBenchmarks` reads all JSONL
+lines server-side and aggregates (best/avg score, wave). Returning raw lines for
+client aggregation was rejected — each line includes the full frames array,
+transferring unnecessary data just to compute summary statistics.
+
+## sessionRecordingSchema — Optional score and wave Fields
+
+Extended with optional `score` and `wave` fields. Existing JSONL recordings
+lacking these fields still parse (zod treats missing optionals as `undefined`,
+defaulting to `0` in `exportBenchmarks`). `RecordController` passes both in the
+save mutation so future recordings carry the data.
+
+## SeedBenchmarkStats — Named Interface in sessions.ts
+
+Extract aggregation result types as named interfaces (e.g., `SeedBenchmarkStats`)
+rather than inline types. This eliminates duplication between the return type
+annotation and local variable declarations, and makes the type reusable across
+future procedures.
