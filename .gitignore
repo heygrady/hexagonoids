@@ -140,6 +140,9 @@ dist
 !.yarn/versions
 .turbo
 
+# Session recordings (dev only)
+apps/hexagonoids/.data/
+
 packages/tictactoe-demo/tmp
 packages/tictactoe-demo/best*.json
 

@@ -57,5 +57,8 @@
     "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,astro}": [
       "biome check --write --no-errors-on-unmatched"
     ]
+  },
+  "dependencies": {
+    "agent-browser": "^0.14.0"
   }
 }
