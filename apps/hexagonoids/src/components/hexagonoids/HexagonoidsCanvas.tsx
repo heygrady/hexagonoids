@@ -23,6 +23,7 @@ import { useScene } from '../solid-babylon/hooks/useScene'
 import { type ReadyCallback, SceneCanvas } from '../solid-babylon/SceneCanvas'
 import { Bullets } from './Bullets'
 import { spawnSparks } from './bullet/spawnSparks'
+import { Cells } from './Cells'
 import { Culling } from './Culling'
 import { verifyShipRockCollision } from './collision/verifyShipRockCollision'
 import {
@@ -278,6 +279,7 @@ export const HexagonoidsCanvas: Component<HexagonoidsCanvasProps> = (props) => {
                   <Ships />
                   <Bullets />
                   <Rocks />
+                  <Cells />
                   <Lights />
                   <ShipCamera debug={props.debug}>
                     <CameraLighting>
