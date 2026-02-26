@@ -1,8 +1,6 @@
 import { MAX_DELTA } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
-import { createTRPCClient, httpBatchLink } from '@trpc/client'
 import { createSignal, onCleanup } from 'solid-js'
-import type { AppRouter } from '../../../server/router'
 import { useScene } from '../../solid-babylon/hooks/useScene'
 import { DEFAULT_PLAYER_ID } from '../constants'
 import { useInputs } from '../engine/useInputBridge'
@@ -11,12 +9,9 @@ import { packInputs } from '../types'
 import { useAppMode } from './AppModeProvider'
 import { BENCHMARK_SEEDS, SESSION_DURATION } from './constants'
 import { RecordOverlay } from './RecordOverlay'
+import { trpc } from './trpc'
 
 const PLAYER_ID = DEFAULT_PLAYER_ID
-
-const trpc = createTRPCClient<AppRouter>({
-  links: [httpBatchLink({ url: '/api/trpc' })],
-})
 
 /**
  * Record-mode controller. When active, hooks into the Babylon render loop,
