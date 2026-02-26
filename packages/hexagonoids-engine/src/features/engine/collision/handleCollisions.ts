@@ -64,6 +64,15 @@ export function handleCollisions(
 
       // Skip already-processed entities
       if (processedShips.has(shipId) || processedRocks.has(rockId)) continue
+
+      // Narrow-phase verification for ship-rock collisions
+      if (
+        hooks?.verifyCollision != null &&
+        !hooks.verifyCollision(pair.a, pair.b, pair.type)
+      ) {
+        continue
+      }
+
       processedShips.add(shipId)
 
       const ship = state.ships.get(shipId)

@@ -213,10 +213,16 @@ describe('entity lifecycle', () => {
   })
 
   describe('wave spawning via checkWaveSpawn', () => {
-    it('spawns a wave when enough time has elapsed', () => {
+    it('respects grace period then spawns waves', () => {
       startPlayer(game, 'p1', rng)
 
-      // First wave should spawn immediately (waveSpawnedAt is null → elapsed = Infinity)
+      // Should not spawn immediately — grace period applies
+      checkWaveSpawn(game, 'p1', rng)
+      expect(game.rocks.size).toBe(0)
+      expect(game.wave).toBe(0)
+
+      // Advance past grace period (waveSpawnedAt is set so first wave comes after ROCK_WAVE_PERIOD total)
+      advanceGameTime(game, ROCK_WAVE_PERIOD + 100)
       checkWaveSpawn(game, 'p1', rng)
       expect(game.rocks.size).toBeGreaterThan(0)
       expect(game.wave).toBe(1)
@@ -227,12 +233,6 @@ describe('entity lifecycle', () => {
       advanceGameTime(game, 1000)
       checkWaveSpawn(game, 'p1', rng)
       expect(game.rocks.size).toBe(firstWaveCount)
-
-      // Advance past wave period
-      advanceGameTime(game, ROCK_WAVE_PERIOD + 100)
-      checkWaveSpawn(game, 'p1', rng)
-      expect(game.rocks.size).toBeGreaterThan(firstWaveCount)
-      expect(game.wave).toBe(2)
     })
   })
 })

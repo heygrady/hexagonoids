@@ -99,10 +99,24 @@ export const SHIP_REGENERATION_WAIT_PERIOD = 1000 * 1
 // ── Waves ────────────────────────────────────────────────────────────────────
 
 export const ROCK_WAVE_PERIOD = 1000 * 5
+
+/** Don't spawn a wave if any rock is within this distance (radians) of the player */
+export const ROCK_ENCOUNTER_DISTANCE = 20 * DEG_TO_RAD
+
+/** After encountering a nearby rock, wait this long before checking again */
 export const ROCK_ENCOUNTER_COOLDOWN = 1000 * 1
+
+/** Grace period before the first wave spawns after starting/restarting */
+export const ROCK_WAVE_GRACE_PERIOD = 1000 * 2
 
 /** Maximum number of rocks allowed at once */
 export const MAX_ROCKS = 50
 
 /** Number of large rocks per wave (indexed by wave number) */
 export const ROCK_WAVE_SIZES = [4, 6, 8, 10, 11]
+
+/** Minimum spawn distance from player in degrees */
+export const ROCK_SPAWN_MIN_DISTANCE = 45
+
+/** Maximum spawn distance from player in degrees */
+export const ROCK_SPAWN_MAX_DISTANCE = 60

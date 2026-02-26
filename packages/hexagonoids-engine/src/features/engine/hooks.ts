@@ -9,4 +9,10 @@ export interface EngineHooks {
   onPlayerDied?: (playerId: string) => void
   onPlayerRegenerated?: (playerId: string) => void
   onGameOver?: (playerId: string) => void
+  /** Provide a spawn position for player regeneration. If undefined, falls back to random. */
+  getRegenerationPosition?: (
+    playerId: string
+  ) => { lat: number; lng: number } | undefined
+  /** Optional narrow-phase verification. Return false to reject a broad-phase collision. */
+  verifyCollision?: (a: EntityRef, b: EntityRef, type: CollisionType) => boolean
 }

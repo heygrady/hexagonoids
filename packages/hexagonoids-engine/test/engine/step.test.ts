@@ -6,6 +6,7 @@ import {
   BULLET_LIFETIME,
   createGame,
   ROCK_LARGE_SIZE,
+  ROCK_WAVE_GRACE_PERIOD,
   ROCK_WAVE_PERIOD,
   resetIdCounter,
   SHIP_REGENERATION_GRACE_PERIOD,
@@ -39,12 +40,14 @@ describe('step function', () => {
       expect(game.now).toBeCloseTo(16, 0)
     })
 
-    it('does not step if game is over', () => {
+    it('still advances time after game over but skips spawning', () => {
       startPlayer(game, 'p1', rng)
       game.endedAt = game.now
       const nowBefore = game.now
       step(game, NO_INPUT, 16, rng)
-      expect(game.now).toBe(nowBefore)
+      // Time still advances (for visual drift) but no new entities spawn
+      expect(game.now).toBeGreaterThan(nowBefore)
+      expect(game.rocks.size).toBe(0)
     })
 
     it('ship moves when stepping with no input', () => {
@@ -216,10 +219,23 @@ describe('step function', () => {
   })
 
   describe('wave spawning', () => {
-    it('spawns initial wave', () => {
+    it('does not spawn immediately — grace period applies', () => {
       startPlayer(game, 'p1', rng)
-      // First step should trigger wave spawn (waveSpawnedAt is null)
       step(game, NO_INPUT, 16, rng)
+
+      // Grace period means no rocks yet
+      expect(game.rocks.size).toBe(0)
+      expect(game.wave).toBe(0)
+    })
+
+    it('spawns first wave after grace period', () => {
+      startPlayer(game, 'p1', rng)
+
+      // Step past grace period
+      const stepsNeeded = Math.ceil(ROCK_WAVE_GRACE_PERIOD / 16) + 2
+      for (let i = 0; i < stepsNeeded; i++) {
+        step(game, IDLE_INPUT('p1'), 16, rng)
+      }
 
       expect(game.rocks.size).toBeGreaterThan(0)
       expect(game.wave).toBe(1)
@@ -228,12 +244,19 @@ describe('step function', () => {
     it('spawns subsequent waves after period elapses', () => {
       startPlayer(game, 'p1', rng)
 
-      // First step triggers initial wave
-      step(game, NO_INPUT, 16, rng)
+      // Step past grace period to trigger first wave
+      const graceSteps = Math.ceil(ROCK_WAVE_GRACE_PERIOD / 16) + 2
+      for (let i = 0; i < graceSteps; i++) {
+        step(game, IDLE_INPUT('p1'), 16, rng)
+      }
+      expect(game.wave).toBe(1)
 
-      // Step past wave period
-      const stepsNeeded = Math.ceil(ROCK_WAVE_PERIOD / 16) + 2
-      for (let i = 0; i < stepsNeeded; i++) {
+      // Clear rocks so encounter check doesn't block second wave
+      game.rocks.clear()
+
+      // Step past another full wave period
+      const waveSteps = Math.ceil(ROCK_WAVE_PERIOD / 16) + 2
+      for (let i = 0; i < waveSteps; i++) {
         step(game, IDLE_INPUT('p1'), 16, rng)
       }
 

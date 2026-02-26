@@ -111,14 +111,15 @@ export function step(
   rng: RNG,
   hooks?: EngineHooks
 ): void {
-  // Don't step if game is over
-  if (state.endedAt != null) return
+  const gameOver = state.endedAt != null
 
   // 1. Advance game time
   advanceGameTime(state, dtMs)
 
   // 2. Apply inputs
-  applyInputs(state, inputs, dtMs, rng)
+  if (!gameOver) {
+    applyInputs(state, inputs, dtMs, rng)
+  }
 
   // 3. Move entities
   moveEntities(state, dtMs)
@@ -127,19 +128,26 @@ export function step(
   expireBullets(state)
 
   // 5–6. Detect and handle collisions
-  const collisions = detectCollisions(state, RADIUS)
-  handleCollisions(state, collisions, rng, hooks)
+  if (!gameOver) {
+    const collisions = detectCollisions(state, RADIUS)
+    handleCollisions(state, collisions, rng, hooks)
+  }
 
   // 7. Regenerate players
-  for (const player of state.players.values()) {
-    if (!player.alive && canRegenerate(state, player.id)) {
-      regeneratePlayer(state, player.id, rng)
-      hooks?.onPlayerRegenerated?.(player.id)
+  if (!gameOver) {
+    for (const player of state.players.values()) {
+      if (!player.alive && canRegenerate(state, player.id)) {
+        const pos = hooks?.getRegenerationPosition?.(player.id)
+        regeneratePlayer(state, player.id, rng, pos?.lat, pos?.lng)
+        hooks?.onPlayerRegenerated?.(player.id)
+      }
     }
   }
 
   // 8. Spawn waves
-  for (const player of state.players.values()) {
-    checkWaveSpawn(state, player.id, rng)
+  if (!gameOver) {
+    for (const player of state.players.values()) {
+      checkWaveSpawn(state, player.id, rng)
+    }
   }
 }

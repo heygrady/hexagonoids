@@ -9,6 +9,8 @@ import {
   ROCK_MEDIUM_SPEED,
   ROCK_SMALL_SIZE,
   ROCK_SMALL_SPEED,
+  ROCK_SPAWN_MAX_DISTANCE,
+  ROCK_SPAWN_MIN_DISTANCE,
   ROCK_WAVE_SIZES,
   SPLIT_HEADING_OFFSET,
   SPLIT_ROLL_DISTANCE,
@@ -119,23 +121,35 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
   destroyRock(game, rock.id)
 }
 
+export interface SpawnWaveOptions {
+  /** Override minimum spawn distance in degrees (default: ROCK_SPAWN_MIN_DISTANCE) */
+  minDistance?: number
+  /** Override maximum spawn distance in degrees (default: ROCK_SPAWN_MAX_DISTANCE) */
+  maxDistance?: number
+}
+
 /**
  * Spawn a wave of rocks around a position.
- * Uses degree-offset math (no H3 dependency). Spawn lat is clamped to [-90, 90].
+ * By default, rocks spawn beyond the camera horizon (45-60 degrees) so they
+ * appear off-screen and drift into view. Pass options to override distances
+ * (e.g. for attract-mode rocks that should be immediately visible).
  */
 export function spawnWave(
   game: GameState,
   centerLat: number,
   centerLng: number,
-  rng: RNG
+  rng: RNG,
+  options?: SpawnWaveOptions
 ): void {
   const waveIndex = Math.min(game.wave, ROCK_WAVE_SIZES.length - 1)
   const count = ROCK_WAVE_SIZES[waveIndex] ?? 0
+  const minDist = options?.minDistance ?? ROCK_SPAWN_MIN_DISTANCE
+  const maxDist = options?.maxDistance ?? ROCK_SPAWN_MAX_DISTANCE
+  const range = maxDist - minDist
 
   for (let i = 0; i < count && game.rocks.size < MAX_ROCKS; i++) {
-    // Spawn at a random angle, 25–40 degrees from center
     const angle = rng.gen() * Math.PI * 2
-    const distanceDeg = 25 + rng.gen() * 15
+    const distanceDeg = minDist + rng.gen() * range
     const spawnLat = Math.max(
       -90,
       Math.min(90, centerLat + Math.sin(angle) * distanceDeg)
