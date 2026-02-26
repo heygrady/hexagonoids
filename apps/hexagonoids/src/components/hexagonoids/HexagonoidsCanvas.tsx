@@ -17,7 +17,7 @@ import {
 } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import type { Component, JSX } from 'solid-js'
-import { createSignal, onMount, Show } from 'solid-js'
+import { createSignal, Match, Show, Switch } from 'solid-js'
 import { onBeforeRender } from '../solid-babylon/hooks/onBeforeRender'
 import { useScene } from '../solid-babylon/hooks/useScene'
 import { type ReadyCallback, SceneCanvas } from '../solid-babylon/SceneCanvas'
@@ -44,6 +44,8 @@ import {
 } from './engine/useInputBridge'
 import { Globe } from './Globe'
 import { Lights } from './Lights'
+import { AppModeProvider, useAppMode } from './modes/AppModeProvider'
+import { RecordController } from './modes/RecordController'
 import { CameraLighting } from './NewLights'
 import { NodeRegistryProvider, useNodeRegistry } from './NodeRegistry'
 import { Rocks } from './Rocks'
@@ -69,7 +71,6 @@ export interface HexagonoidsCanvasProps
  */
 function EngineGameLoop() {
   const engine = useGameState()
-  const inputs = useInputs()
   const scene = useScene()
   const hooks = useEngineHooks()
   const registry = useNodeRegistry()
@@ -193,10 +194,36 @@ function EngineGameLoop() {
     attractWaveAt = state.now
   })
 
-  // Register the game loop tick (before entity render callbacks)
-  useGameLoop(inputs, PLAYER_ID)
-
   return null
+}
+
+/**
+ * Play-mode game loop. Registers the normal tick via useGameLoop.
+ * Only rendered when appMode is 'play'.
+ */
+function PlayModeGameLoop() {
+  const inputs = useInputs()
+  useGameLoop(inputs, PLAYER_ID)
+  return null
+}
+
+/**
+ * Switches between game loop implementations based on the current app mode.
+ * Play mode uses the normal game loop; record mode uses RecordController.
+ */
+function ModeGameLoop() {
+  const { appMode } = useAppMode()
+
+  return (
+    <Switch>
+      <Match when={appMode() === 'play'}>
+        <PlayModeGameLoop />
+      </Match>
+      <Match when={appMode() === 'record'}>
+        <RecordController />
+      </Match>
+    </Switch>
+  )
 }
 
 function InputBridgeProvider(props: { children: JSX.Element }) {
@@ -235,29 +262,32 @@ export const HexagonoidsCanvas: Component<HexagonoidsCanvasProps> = (props) => {
       {...props}
     >
       <EngineProvider>
-        <Show when={ready()}>
-          <Globe>
-            <InputBridgeProvider>
-              <NodeRegistryProvider>
-                <EngineGameLoop />
-                <Ships />
-                <Bullets />
-                <Rocks />
-                <Lights />
-                <ShipCamera debug={props.debug}>
-                  <CameraLighting>
-                    <Culling />
-                    <UI>
-                      <Score />
-                      <StartScreen />
-                      <EndScreen />
-                    </UI>
-                  </CameraLighting>
-                </ShipCamera>
-              </NodeRegistryProvider>
-            </InputBridgeProvider>
-          </Globe>
-        </Show>
+        <AppModeProvider>
+          <Show when={ready()}>
+            <Globe>
+              <InputBridgeProvider>
+                <NodeRegistryProvider>
+                  <EngineGameLoop />
+                  <ModeGameLoop />
+                  <Ships />
+                  <Bullets />
+                  <Rocks />
+                  <Lights />
+                  <ShipCamera debug={props.debug}>
+                    <CameraLighting>
+                      <Culling />
+                      <UI>
+                        <Score />
+                        <StartScreen />
+                        <EndScreen />
+                      </UI>
+                    </CameraLighting>
+                  </ShipCamera>
+                </NodeRegistryProvider>
+              </InputBridgeProvider>
+            </Globe>
+          </Show>
+        </AppModeProvider>
       </EngineProvider>
     </SceneCanvas>
   )

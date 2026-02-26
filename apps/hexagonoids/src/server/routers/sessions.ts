@@ -2,17 +2,11 @@ import { appendFile, mkdir, readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod/v4'
+import {
+  BENCHMARK_SEEDS,
+  SESSION_DURATION,
+} from '../../components/hexagonoids/modes/constants'
 import { publicProcedure, router } from '../trpc'
-
-const BENCHMARK_SEEDS = [
-  'benchmark-001',
-  'benchmark-002',
-  'benchmark-003',
-  'benchmark-004',
-  'benchmark-005',
-]
-
-const SESSION_DURATION = 10_000
 
 const DATA_DIR = path.resolve('.data/sessions')
 

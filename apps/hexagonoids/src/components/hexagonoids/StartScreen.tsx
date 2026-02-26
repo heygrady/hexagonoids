@@ -13,6 +13,7 @@ import { getCommonMaterial } from './common/commonMaterial'
 import { DEFAULT_PLAYER_ID, RADIUS } from './constants'
 import { useInputs } from './engine/useInputBridge'
 import { createTextMesh } from './hud/createTextMesh'
+import { useAppMode } from './modes/AppModeProvider'
 import { useCamera } from './ShipCamera'
 import { getYawPitch } from './ship/getYawPitch'
 import { moveNodeTo } from './ship/orientation'
@@ -41,6 +42,7 @@ export const StartScreen: Component = () => {
   const scene = useScene()
   const engine = useGameState()
   const inputs = useInputs()
+  const { setAppMode } = useAppMode()
   const hudNode = useUI()
   const { originNode: cameraOriginNode } = useCamera()
 
@@ -70,6 +72,16 @@ export const StartScreen: Component = () => {
   disposables.add(line2)
 
   const handleKeyDown = (event: KeyboardEvent) => {
+    // Shift+R enters record mode
+    if (event.shiftKey && event.key === 'R') {
+      event.preventDefault()
+      hideScreen()
+      inputs.reset()
+      setAppMode('record')
+      window.removeEventListener('keydown', handleKeyDown)
+      return
+    }
+
     if (!allowedKeys.has(event.key)) {
       return
     }
