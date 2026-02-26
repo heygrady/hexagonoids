@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// Stub React for JSX compilation (SolidJS TSX compiles to React.createElement in test env)
-vi.stubGlobal('React', { createElement: () => null })
-
 // --- Hoisted mocks (vi.hoisted runs at hoist time alongside vi.mock) ---
 const {
   mockTick,
@@ -30,9 +27,20 @@ const {
 
 // --- Module mocks ---
 vi.mock('solid-js', () => ({
-  // Minimal stub — tests do not exercise paths where signal state is read back
-  createSignal: (init: unknown) => [() => init, vi.fn()],
+  createSignal: (init: unknown) => {
+    let value = init
+    const getter = () => value
+    const setter = (v: unknown) => {
+      value =
+        typeof v === 'function' ? (v as (prev: unknown) => unknown)(value) : v
+    }
+    return [getter, setter]
+  },
   onCleanup: mockOnCleanup,
+  Switch: (props: { children: unknown }) => props.children,
+  Match: (props: { when: unknown; children: unknown }) =>
+    props.when ? props.children : null,
+  DEV: true,
 }))
 
 vi.mock('@heygrady/hexagonoids-engine/solid', () => ({
@@ -67,6 +75,8 @@ vi.mock('../../src/components/hexagonoids/modes/AppModeProvider.js', () => ({
   useAppMode: () => ({
     appMode: () => 'playback',
     setAppMode: mockSetAppMode,
+    playerId: () => 'test-player',
+    setPlayerId: () => {},
   }),
 }))
 
@@ -75,12 +85,25 @@ vi.mock('../../src/components/hexagonoids/modes/trpc.js', () => ({
     sessions: {
       list: { query: mockListQuery },
       get: { query: mockGetQuery },
+      exportBenchmarks: {
+        query: vi
+          .fn()
+          .mockResolvedValue({ playerId: 'test-player', seeds: {} }),
+      },
     },
   },
 }))
 
 vi.mock('../../src/components/hexagonoids/modes/PlaybackOverlay.js', () => ({
   PlaybackOverlay: () => null,
+}))
+
+vi.mock('../../src/components/hexagonoids/modes/SessionBrowser.js', () => ({
+  SessionBrowser: (props: { onSelectAll: () => void }) => {
+    // Auto-trigger "select all" to simulate user clicking play
+    props.onSelectAll()
+    return null
+  },
 }))
 
 // Stub window for keydown listener
@@ -121,8 +144,8 @@ describe('PlaybackController', () => {
 
     PlaybackController()
 
-    // Flush async init (list query + get query)
-    await vi.advanceTimersByTimeAsync(0)
+    // Flush async init (handleSelectAll → list query → startPlayback → fetchStats → loadSession → get query)
+    for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(0)
 
     // Get the beforeRender callback
     const beforeRenderCallback = mockObservableAdd.mock
@@ -136,12 +159,16 @@ describe('PlaybackController', () => {
     expect(mockTick).toHaveBeenCalledTimes(2)
     expect(mockTick).toHaveBeenNthCalledWith(
       1,
-      { 'player-1': { left: true, right: false, thrust: true, fire: false } },
+      {
+        'test-player': { left: true, right: false, thrust: true, fire: false },
+      },
       10
     )
     expect(mockTick).toHaveBeenNthCalledWith(
       2,
-      { 'player-1': { left: true, right: true, thrust: false, fire: false } },
+      {
+        'test-player': { left: true, right: true, thrust: false, fire: false },
+      },
       10
     )
   })
@@ -170,10 +197,10 @@ describe('PlaybackController', () => {
     mockGetQuery.mockResolvedValue({ frames: [{ dt: 10, i: 0 }] })
 
     PlaybackController()
-    await vi.advanceTimersByTimeAsync(0)
+    for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(0)
 
     // Assert: engine was reseeded with the session seed
-    expect(mockReseed).toHaveBeenCalledWith('benchmark-003', 'player-1')
+    expect(mockReseed).toHaveBeenCalledWith('benchmark-003', 'test-player')
   })
 
   it('exits playback and resets when Escape is pressed', async () => {
@@ -182,7 +209,7 @@ describe('PlaybackController', () => {
     mockGetQuery.mockResolvedValue({ frames: [{ dt: 10, i: 0 }] })
 
     PlaybackController()
-    await vi.advanceTimersByTimeAsync(0)
+    for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(0)
 
     // Act: simulate Escape keydown
     const handler = keydownHandlers[0]!
@@ -198,7 +225,7 @@ describe('PlaybackController', () => {
     mockListQuery.mockResolvedValue(['custom-seed-xyz'])
 
     PlaybackController()
-    await vi.advanceTimersByTimeAsync(0)
+    for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(0)
 
     // Assert: falls back to play mode since no benchmark seeds matched
     expect(mockSetAppMode).toHaveBeenCalledWith('play')

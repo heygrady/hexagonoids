@@ -152,3 +152,58 @@ describe('sessions.list', () => {
     expect(result).toEqual(['benchmark-001', 'benchmark-002'])
   })
 })
+
+describe('sessions.exportBenchmarks', () => {
+  test('aggregates best/avg score and best wave across multiple recordings', async () => {
+    const line1 = JSON.stringify(validRecording({ score: 100, wave: 2 }))
+    const line2 = JSON.stringify(validRecording({ score: 300, wave: 5 }))
+    const line3 = JSON.stringify(validRecording({ score: 200, wave: 3 }))
+    mockReadFile.mockResolvedValue(`${line1}\n${line2}\n${line3}\n`)
+
+    const result = await caller.exportBenchmarks({ playerId: 'player1' })
+
+    expect(result.playerId).toBe('player1')
+    const stats = result.seeds['benchmark-001']
+    expect(stats).toBeDefined()
+    expect(stats!.bestScore).toBe(300)
+    expect(stats!.avgScore).toBe(200)
+    expect(stats!.attempts).toBe(3)
+    expect(stats!.bestWave).toBe(5)
+  })
+
+  test('skips seeds with no recording file (ENOENT)', async () => {
+    const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    mockReadFile.mockRejectedValue(err)
+
+    const result = await caller.exportBenchmarks({ playerId: 'player1' })
+
+    expect(result.seeds).toEqual({})
+  })
+
+  test('defaults score and wave to 0 for recordings missing those fields', async () => {
+    // Recording without score/wave (legacy format)
+    const line = JSON.stringify(validRecording())
+    mockReadFile.mockResolvedValue(`${line}\n`)
+
+    const result = await caller.exportBenchmarks({ playerId: 'player1' })
+
+    const stats = result.seeds['benchmark-001']
+    expect(stats).toBeDefined()
+    expect(stats!.bestScore).toBe(0)
+    expect(stats!.avgScore).toBe(0)
+    expect(stats!.attempts).toBe(1)
+    expect(stats!.bestWave).toBe(0)
+  })
+
+  test('skips invalid JSON lines and still aggregates valid ones', async () => {
+    const validLine = JSON.stringify(validRecording({ score: 50, wave: 1 }))
+    mockReadFile.mockResolvedValue(`{bad json}\n${validLine}\n`)
+
+    const result = await caller.exportBenchmarks({ playerId: 'player1' })
+
+    const stats = result.seeds['benchmark-001']
+    expect(stats).toBeDefined()
+    expect(stats!.attempts).toBe(1)
+    expect(stats!.bestScore).toBe(50)
+  })
+})
