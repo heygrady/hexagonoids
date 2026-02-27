@@ -5,7 +5,7 @@ import {
   For,
   Show,
 } from 'solid-js'
-
+import { DEFAULT_PLAYER_ID } from '../constants'
 import { useAppMode } from './AppModeProvider'
 import { BENCHMARK_SEEDS } from './constants'
 import { trpc } from './trpc'
@@ -45,7 +45,10 @@ export interface SessionBrowserProps {
 
 export const SessionBrowser: Component<SessionBrowserProps> = (props) => {
   const { playerId } = useAppMode()
-  const [stats] = createResource(() => playerId(), fetchSeedStats)
+  const [stats] = createResource(
+    () => playerId() || DEFAULT_PLAYER_ID,
+    fetchSeedStats
+  )
   const [selected, setSelected] = createSignal<string | null>(null)
 
   function handlePlay() {

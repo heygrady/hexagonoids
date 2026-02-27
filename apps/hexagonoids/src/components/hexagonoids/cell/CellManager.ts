@@ -213,12 +213,16 @@ export class CellManager {
   }
 
   dispose(): void {
+    this.reset()
+    this.pool.destroy()
+  }
+
+  reset(): void {
     // Unregister and release all active cells
     for (const [h, cell] of this.activeCells) {
       this.registry.unregister(`cell:${h}`)
       this.pool.release(cell.nodes)
     }
     this.activeCells.clear()
-    this.pool.destroy()
   }
 }

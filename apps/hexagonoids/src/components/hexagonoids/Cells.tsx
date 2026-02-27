@@ -21,11 +21,19 @@ export const Cells: Component = () => {
   }
 
   const manager = new CellManager(scene, globe, registry)
+  let prevNow = 0
 
   // Per-frame: visit cells under all entities, then update fade
   onBeforeRender(() => {
     const state = engine.state
     const now = state.now
+
+    // Engine reseed resets game time to 0. Reset active cells so stale
+    // highlights from removed entities don't remain in an undefined state.
+    if (now < prevNow) {
+      manager.reset()
+    }
+    prevNow = now
 
     // Ships
     for (const ship of state.ships.values()) {
