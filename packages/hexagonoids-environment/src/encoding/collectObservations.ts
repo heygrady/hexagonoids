@@ -1,4 +1,3 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import type { GameState, ShipState } from '@heygrady/hexagonoids-engine'
 import {
   elapsed,
@@ -26,6 +25,7 @@ import type {
 export const LIDAR_RAY_COUNT = 32
 const TWO_PI = Math.PI * 2
 const MAX_VISION_ARC = SOI_ARC_DISTANCE
+const DEG_TO_RAD = Math.PI / 180
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
@@ -41,38 +41,80 @@ function wrapAngle(value: number): number {
 function headingVelocityComponents(
   ship: ShipState
 ): [forward: number, lateral: number] {
-  const speed = ship.angularVelocity.length()
+  const angularVelocity = ship.angularVelocity
+  const speed = Math.sqrt(
+    angularVelocity.x * angularVelocity.x +
+      angularVelocity.y * angularVelocity.y +
+      angularVelocity.z * angularVelocity.z
+  )
   if (speed < 0.00001) {
     return [1, 0]
   }
 
-  // Build world-space heading from orientation + yaw
-  const worldUp = Vector3.Up().applyRotationQuaternion(ship.orientation)
-  const localHeadingRotation = Quaternion.RotationAxis(Vector3.Up(), ship.yaw)
-  const localHeading3D =
-    Vector3.Forward().applyRotationQuaternion(localHeadingRotation)
-  const worldHeading = localHeading3D.applyRotationQuaternion(ship.orientation)
+  // Build tangent basis from lat/lng.
+  const latRad = ship.lat * DEG_TO_RAD
+  const lngRad = ship.lng * DEG_TO_RAD
+  const cosLat = Math.cos(latRad)
+  const sinLat = Math.sin(latRad)
+  const cosLng = Math.cos(lngRad)
+  const sinLng = Math.sin(lngRad)
 
-  // Thrust axis: worldUp × worldHeading (the direction ship accelerates toward)
-  const thrustAxis = Vector3.Cross(worldUp, worldHeading)
-  const axisLen = thrustAxis.length()
+  // Surface normal (up) and local east/north vectors.
+  const upX = cosLat * cosLng
+  const upY = sinLat
+  const upZ = cosLat * sinLng
+
+  const eastX = -sinLng
+  const eastY = 0
+  const eastZ = cosLng
+
+  const northX = -sinLat * cosLng
+  const northY = cosLat
+  const northZ = -sinLat * sinLng
+
+  // yaw=0 points east.
+  const sinYaw = Math.sin(ship.yaw)
+  const cosYaw = Math.cos(ship.yaw)
+  const headingX = eastX * cosYaw - northX * sinYaw
+  const headingY = eastY * cosYaw - northY * sinYaw
+  const headingZ = eastZ * cosYaw - northZ * sinYaw
+
+  // Thrust axis is up × heading.
+  const thrustX = upY * headingZ - upZ * headingY
+  const thrustY = upZ * headingX - upX * headingZ
+  const thrustZ = upX * headingY - upY * headingX
+  const axisLen = Math.sqrt(
+    thrustX * thrustX + thrustY * thrustY + thrustZ * thrustZ
+  )
   if (axisLen < 0.00001) {
     return [1, 0]
   }
-  thrustAxis.scaleInPlace(1 / axisLen)
+  const invAxisLen = 1 / axisLen
 
-  const forward = Vector3.Dot(ship.angularVelocity, thrustAxis) / speed
-  const lateral = Vector3.Dot(ship.angularVelocity, worldHeading) / speed
+  const forward =
+    (angularVelocity.x * thrustX * invAxisLen +
+      angularVelocity.y * thrustY * invAxisLen +
+      angularVelocity.z * thrustZ * invAxisLen) /
+    speed
+  const lateral =
+    (angularVelocity.x * headingX +
+      angularVelocity.y * headingY +
+      angularVelocity.z * headingZ) /
+    speed
   return [clamp(forward, -1, 1), clamp(lateral, -1, 1)]
 }
 
 function makeEmptyLidar(): LidarHit[] {
-  return new Array(LIDAR_RAY_COUNT).fill(null).map(() => ({
-    distanceNorm: 1,
-    closingSpeed: 0,
-    isRock: 0,
-    isBullet: 0,
-  }))
+  const lidar = new Array<LidarHit>(LIDAR_RAY_COUNT)
+  for (let i = 0; i < LIDAR_RAY_COUNT; i++) {
+    lidar[i] = {
+      distanceNorm: 1,
+      closingSpeed: 0,
+      isRock: 0,
+      isBullet: 0,
+    }
+  }
+  return lidar
 }
 
 function rayAngleForIndex(index: number): number {
@@ -163,6 +205,7 @@ function collectShipObservation(
   }
 
   const [forward, lateral] = headingVelocityComponents(ship)
+  const shipSpeed = ship.angularVelocity.length()
 
   return {
     alive: true,
@@ -170,14 +213,10 @@ function collectShipObservation(
     lng: ship.lng,
     shipBearing: yawToBearing(ship.yaw),
     ship: {
-      speedNorm: clamp(ship.angularVelocity.length() / MAX_SPEED, 0, 1),
+      speedNorm: clamp(shipSpeed / MAX_SPEED, 0, 1),
       headingForwardDrift: forward,
       headingLateralDrift: lateral,
-      angularVelocityNorm: clamp(
-        ship.angularVelocity.length() / TURN_RATE,
-        0,
-        1
-      ),
+      angularVelocityNorm: clamp(shipSpeed / TURN_RATE, 0, 1),
     },
     temporal: {
       cooldownNorm: clamp(elapsed(state, ship.firedAt) / FIRE_COOLDOWN, 0, 1),
