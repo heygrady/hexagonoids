@@ -1,6 +1,7 @@
 import {
   createGame,
   greatCircleDistance,
+  latLngToQuaternion,
   RADIUS,
   ROCK_LARGE_SIZE,
   spawnRock,
@@ -126,5 +127,38 @@ describe('encodeGameState', () => {
       closingFeatures.push(result[base + 1] ?? 0)
     }
     expect(closingFeatures.some((v) => Math.abs(v) > 0.0001)).toBe(true)
+  })
+
+  it('remains finite and bounded for pole-adjacent ship states', () => {
+    const { state } = setupGame('enc-v2-poles', 0)
+    const player = state.players.get(PLAYER_ID)
+    const ship =
+      player?.shipId != null ? state.ships.get(player.shipId) : undefined
+    if (ship == null || !ship.alive) {
+      throw new Error('Expected alive ship for pole-encoding test')
+    }
+
+    const starts = [
+      { lat: 89.95, lng: 0, yaw: 0 },
+      { lat: 89.95, lng: 179.9, yaw: Math.PI / 2 },
+      { lat: -89.95, lng: -120, yaw: -Math.PI / 2 },
+      { lat: -89.95, lng: 45, yaw: Math.PI },
+    ]
+
+    for (const start of starts) {
+      ship.lat = start.lat
+      ship.lng = start.lng
+      ship.yaw = start.yaw
+      ship.orientation = latLngToQuaternion(start.lat, start.lng)
+
+      const result = encodeGameState(state, PLAYER_ID, new Map(), 33)
+      for (const value of result) {
+        expect(Number.isFinite(value)).toBe(true)
+      }
+      expect(result[1]).toBeGreaterThanOrEqual(-1)
+      expect(result[1]).toBeLessThanOrEqual(1)
+      expect(result[2]).toBeGreaterThanOrEqual(-1)
+      expect(result[2]).toBeLessThanOrEqual(1)
+    }
   })
 })

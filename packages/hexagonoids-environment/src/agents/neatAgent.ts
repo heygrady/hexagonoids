@@ -1,12 +1,21 @@
+import type { RockPerceptionPrecompute } from '../encoding/collectObservations.js'
+import { createObservationFrameBuffer } from '../encoding/collectObservations.js'
 import { decodeOutputs } from '../encoding/decodeOutputs.js'
 import { encodeGameState } from '../encoding/encodeGameState.js'
+import type { ObservationFrame } from '../encoding/observationTypes.js'
 import type { AgentFn } from './types.js'
-import { MEMORY_LAST_DT_MS, MEMORY_PREV_DISTANCES } from './types.js'
+import {
+  MEMORY_LAST_DT_MS,
+  MEMORY_PREV_DISTANCES,
+  MEMORY_ROCK_PERCEPTION,
+} from './types.js'
 
 interface NeatMemory {
   prevDistances: Map<string, number>
   lastDtMs: number
   inputBuffer: number[]
+  observationBuffer: ObservationFrame
+  rockPerception: RockPerceptionPrecompute | undefined
 }
 
 function getMemory(memory: Record<string, unknown>): NeatMemory {
@@ -19,6 +28,12 @@ function getMemory(memory: Record<string, unknown>): NeatMemory {
   if (memory.inputBuffer == null) {
     memory.inputBuffer = []
   }
+  if (memory.observationBuffer == null) {
+    memory.observationBuffer = createObservationFrameBuffer()
+  }
+  memory.rockPerception = memory[MEMORY_ROCK_PERCEPTION] as
+    | RockPerceptionPrecompute
+    | undefined
   return memory as unknown as NeatMemory
 }
 
@@ -37,7 +52,9 @@ export const neatAgent: AgentFn = (state, playerId, context) => {
     playerId,
     mem.prevDistances,
     mem.lastDtMs,
-    mem.inputBuffer
+    mem.inputBuffer,
+    mem.observationBuffer,
+    mem.rockPerception
   )
   const outputs = context.executor.execute(inputs)
   return decodeOutputs(outputs)

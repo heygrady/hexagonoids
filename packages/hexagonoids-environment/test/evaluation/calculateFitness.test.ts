@@ -46,7 +46,7 @@ describe('weightedFitnessSum', () => {
     rocksDestroyed: 0.1,
     timeAlive: 0.1,
   }
-  const defaultSimConfig = { maxTicks: 3000, dtMs: 33 }
+  const defaultSimConfig = { maxTicks: 3000, dtMs: 33, useFastThrust: true }
 
   it('returns 0 for an agent with all-zero metrics', () => {
     const metrics = makeMetrics({

@@ -2,13 +2,23 @@ import {
   createGame,
   greatCircleDistance,
   MAX_SPEED,
+  type PlayerInputs,
   RADIUS,
   startPlayer,
   step,
 } from '@heygrady/hexagonoids-engine'
+import QuickLRU from 'quick-lru'
 
 import type { AgentContext, AgentFn, SyncExecutor } from '../agents/types.js'
-import { MEMORY_LAST_DT_MS, MEMORY_PREV_DISTANCES } from '../agents/types.js'
+import {
+  MEMORY_LAST_DT_MS,
+  MEMORY_PREV_DISTANCES,
+  MEMORY_ROCK_PERCEPTION,
+} from '../agents/types.js'
+import {
+  buildRockPerceptionPrecompute,
+  type RockPerceptionPrecompute,
+} from '../encoding/collectObservations.js'
 import {
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   type SimulationConfig,
@@ -29,71 +39,72 @@ const OFF_ACTION_THRESHOLD = 2.8
 const HIGH_SPEED_PENALTY = 0.1
 const HIGH_SPEED_THRESHOLD = MAX_SPEED * 0.8
 const PREV_DISTANCE_CLEANUP_INTERVAL = 8
+const TWO_PI = Math.PI * 2
+const MIN_CENTROID_VECTOR_LENGTH = 1e-9
+const HIGH_SPEED_THRESHOLD_SQUARED = HIGH_SPEED_THRESHOLD * HIGH_SPEED_THRESHOLD
+const ROCK_KEY_CACHE = new QuickLRU<string, string>({ maxSize: 8192 })
+const BULLET_KEY_CACHE = new QuickLRU<string, string>({ maxSize: 8192 })
+
+function rockDistanceKey(id: string): string {
+  const cached = ROCK_KEY_CACHE.get(id)
+  if (cached != null) return cached
+  const key = `rock:${id}`
+  ROCK_KEY_CACHE.set(id, key)
+  return key
+}
+
+function bulletDistanceKey(id: string): string {
+  const cached = BULLET_KEY_CACHE.get(id)
+  if (cached != null) return cached
+  const key = `bullet:${id}`
+  BULLET_KEY_CACHE.set(id, key)
+  return key
+}
+
+function wrapRadians(value: number): number {
+  let wrapped = value
+  while (wrapped > Math.PI) wrapped -= TWO_PI
+  while (wrapped < -Math.PI) wrapped += TWO_PI
+  return wrapped
+}
 
 function rockRewardSignals(
-  state: ReturnType<typeof createGame>['state'],
-  shipLat: number,
-  shipLng: number,
-  shipYaw: number
+  rockPerception: RockPerceptionPrecompute | undefined
 ): { alignment: number; offActionDistance: number } {
-  if (state.rocks.size === 0) {
+  if (rockPerception == null || !rockPerception.hasNearest) {
     return { alignment: 0, offActionDistance: 0 }
   }
 
-  let closestDist = Number.POSITIVE_INFINITY
-  let best: { lat: number; lng: number } | null = null
-  let latSum = 0
-  let lngSum = 0
-  let rockCount = 0
-  for (const rock of state.rocks.values()) {
-    latSum += rock.lat
-    lngSum += rock.lng
-    rockCount += 1
-
-    const dist = greatCircleDistance(
-      shipLat,
-      shipLng,
-      rock.lat,
-      rock.lng,
-      RADIUS
-    )
-    if (dist < closestDist) {
-      closestDist = dist
-      best = { lat: rock.lat, lng: rock.lng }
-    }
-  }
-  if (best == null || rockCount === 0) {
-    return { alignment: 0, offActionDistance: 0 }
-  }
-
-  // Convert yaw (0=east) to bearing (0=north).
-  const yawBearing = Math.PI / 2 + shipYaw
-  const targetBearing = (() => {
-    const DEG_TO_RAD = Math.PI / 180
-    const phi1 = shipLat * DEG_TO_RAD
-    const phi2 = best.lat * DEG_TO_RAD
-    const dLambda = (best.lng - shipLng) * DEG_TO_RAD
-    const y = Math.sin(dLambda) * Math.cos(phi2)
-    const x =
-      Math.cos(phi1) * Math.sin(phi2) -
-      Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda)
-    return Math.atan2(y, x)
-  })()
-
-  let rel = targetBearing - yawBearing
-  while (rel > Math.PI) rel -= Math.PI * 2
-  while (rel < -Math.PI) rel += Math.PI * 2
-
-  const offActionDistance = greatCircleDistance(
-    shipLat,
-    shipLng,
-    latSum / rockCount,
-    lngSum / rockCount,
-    RADIUS
+  const centroidLength = Math.sqrt(
+    rockPerception.centroidX * rockPerception.centroidX +
+      rockPerception.centroidY * rockPerception.centroidY +
+      rockPerception.centroidZ * rockPerception.centroidZ
   )
+  let offActionDistance = 0
+  if (centroidLength > MIN_CENTROID_VECTOR_LENGTH) {
+    const invLen = 1 / centroidLength
+    const centerX = rockPerception.centroidX * invLen
+    const centerY = rockPerception.centroidY * invLen
+    const centerZ = rockPerception.centroidZ * invLen
+    const centerPhi = Math.atan2(
+      centerZ,
+      Math.sqrt(centerX * centerX + centerY * centerY)
+    )
+    const centerLambda = Math.atan2(centerY, centerX)
+    const dPhi = centerPhi - rockPerception.shipLatRad
+    const dLambda = wrapRadians(centerLambda - rockPerception.shipLngRad)
+    const sinHalfPhi = Math.sin(dPhi * 0.5)
+    const sinHalfLambda = Math.sin(dLambda * 0.5)
+    const centerCosPhi = Math.cos(centerPhi)
+    const a =
+      sinHalfPhi * sinHalfPhi +
+      rockPerception.shipCosLat * centerCosPhi * sinHalfLambda * sinHalfLambda
+    offActionDistance =
+      RADIUS * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
+  }
 
   return {
-    alignment: Math.cos(rel),
+    alignment: Math.cos(rockPerception.nearestRelativeBearing),
     offActionDistance,
   }
 }
@@ -111,16 +122,17 @@ export function simulateGame(
   executor?: SyncExecutor,
   profiler?: SimulationProfiler
 ): RawMetrics {
-  const { maxTicks, dtMs } = {
+  const { maxTicks, dtMs, useFastThrust } = {
     ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation,
     ...config,
   }
 
   // 1. Create game
-  const { state, rng } = createGame({ seed })
+  const { state, rng } = createGame({ seed, useFastThrust })
 
   // 2. Start player
   startPlayer(state, PLAYER_ID, rng)
+  const trackedPlayer = state.players.get(PLAYER_ID)
 
   // 3. Create metrics collector
   const collector = createMetricsCollector(PLAYER_ID)
@@ -131,11 +143,20 @@ export function simulateGame(
     memory: {},
     executor,
   }
+  const stepInputs: PlayerInputs = {
+    [PLAYER_ID]: {
+      left: false,
+      right: false,
+      thrust: false,
+      fire: false,
+    },
+  }
 
   let distanceTraveled = 0
   let episodeReward = 0
   let prevLat: number | null = null
   let prevLng: number | null = null
+  const seenDistanceKeys = new Set<string>()
 
   // 4. Game loop
   let tickCount = 0
@@ -144,7 +165,7 @@ export function simulateGame(
     tickCount = tick + 1
 
     // Track ship position before step for distance
-    const player = state.players.get(PLAYER_ID)
+    const player = trackedPlayer ?? state.players.get(PLAYER_ID)
     const ship =
       player?.shipId != null ? state.ships.get(player.shipId) : undefined
     if (ship?.alive) {
@@ -168,10 +189,17 @@ export function simulateGame(
     // Track bullet count before step to detect new shots
     const bulletsBefore = state.bullets.size
 
-    const rockSignals =
+    const rockPerception =
       ship?.alive === true
-        ? rockRewardSignals(state, ship.lat, ship.lng, ship.yaw)
-        : { alignment: 0, offActionDistance: 0 }
+        ? buildRockPerceptionPrecompute(
+            state,
+            ship.lat,
+            ship.lng,
+            Math.PI / 2 + ship.yaw
+          )
+        : undefined
+    context.memory[MEMORY_ROCK_PERCEPTION] = rockPerception
+    const rockSignals = rockRewardSignals(rockPerception)
 
     // Get agent inputs
     const agentStartedAt = profiler?.start('agent')
@@ -180,7 +208,8 @@ export function simulateGame(
 
     // Step the simulation
     const stepStartedAt = profiler?.start('step')
-    step(state, { [PLAYER_ID]: inputs }, dtMs, rng, collector.hooks)
+    stepInputs[PLAYER_ID] = inputs
+    step(state, stepInputs, dtMs, rng, collector.hooks)
     if (stepStartedAt != null) profiler?.stop('step', stepStartedAt)
 
     // Track new bullets fired
@@ -199,14 +228,16 @@ export function simulateGame(
       frameReward += rockSignals.alignment * ALIGNMENT_REWARD_SCALE
     }
 
-    const playerNow = state.players.get(PLAYER_ID)
+    const playerNow = trackedPlayer ?? state.players.get(PLAYER_ID)
     const shipNow =
       playerNow?.shipId != null ? state.ships.get(playerNow.shipId) : undefined
     if (shipNow?.alive === true) {
       if (rockSignals.offActionDistance > OFF_ACTION_THRESHOLD) {
         frameReward -= OFF_ACTION_PENALTY
       }
-      if (shipNow.angularVelocity.length() > HIGH_SPEED_THRESHOLD) {
+      if (
+        shipNow.angularVelocity.lengthSquared() > HIGH_SPEED_THRESHOLD_SQUARED
+      ) {
         frameReward -= HIGH_SPEED_PENALTY
       }
     }
@@ -215,7 +246,7 @@ export function simulateGame(
 
     // Update prevDistances for approach speed tracking (used by neatAgent encoding)
     const memoryStartedAt = profiler?.start('memory')
-    const playerAfter = state.players.get(PLAYER_ID)
+    const playerAfter = trackedPlayer ?? state.players.get(PLAYER_ID)
     const shipAfter =
       playerAfter?.shipId != null
         ? state.ships.get(playerAfter.shipId)
@@ -225,7 +256,13 @@ export function simulateGame(
         | Map<string, number>
         | undefined
       if (prevDistances != null) {
+        const shouldCleanup = tick % PREV_DISTANCE_CLEANUP_INTERVAL === 0
+        if (shouldCleanup) {
+          seenDistanceKeys.clear()
+        }
+
         for (const rock of state.rocks.values()) {
+          const key = rockDistanceKey(rock.id)
           const dist = greatCircleDistance(
             shipAfter.lat,
             shipAfter.lng,
@@ -233,9 +270,11 @@ export function simulateGame(
             rock.lng,
             RADIUS
           )
-          prevDistances.set(`rock:${rock.id}`, dist)
+          prevDistances.set(key, dist)
+          if (shouldCleanup) seenDistanceKeys.add(key)
         }
         for (const bullet of state.bullets.values()) {
+          const key = bulletDistanceKey(bullet.id)
           const dist = greatCircleDistance(
             shipAfter.lat,
             shipAfter.lng,
@@ -243,19 +282,14 @@ export function simulateGame(
             bullet.lng,
             RADIUS
           )
-          prevDistances.set(`bullet:${bullet.id}`, dist)
+          prevDistances.set(key, dist)
+          if (shouldCleanup) seenDistanceKeys.add(key)
         }
 
         // Prune destroyed entities periodically to keep map growth bounded.
-        if (tick % PREV_DISTANCE_CLEANUP_INTERVAL === 0) {
+        if (shouldCleanup) {
           for (const id of prevDistances.keys()) {
-            if (id.startsWith('rock:')) {
-              if (!state.rocks.has(id.slice(5))) {
-                prevDistances.delete(id)
-              }
-              continue
-            }
-            if (id.startsWith('bullet:') && !state.bullets.has(id.slice(7))) {
+            if (!seenDistanceKeys.has(id)) {
               prevDistances.delete(id)
             }
           }
@@ -269,7 +303,7 @@ export function simulateGame(
   }
 
   // Final distance update
-  const player = state.players.get(PLAYER_ID)
+  const player = trackedPlayer ?? state.players.get(PLAYER_ID)
   const ship =
     player?.shipId != null ? state.ships.get(player.shipId) : undefined
   if (ship?.alive && prevLat != null && prevLng != null) {

@@ -1,6 +1,7 @@
 export interface SimulationConfig {
   maxTicks: number
   dtMs: number
+  useFastThrust: boolean
 }
 
 export interface ProfilingConfig {
@@ -29,6 +30,7 @@ export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfi
     simulation: {
       maxTicks: 3000,
       dtMs: 33,
+      useFastThrust: true,
     },
     fitnessWeights: {
       score: 0.3,

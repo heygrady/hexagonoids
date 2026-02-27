@@ -1,4 +1,10 @@
-import type { SyncExecutor } from '@neat-evolution/executor'
+import type {
+  BatchInputs,
+  BatchOutputs,
+  Inputs,
+  Outputs,
+  SyncExecutor,
+} from '@neat-evolution/executor'
 import { describe, expect, it } from 'vitest'
 import { createEnvironment } from '../src/createEnvironment.js'
 import { INPUT_COUNT } from '../src/encoding/encodeGameState.js'
@@ -8,10 +14,10 @@ import { HexagonoidsEnvironment } from '../src/HexagonoidsEnvironment.js'
 function createMidpointExecutor(): SyncExecutor {
   return {
     isAsync: false,
-    execute(_inputs: number[]): number[] {
+    execute(_inputs: Inputs): Outputs {
       return new Array(4).fill(0.5)
     },
-    executeBatch(batch: number[][]): number[][] {
+    executeBatch(batch: BatchInputs): BatchOutputs {
       return batch.map((_inputs) => new Array(4).fill(0.5))
     },
   }
@@ -22,7 +28,7 @@ function createRandomExecutor(): SyncExecutor {
   let i = 0
   return {
     isAsync: false,
-    execute(_inputs: number[]): number[] {
+    execute(_inputs: Inputs): Outputs {
       i++
       return [
         Math.sin(i * 1.1) * 0.5 + 0.5,
@@ -31,7 +37,7 @@ function createRandomExecutor(): SyncExecutor {
         Math.sin(i * 4.1) * 0.5 + 0.5,
       ]
     },
-    executeBatch(batch: number[][]): number[][] {
+    executeBatch(batch: BatchInputs): BatchOutputs {
       return batch.map((_inputs) => {
         i++
         return [
@@ -58,7 +64,7 @@ describe('HexagonoidsEnvironment', () => {
 
   it('evaluate returns a number', () => {
     const env = new HexagonoidsEnvironment({
-      simulation: { maxTicks: 100, dtMs: 33 },
+      simulation: { maxTicks: 100, dtMs: 33, useFastThrust: true },
     })
     const executor = createMidpointExecutor()
     const result = env.evaluate(executor)
@@ -68,7 +74,7 @@ describe('HexagonoidsEnvironment', () => {
 
   it('same seed + same executor produces same result (determinism)', () => {
     const env = new HexagonoidsEnvironment({
-      simulation: { maxTicks: 100, dtMs: 33 },
+      simulation: { maxTicks: 100, dtMs: 33, useFastThrust: true },
     })
     // Use a fake RNG that returns the same value to produce identical seeds
     const makeRng = () => {
@@ -87,7 +93,7 @@ describe('HexagonoidsEnvironment', () => {
 
   it('evaluateBatch returns array of numbers', () => {
     const env = new HexagonoidsEnvironment({
-      simulation: { maxTicks: 50, dtMs: 33 },
+      simulation: { maxTicks: 50, dtMs: 33, useFastThrust: true },
     })
     const executors = [createMidpointExecutor(), createRandomExecutor()]
     const results = env.evaluateBatch(executors)
@@ -113,7 +119,7 @@ describe('HexagonoidsEnvironment', () => {
 
   it('toFactoryOptions → createEnvironment round-trip', () => {
     const env = new HexagonoidsEnvironment({
-      simulation: { maxTicks: 200, dtMs: 33 },
+      simulation: { maxTicks: 200, dtMs: 33, useFastThrust: true },
     })
     const options = env.toFactoryOptions()
     const env2 = createEnvironment(options)

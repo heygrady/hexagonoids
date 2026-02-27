@@ -1,6 +1,7 @@
 import type { GameState } from '@heygrady/hexagonoids-engine'
-
+import type { RockPerceptionPrecompute } from './collectObservations.js'
 import { collectObservations, LIDAR_RAY_COUNT } from './collectObservations.js'
+import type { ObservationFrame } from './observationTypes.js'
 
 const GLOBAL_FEATURES = 5
 const FEATURES_PER_RAY = 4
@@ -25,14 +26,22 @@ export function encodeGameState(
   playerId: string,
   prevDistances: Map<string, number>,
   dtMs: number,
-  inputsBuffer?: number[]
+  inputsBuffer?: number[],
+  observationsBuffer?: ObservationFrame,
+  rockPerceptionBuffer?: RockPerceptionPrecompute
 ): number[] {
-  const obs = collectObservations(state, playerId, prevDistances, dtMs)
+  const obs = collectObservations(
+    state,
+    playerId,
+    prevDistances,
+    dtMs,
+    observationsBuffer,
+    rockPerceptionBuffer
+  )
   const inputs =
     inputsBuffer != null && inputsBuffer.length === INPUT_COUNT
       ? inputsBuffer
       : new Array<number>(INPUT_COUNT)
-  inputs.fill(0)
 
   inputs[0] = obs.ship.speedNorm
   inputs[1] = obs.ship.headingForwardDrift
@@ -41,8 +50,7 @@ export function encodeGameState(
   inputs[4] = obs.temporal.cooldownNorm
 
   for (let i = 0; i < LIDAR_RAY_COUNT; i++) {
-    const hit = obs.lidar[i]
-    if (hit == null) continue
+    const hit = obs.lidar[i]!
     const base = GLOBAL_FEATURES + i * FEATURES_PER_RAY
     inputs[base] = 1 - hit.distanceNorm
     inputs[base + 1] = hit.closingSpeed

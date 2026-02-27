@@ -1,5 +1,6 @@
 import { appendFileSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { isMainThread, threadId } from 'node:worker_threads'
 
 import type { ProfilingConfig } from '../HexagonoidsEnvironmentConfig.js'
 
@@ -79,6 +80,8 @@ class EnvironmentProfiler implements SimulationProfiler {
     const payload = {
       kind: 'hexagonoids-sim-profile',
       pid: process.pid,
+      workerThreadId: threadId,
+      isMainThread,
       games: this.games,
       ticks: this.ticks,
       totalMs,
