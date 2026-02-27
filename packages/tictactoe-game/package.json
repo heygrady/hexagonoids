@@ -47,7 +47,7 @@
     "test:dev": "vitest"
   },
   "dependencies": {
-    "@neat-evolution/executor": "^0.3.9",
+    "@neat-evolution/executor": "^0.3.11",
     "@neat-evolution/utils": "^0.4.0",
     "@swc/helpers": "^0.5.17",
     "quick-lru": "^7.0.0"

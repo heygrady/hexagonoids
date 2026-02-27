@@ -47,8 +47,8 @@
     "test:dev": "vitest"
   },
   "dependencies": {
-    "@neat-evolution/evaluation-strategy": "^0.3.8",
-    "@neat-evolution/evaluator": "^0.5.4",
+    "@neat-evolution/evaluation-strategy": "^0.3.10",
+    "@neat-evolution/evaluator": "^0.5.6",
     "@neat-evolution/utils": "^0.4.0",
     "@swc/helpers": "^0.5.17",
     "glicko2": "^1.2.1"
