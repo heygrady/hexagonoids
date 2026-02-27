@@ -153,3 +153,5 @@ devlogs/
 .gemini
 CLAUDE.md
 GEMINI.md
+
+*.cpuprofile
