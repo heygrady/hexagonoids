@@ -70,10 +70,7 @@ export const StartScreen: Component = () => {
 
   // Only show the record/playback hint in dev mode — not in production builds
   const line3 = import.meta.env.DEV
-    ? createTextMesh(
-        scene,
-        'Shift+R: Record | Shift+P: Playback | Shift+S: Spawn Debug'
-      )
+    ? createTextMesh(scene, 'Shift+O: Observe | Shift+S: Spawn Debug')
     : null
   if (line3 != null) {
     line3.scaling.setAll(0.045)
@@ -138,6 +135,16 @@ export const StartScreen: Component = () => {
       hideScreen()
       inputs.reset()
       setAppMode('spawn-debug')
+      window.removeEventListener('keydown', handleKeyDown)
+      return
+    }
+
+    // Shift+O enters observe mode
+    if (event.shiftKey && event.key === 'O') {
+      event.preventDefault()
+      hideScreen()
+      inputs.reset()
+      setAppMode('observe')
       window.removeEventListener('keydown', handleKeyDown)
       return
     }

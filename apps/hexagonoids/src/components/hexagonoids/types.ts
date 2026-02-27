@@ -1,6 +1,6 @@
 import type { PlayerInputState } from '@heygrady/hexagonoids-engine'
 
-export type AppMode = 'play' | 'record' | 'playback' | 'spawn-debug'
+export type AppMode = 'play' | 'observe' | 'record' | 'playback' | 'spawn-debug'
 
 export interface FrameRecord {
   /** Elapsed time since session start (ms) */

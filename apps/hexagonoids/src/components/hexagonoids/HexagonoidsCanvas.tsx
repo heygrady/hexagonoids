@@ -45,6 +45,8 @@ import {
 import { Globe } from './Globe'
 import { Lights } from './Lights'
 import { AppModeProvider, useAppMode } from './modes/AppModeProvider'
+import { ObserveController } from './modes/ObserveController'
+import { ObserveOverlay } from './modes/ObserveOverlay'
 import { PlaybackController } from './modes/PlaybackController'
 import { PlayerIdentity } from './modes/PlayerIdentity'
 import { RecordController } from './modes/RecordController'
@@ -238,6 +240,9 @@ function ModeGameLoop() {
       <Match when={appMode() === 'record'}>
         <RecordController />
       </Match>
+      <Match when={appMode() === 'observe'}>
+        <ObserveController />
+      </Match>
       <Match when={appMode() === 'playback'}>
         <PlaybackController />
       </Match>
@@ -303,6 +308,7 @@ export const HexagonoidsCanvas: Component<HexagonoidsCanvasProps> = (props) => {
                       <Culling />
                       <UI>
                         <RecordCountdownScreen />
+                        <ObserveOverlay />
                         <Score />
                         <StartScreen />
                         <EndScreen />

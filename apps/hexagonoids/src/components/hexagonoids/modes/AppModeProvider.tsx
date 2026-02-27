@@ -20,6 +20,24 @@ interface AppModeContextValue {
   setRecordCountdownMs: Setter<number>
   recordRoundIndex: Accessor<number>
   setRecordRoundIndex: Setter<number>
+  observeTrainingGeneration: Accessor<number>
+  setObserveTrainingGeneration: Setter<number>
+  observeTrainingElapsedSeconds: Accessor<number>
+  setObserveTrainingElapsedSeconds: Setter<number>
+  observeRunningGeneration: Accessor<number | null>
+  setObserveRunningGeneration: Setter<number | null>
+  observeRunningFitness: Accessor<number | null>
+  setObserveRunningFitness: Setter<number | null>
+  observeSummary: Accessor<{
+    generations: number
+    bestGeneration: number
+    bestFitness: number
+  } | null>
+  setObserveSummary: Setter<{
+    generations: number
+    bestGeneration: number
+    bestFitness: number
+  } | null>
 }
 
 const AppModeContext = createContext<AppModeContextValue>()
@@ -45,6 +63,21 @@ export function AppModeProvider(props: { children: JSX.Element }) {
   const [appMode, setAppMode] = createSignal<AppMode>('play')
   const [recordCountdownMs, setRecordCountdownMs] = createSignal(0)
   const [recordRoundIndex, setRecordRoundIndex] = createSignal(0)
+  const [observeTrainingGeneration, setObserveTrainingGeneration] =
+    createSignal(1)
+  const [observeTrainingElapsedSeconds, setObserveTrainingElapsedSeconds] =
+    createSignal(0)
+  const [observeRunningGeneration, setObserveRunningGeneration] = createSignal<
+    number | null
+  >(null)
+  const [observeRunningFitness, setObserveRunningFitness] = createSignal<
+    number | null
+  >(null)
+  const [observeSummary, setObserveSummary] = createSignal<{
+    generations: number
+    bestGeneration: number
+    bestFitness: number
+  } | null>(null)
 
   const stored =
     typeof window !== 'undefined'
@@ -70,6 +103,16 @@ export function AppModeProvider(props: { children: JSX.Element }) {
         setRecordCountdownMs,
         recordRoundIndex,
         setRecordRoundIndex,
+        observeTrainingGeneration,
+        setObserveTrainingGeneration,
+        observeTrainingElapsedSeconds,
+        setObserveTrainingElapsedSeconds,
+        observeRunningGeneration,
+        setObserveRunningGeneration,
+        observeRunningFitness,
+        setObserveRunningFitness,
+        observeSummary,
+        setObserveSummary,
       }}
     >
       {props.children}
