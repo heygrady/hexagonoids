@@ -45,6 +45,9 @@ export const BULLET_LIFETIME = FIRE_COOLDOWN * 6
 /** Pitch distance in radians from the center of the ship to the gun tip */
 export const GUN_DISTANCE = Math.PI / 180
 
+/** Approximate bullet travel distance in radians over its full lifetime. */
+export const BULLET_TRAVEL_DISTANCE = BULLET_SPEED * (BULLET_LIFETIME / 1000)
+
 // ── Rock sizes ───────────────────────────────────────────────────────────────
 
 export const ROCK_LARGE_SIZE: 2 = 2
@@ -73,6 +76,11 @@ const DEG_TO_RAD = Math.PI / 180
 
 export const SPLIT_ROLL_DISTANCE = 1 * DEG_TO_RAD
 export const SPLIT_HEADING_OFFSET = 20 * DEG_TO_RAD
+export const SPLIT_SPEED_MIN_FACTOR = 0.78
+export const SPLIT_SPEED_MAX_FACTOR = 1.35
+export const SPLIT_PARENT_INHERITANCE = 0.65
+export const SPLIT_BASE_SPEED_WEIGHT = 0.6
+export const SPLIT_SPEED_JITTER = 0.12
 
 // ── Rock collision radii ─────────────────────────────────────────────────────
 
@@ -108,15 +116,60 @@ export const ROCK_ENCOUNTER_COOLDOWN = 1000 * 1
 
 /** Grace period before the first wave spawns after starting/restarting */
 export const ROCK_WAVE_GRACE_PERIOD = 1000 * 2
+export const ROCK_WAVE_RETRY_DEFER_PERIOD = 1000 * 0.5
+export const ROCK_NO_ENCOUNTER_REPLENISH_DELAY = 1000 * 4
 
 /** Maximum number of rocks allowed at once */
 export const MAX_ROCKS = 50
+
+/** Maximum rock count cap scales with score and plateaus. */
+export const SCORE_WAVE_WORLD_CAP_BASE = 12
+export const SCORE_WAVE_WORLD_CAP_STEP = 5000
+export const SCORE_WAVE_WORLD_CAP_MAX = 16
+export const ROCK_WORLD_CAP_WAVE_MULTIPLIER = 5
+
+/** High-score "cleared enough" thresholds for remaining world rocks. */
+export const SCORE_CLEAR_THRESHOLD_MID = 2
+export const SCORE_CLEAR_THRESHOLD_HIGH = 3
+
+/** Score bands for wave pacing rules. */
+export const SCORE_BAND_MID_MIN = 5000
+export const SCORE_BAND_HIGH_MIN = 20000
+
+/** Delay floor/curve for wave scheduling. */
+export const SCORE_WAVE_DELAY_LOW = 5000
+export const SCORE_WAVE_DELAY_MID_START = 4500
+export const SCORE_WAVE_DELAY_MID_END = 2800
+export const SCORE_WAVE_DELAY_HIGH_FLOOR = 1800
+export const SCORE_WAVE_DELAY_HIGH_START = 2200
+
+/** Require leftover rocks to be far before advancing under relaxed clear rules. */
+export const ROCK_FAR_CLEAR_DISTANCE = 95 * DEG_TO_RAD
 
 /** Number of large rocks per wave (indexed by wave number) */
 export const ROCK_WAVE_SIZES = [4, 6, 8, 10, 11]
 
 /** Minimum spawn distance from player in degrees */
-export const ROCK_SPAWN_MIN_DISTANCE = 45
+export const ROCK_SPAWN_MIN_DISTANCE = 0
 
-/** Maximum spawn distance from player in degrees */
-export const ROCK_SPAWN_MAX_DISTANCE = 60
+/**
+ * Maximum spawn distance from player in degrees.
+ * Tune to bullet-range scale so new rocks begin within a playable radius.
+ */
+export const ROCK_SPAWN_MAX_DISTANCE = (BULLET_TRAVEL_DISTANCE * 180) / Math.PI
+
+/** Half-height of the rectangular spawn border in degrees. */
+export const ROCK_SPAWN_BORDER_HALF_HEIGHT = ROCK_SPAWN_MAX_DISTANCE
+
+/**
+ * Half-width of the rectangular spawn border in degrees.
+ * Wider than height to account for landscape viewport shape.
+ */
+export const ROCK_SPAWN_BORDER_HALF_WIDTH =
+  ROCK_SPAWN_BORDER_HALF_HEIGHT * (16 / 9)
+
+/** Random heading spread around inward direction (degrees). */
+export const ROCK_SPAWN_INWARD_SPREAD_DEGREES = 60
+
+/** Push release border outward so new large rocks start off-screen. */
+export const ROCK_SPAWN_RELEASE_PADDING = (ROCK_LARGE_RADIUS * 180) / Math.PI

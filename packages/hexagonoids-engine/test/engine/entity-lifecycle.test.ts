@@ -9,6 +9,7 @@ import {
   createGame,
   destroyRock,
   destroyShip,
+  evaluateWaveSpawnGate,
   expireBullets,
   FIRE_COOLDOWN,
   fireBullet,
@@ -20,6 +21,7 @@ import {
   ROCK_MEDIUM_VALUE,
   ROCK_SMALL_SIZE,
   ROCK_WAVE_PERIOD,
+  ROCK_WAVE_RETRY_DEFER_PERIOD,
   regeneratePlayer,
   resetIdCounter,
   SHIP_REGENERATION_WAIT_PERIOD,
@@ -189,6 +191,8 @@ describe('entity lifecycle', () => {
       for (const child of game.rocks.values()) {
         expect(child.size).toBe(ROCK_MEDIUM_SIZE)
         expect(child.value).toBe(ROCK_MEDIUM_VALUE)
+        expect(child.angularVelocity.length()).toBeGreaterThan(0)
+        expect(child.lat !== rock.lat || child.lng !== rock.lng).toBe(true)
       }
     })
 
@@ -233,6 +237,67 @@ describe('entity lifecycle', () => {
       advanceGameTime(game, 1000)
       checkWaveSpawn(game, 'p1', rng)
       expect(game.rocks.size).toBe(firstWaveCount)
+    })
+
+    it('defers next check when blocked by local clutter', () => {
+      startPlayer(game, 'p1', rng)
+      const player = game.players.get('p1')!
+      const ship = game.ships.get(player.shipId!)!
+
+      // Force gate evaluation now and create local clutter at the ship.
+      player.nextWaveCheckAt = game.now
+      spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+
+      checkWaveSpawn(game, 'p1', rng)
+
+      expect(game.wave).toBe(0)
+      expect(player.nextWaveCheckAt).toBe(
+        game.now + ROCK_WAVE_RETRY_DEFER_PERIOD
+      )
+    })
+
+    it('blocks waves when world cap is already saturated', () => {
+      startPlayer(game, 'p1', rng)
+      const player = game.players.get('p1')!
+      const ship = game.ships.get(player.shipId!)!
+
+      player.nextWaveCheckAt = game.now
+      player.score = 0 // cap starts at wave size 4 * 5 = 20
+
+      for (let i = 0; i < 20; i++) {
+        spawnRock(
+          game,
+          ship.lat + i * 0.1,
+          ship.lng + i * 0.1,
+          ROCK_LARGE_SIZE,
+          rng
+        )
+      }
+
+      const gate = evaluateWaveSpawnGate(game, ship.lat, ship.lng, player.score)
+      expect(gate.canSpawn).toBe(false)
+      expect(gate.reason).toBe('world-cap')
+    })
+
+    it('replenishes after no nearby encounters for a while', () => {
+      startPlayer(game, 'p1', rng)
+      const player = game.players.get('p1')!
+      const ship = game.ships.get(player.shipId!)!
+
+      // Simulate a single leftover far from the player.
+      spawnRock(game, -ship.lat, ship.lng + 120, ROCK_LARGE_SIZE, rng)
+      player.nextWaveCheckAt = game.now
+      player.lastRockEncounterAt = 0
+
+      // Before timeout, should remain blocked at low score.
+      checkWaveSpawn(game, 'p1', rng)
+      expect(game.wave).toBe(0)
+
+      // After timeout, should spawn despite leftover far rock.
+      advanceGameTime(game, 4100)
+      checkWaveSpawn(game, 'p1', rng)
+      expect(game.wave).toBe(1)
+      expect(game.rocks.size).toBeGreaterThan(1)
     })
   })
 })

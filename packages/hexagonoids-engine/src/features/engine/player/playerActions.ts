@@ -1,16 +1,32 @@
 import type { RNG } from '@neat-evolution/utils'
 
 import {
+  MAX_ROCKS,
   PLAYER_STARTING_LIVES,
-  ROCK_ENCOUNTER_COOLDOWN,
   ROCK_ENCOUNTER_DISTANCE,
+  ROCK_FAR_CLEAR_DISTANCE,
+  ROCK_NO_ENCOUNTER_REPLENISH_DELAY,
   ROCK_WAVE_GRACE_PERIOD,
-  ROCK_WAVE_PERIOD,
+  ROCK_WAVE_RETRY_DEFER_PERIOD,
+  ROCK_WAVE_SIZES,
+  ROCK_WORLD_CAP_WAVE_MULTIPLIER,
+  SCORE_BAND_HIGH_MIN,
+  SCORE_BAND_MID_MIN,
+  SCORE_CLEAR_THRESHOLD_HIGH,
+  SCORE_CLEAR_THRESHOLD_MID,
+  SCORE_WAVE_DELAY_HIGH_FLOOR,
+  SCORE_WAVE_DELAY_HIGH_START,
+  SCORE_WAVE_DELAY_LOW,
+  SCORE_WAVE_DELAY_MID_END,
+  SCORE_WAVE_DELAY_MID_START,
+  SCORE_WAVE_WORLD_CAP_BASE,
+  SCORE_WAVE_WORLD_CAP_MAX,
+  SCORE_WAVE_WORLD_CAP_STEP,
   SHIP_REGENERATION_WAIT_PERIOD,
 } from '../constants.js'
 import { defaultPlayerState } from '../defaults.js'
 import { elapsed } from '../gameTime.js'
-import { spawnWave } from '../rock/rockActions.js'
+import { getSpawnBorderExtents, spawnWave } from '../rock/rockActions.js'
 import { destroyShip, spawnShip } from '../ship/shipActions.js'
 import type { GameState } from '../types.js'
 
@@ -37,6 +53,165 @@ function angularDistance(
     Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(dLng / 2) ** 2
   return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function rocksWithinDistance(
+  game: GameState,
+  lat: number,
+  lng: number,
+  distanceRad: number
+): number {
+  let count = 0
+  for (const rock of game.rocks.values()) {
+    if (angularDistance(lat, lng, rock.lat, rock.lng) < distanceRad) count++
+  }
+  return count
+}
+
+export function nextWaveDelayMs(score: number): number {
+  if (score < SCORE_BAND_MID_MIN) return SCORE_WAVE_DELAY_LOW
+  if (score < SCORE_BAND_HIGH_MIN) {
+    const ratio =
+      (score - SCORE_BAND_MID_MIN) / (SCORE_BAND_HIGH_MIN - SCORE_BAND_MID_MIN)
+    return Math.round(
+      SCORE_WAVE_DELAY_MID_START +
+        (SCORE_WAVE_DELAY_MID_END - SCORE_WAVE_DELAY_MID_START) * ratio
+    )
+  }
+  const highScale = Math.max(
+    0,
+    Math.floor((score - SCORE_BAND_HIGH_MIN) / 10000)
+  )
+  return Math.max(
+    SCORE_WAVE_DELAY_HIGH_FLOOR,
+    SCORE_WAVE_DELAY_HIGH_START - highScale * 80
+  )
+}
+
+export function worldRockCapForScore(score: number, wave: number): number {
+  const scoreCap = Math.min(
+    SCORE_WAVE_WORLD_CAP_MAX,
+    SCORE_WAVE_WORLD_CAP_BASE + Math.floor(score / SCORE_WAVE_WORLD_CAP_STEP)
+  )
+  const waveIndex = Math.min(Math.max(0, wave), ROCK_WAVE_SIZES.length - 1)
+  const waveSize = ROCK_WAVE_SIZES[waveIndex] ?? ROCK_WAVE_SIZES[0] ?? 4
+  const waveCap = waveSize * ROCK_WORLD_CAP_WAVE_MULTIPLIER
+
+  return Math.min(MAX_ROCKS, Math.max(scoreCap, waveCap))
+}
+
+function spawnBorderGateDistanceRad(): number {
+  const extents = getSpawnBorderExtents()
+  const maxDegrees = Math.max(extents.halfHeight, extents.halfWidth)
+  return (maxDegrees * Math.PI) / 180
+}
+
+function areLeftoverRocksFar(
+  game: GameState,
+  lat: number,
+  lng: number
+): boolean {
+  for (const rock of game.rocks.values()) {
+    if (
+      angularDistance(lat, lng, rock.lat, rock.lng) < ROCK_FAR_CLEAR_DISTANCE
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+export type WaveSpawnBlockReason =
+  | 'world-cap'
+  | 'not-cleared'
+  | 'local-clutter'
+  | 'none'
+
+export interface WaveSpawnGateResult {
+  canSpawn: boolean
+  reason: WaveSpawnBlockReason
+  deferMs: number
+}
+
+function noRecentEncounter(
+  game: GameState,
+  lastEncounterAt: number | null
+): boolean {
+  if (lastEncounterAt == null) return true
+  return game.now - lastEncounterAt >= ROCK_NO_ENCOUNTER_REPLENISH_DELAY
+}
+
+export function evaluateWaveSpawnGate(
+  game: GameState,
+  lat: number,
+  lng: number,
+  score: number,
+  lastEncounterAt: number | null = null
+): WaveSpawnGateResult {
+  const worldRocks = game.rocks.size
+  const worldCap = worldRockCapForScore(score, game.wave)
+  if (worldRocks >= worldCap) {
+    return {
+      canSpawn: false,
+      reason: 'world-cap',
+      deferMs: ROCK_WAVE_RETRY_DEFER_PERIOD,
+    }
+  }
+
+  const spawnGateRocks = rocksWithinDistance(
+    game,
+    lat,
+    lng,
+    spawnBorderGateDistanceRad()
+  )
+  const replenishmentAllowed = noRecentEncounter(game, lastEncounterAt)
+
+  if (score < SCORE_BAND_MID_MIN) {
+    if (worldRocks !== 0 && !replenishmentAllowed) {
+      return {
+        canSpawn: false,
+        reason: 'not-cleared',
+        deferMs: ROCK_WAVE_RETRY_DEFER_PERIOD,
+      }
+    }
+  } else if (score < SCORE_BAND_HIGH_MIN) {
+    if (
+      worldRocks > SCORE_CLEAR_THRESHOLD_MID ||
+      (worldRocks > 0 && !areLeftoverRocksFar(game, lat, lng))
+    ) {
+      if (replenishmentAllowed) {
+        return { canSpawn: true, reason: 'none', deferMs: 0 }
+      }
+      return {
+        canSpawn: false,
+        reason: 'not-cleared',
+        deferMs: ROCK_WAVE_RETRY_DEFER_PERIOD,
+      }
+    }
+  } else if (
+    worldRocks > SCORE_CLEAR_THRESHOLD_HIGH ||
+    spawnGateRocks > 0 ||
+    (worldRocks > 0 && !areLeftoverRocksFar(game, lat, lng))
+  ) {
+    if (replenishmentAllowed && spawnGateRocks === 0) {
+      return { canSpawn: true, reason: 'none', deferMs: 0 }
+    }
+    return {
+      canSpawn: false,
+      reason: 'not-cleared',
+      deferMs: ROCK_WAVE_RETRY_DEFER_PERIOD,
+    }
+  }
+
+  if (spawnGateRocks > 0) {
+    return {
+      canSpawn: false,
+      reason: 'local-clutter',
+      deferMs: ROCK_WAVE_RETRY_DEFER_PERIOD,
+    }
+  }
+
+  return { canSpawn: true, reason: 'none', deferMs: 0 }
 }
 
 /**
@@ -66,8 +241,6 @@ export function startPlayer(game: GameState, playerId: string, rng: RNG): void {
   if (game.players.has(playerId)) return
 
   const id = playerId
-  // Set waveSpawnedAt so the first wave spawns after ROCK_WAVE_GRACE_PERIOD,
-  // not immediately (null would cause instant spawn via elapsed() = Infinity).
   const player = {
     ...defaultPlayerState,
     id,
@@ -75,7 +248,9 @@ export function startPlayer(game: GameState, playerId: string, rng: RNG): void {
     lives: PLAYER_STARTING_LIVES,
     score: 0,
     startedAt: game.now,
-    waveSpawnedAt: game.now - ROCK_WAVE_PERIOD + ROCK_WAVE_GRACE_PERIOD,
+    waveSpawnedAt: null,
+    nextWaveCheckAt: game.now + ROCK_WAVE_GRACE_PERIOD,
+    lastRockEncounterAt: game.now,
   }
   game.players.set(id, player)
 
@@ -187,23 +362,33 @@ export function checkWaveSpawn(
 ): void {
   const player = game.players.get(playerId)
   if (player == null || !player.alive) return
+  if (player.nextWaveCheckAt != null && game.now < player.nextWaveCheckAt)
+    return
 
-  if (elapsed(game, player.waveSpawnedAt) > ROCK_WAVE_PERIOD) {
-    const ship =
-      player.shipId != null ? game.ships.get(player.shipId) : undefined
-    if (ship == null) return
+  const ship = player.shipId != null ? game.ships.get(player.shipId) : undefined
+  if (ship == null) return
 
-    // Don't spawn if rocks are nearby — delay by encounter cooldown
-    if (hasNearbyRocks(game, ship.lat, ship.lng)) {
-      // Push waveSpawnedAt forward so we re-check after cooldown, not every tick
-      player.waveSpawnedAt =
-        game.now - ROCK_WAVE_PERIOD + ROCK_ENCOUNTER_COOLDOWN
-      return
-    }
-
-    spawnWave(game, ship.lat, ship.lng, rng)
-    player.waveSpawnedAt = game.now
+  if (hasNearbyRocks(game, ship.lat, ship.lng)) {
+    player.lastRockEncounterAt = game.now
+    player.nextWaveCheckAt = game.now + ROCK_WAVE_RETRY_DEFER_PERIOD
+    return
   }
+
+  const gate = evaluateWaveSpawnGate(
+    game,
+    ship.lat,
+    ship.lng,
+    player.score,
+    player.lastRockEncounterAt
+  )
+  if (!gate.canSpawn) {
+    player.nextWaveCheckAt = game.now + gate.deferMs
+    return
+  }
+
+  spawnWave(game, ship.lat, ship.lng, rng)
+  player.waveSpawnedAt = game.now
+  player.nextWaveCheckAt = game.now + nextWaveDelayMs(player.score)
 }
 
 /**

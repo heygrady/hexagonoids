@@ -65,6 +65,8 @@ export const defaultPlayerState: Omit<PlayerState, 'id'> = {
   diedAt: null,
   regeneratedAt: null,
   waveSpawnedAt: null,
+  nextWaveCheckAt: null,
+  lastRockEncounterAt: null,
   leftPressedAt: null,
   rightPressedAt: null,
   thrustPressedAt: null,

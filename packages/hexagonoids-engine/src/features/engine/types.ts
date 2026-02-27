@@ -128,6 +128,12 @@ export interface PlayerState {
   /** Timestamp (game time ms) when the last wave was spawned for this player */
   waveSpawnedAt: number | null
 
+  /** Timestamp (game time ms) when we should next evaluate wave spawning */
+  nextWaveCheckAt: number | null
+
+  /** Timestamp (game time ms) of the most recent nearby-rock encounter */
+  lastRockEncounterAt: number | null
+
   /** Timestamp (game time ms) when the left turn input started being held */
   leftPressedAt: number | null
 
