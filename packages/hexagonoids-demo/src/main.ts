@@ -30,6 +30,7 @@ const usage = () => {
     '  --evaluationSeedsPerOrganism <int>',
     '  --maxTicks <int>',
     '  --dtMs <int>',
+    '  --thrustMath <fast|quaternion>          Math mode for thrust + movement',
     '',
     'Training-only options:',
     '  --populationSize <int>',
@@ -103,6 +104,17 @@ const parseTrainLikeOptions = (
 
     if (token === '--dtMs') {
       options.dtMs = readInt(token, next)
+      index += 1
+      continue
+    }
+
+    if (token === '--thrustMath') {
+      if (next !== 'fast' && next !== 'quaternion') {
+        throw new Error(
+          `Invalid value for --thrustMath. Expected "fast" or "quaternion".\n\n${usage()}`
+        )
+      }
+      options.useFastThrust = next === 'fast'
       index += 1
       continue
     }

@@ -20,17 +20,17 @@ async function withTempOutputDir<T>(
 
 describe('training flamegraph target', () => {
   bench(
-    'hyperneat flamegraph run (24 genomes, 300 ticks, 1 generation)',
+    'hyperneat flamegraph run (32 genomes, 400 ticks, 1 generation)',
     async () => {
       await withTempOutputDir('hex-flame-train', async (outputDir) => {
         await train({
           method: 'HyperNEAT',
-          populationSize: 24,
+          populationSize: 32,
           iterations: 1,
           earlyStopPatience: 999,
           evaluationSeedsPerOrganism: 1,
           baseSeed: 'perf-flame-v1',
-          maxTicks: 300,
+          maxTicks: 400,
           dtMs: 33,
           threadCount: 1,
           outputDir,

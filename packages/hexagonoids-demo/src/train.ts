@@ -173,6 +173,7 @@ const toRunConfig = (options: TrainOptions) => {
       DEMO_DEFAULTS.evaluationSeedsPerOrganism,
     maxTicks: options.maxTicks ?? DEMO_DEFAULTS.maxTicks,
     dtMs: options.dtMs ?? DEMO_DEFAULTS.dtMs,
+    useFastThrust: options.useFastThrust ?? true,
     baseSeed: options.baseSeed ?? DEFAULT_BASE_SEED,
     outputDir: options.outputDir,
     baselineOnly: options.baselineOnly ?? false,
@@ -197,6 +198,7 @@ export interface TrainOptions {
   baseSeed?: string | undefined
   maxTicks?: number | undefined
   dtMs?: number | undefined
+  useFastThrust?: boolean | undefined
   outputDir?: string | undefined
   logInterval?: number | undefined
   threadCount?: number | undefined
@@ -243,6 +245,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     const simulation = {
       maxTicks: config.maxTicks,
       dtMs: config.dtMs,
+      useFastThrust: config.useFastThrust,
     }
 
     const scores = [
@@ -279,6 +282,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     simulation: {
       maxTicks: config.maxTicks,
       dtMs: config.dtMs,
+      useFastThrust: config.useFastThrust,
     },
     profiling: {
       enabled: config.perfProfile,

@@ -42,4 +42,12 @@ describe('runMainCli', () => {
     expect(code).toBe(1)
     vi.restoreAllMocks()
   })
+
+  it('returns 1 for invalid --thrustMath value', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const code = await runMainCli(['train', '--thrustMath', 'bad'])
+
+    expect(code).toBe(1)
+    vi.restoreAllMocks()
+  })
 })

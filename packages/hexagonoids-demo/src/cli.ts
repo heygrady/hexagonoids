@@ -24,6 +24,7 @@ interface ReplayCliOptions {
   seed: string
   maxTicks: number
   dtMs: number
+  useFastThrust: boolean
 }
 
 const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
@@ -41,6 +42,10 @@ const usage = () => {
     '  hexagonoids-replay --path <best-genome.json> [--method <name>] [--seed <seed>]',
     '',
     `Methods: ${SUPPORTED_ALGORITHMS.join(', ')}`,
+    'Options:',
+    '  --maxTicks <int>',
+    '  --dtMs <int>',
+    '  --thrustMath <fast|quaternion>  Math mode for thrust + movement',
   ].join('\n')
 }
 
@@ -50,11 +55,14 @@ const parseReplayOptions = (args: string[]): ReplayCliOptions => {
     seed: string
     maxTicks: number
     dtMs: number
+    useFastThrust: boolean
   } = {
     method: DEFAULT_METHOD,
     seed: DEFAULT_SEED,
     maxTicks: DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.maxTicks,
     dtMs: DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.dtMs,
+    useFastThrust:
+      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.useFastThrust,
   }
   let pathname: string | undefined
 
@@ -116,6 +124,17 @@ const parseReplayOptions = (args: string[]): ReplayCliOptions => {
       continue
     }
 
+    if (token === '--thrustMath') {
+      if (next !== 'fast' && next !== 'quaternion') {
+        throw new Error(
+          `Invalid value for --thrustMath. Expected "fast" or "quaternion".\n\n${usage()}`
+        )
+      }
+      options.useFastThrust = next === 'fast'
+      index += 1
+      continue
+    }
+
     if (token.startsWith('-')) {
       throw new Error(`Unknown option "${token}".\n\n${usage()}`)
     }
@@ -143,6 +162,7 @@ const parseReplayOptions = (args: string[]): ReplayCliOptions => {
     seed: options.seed,
     maxTicks: options.maxTicks,
     dtMs: options.dtMs,
+    useFastThrust: options.useFastThrust,
   }
 }
 
@@ -163,6 +183,7 @@ export async function replayGenome(
   const simulation = {
     maxTicks: options.maxTicks,
     dtMs: options.dtMs,
+    useFastThrust: options.useFastThrust,
   }
   const metrics = simulateGame(neatAgent, simulation, options.seed, executor)
   const fitness = weightedFitnessSum(
