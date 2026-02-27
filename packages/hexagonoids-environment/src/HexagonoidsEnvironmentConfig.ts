@@ -3,6 +3,12 @@ export interface SimulationConfig {
   dtMs: number
 }
 
+export interface ProfilingConfig {
+  enabled: boolean
+  sampleEveryNGames: number
+  outputPath?: string | undefined
+}
+
 export interface FitnessWeights {
   score: number
   livesRemaining: number
@@ -15,6 +21,7 @@ export interface FitnessWeights {
 export interface HexagonoidsEnvironmentConfig {
   simulation: SimulationConfig
   fitnessWeights: FitnessWeights
+  profiling: ProfilingConfig
 }
 
 export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfig =
@@ -31,6 +38,11 @@ export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfi
       rocksDestroyed: 0.1,
       timeAlive: 0.1,
     },
+    profiling: {
+      enabled: false,
+      sampleEveryNGames: 1,
+      outputPath: undefined,
+    },
   }
 
 export function mergeConfig(
@@ -41,6 +53,9 @@ export function mergeConfig(
       simulation: { ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation },
       fitnessWeights: {
         ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
+      },
+      profiling: {
+        ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.profiling,
       },
     }
   }
@@ -53,6 +68,10 @@ export function mergeConfig(
     fitnessWeights: {
       ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
       ...partial.fitnessWeights,
+    },
+    profiling: {
+      ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.profiling,
+      ...partial.profiling,
     },
   }
 }

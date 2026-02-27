@@ -27,6 +27,7 @@ export { HexagonoidsEnvironment } from './HexagonoidsEnvironment.js'
 export type {
   FitnessWeights,
   HexagonoidsEnvironmentConfig,
+  ProfilingConfig,
   SimulationConfig,
 } from './HexagonoidsEnvironmentConfig.js'
 export {

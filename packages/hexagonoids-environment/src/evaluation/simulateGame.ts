@@ -13,6 +13,7 @@ import {
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   type SimulationConfig,
 } from '../HexagonoidsEnvironmentConfig.js'
+import type { SimulationProfiler } from './perfProfiler.js'
 import type { RawMetrics } from './RawMetrics.js'
 import { createMetricsCollector } from './RawMetrics.js'
 
@@ -27,6 +28,7 @@ const OFF_ACTION_PENALTY = 0.5
 const OFF_ACTION_THRESHOLD = 2.8
 const HIGH_SPEED_PENALTY = 0.1
 const HIGH_SPEED_THRESHOLD = MAX_SPEED * 0.8
+const PREV_DISTANCE_CLEANUP_INTERVAL = 8
 
 function rockRewardSignals(
   state: ReturnType<typeof createGame>['state'],
@@ -106,7 +108,8 @@ export function simulateGame(
   agent: AgentFn,
   config: Partial<SimulationConfig>,
   seed: string,
-  executor?: SyncExecutor
+  executor?: SyncExecutor,
+  profiler?: SimulationProfiler
 ): RawMetrics {
   const { maxTicks, dtMs } = {
     ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation,
@@ -135,8 +138,10 @@ export function simulateGame(
   let prevLng: number | null = null
 
   // 4. Game loop
+  let tickCount = 0
   for (let tick = 0; tick < maxTicks; tick++) {
     if (state.endedAt != null) break
+    tickCount = tick + 1
 
     // Track ship position before step for distance
     const player = state.players.get(PLAYER_ID)
@@ -169,10 +174,14 @@ export function simulateGame(
         : { alignment: 0, offActionDistance: 0 }
 
     // Get agent inputs
+    const agentStartedAt = profiler?.start('agent')
     const inputs = agent(state, PLAYER_ID, context)
+    if (agentStartedAt != null) profiler?.stop('agent', agentStartedAt)
 
     // Step the simulation
+    const stepStartedAt = profiler?.start('step')
     step(state, { [PLAYER_ID]: inputs }, dtMs, rng, collector.hooks)
+    if (stepStartedAt != null) profiler?.stop('step', stepStartedAt)
 
     // Track new bullets fired
     const newBullets = state.bullets.size - bulletsBefore
@@ -180,6 +189,7 @@ export function simulateGame(
       collector.addShotsFired(newBullets)
     }
 
+    const rewardStartedAt = profiler?.start('reward')
     const frameEvents = collector.consumeFrameEvents()
     let frameReward = -FRAME_IDLE_PENALTY
     frameReward -= newBullets * FIRE_PENALTY
@@ -201,8 +211,10 @@ export function simulateGame(
       }
     }
     episodeReward += frameReward
+    if (rewardStartedAt != null) profiler?.stop('reward', rewardStartedAt)
 
     // Update prevDistances for approach speed tracking (used by neatAgent encoding)
+    const memoryStartedAt = profiler?.start('memory')
     const playerAfter = state.players.get(PLAYER_ID)
     const shipAfter =
       playerAfter?.shipId != null
@@ -233,14 +245,19 @@ export function simulateGame(
           )
           prevDistances.set(`bullet:${bullet.id}`, dist)
         }
-        // Remove destroyed rocks
-        for (const id of prevDistances.keys()) {
-          const [entityType, entityId] = id.split(':')
-          if (
-            (entityType === 'rock' && !state.rocks.has(entityId ?? '')) ||
-            (entityType === 'bullet' && !state.bullets.has(entityId ?? ''))
-          ) {
-            prevDistances.delete(id)
+
+        // Prune destroyed entities periodically to keep map growth bounded.
+        if (tick % PREV_DISTANCE_CLEANUP_INTERVAL === 0) {
+          for (const id of prevDistances.keys()) {
+            if (id.startsWith('rock:')) {
+              if (!state.rocks.has(id.slice(5))) {
+                prevDistances.delete(id)
+              }
+              continue
+            }
+            if (id.startsWith('bullet:') && !state.bullets.has(id.slice(7))) {
+              prevDistances.delete(id)
+            }
           }
         }
       }
@@ -248,6 +265,7 @@ export function simulateGame(
 
     // Store dtMs for encoding approach speed calculation
     context.memory[MEMORY_LAST_DT_MS] = dtMs
+    if (memoryStartedAt != null) profiler?.stop('memory', memoryStartedAt)
   }
 
   // Final distance update
@@ -265,6 +283,8 @@ export function simulateGame(
   }
 
   // 7. Return collected metrics
+  profiler?.onGameComplete(tickCount)
+
   return collector.getMetrics({
     episodeReward,
     score: player?.score ?? 0,

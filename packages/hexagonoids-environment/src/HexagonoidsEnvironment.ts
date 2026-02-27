@@ -8,6 +8,8 @@ import type { RNG } from '@neat-evolution/utils'
 import { neatAgent } from './agents/neatAgent.js'
 import { INPUT_COUNT } from './encoding/encodeGameState.js'
 import { weightedFitnessSum } from './evaluation/calculateFitness.js'
+import type { SimulationProfiler } from './evaluation/perfProfiler.js'
+import { createSimulationProfiler } from './evaluation/perfProfiler.js'
 import { simulateGame } from './evaluation/simulateGame.js'
 import type { HexagonoidsEnvironmentConfig } from './HexagonoidsEnvironmentConfig.js'
 import { mergeConfig } from './HexagonoidsEnvironmentConfig.js'
@@ -23,9 +25,11 @@ export class HexagonoidsEnvironment
   }
   public readonly isAsync = false
   private readonly config: HexagonoidsEnvironmentConfig
+  private readonly profiler: SimulationProfiler | undefined
 
   constructor(config?: Partial<HexagonoidsEnvironmentConfig>) {
     this.config = mergeConfig(config)
+    this.profiler = createSimulationProfiler(this.config.profiling)
   }
 
   evaluate(executor: SyncExecutor, rng?: RNG): number {
@@ -34,7 +38,8 @@ export class HexagonoidsEnvironment
       neatAgent,
       this.config.simulation,
       seed,
-      executor
+      executor,
+      this.profiler
     )
     return weightedFitnessSum(
       metrics,
@@ -63,6 +68,7 @@ export class HexagonoidsEnvironment
     return {
       simulation: { ...this.config.simulation },
       fitnessWeights: { ...this.config.fitnessWeights },
+      profiling: { ...this.config.profiling },
     }
   }
 }
