@@ -6,6 +6,7 @@ import { MEMORY_LAST_DT_MS, MEMORY_PREV_DISTANCES } from './types.js'
 interface NeatMemory {
   prevDistances: Map<string, number>
   lastDtMs: number
+  inputBuffer: number[]
 }
 
 function getMemory(memory: Record<string, unknown>): NeatMemory {
@@ -14,6 +15,9 @@ function getMemory(memory: Record<string, unknown>): NeatMemory {
   }
   if (memory[MEMORY_LAST_DT_MS] == null) {
     memory[MEMORY_LAST_DT_MS] = 33
+  }
+  if (memory.inputBuffer == null) {
+    memory.inputBuffer = []
   }
   return memory as unknown as NeatMemory
 }
@@ -32,7 +36,8 @@ export const neatAgent: AgentFn = (state, playerId, context) => {
     state,
     playerId,
     mem.prevDistances,
-    mem.lastDtMs
+    mem.lastDtMs,
+    mem.inputBuffer
   )
   const outputs = context.executor.execute(inputs)
   return decodeOutputs(outputs)

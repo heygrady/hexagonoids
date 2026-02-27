@@ -2,6 +2,8 @@ import {
   createGame,
   greatCircleDistance,
   RADIUS,
+  ROCK_LARGE_SIZE,
+  spawnRock,
   startPlayer,
   step,
 } from '@heygrady/hexagonoids-engine'
@@ -17,7 +19,6 @@ function setupGame(seed: string, ticks = 0) {
   const { state, rng } = createGame({ seed })
   startPlayer(state, PLAYER_ID, rng)
 
-  // Run some ticks to spawn rocks
   for (let i = 0; i < ticks; i++) {
     step(
       state,
@@ -29,151 +30,82 @@ function setupGame(seed: string, ticks = 0) {
     )
   }
 
-  return { state, rng }
+  return { state }
 }
 
 describe('encodeGameState', () => {
-  it('returns exactly 30 elements', () => {
-    const { state } = setupGame('test-enc-1', 1)
+  it('returns exactly the configured input count', () => {
+    const { state } = setupGame('enc-v2-length', 5)
     const result = encodeGameState(state, PLAYER_ID, new Map(), 33)
     expect(result).toHaveLength(INPUT_COUNT)
-    expect(result).toHaveLength(30)
+    expect(result).toHaveLength(133)
   })
 
-  it('all values are numbers (not NaN)', () => {
-    const { state } = setupGame('test-enc-2', 5)
+  it('returns all finite numbers', () => {
+    const { state } = setupGame('enc-v2-finite', 15)
     const result = encodeGameState(state, PLAYER_ID, new Map(), 33)
-    for (const val of result) {
-      expect(typeof val).toBe('number')
-      expect(Number.isNaN(val)).toBe(false)
+    for (const value of result) {
+      expect(Number.isFinite(value)).toBe(true)
     }
   })
 
-  it('speed is in [0, 1]', () => {
-    const { state } = setupGame('test-enc-3', 1)
+  it('global features are normalized to expected ranges', () => {
+    const { state } = setupGame('enc-v2-ranges', 20)
     const result = encodeGameState(state, PLAYER_ID, new Map(), 33)
+
     expect(result[0]).toBeGreaterThanOrEqual(0)
     expect(result[0]).toBeLessThanOrEqual(1)
-  })
 
-  it('heading_vx and heading_vy are in [-1, 1]', () => {
-    const { state } = setupGame('test-enc-4', 1)
-    const result = encodeGameState(state, PLAYER_ID, new Map(), 33)
     expect(result[1]).toBeGreaterThanOrEqual(-1)
     expect(result[1]).toBeLessThanOrEqual(1)
     expect(result[2]).toBeGreaterThanOrEqual(-1)
     expect(result[2]).toBeLessThanOrEqual(1)
-  })
 
-  it('can_fire is 0 or 1', () => {
-    const { state } = setupGame('test-enc-5', 1)
-    const result = encodeGameState(state, PLAYER_ID, new Map(), 33)
-    expect([0, 1]).toContain(result[3])
-  })
-
-  it('lives is in [0, 1]', () => {
-    const { state } = setupGame('test-enc-6', 1)
-    const result = encodeGameState(state, PLAYER_ID, new Map(), 33)
+    expect(result[3]).toBeGreaterThanOrEqual(0)
+    expect(result[3]).toBeLessThanOrEqual(1)
     expect(result[4]).toBeGreaterThanOrEqual(0)
     expect(result[4]).toBeLessThanOrEqual(1)
   })
 
-  it('empty field (no rocks) → all sector distances = 1.0, sizes = 0', () => {
-    const { state } = setupGame('test-enc-empty', 0)
-    // Before first step, no rocks exist
+  it('when no rocks are nearby, lidar slots remain zeroed', () => {
+    const { state } = setupGame('enc-v2-empty', 0)
     const result = encodeGameState(state, PLAYER_ID, new Map(), 33)
 
-    for (let s = 0; s < 8; s++) {
-      const base = 5 + s * 3
-      expect(result[base]).toBe(1.0) // distance = 1.0 (max)
-      expect(result[base + 1]).toBe(0) // approachSpeed = 0
-      expect(result[base + 2]).toBe(0) // size = 0
-    }
-    expect(result[29]).toBe(1.0) // nearest_rock = 1.0
-  })
-
-  it('rock outside SOI is not encoded', () => {
-    const { state } = setupGame('test-enc-soi', 70)
-
-    // Get ship position
-    const player = state.players.get(PLAYER_ID)
-    const ship =
-      player?.shipId != null ? state.ships.get(player.shipId) : undefined
-
-    // Check rocks are present
-    expect(state.rocks.size).toBeGreaterThan(0)
-
-    const result = encodeGameState(state, PLAYER_ID, new Map(), 33)
-
-    if (ship?.alive) {
-      // For each sector, verify distance values are valid
-      for (let s = 0; s < 8; s++) {
-        const base = 5 + s * 3
-        // Distance should be in [0, 1]
-        expect(result[base]).toBeGreaterThanOrEqual(0)
-        expect(result[base]).toBeLessThanOrEqual(1)
-      }
+    for (let i = 5; i < result.length; i++) {
+      expect(result[i]).toBe(0)
     }
   })
 
-  it('dead ship returns zeros with sector distances at 1.0', () => {
-    const { state } = setupGame('test-enc-dead', 1)
-
-    // Force the ship to be dead so we reliably test the dead-ship branch
+  it('dead ship returns stable fallback vector shape', () => {
+    const { state } = setupGame('enc-v2-dead', 1)
     const player = state.players.get(PLAYER_ID)
     const ship =
       player?.shipId != null ? state.ships.get(player.shipId) : undefined
-    if (ship != null) {
-      ship.alive = false
-    }
+    if (ship != null) ship.alive = false
 
     const result = encodeGameState(state, PLAYER_ID, new Map(), 33)
-    expect(result).toHaveLength(30)
 
-    // Speed should be 0 for dead ship
+    expect(result).toHaveLength(INPUT_COUNT)
     expect(result[0]).toBe(0)
-    // Sector distances should be 1.0
-    for (let s = 0; s < 8; s++) {
-      expect(result[5 + s * 3]).toBe(1.0)
-    }
+    expect(result[3]).toBe(0)
   })
 
-  it('same relative config at different positions → similar encoding (ego-centric)', () => {
-    // Run two games with different seeds — different positions but similar structure
-    // This is a soft test: we verify the encoding is always in valid ranges
-    const { state: s1 } = setupGame('ego-a', 5)
-    const { state: s2 } = setupGame('ego-b', 5)
-
-    const r1 = encodeGameState(s1, PLAYER_ID, new Map(), 33)
-    const r2 = encodeGameState(s2, PLAYER_ID, new Map(), 33)
-
-    // Both should have the same length and valid ranges
-    expect(r1).toHaveLength(30)
-    expect(r2).toHaveLength(30)
-
-    for (let i = 0; i < 30; i++) {
-      expect(r1[i]).toBeGreaterThanOrEqual(-1)
-      expect(r1[i]).toBeLessThanOrEqual(1)
-      expect(r2[i]).toBeGreaterThanOrEqual(-1)
-      expect(r2[i]).toBeLessThanOrEqual(1)
-    }
-  })
-
-  it('approach speed uses prevDistances when available', () => {
-    const { state } = setupGame('test-approach', 70)
-
+  it('uses previous distances to produce non-zero closing features', () => {
+    const { state } = setupGame('enc-v2-closing', 5)
     const player = state.players.get(PLAYER_ID)
     const ship =
       player?.shipId != null ? state.ships.get(player.shipId) : undefined
-
     if (ship == null || !ship.alive) {
-      throw new Error(
-        'Test precondition: ship should be alive after 2 ticks with seed test-approach'
-      )
+      throw new Error('Expected alive ship for closing-speed test')
     }
-    expect(state.rocks.size).toBeGreaterThan(0)
 
-    // Build prevDistances from current positions (simulating previous tick)
+    // Force at least one local rock in SOI so closing features are populated.
+    spawnRock(state, ship.lat, ship.lng + 4, ROCK_LARGE_SIZE, {
+      gen: () => 0.5,
+      genRange: (min: number, _max: number) => min,
+      genBool: () => true,
+    })
+
     const prevDistances = new Map<string, number>()
     for (const rock of state.rocks.values()) {
       const dist = greatCircleDistance(
@@ -183,16 +115,16 @@ describe('encodeGameState', () => {
         rock.lng,
         RADIUS
       )
-      // Set prev distance slightly larger to simulate closing
-      prevDistances.set(rock.id, dist + 0.05)
+      prevDistances.set(`rock:${rock.id}`, dist + 0.08)
     }
 
     const result = encodeGameState(state, PLAYER_ID, prevDistances, 33)
 
-    // The encoding should still be valid
-    expect(result).toHaveLength(30)
-    for (const val of result) {
-      expect(Number.isNaN(val)).toBe(false)
+    const closingFeatures: number[] = []
+    for (let ray = 0; ray < 32; ray++) {
+      const base = 5 + ray * 4
+      closingFeatures.push(result[base + 1] ?? 0)
     }
+    expect(closingFeatures.some((v) => Math.abs(v) > 0.0001)).toBe(true)
   })
 })

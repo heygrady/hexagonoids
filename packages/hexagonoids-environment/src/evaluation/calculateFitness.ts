@@ -1,8 +1,7 @@
 import {
-  MAX_SPEED,
   PLAYER_STARTING_LIVES,
+  RADIUS,
   ROCK_TOTAL_VALUE,
-  ROCK_WAVE_SIZES,
 } from '@heygrady/hexagonoids-engine'
 
 import type {
@@ -12,35 +11,13 @@ import type {
 import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '../HexagonoidsEnvironmentConfig.js'
 import type { RawMetrics } from './RawMetrics.js'
 
-interface NormalizationBounds {
-  maxScore: number
-  maxDistance: number
-  maxTimeAlive: number
-  maxLives: number
-  maxRocksDestroyed: number
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
 }
 
-function computeNormalizationBounds(
-  config: SimulationConfig
-): NormalizationBounds {
-  // MAX_POSSIBLE_SCORE: all large rocks across all waves fully cleared
-  // Each large rock yields ROCK_TOTAL_VALUE (large + 2 medium + 4 small)
-  const totalLargeRocks = ROCK_WAVE_SIZES.reduce((sum, count) => sum + count, 0)
-  const maxScore = totalLargeRocks * ROCK_TOTAL_VALUE
-
-  // MAX_DISTANCE: MAX_SPEED (rad/s) * total time (s)
-  const totalTimeSeconds = (config.maxTicks * config.dtMs) / 1000
-  const maxDistance = MAX_SPEED * totalTimeSeconds
-
-  // MAX_TIME_ALIVE: total simulation duration in ms
-  const maxTimeAlive = config.maxTicks * config.dtMs
-
-  const maxLives = PLAYER_STARTING_LIVES
-
-  // Total rocks if all waves fully cleared (large + 2 medium + 4 small per large rock)
-  const maxRocksDestroyed = totalLargeRocks * 7
-
-  return { maxScore, maxDistance, maxTimeAlive, maxLives, maxRocksDestroyed }
+function saturating(value: number, scale: number): number {
+  if (value <= 0 || scale <= 0) return 0
+  return 1 - Math.exp(-value / scale)
 }
 
 /**
@@ -52,29 +29,66 @@ export function weightedFitnessSum(
   weights: FitnessWeights,
   config: SimulationConfig
 ): number {
-  const bounds = computeNormalizationBounds(config)
+  const rewardSigmoid = 1 / (1 + Math.exp(-metrics.episodeReward / 220))
+  const rewardComponent = clamp(rewardSigmoid * 2 - 1, 0, 1)
 
-  const normScore = bounds.maxScore > 0 ? metrics.score / bounds.maxScore : 0
-  const normLives =
-    bounds.maxLives > 0 ? metrics.livesRemaining / bounds.maxLives : 0
-  const normAccuracy = metrics.accuracy // already 0–1
-  const normDistance =
-    bounds.maxDistance > 0 ? metrics.distanceTraveled / bounds.maxDistance : 0
-  const normRocks =
-    bounds.maxRocksDestroyed > 0
-      ? metrics.rocksDestroyed / bounds.maxRocksDestroyed
-      : 0
-  const normTime =
-    bounds.maxTimeAlive > 0 ? metrics.timeAlive / bounds.maxTimeAlive : 0
-
-  return (
-    weights.score * normScore +
-    weights.livesRemaining * normLives +
-    weights.accuracy * normAccuracy +
-    weights.distanceTraveled * normDistance +
-    weights.rocksDestroyed * normRocks +
-    weights.timeAlive * normTime
+  // Saturating transforms keep the objective sensitive at low-mid performance
+  // while preventing single metrics from dominating late-game.
+  const scoreComponent = saturating(metrics.score, ROCK_TOTAL_VALUE * 10)
+  const rocksComponent = saturating(metrics.rocksDestroyed, 25)
+  const distanceComponent = saturating(metrics.distanceTraveled, RADIUS * 10)
+  const timeComponent = clamp(
+    metrics.timeAlive / (config.maxTicks * config.dtMs),
+    0,
+    1
   )
+  const livesComponent = clamp(
+    metrics.livesRemaining / PLAYER_STARTING_LIVES,
+    0,
+    1
+  )
+
+  // Avoid over-rewarding random spray with tiny sample counts.
+  const accuracyReliability = clamp(metrics.shotsFired / 15, 0, 1)
+  const accuracyComponent = clamp(metrics.accuracy, 0, 1) * accuracyReliability
+
+  const weightSum =
+    weights.score +
+    weights.livesRemaining +
+    weights.accuracy +
+    weights.distanceTraveled +
+    weights.rocksDestroyed +
+    weights.timeAlive
+
+  const base =
+    weights.score * scoreComponent +
+    weights.livesRemaining * livesComponent +
+    weights.accuracy * accuracyComponent +
+    weights.distanceTraveled * distanceComponent +
+    weights.rocksDestroyed * rocksComponent +
+    weights.timeAlive * timeComponent
+
+  const normalizedBase = weightSum > 0 ? base / weightSum : 0
+
+  // Survival and control penalties to discourage degenerate policies.
+  const deathPenalty = clamp(metrics.deaths / PLAYER_STARTING_LIVES, 0, 1)
+  const sprayPenalty =
+    metrics.shotsFired > 0
+      ? (1 - clamp(metrics.accuracy, 0, 1)) *
+        clamp(metrics.shotsFired / 220, 0, 1)
+      : 0
+  const survivalGate = 0.35 + 0.65 * timeComponent
+
+  const shaped = clamp(
+    normalizedBase *
+      survivalGate *
+      (1 - 0.35 * deathPenalty) *
+      (1 - 0.2 * sprayPenalty),
+    0,
+    1
+  )
+
+  return clamp(0.7 * rewardComponent + 0.3 * shaped, 0, 1)
 }
 
 /**

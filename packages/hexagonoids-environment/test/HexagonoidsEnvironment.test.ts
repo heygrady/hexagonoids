@@ -1,6 +1,7 @@
 import type { SyncExecutor } from '@neat-evolution/executor'
 import { describe, expect, it } from 'vitest'
 import { createEnvironment } from '../src/createEnvironment.js'
+import { INPUT_COUNT } from '../src/encoding/encodeGameState.js'
 import { HexagonoidsEnvironment } from '../src/HexagonoidsEnvironment.js'
 
 /** A trivial SyncExecutor that returns 0.5 for all outputs. */
@@ -47,7 +48,7 @@ function createRandomExecutor(): SyncExecutor {
 describe('HexagonoidsEnvironment', () => {
   it('has correct description', () => {
     const env = new HexagonoidsEnvironment()
-    expect(env.description).toEqual({ inputs: 30, outputs: 4 })
+    expect(env.description).toEqual({ inputs: INPUT_COUNT, outputs: 4 })
   })
 
   it('isAsync is false', () => {
@@ -122,7 +123,7 @@ describe('HexagonoidsEnvironment', () => {
 
   it('createEnvironment with undefined uses defaults', () => {
     const env = createEnvironment(undefined)
-    expect(env.description).toEqual({ inputs: 30, outputs: 4 })
+    expect(env.description).toEqual({ inputs: INPUT_COUNT, outputs: 4 })
     expect(typeof env.evaluate(createMidpointExecutor())).toBe('number')
   })
 })

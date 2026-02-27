@@ -22,6 +22,7 @@ describe('zScore', () => {
 
 function makeMetrics(overrides: Partial<RawMetrics> = {}): RawMetrics {
   return {
+    episodeReward: 0,
     score: 0,
     livesRemaining: 3,
     timeAlive: 10000,
@@ -68,6 +69,36 @@ describe('weightedFitnessSum', () => {
     const result = weightedFitnessSum(metrics, defaultWeights, defaultSimConfig)
     expect(result).toBeGreaterThan(0)
     expect(result).toBeLessThanOrEqual(1)
+  })
+
+  it('penalizes death-heavy behavior', () => {
+    const safe = makeMetrics({
+      score: 1200,
+      rocksDestroyed: 12,
+      timeAlive: 95000,
+      deaths: 0,
+      livesRemaining: 2,
+      shotsFired: 30,
+      shotsHit: 12,
+      accuracy: 0.4,
+    })
+    const risky = makeMetrics({
+      ...safe,
+      deaths: 3,
+      livesRemaining: 0,
+    })
+
+    const safeFitness = weightedFitnessSum(
+      safe,
+      defaultWeights,
+      defaultSimConfig
+    )
+    const riskyFitness = weightedFitnessSum(
+      risky,
+      defaultWeights,
+      defaultSimConfig
+    )
+    expect(safeFitness).toBeGreaterThan(riskyFitness)
   })
 })
 
