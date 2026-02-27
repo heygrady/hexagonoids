@@ -1,15 +1,25 @@
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import { latLngToVector3 } from '@heygrady/h3-babylon'
 import { MAX_DELTA } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import { createSignal, onCleanup } from 'solid-js'
 import { useScene } from '../../solid-babylon/hooks/useScene'
-import { DEFAULT_PLAYER_ID } from '../constants'
+import { DEFAULT_PLAYER_ID, RADIUS } from '../constants'
 import { useInputs } from '../engine/useInputBridge'
+import { getYawPitch } from '../ship/getYawPitch'
+import { moveNodeTo } from '../ship/orientation'
 import type { FrameRecord } from '../types'
 import { packInputs } from '../types'
 import { useAppMode } from './AppModeProvider'
-import { BENCHMARK_SEEDS, SESSION_DURATION } from './constants'
+import {
+  BENCHMARK_SEEDS,
+  RECORD_COUNTDOWN_ZERO_HOLD_MS,
+  SESSION_DURATION,
+} from './constants'
 import { RecordOverlay } from './RecordOverlay'
 import { trpc } from './trpc'
+
+const ROUND_COUNTDOWN_MS = 3_000 + RECORD_COUNTDOWN_ZERO_HOLD_MS
 
 /**
  * Record-mode controller. When active, hooks into the Babylon render loop,
@@ -20,20 +30,68 @@ export function RecordController() {
   const engine = useGameState()
   const inputs = useInputs()
   const scene = useScene()
-  const { setAppMode, playerId } = useAppMode()
+  const { setAppMode, playerId, setRecordCountdownMs, setRecordRoundIndex } =
+    useAppMode()
   const PLAYER_ID = playerId() || DEFAULT_PLAYER_ID
 
   const [seedIndex, setSeedIndex] = createSignal(0)
   const [sessionStartTime, setSessionStartTime] = createSignal(0)
+  const [countdownMs, _setCountdownMs] = createSignal(ROUND_COUNTDOWN_MS)
   let frames: FrameRecord[] = []
+
+  function setCountdownMs(ms: number) {
+    _setCountdownMs(ms)
+    setRecordCountdownMs(ms)
+  }
+
+  function snapCameraToPlayer() {
+    const player = engine.state.players.get(PLAYER_ID)
+    if (player?.shipId == null) return
+
+    const ship = engine.state.ships.get(player.shipId)
+    if (ship == null) return
+
+    const cameraOriginNode = scene.getTransformNodeByName('shipCameraOrigin')
+    if (!(cameraOriginNode instanceof TransformNode)) return
+
+    const pos = latLngToVector3(ship.lat, ship.lng, RADIUS)
+    const [yaw, pitch] = getYawPitch(pos)
+    moveNodeTo(cameraOriginNode, yaw, pitch)
+  }
 
   function startSession(index: number) {
     setSeedIndex(index)
+    setRecordRoundIndex(index)
     frames = []
+    inputs.reset()
 
     // Reseed the engine with the current benchmark seed
     engine.reseed(BENCHMARK_SEEDS[index]!, PLAYER_ID)
+
+    // Snap camera immediately so the player is visible before countdown starts.
+    snapCameraToPlayer()
+
+    // Round starts after countdown, so timer begins at that moment.
+    setCountdownMs(ROUND_COUNTDOWN_MS)
     setSessionStartTime(engine.state.now)
+  }
+
+  function returnToTitleScreen() {
+    inputs.reset()
+    setCountdownMs(0)
+
+    // Clear active entities/players so StartScreen becomes visible again.
+    engine.mutate((state) => {
+      state.ships.clear()
+      state.rocks.clear()
+      state.bullets.clear()
+      state.players.clear()
+      state.wave = 0
+      state.endedAt = null
+      state.startedAt = state.now
+    })
+
+    setAppMode('play')
   }
 
   // Start the first session
@@ -42,6 +100,17 @@ export function RecordController() {
   // Hook into the render loop to capture inputs each tick
   const observer = scene.onBeforeRenderObservable.add(() => {
     const dtMs = Math.min(scene.getEngine().getDeltaTime(), MAX_DELTA)
+
+    const remainingCountdown = countdownMs()
+    if (remainingCountdown > 0) {
+      const nextCountdown = Math.max(0, remainingCountdown - dtMs)
+      setCountdownMs(nextCountdown)
+      if (nextCountdown === 0) {
+        // Begin round timing only after countdown fully completes.
+        setSessionStartTime(engine.state.now)
+      }
+      return
+    }
 
     // Tick the engine with current inputs
     engine.tick({ [PLAYER_ID]: inputs }, dtMs)
@@ -94,17 +163,15 @@ export function RecordController() {
     // Advance to next seed or finish recording
     const nextIndex = currentSeedIndex + 1
     if (nextIndex < BENCHMARK_SEEDS.length) {
-      inputs.reset()
       startSession(nextIndex)
     } else {
-      // All seeds done — return to play mode
-      inputs.reset()
-      engine.reseed(`default-${Date.now()}`, PLAYER_ID)
-      setAppMode('play')
+      // All seeds done — return to title screen
+      returnToTitleScreen()
     }
   }
 
   onCleanup(() => {
+    setCountdownMs(0)
     scene.onBeforeRenderObservable.remove(observer)
   })
 

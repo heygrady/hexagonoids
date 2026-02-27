@@ -16,6 +16,10 @@ interface AppModeContextValue {
   setAppMode: Setter<AppMode>
   playerId: Accessor<string>
   setPlayerId: (id: string) => void
+  recordCountdownMs: Accessor<number>
+  setRecordCountdownMs: Setter<number>
+  recordRoundIndex: Accessor<number>
+  setRecordRoundIndex: Setter<number>
 }
 
 const AppModeContext = createContext<AppModeContextValue>()
@@ -39,6 +43,8 @@ function slugify(name: string): string {
 
 export function AppModeProvider(props: { children: JSX.Element }) {
   const [appMode, setAppMode] = createSignal<AppMode>('play')
+  const [recordCountdownMs, setRecordCountdownMs] = createSignal(0)
+  const [recordRoundIndex, setRecordRoundIndex] = createSignal(0)
 
   const stored =
     typeof window !== 'undefined'
@@ -55,7 +61,16 @@ export function AppModeProvider(props: { children: JSX.Element }) {
 
   return (
     <AppModeContext.Provider
-      value={{ appMode, setAppMode, playerId, setPlayerId }}
+      value={{
+        appMode,
+        setAppMode,
+        playerId,
+        setPlayerId,
+        recordCountdownMs,
+        setRecordCountdownMs,
+        recordRoundIndex,
+        setRecordRoundIndex,
+      }}
     >
       {props.children}
     </AppModeContext.Provider>

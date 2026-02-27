@@ -64,7 +64,7 @@ export const RecordOverlay: Component<RecordOverlayProps> = (props) => {
         Seed {props.seedIndex + 1}/{BENCHMARK_SEEDS.length}
       </div>
 
-      {/* Countdown timer */}
+      {/* Session timer */}
       <div>{remaining()}s</div>
 
       {/* Score */}
