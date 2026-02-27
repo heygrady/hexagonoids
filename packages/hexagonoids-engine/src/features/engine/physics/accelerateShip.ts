@@ -1,5 +1,3 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
-
 import {
   ACCELERATION_RATE,
   FRICTION_COEFFICIENT,
@@ -15,6 +13,51 @@ import { clampAngularVelocity } from './quaternionPhysics.js'
  * Equivalent to d3-ease easeQuadOut.
  */
 const easeQuadOut = (t: number): number => t * (2 - t)
+const DEG_TO_RAD = Math.PI / 180
+
+function applyThrustAcceleration(
+  ship: ShipState,
+  accelMagnitude: number
+): void {
+  const latRad = ship.lat * DEG_TO_RAD
+  const lngRad = ship.lng * DEG_TO_RAD
+  const cosLat = Math.cos(latRad)
+  const sinLat = Math.sin(latRad)
+  const cosLng = Math.cos(lngRad)
+  const sinLng = Math.sin(lngRad)
+
+  // Surface tangent basis from lat/lng.
+  const upX = cosLat * cosLng
+  const upY = sinLat
+  const upZ = cosLat * sinLng
+
+  const eastX = -sinLng
+  const eastY = 0
+  const eastZ = cosLng
+
+  const northX = -sinLat * cosLng
+  const northY = cosLat
+  const northZ = -sinLat * sinLng
+
+  // yaw=0 points east.
+  const sinYaw = Math.sin(ship.yaw)
+  const cosYaw = Math.cos(ship.yaw)
+  const headingX = eastX * cosYaw - northX * sinYaw
+  const headingY = eastY * cosYaw - northY * sinYaw
+  const headingZ = eastZ * cosYaw - northZ * sinYaw
+
+  // Acceleration axis: up × heading.
+  const axisX = upY * headingZ - upZ * headingY
+  const axisY = upZ * headingX - upX * headingZ
+  const axisZ = upX * headingY - upY * headingX
+  const axisLen = Math.sqrt(axisX * axisX + axisY * axisY + axisZ * axisZ)
+  if (axisLen < 0.00001) return
+
+  const scale = accelMagnitude / axisLen
+  ship.angularVelocity.x += axisX * scale
+  ship.angularVelocity.y += axisY * scale
+  ship.angularVelocity.z += axisZ * scale
+}
 
 /**
  * Accelerate the ship by applying thrust in the direction it's facing.
@@ -39,29 +82,7 @@ export const accelerateShip = (
     const accelMagnitude = (et * halfRate + halfRate) * dtMs
 
     if (accelMagnitude > 0) {
-      // Get world up (position on sphere) from orientation quaternion
-      const worldUp = Vector3.Up().applyRotationQuaternion(ship.orientation)
-
-      // Calculate facing direction: local yaw rotated to world space
-      const localHeadingRotation = Quaternion.RotationAxis(
-        Vector3.Up(),
-        ship.yaw
-      )
-      const localHeading3D =
-        Vector3.Forward().applyRotationQuaternion(localHeadingRotation)
-      const worldHeading = localHeading3D.applyRotationQuaternion(
-        ship.orientation
-      )
-
-      // Rotation axis for acceleration: worldUp × worldHeading
-      const rotationAxis = Vector3.Cross(worldUp, worldHeading)
-      const axisLen = rotationAxis.length()
-
-      if (axisLen > 0.00001) {
-        rotationAxis.scaleInPlace(1 / axisLen)
-        const accelerationVector = rotationAxis.scale(accelMagnitude)
-        ship.angularVelocity.addInPlace(accelerationVector)
-      }
+      applyThrustAcceleration(ship, accelMagnitude)
     }
   }
 
