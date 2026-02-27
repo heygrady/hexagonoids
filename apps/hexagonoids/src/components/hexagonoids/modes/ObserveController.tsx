@@ -1,3 +1,5 @@
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import { latLngToVector3 } from '@heygrady/h3-babylon'
 import { MAX_DELTA, restartGame } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import type { SyncExecutor } from '@neat-evolution/executor'
@@ -7,8 +9,10 @@ import { onCleanup } from 'solid-js'
 import { neatAgent } from '../../../../../../packages/hexagonoids-environment/src/agents/neatAgent'
 import type { AgentContext } from '../../../../../../packages/hexagonoids-environment/src/agents/types'
 import { useScene } from '../../solid-babylon/hooks/useScene'
-import { DEFAULT_PLAYER_ID } from '../constants'
+import { DEFAULT_PLAYER_ID, RADIUS } from '../constants'
 import { useInputs } from '../engine/useInputBridge'
+import { getYawPitch } from '../ship/getYawPitch'
+import { moveNodeTo } from '../ship/orientation'
 import type { AppMode } from '../types'
 import { useAppMode } from './AppModeProvider'
 import {
@@ -159,6 +163,15 @@ export function ObserveController() {
     aiContext.rng = createRNG(`${OBSERVE_SEED}:g${generation}`)
 
     engine.reseed(OBSERVE_SEED, DEFAULT_PLAYER_ID)
+    const player = engine.state.players.get(DEFAULT_PLAYER_ID)
+    const ship =
+      player?.shipId != null ? engine.state.ships.get(player.shipId) : undefined
+    const cameraOriginNode = scene.getTransformNodeByName('shipCameraOrigin')
+    if (ship != null && cameraOriginNode instanceof TransformNode) {
+      const pos = latLngToVector3(ship.lat, ship.lng, RADIUS)
+      const [yaw, pitch] = getYawPitch(pos)
+      moveNodeTo(cameraOriginNode, yaw, pitch)
+    }
     setObserveRunningGeneration(generation)
     setObserveRunningFitness(fitness)
     console.log(

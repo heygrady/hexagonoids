@@ -1,8 +1,16 @@
-import { type Component, Show } from 'solid-js'
+import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import { type Component, createEffect, onCleanup } from 'solid-js'
 
+import { useScene } from '../../solid-babylon/hooks/useScene'
+import { getCommonMaterial } from '../common/commonMaterial'
+import { updateText } from '../hud/createTextMesh'
+import { useUI } from '../UI'
 import { useAppMode } from './AppModeProvider'
 
 export const ObserveOverlay: Component = () => {
+  const scene = useScene()
+  const hudNode = useUI()
   const {
     appMode,
     observeTrainingGeneration,
@@ -12,76 +20,122 @@ export const ObserveOverlay: Component = () => {
     observeSummary,
   } = useAppMode()
 
-  const isObserveMode = () => appMode() === 'observe'
-  const runningGeneration = () => observeRunningGeneration()
-  const summary = () => observeSummary()
-  const isRunning = () => isObserveMode() && runningGeneration() != null
-  const isTraining = () => isObserveMode() && !isRunning() && summary() == null
+  const trainingMaterial = getCommonMaterial(scene, {
+    emissiveColor: new Color3(1, 0.9, 0.2),
+  })
+  const runningMaterial = getCommonMaterial(scene, {
+    emissiveColor: Color3.White(),
+  })
+  const summaryMaterial = getCommonMaterial(scene, {
+    emissiveColor: Color3.White(),
+  })
+  const summaryHintMaterial = getCommonMaterial(scene, {
+    emissiveColor: new Color3(0.7, 0.7, 0.7),
+  })
 
-  return (
-    <>
-      <Show when={isTraining()}>
-        <div
-          style={{
-            position: 'absolute',
-            top: '16px',
-            left: '16px',
-            'z-index': '110',
-            'font-family': 'monospace',
-            'font-size': '14px',
-            color: '#facc15',
-            'text-shadow': '0 0 4px rgba(0,0,0,0.85)',
-            'pointer-events': 'none',
-          }}
-        >
-          Training Generation {observeTrainingGeneration()} for{' '}
-          {observeTrainingElapsedSeconds()}s
-        </div>
-      </Show>
-      <Show when={isRunning()}>
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '24px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            'z-index': '110',
-            'font-family': 'monospace',
-            'font-size': '14px',
-            color: 'white',
-            'text-shadow': '0 0 4px rgba(0,0,0,0.85)',
-            'pointer-events': 'none',
-          }}
-        >
-          Generation {runningGeneration()}, Fitness{' '}
-          {(observeRunningFitness() ?? 0).toFixed(2)}
-        </div>
-      </Show>
-      <Show when={isObserveMode() && summary() != null}>
-        <div
-          style={{
-            position: 'absolute',
-            inset: '0',
-            'z-index': '120',
-            display: 'flex',
-            'align-items': 'center',
-            'justify-content': 'center',
-            'background-color': 'rgba(0,0,0,0.7)',
-            color: 'white',
-            'font-family': 'monospace',
-            'pointer-events': 'none',
-          }}
-        >
-          <div style={{ 'text-align': 'center', 'line-height': 1.6 }}>
-            <div>
-              Trained {summary()?.generations} generations. Best fitness{' '}
-              {(summary()?.bestFitness ?? 0).toFixed(2)} at generation{' '}
-              {summary()?.bestGeneration}.
-            </div>
-            <div>Space: Play | Shift+O: Observe | Shift+S: Spawn Debug</div>
-          </div>
-        </div>
-      </Show>
-    </>
-  )
+  const trainingOrigin = new TransformNode('observeTrainingText', scene)
+  trainingOrigin.parent = hudNode
+  trainingOrigin.position.set(0, 0.16, 0.22)
+  trainingOrigin.setEnabled(false)
+
+  const runningOrigin = new TransformNode('observeRunningText', scene)
+  runningOrigin.parent = hudNode
+  runningOrigin.position.set(0, -0.16, 0.22)
+  runningOrigin.setEnabled(false)
+
+  const summaryLine1Origin = new TransformNode('observeSummaryLine1', scene)
+  summaryLine1Origin.parent = hudNode
+  summaryLine1Origin.position.set(0, 0.02, 0.22)
+  summaryLine1Origin.setEnabled(false)
+
+  const summaryLine2Origin = new TransformNode('observeSummaryLine2', scene)
+  summaryLine2Origin.parent = hudNode
+  summaryLine2Origin.position.set(0, -0.08, 0.22)
+  summaryLine2Origin.setEnabled(false)
+
+  const hideNode = (origin: TransformNode) => {
+    origin.setEnabled(false)
+    origin.getChildMeshes().forEach((mesh) => {
+      mesh.isVisible = false
+    })
+  }
+
+  createEffect(() => {
+    const inObserveMode = appMode() === 'observe'
+    if (!inObserveMode) {
+      hideNode(trainingOrigin)
+      hideNode(runningOrigin)
+      hideNode(summaryLine1Origin)
+      hideNode(summaryLine2Origin)
+      return
+    }
+
+    const summary = observeSummary()
+    if (summary != null) {
+      hideNode(trainingOrigin)
+      hideNode(runningOrigin)
+
+      updateText(
+        summaryLine1Origin,
+        `Trained ${summary.generations} generations. Best fitness ${summary.bestFitness.toFixed(2)} at generation ${summary.bestGeneration}.`
+      )
+      summaryLine1Origin.setEnabled(true)
+      summaryLine1Origin.getChildMeshes().forEach((mesh) => {
+        mesh.scaling.setAll(0.042)
+        mesh.material = summaryMaterial
+        mesh.isVisible = true
+      })
+
+      updateText(
+        summaryLine2Origin,
+        'Space: Play | Shift+O: Observe | Shift+S: Spawn Debug'
+      )
+      summaryLine2Origin.setEnabled(true)
+      summaryLine2Origin.getChildMeshes().forEach((mesh) => {
+        mesh.scaling.setAll(0.036)
+        mesh.material = summaryHintMaterial
+        mesh.isVisible = true
+      })
+      return
+    }
+
+    hideNode(summaryLine1Origin)
+    hideNode(summaryLine2Origin)
+    const runningGeneration = observeRunningGeneration()
+    if (runningGeneration != null) {
+      hideNode(trainingOrigin)
+      updateText(
+        runningOrigin,
+        `Generation ${runningGeneration}, Fitness ${(observeRunningFitness() ?? 0).toFixed(2)}`
+      )
+      runningOrigin.setEnabled(true)
+      runningOrigin.getChildMeshes().forEach((mesh) => {
+        mesh.scaling.setAll(0.05)
+        mesh.material = runningMaterial
+        mesh.isVisible = true
+      })
+      return
+    }
+
+    hideNode(runningOrigin)
+    updateText(
+      trainingOrigin,
+      `Training Generation ${observeTrainingGeneration()} for ${observeTrainingElapsedSeconds()}s`
+    )
+    trainingOrigin.setEnabled(true)
+    trainingOrigin.getChildMeshes().forEach((mesh) => {
+      mesh.scaling.setAll(0.05)
+      mesh.material = trainingMaterial
+      mesh.isVisible = true
+    })
+  })
+
+  onCleanup(() => {
+    trainingOrigin.dispose(false, true)
+    runningOrigin.dispose(false, true)
+    summaryLine1Origin.dispose(false, true)
+    summaryLine2Origin.dispose(false, true)
+  })
+
+  return null
 }
