@@ -10,8 +10,8 @@ afterEach(() => {
   dispose = null
 })
 
-function setupInputs() {
-  let inputs: ReturnType<typeof useInputBridge> | null = null
+function setupInputs(): ReturnType<typeof useInputBridge> {
+  let inputs: ReturnType<typeof useInputBridge> | undefined
   createRoot((rootDispose) => {
     dispose = rootDispose
     inputs = useInputBridge()
