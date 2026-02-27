@@ -105,9 +105,15 @@ export function ObserveController() {
   }
 
   const maybeShowSummary = () => {
-    if (!trainingCompleted || currentExecutor != null || summaryShown) return
+    if (
+      !trainingCompleted ||
+      currentExecutor != null ||
+      summaryShown ||
+      engine.state.endedAt != null
+    ) {
+      return
+    }
     summaryShown = true
-    shouldTick = false
     const averageWaitMs =
       waitCount > 0 ? Math.round(totalWaitMs / waitCount) : 0
     console.log(
@@ -331,6 +337,10 @@ export function ObserveController() {
     if (!ended) return
 
     if (trySwitchToLatest('gameover')) return
+
+    if (trainingCompleted) {
+      return
+    }
 
     const nextTarget =
       currentGeneration != null

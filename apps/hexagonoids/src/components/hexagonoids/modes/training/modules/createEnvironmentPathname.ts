@@ -39,7 +39,8 @@ class BrowserHexagonoidsEnvironment
     return weightedFitnessSum(
       metrics,
       this.config.fitnessWeights,
-      this.config.simulation
+      this.config.simulation,
+      this.config.gateConfig
     )
   }
 
@@ -63,6 +64,7 @@ class BrowserHexagonoidsEnvironment
     return {
       simulation: { ...this.config.simulation },
       fitnessWeights: { ...this.config.fitnessWeights },
+      gateConfig: { ...this.config.gateConfig },
       profiling: { ...this.config.profiling },
     }
   }

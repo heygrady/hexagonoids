@@ -1,5 +1,6 @@
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import { type Component, createEffect, onCleanup } from 'solid-js'
 
 import { useScene } from '../../solid-babylon/hooks/useScene'
@@ -10,6 +11,7 @@ import { useAppMode } from './AppModeProvider'
 
 export const ObserveOverlay: Component = () => {
   const scene = useScene()
+  const engine = useGameState()
   const hudNode = useUI()
   const {
     appMode,
@@ -71,7 +73,7 @@ export const ObserveOverlay: Component = () => {
     }
 
     const summary = observeSummary()
-    if (summary != null) {
+    if (summary != null && engine.state.endedAt == null) {
       hideNode(trainingOrigin)
       hideNode(runningOrigin)
 
