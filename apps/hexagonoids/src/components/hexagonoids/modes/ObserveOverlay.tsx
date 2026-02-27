@@ -14,9 +14,9 @@ export const ObserveOverlay: Component = () => {
 
   const isObserveMode = () => appMode() === 'observe'
   const runningGeneration = () => observeRunningGeneration()
+  const summary = () => observeSummary()
   const isRunning = () => isObserveMode() && runningGeneration() != null
-  const isTraining = () =>
-    isObserveMode() && !isRunning() && observeSummary() == null
+  const isTraining = () => isObserveMode() && !isRunning() && summary() == null
 
   return (
     <>
@@ -57,7 +57,7 @@ export const ObserveOverlay: Component = () => {
           {(observeRunningFitness() ?? 0).toFixed(2)}
         </div>
       </Show>
-      <Show when={isObserveMode() && observeSummary() != null}>
+      <Show when={isObserveMode() && summary() != null}>
         <div
           style={{
             position: 'absolute',
@@ -74,9 +74,9 @@ export const ObserveOverlay: Component = () => {
         >
           <div style={{ 'text-align': 'center', 'line-height': 1.6 }}>
             <div>
-              Trained {observeSummary()!.generations} generations. Best fitness{' '}
-              {observeSummary()!.bestFitness.toFixed(2)} at generation{' '}
-              {observeSummary()!.bestGeneration}.
+              Trained {summary()?.generations} generations. Best fitness{' '}
+              {(summary()?.bestFitness ?? 0).toFixed(2)} at generation{' '}
+              {summary()?.bestGeneration}.
             </div>
             <div>Space: Play | Shift+O: Observe | Shift+S: Spawn Debug</div>
           </div>

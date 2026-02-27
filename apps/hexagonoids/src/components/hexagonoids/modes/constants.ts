@@ -12,3 +12,8 @@ export const SESSION_DURATION = 10_000
 
 /** Brief hold after countdown reaches 0 so "0" is visible before round starts. */
 export const RECORD_COUNTDOWN_ZERO_HOLD_MS = 300
+
+/** Observe mode defaults */
+export const OBSERVE_MAX_GENERATIONS = 100
+export const OBSERVE_SEED = 'observe-seed-001'
+export const OBSERVE_WINDOW_MS = 5_000
