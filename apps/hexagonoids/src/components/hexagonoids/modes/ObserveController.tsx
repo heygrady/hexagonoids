@@ -16,6 +16,7 @@ import { moveNodeTo } from '../ship/orientation'
 import type { AppMode } from '../types'
 import { useAppMode } from './AppModeProvider'
 import {
+  OBSERVE_EVALUATION_SEEDS_PER_ORGANISM,
   OBSERVE_MAX_GENERATIONS,
   OBSERVE_SEED,
   OBSERVE_WINDOW_MS,
@@ -248,6 +249,8 @@ export function ObserveController() {
   void adapter.start({
     maxGenerations: OBSERVE_MAX_GENERATIONS,
     populationSize: 64,
+    evaluationSeedsPerOrganism: OBSERVE_EVALUATION_SEEDS_PER_ORGANISM,
+    evaluationBaseSeed: OBSERVE_SEED,
     maxTicks: 1500,
     dtMs: 33,
   })

@@ -3,6 +3,10 @@ import type {
   Environment,
   EnvironmentDescription,
 } from '@neat-evolution/environment'
+import type {
+  EvaluationContext,
+  EvaluationStrategy,
+} from '@neat-evolution/evaluation-strategy'
 import {
   defaultEvolutionOptions,
   defaultPopulationOptions,
@@ -49,6 +53,8 @@ export interface ObserveTrainingStatusEvent {
 export interface ObserveTrainingConfig {
   maxGenerations: number
   populationSize: number
+  evaluationSeedsPerOrganism?: number
+  evaluationBaseSeed?: string
   maxTicks: number
   dtMs: number
   threadCount?: number
@@ -121,6 +127,90 @@ function resolveWorkerModulePathnames() {
 function normalizeThreadCount(value: number | undefined): number {
   if (value != null) return Math.max(1, Math.floor(value))
   return Math.max(1, Math.floor(hardwareConcurrency - 3))
+}
+
+function normalizeEvaluationSeedsPerOrganism(
+  value: number | undefined
+): number {
+  if (value == null) return 1
+  return Math.max(1, Math.floor(value))
+}
+
+const normalizeSeedComponent = (value: string): string => {
+  return value.trim().replace(/\s+/g, '-')
+}
+
+function generationSeedPack(
+  generation: number,
+  seedsPerOrganism: number,
+  baseSeed: string
+): string[] {
+  const normalizedBaseSeed = normalizeSeedComponent(baseSeed)
+  return Array.from({ length: seedsPerOrganism }, (_, index) => {
+    return `${normalizedBaseSeed}:g${generation}:s${index}`
+  })
+}
+
+class MultiSeedGenerationStrategy implements EvaluationStrategy<NEATGenome> {
+  private generation = 0
+  private readonly seedsPerOrganism: number
+  private readonly baseSeed: string
+
+  constructor(seedsPerOrganism: number, baseSeed: string) {
+    this.seedsPerOrganism = seedsPerOrganism
+    this.baseSeed = baseSeed
+  }
+
+  async *evaluate(
+    context: EvaluationContext<NEATGenome>,
+    genomeEntries: Iterable<[number, number, NEATGenome]>
+  ): AsyncIterable<[number, number, number]> {
+    const generation = this.generation
+    this.generation += 1
+    const seeds = generationSeedPack(
+      generation,
+      this.seedsPerOrganism,
+      this.baseSeed
+    )
+
+    const pending = new Map<
+      number,
+      Promise<{ id: number; result: [number, number, number] }>
+    >()
+    let nextPendingId = 0
+
+    for (const entry of genomeEntries) {
+      const [speciesIndex, organismIndex] = entry
+      const pendingId = nextPendingId
+      nextPendingId += 1
+
+      const p = Promise.all(
+        seeds.map(async (seed) => {
+          const [, , fitness] = await context.evaluateGenomeEntry(entry, seed)
+          return fitness
+        })
+      ).then((scores) => {
+        const meanFitness =
+          scores.reduce((sum, score) => sum + score, 0) / scores.length
+        return {
+          id: pendingId,
+          result: [speciesIndex, organismIndex, meanFitness] as [
+            number,
+            number,
+            number,
+          ],
+        }
+      })
+
+      pending.set(pendingId, p)
+    }
+
+    while (pending.size > 0) {
+      const settled = await Promise.race(pending.values())
+      pending.delete(settled.id)
+      yield settled.result
+    }
+  }
 }
 
 function createBrowserWorkerEnvironment(
@@ -207,6 +297,9 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
       emitStatus('starting')
 
       const threadCount = normalizeThreadCount(config.threadCount)
+      const evaluationSeedsPerOrganism = normalizeEvaluationSeedsPerOrganism(
+        config.evaluationSeedsPerOrganism
+      )
       const {
         algorithmPathname,
         createEnvironmentPathname,
@@ -237,6 +330,10 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
         taskCount: config.populationSize,
         threadCount,
         workerScriptUrl: workerEvaluatorScriptUrl,
+        strategy: new MultiSeedGenerationStrategy(
+          evaluationSeedsPerOrganism,
+          config.evaluationBaseSeed ?? 'observe-training'
+        ),
       }
       const evaluator = new WorkerEvaluator(
         NEATAlgorithm,
