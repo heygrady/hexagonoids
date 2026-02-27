@@ -2,8 +2,6 @@ import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import type { Component } from 'solid-js'
 import { onCleanup, onMount } from 'solid-js'
 
-import { useScene } from '../solid-babylon/hooks/useScene'
-
 import {
   ROCK_LARGE_SCALE,
   ROCK_LARGE_SIZE,
@@ -22,11 +20,9 @@ export interface RockProps {
 
 export const Rock: Component<RockProps> = (props) => {
   const engine = useGameState()
-  const scene = useScene()
   const registry = useNodeRegistry()
 
   let nodes: RockNodes
-  let observer: ReturnType<typeof scene.onBeforeRenderObservable.add>
 
   onMount(() => {
     nodes = props.pool.acquire()
@@ -50,20 +46,10 @@ export const Rock: Component<RockProps> = (props) => {
       originNode: nodes.originNode,
       visualNode: nodes.rockNode,
     })
-
-    observer = scene.onBeforeRenderObservable.add(() => {
-      const rock = engine.state.rocks.get(props.rockId)
-      if (rock == null) return
-
-      // Position on sphere (use copyFromFloats to avoid cross-package Quaternion type mismatch)
-      const o = rock.orientation
-      nodes.originNode.rotationQuaternion!.copyFromFloats(o.x, o.y, o.z, o.w)
-    })
   })
 
   onCleanup(() => {
     registry.unregister(`rock:${props.rockId}`)
-    scene.onBeforeRenderObservable.remove(observer)
     if (nodes != null) {
       props.pool.release(nodes)
     }

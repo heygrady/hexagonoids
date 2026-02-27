@@ -7,6 +7,10 @@ export interface CullableEntry {
   visualNode: AbstractMesh
   /** Surface-level node (position.y = RADIUS). Only ships have a separate positionNode. */
   positionNode?: TransformNode
+  /** Yaw-only node used by ships. */
+  orientationNode?: TransformNode
+  /** Optional ship tail mesh for thrust effects. */
+  shipTailNode?: AbstractMesh
 }
 
 /**

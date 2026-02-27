@@ -1,8 +1,5 @@
-import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import type { Component } from 'solid-js'
 import { onCleanup, onMount } from 'solid-js'
-
-import { useScene } from '../solid-babylon/hooks/useScene'
 
 import type { BulletNodes } from './engine/nodeTypes'
 import { useNodeRegistry } from './NodeRegistry'
@@ -14,12 +11,9 @@ export interface BulletProps {
 }
 
 export const Bullet: Component<BulletProps> = (props) => {
-  const engine = useGameState()
-  const scene = useScene()
   const registry = useNodeRegistry()
 
   let nodes: BulletNodes
-  let observer: ReturnType<typeof scene.onBeforeRenderObservable.add>
 
   onMount(() => {
     nodes = props.pool.acquire()
@@ -30,20 +24,10 @@ export const Bullet: Component<BulletProps> = (props) => {
       originNode: nodes.originNode,
       visualNode: nodes.bulletNode,
     })
-
-    observer = scene.onBeforeRenderObservable.add(() => {
-      const bullet = engine.state.bullets.get(props.bulletId)
-      if (bullet == null) return
-
-      // Position on sphere (use copyFromFloats to avoid cross-package Quaternion type mismatch)
-      const o = bullet.orientation
-      nodes.originNode.rotationQuaternion!.copyFromFloats(o.x, o.y, o.z, o.w)
-    })
   })
 
   onCleanup(() => {
     registry.unregister(`bullet:${props.bulletId}`)
-    scene.onBeforeRenderObservable.remove(observer)
     if (nodes != null) {
       props.pool.release(nodes)
     }

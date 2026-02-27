@@ -21,12 +21,14 @@ export const Cells: Component = () => {
   }
 
   const manager = new CellManager(scene, globe, registry)
+  const occupiedCells = new Set<string>()
   let prevNow = 0
 
   // Per-frame: visit cells under all entities, then update fade
   onBeforeRender(() => {
     const state = engine.state
     const now = state.now
+    occupiedCells.clear()
 
     // Engine reseed resets game time to 0. Reset active cells so stale
     // highlights from removed entities don't remain in an undefined state.
@@ -35,20 +37,30 @@ export const Cells: Component = () => {
     }
     prevNow = now
 
-    // Ships
+    // Ships (only visible entities contribute to cell highlights)
     for (const ship of state.ships.values()) {
       if (!ship.alive) continue
-      manager.visitCell(entityToCell(ship.lat, ship.lng), now)
+      const entry = registry.get(`ship:${ship.id}`)
+      if (entry != null && !entry.originNode.isEnabled()) continue
+      occupiedCells.add(entityToCell(ship.lat, ship.lng))
     }
 
     // Rocks
     for (const rock of state.rocks.values()) {
-      manager.visitCell(entityToCell(rock.lat, rock.lng), now)
+      const entry = registry.get(`rock:${rock.id}`)
+      if (entry != null && !entry.originNode.isEnabled()) continue
+      occupiedCells.add(entityToCell(rock.lat, rock.lng))
     }
 
     // Bullets
     for (const bullet of state.bullets.values()) {
-      manager.visitCell(entityToCell(bullet.lat, bullet.lng), now)
+      const entry = registry.get(`bullet:${bullet.id}`)
+      if (entry != null && !entry.originNode.isEnabled()) continue
+      occupiedCells.add(entityToCell(bullet.lat, bullet.lng))
+    }
+
+    for (const h of occupiedCells) {
+      manager.visitCell(h, now)
     }
 
     // Fade and cleanup

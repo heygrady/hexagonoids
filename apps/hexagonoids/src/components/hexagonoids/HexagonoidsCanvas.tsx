@@ -34,6 +34,7 @@ import {
   EXPLOSION_SMALL_SPEED,
 } from './constants'
 import { EndScreen } from './EndScreen'
+import { EntityVisualSync } from './EntityVisualSync'
 import { EngineProvider, useEngineHooks } from './engine/EngineProvider'
 import { useGameLoop } from './engine/useGameLoop'
 import {
@@ -50,7 +51,11 @@ import { RecordController } from './modes/RecordController'
 import { RecordCountdownScreen } from './modes/RecordCountdownScreen'
 import { SpawnDebugController } from './modes/SpawnDebugController'
 import { CameraLighting } from './NewLights'
-import { NodeRegistryProvider, useNodeRegistry } from './NodeRegistry'
+import {
+  type CullableEntry,
+  NodeRegistryProvider,
+  useNodeRegistry,
+} from './NodeRegistry'
 import { Rocks } from './Rocks'
 import { Score } from './Score'
 import { ShipCamera } from './ShipCamera'
@@ -91,6 +96,9 @@ function EngineGameLoop() {
   }
   hooks.getRegenerationPosition = getRegenerationPosition
 
+  let lastNarrowPhaseSyncNow = Number.NaN
+  const narrowPhaseSyncedAt = new Map<string, number>()
+
   // --- Narrow-phase collision verification hook ---
   // Projects mesh outlines to lat/lng and checks for 2D polygon intersection
   // via martinez polygon clipping, which is reliable for flat polygons on a
@@ -106,30 +114,37 @@ function EngineGameLoop() {
     const rockEntry = registry.get(`rock:${b.id}`)
     if (shipEntry == null || rockEntry == null) return true
 
-    // Sync visual node transforms to current engine state (visual updates
-    // haven't run yet this frame since EngineGameLoop ticks first)
+    // Sync visual transforms lazily at most once per entity per game tick.
+    // This keeps narrow-phase collision verification correct while avoiding
+    // repeated world-matrix recomputation for the same entities.
     const ship = engine.state.ships.get(a.id)
     const rock = engine.state.rocks.get(b.id)
     if (ship == null || rock == null) return true
 
-    const so = ship.orientation
-    shipEntry.originNode.rotationQuaternion!.copyFromFloats(
-      so.x,
-      so.y,
-      so.z,
-      so.w
-    )
-    const ro = rock.orientation
-    rockEntry.originNode.rotationQuaternion!.copyFromFloats(
-      ro.x,
-      ro.y,
-      ro.z,
-      ro.w
-    )
+    const now = engine.state.now
+    if (now !== lastNarrowPhaseSyncNow) {
+      lastNarrowPhaseSyncNow = now
+      narrowPhaseSyncedAt.clear()
+    }
 
-    // Force world matrix recomputation through the node hierarchy
-    shipEntry.visualNode.computeWorldMatrix(true)
-    rockEntry.visualNode.computeWorldMatrix(true)
+    const syncEntry = (
+      key: string,
+      entry: CullableEntry,
+      orientation: { x: number; y: number; z: number; w: number }
+    ) => {
+      if (narrowPhaseSyncedAt.get(key) === now) return
+      entry.originNode.rotationQuaternion?.copyFromFloats(
+        orientation.x,
+        orientation.y,
+        orientation.z,
+        orientation.w
+      )
+      entry.visualNode.computeWorldMatrix(true)
+      narrowPhaseSyncedAt.set(key, now)
+    }
+
+    syncEntry(`ship:${a.id}`, shipEntry, ship.orientation)
+    syncEntry(`rock:${b.id}`, rockEntry, rock.orientation)
 
     return verifyShipRockCollision(shipEntry, rockEntry)
   }
@@ -280,6 +295,7 @@ export const HexagonoidsCanvas: Component<HexagonoidsCanvasProps> = (props) => {
                   <Ships />
                   <Bullets />
                   <Rocks />
+                  <EntityVisualSync />
                   <Cells />
                   <Lights />
                   <ShipCamera debug={props.debug}>
