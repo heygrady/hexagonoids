@@ -11,17 +11,30 @@ export interface ProfilingConfig {
 }
 
 export interface FitnessWeights {
-  score: number
+  scoreEfficiency: number
   livesRemaining: number
   accuracy: number
-  distanceTraveled: number
   rocksDestroyed: number
-  timeAlive: number
+  cellsVisited: number
+}
+
+export interface GateConfig {
+  /** Minimum gate output (prevents zero-fitness collapse). */
+  floor: number
+  /** Action saturation low threshold (fraction of aliveFrames). */
+  actionLow: number
+  /** Action saturation high threshold (fraction of aliveFrames). */
+  actionHigh: number
+  /** Steepness of the saturation penalty curve. */
+  actionSteepness: number
+  /** Target number of unique cells for full coverage score. */
+  cellsCoverageTarget: number
 }
 
 export interface HexagonoidsEnvironmentConfig {
   simulation: SimulationConfig
   fitnessWeights: FitnessWeights
+  gateConfig: GateConfig
   profiling: ProfilingConfig
 }
 
@@ -33,12 +46,18 @@ export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfi
       useFastThrust: true,
     },
     fitnessWeights: {
-      score: 0.3,
+      scoreEfficiency: 0.3,
       livesRemaining: 0.2,
-      accuracy: 0.15,
-      distanceTraveled: 0.15,
-      rocksDestroyed: 0.1,
-      timeAlive: 0.1,
+      accuracy: 0.2,
+      rocksDestroyed: 0.2,
+      cellsVisited: 0.1,
+    },
+    gateConfig: {
+      floor: 0.1,
+      actionLow: 0.05,
+      actionHigh: 0.85,
+      actionSteepness: 8,
+      cellsCoverageTarget: 40,
     },
     profiling: {
       enabled: false,
@@ -56,6 +75,9 @@ export function mergeConfig(
       fitnessWeights: {
         ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
       },
+      gateConfig: {
+        ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
+      },
       profiling: {
         ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.profiling,
       },
@@ -70,6 +92,10 @@ export function mergeConfig(
     fitnessWeights: {
       ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
       ...partial.fitnessWeights,
+    },
+    gateConfig: {
+      ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
+      ...partial.gateConfig,
     },
     profiling: {
       ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.profiling,

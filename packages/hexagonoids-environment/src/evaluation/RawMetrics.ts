@@ -12,12 +12,35 @@ export interface RawMetrics {
   shotsHit: number
   deaths: number
   wavesSpawned: number
+  // Phase 05 action & engagement metrics
+  thrustFrames: number
+  fireFrames: number
+  leftFrames: number
+  rightFrames: number
+  aliveFrames: number
+  largeRocksSpawned: number
+  uniqueRocksSeen: number
+  framesWithRocksInSOI: number
+  uniqueCellsVisited: number
 }
 
 export interface MetricsCollector {
   hooks: EngineHooks
   /** Call when bullets are spawned (simulation loop tracks bullet count). */
   addShotsFired: (count: number) => void
+  /** Increment action counters per live frame. */
+  addActionFrame: (
+    inputs: { thrust: boolean; fire: boolean; left: boolean; right: boolean },
+    alive: boolean
+  ) => void
+  /** Track large rocks spawned from a wave. */
+  addLargeRocksSpawned: (count: number) => void
+  /** Track unique rocks the agent has observed. */
+  addRocksSeen: (rockIds: string[]) => void
+  /** Increment counter for frames where rocks are within SOI. */
+  addFrameWithRocksInSOI: () => void
+  /** Set unique cells visited from external bucket tracking. */
+  setUniqueCellsVisited: (count: number) => void
   /** Consume per-frame event deltas since previous call. */
   consumeFrameEvents: () => {
     rocksDestroyed: number
@@ -53,6 +76,17 @@ export function createMetricsCollector(playerId: string): MetricsCollector {
   let frameRocksDestroyed = 0
   let frameDeaths = 0
 
+  // Phase 05 tracking state
+  let thrustFrames = 0
+  let fireFrames = 0
+  let leftFrames = 0
+  let rightFrames = 0
+  let aliveFrames = 0
+  let largeRocksSpawned = 0
+  let framesWithRocksInSOI = 0
+  let uniqueCellsVisited = 0
+  const uniqueRocksSeen = new Set<string>()
+
   const hooks: EngineHooks = {
     onCollision: (_a, _b, type) => {
       if (type === 'bullet-rock') {
@@ -77,6 +111,28 @@ export function createMetricsCollector(playerId: string): MetricsCollector {
     addShotsFired: (count: number) => {
       shotsFired += count
     },
+    addActionFrame: (inputs, alive) => {
+      if (!alive) return
+      aliveFrames++
+      if (inputs.thrust) thrustFrames++
+      if (inputs.fire) fireFrames++
+      if (inputs.left) leftFrames++
+      if (inputs.right) rightFrames++
+    },
+    addLargeRocksSpawned: (count: number) => {
+      largeRocksSpawned += count
+    },
+    addRocksSeen: (rockIds: string[]) => {
+      for (const id of rockIds) {
+        uniqueRocksSeen.add(id)
+      }
+    },
+    addFrameWithRocksInSOI: () => {
+      framesWithRocksInSOI++
+    },
+    setUniqueCellsVisited: (count: number) => {
+      uniqueCellsVisited = count
+    },
     consumeFrameEvents: () => {
       const events = {
         rocksDestroyed: frameRocksDestroyed,
@@ -98,6 +154,15 @@ export function createMetricsCollector(playerId: string): MetricsCollector {
       shotsHit,
       deaths,
       wavesSpawned: final.wavesSpawned,
+      thrustFrames,
+      fireFrames,
+      leftFrames,
+      rightFrames,
+      aliveFrames,
+      largeRocksSpawned,
+      uniqueRocksSeen: uniqueRocksSeen.size,
+      framesWithRocksInSOI,
+      uniqueCellsVisited,
     }),
   }
 }

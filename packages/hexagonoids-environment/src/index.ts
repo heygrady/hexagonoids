@@ -16,16 +16,24 @@ export { encodeGameState, INPUT_COUNT } from './encoding/encodeGameState.js'
 export { bearingToSector } from './encoding/sectorUtils.js'
 // Evaluation
 export {
+  actionDiversityGate,
   calculateFitness,
+  engagementGate,
+  survivalGate,
   weightedFitnessSum,
   zScore,
 } from './evaluation/calculateFitness.js'
+export {
+  BUCKET_SYSTEM,
+  findBucketXYZ,
+} from './evaluation/icosahedralBuckets.js'
 export type { MetricsCollector, RawMetrics } from './evaluation/RawMetrics.js'
 export { createMetricsCollector } from './evaluation/RawMetrics.js'
 export { simulateGame } from './evaluation/simulateGame.js'
 export { HexagonoidsEnvironment } from './HexagonoidsEnvironment.js'
 export type {
   FitnessWeights,
+  GateConfig,
   HexagonoidsEnvironmentConfig,
   ProfilingConfig,
   SimulationConfig,

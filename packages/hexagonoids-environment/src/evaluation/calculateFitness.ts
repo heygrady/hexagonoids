@@ -1,11 +1,11 @@
 import {
   PLAYER_STARTING_LIVES,
-  RADIUS,
   ROCK_TOTAL_VALUE,
 } from '@heygrady/hexagonoids-engine'
 
 import type {
   FitnessWeights,
+  GateConfig,
   SimulationConfig,
 } from '../HexagonoidsEnvironmentConfig.js'
 import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '../HexagonoidsEnvironmentConfig.js'
@@ -21,77 +21,6 @@ function saturating(value: number, scale: number): number {
 }
 
 /**
- * Compute weighted fitness for a single agent using pre-normalized components.
- * Each component is divided by its known upper bound, then multiplied by its weight.
- */
-export function weightedFitnessSum(
-  metrics: RawMetrics,
-  weights: FitnessWeights,
-  config: SimulationConfig
-): number {
-  const rewardSigmoid = 1 / (1 + Math.exp(-metrics.episodeReward / 220))
-  const rewardComponent = clamp(rewardSigmoid * 2 - 1, 0, 1)
-
-  // Saturating transforms keep the objective sensitive at low-mid performance
-  // while preventing single metrics from dominating late-game.
-  const scoreComponent = saturating(metrics.score, ROCK_TOTAL_VALUE * 10)
-  const rocksComponent = saturating(metrics.rocksDestroyed, 25)
-  const distanceComponent = saturating(metrics.distanceTraveled, RADIUS * 10)
-  const timeComponent = clamp(
-    metrics.timeAlive / (config.maxTicks * config.dtMs),
-    0,
-    1
-  )
-  const livesComponent = clamp(
-    metrics.livesRemaining / PLAYER_STARTING_LIVES,
-    0,
-    1
-  )
-
-  // Avoid over-rewarding random spray with tiny sample counts.
-  const accuracyReliability = clamp(metrics.shotsFired / 15, 0, 1)
-  const accuracyComponent = clamp(metrics.accuracy, 0, 1) * accuracyReliability
-
-  const weightSum =
-    weights.score +
-    weights.livesRemaining +
-    weights.accuracy +
-    weights.distanceTraveled +
-    weights.rocksDestroyed +
-    weights.timeAlive
-
-  const base =
-    weights.score * scoreComponent +
-    weights.livesRemaining * livesComponent +
-    weights.accuracy * accuracyComponent +
-    weights.distanceTraveled * distanceComponent +
-    weights.rocksDestroyed * rocksComponent +
-    weights.timeAlive * timeComponent
-
-  const normalizedBase = weightSum > 0 ? base / weightSum : 0
-
-  // Survival and control penalties to discourage degenerate policies.
-  const deathPenalty = clamp(metrics.deaths / PLAYER_STARTING_LIVES, 0, 1)
-  const sprayPenalty =
-    metrics.shotsFired > 0
-      ? (1 - clamp(metrics.accuracy, 0, 1)) *
-        clamp(metrics.shotsFired / 220, 0, 1)
-      : 0
-  const survivalGate = 0.35 + 0.65 * timeComponent
-
-  const shaped = clamp(
-    normalizedBase *
-      survivalGate *
-      (1 - 0.35 * deathPenalty) *
-      (1 - 0.2 * sprayPenalty),
-    0,
-    1
-  )
-
-  return clamp(0.7 * rewardComponent + 0.3 * shaped, 0, 1)
-}
-
-/**
  * Z-score: (value - mean) / stdDev.
  * Returns 0 when stdDev is 0 (no discriminating signal).
  */
@@ -100,14 +29,203 @@ export function zScore(value: number, mean: number, stdDev: number): number {
   return (value - mean) / stdDev
 }
 
+// ── Gate helpers ──────────────────────────────────────────────────────
+
 /**
- * Population-level Z-score fitness (NERO/Stanley approach).
- * For each of 6 components: compute population mean/stdDev, convert to Z-scores,
- * multiply by weight, sum across components.
+ * Per-action saturation score.
+ * Returns ~1.0 when usage fraction is between low..high,
+ * drops toward 0 when saturated (near 100%) or never used (0%).
+ */
+function actionSaturationScore(
+  actionFrames: number,
+  aliveFrames: number,
+  low: number,
+  high: number,
+  steepness: number
+): number {
+  if (aliveFrames <= 0) return 0
+  const fraction = actionFrames / aliveFrames
+  // Penalty for never pressing: smooth ramp from 0 to 1
+  const lowPenalty = 1 - Math.exp(-steepness * (fraction / Math.max(low, 1e-9)))
+  // Penalty for over-pressing: smooth ramp from 1 to 0
+  const highPenalty =
+    fraction <= high
+      ? 1
+      : Math.exp(-steepness * ((fraction - high) / (1 - high + 1e-9)))
+  return lowPenalty * highPenalty
+}
+
+/**
+ * Action diversity gate: geometric mean of 4 action saturation scores.
+ * A single action pegged at 100% drives this toward 0.
+ */
+export function actionDiversityGate(
+  metrics: RawMetrics,
+  gateConfig: GateConfig
+): number {
+  const { actionLow, actionHigh, actionSteepness, floor } = gateConfig
+  const alive = metrics.aliveFrames
+
+  const thrust = actionSaturationScore(
+    metrics.thrustFrames,
+    alive,
+    actionLow,
+    actionHigh,
+    actionSteepness
+  )
+  const fire = actionSaturationScore(
+    metrics.fireFrames,
+    alive,
+    actionLow,
+    actionHigh,
+    actionSteepness
+  )
+  const left = actionSaturationScore(
+    metrics.leftFrames,
+    alive,
+    actionLow,
+    actionHigh,
+    actionSteepness
+  )
+  const right = actionSaturationScore(
+    metrics.rightFrames,
+    alive,
+    actionLow,
+    actionHigh,
+    actionSteepness
+  )
+
+  const geoMean = (thrust * fire * left * right) ** 0.25
+  return Math.max(geoMean, floor)
+}
+
+/**
+ * Engagement gate: did the agent actually interact with rocks?
+ * Combines rock observation breadth with accuracy.
+ */
+export function engagementGate(
+  metrics: RawMetrics,
+  gateConfig: GateConfig
+): number {
+  const totalRocks =
+    metrics.largeRocksSpawned > 0 ? metrics.largeRocksSpawned : 1
+  const seenRatio = clamp(metrics.uniqueRocksSeen / totalRocks, 0, 1)
+  const accuracyFactor =
+    metrics.shotsFired > 0 ? clamp(metrics.accuracy, 0, 1) : 0
+  const raw = seenRatio * Math.max(accuracyFactor, 0.2)
+  return Math.max(raw, gateConfig.floor)
+}
+
+/**
+ * Survival gate: fraction of total time survived.
+ */
+export function survivalGate(
+  metrics: RawMetrics,
+  gateConfig: GateConfig,
+  simConfig: SimulationConfig
+): number {
+  const maxTime = simConfig.maxTicks * simConfig.dtMs
+  const raw = maxTime > 0 ? clamp(metrics.timeAlive / maxTime, 0, 1) : 0
+  return Math.max(raw, gateConfig.floor)
+}
+
+/**
+ * Cells visited score: capped coverage curve.
+ */
+function cellsVisitedScore(
+  uniqueCells: number,
+  gateConfig: GateConfig
+): number {
+  const target = gateConfig.cellsCoverageTarget
+  if (target <= 0) return 0
+  return clamp(uniqueCells / target, 0, 1)
+}
+
+/**
+ * Quality score: weighted sum of 5 normalized components, range [0, 1].
+ */
+function qualityScore(
+  metrics: RawMetrics,
+  weights: FitnessWeights,
+  simConfig: SimulationConfig,
+  gateConfig: GateConfig
+): number {
+  const maxTime = simConfig.maxTicks * simConfig.dtMs
+
+  // Score efficiency: saturating transform of game score
+  const scoreComponent = saturating(metrics.score, ROCK_TOTAL_VALUE * 10)
+
+  // Lives remaining: fraction of starting lives
+  const livesComponent = clamp(
+    metrics.livesRemaining / PLAYER_STARTING_LIVES,
+    0,
+    1
+  )
+
+  // Accuracy with reliability scaling
+  const accuracyReliability = clamp(metrics.shotsFired / 15, 0, 1)
+  const accuracyComponent = clamp(metrics.accuracy, 0, 1) * accuracyReliability
+
+  // Rocks destroyed: saturating curve
+  const rocksComponent = saturating(metrics.rocksDestroyed, 25)
+
+  // Cells visited
+  const cellsComponent = cellsVisitedScore(
+    metrics.uniqueCellsVisited,
+    gateConfig
+  )
+
+  const weightSum =
+    weights.scoreEfficiency +
+    weights.livesRemaining +
+    weights.accuracy +
+    weights.rocksDestroyed +
+    weights.cellsVisited
+
+  if (weightSum <= 0) return 0
+
+  const base =
+    weights.scoreEfficiency * scoreComponent +
+    weights.livesRemaining * livesComponent +
+    weights.accuracy * accuracyComponent +
+    weights.rocksDestroyed * rocksComponent +
+    weights.cellsVisited * cellsComponent
+
+  // Add survival modulation
+  const timeComponent =
+    maxTime > 0 ? clamp(metrics.timeAlive / maxTime, 0, 1) : 0
+  const survivalModifier = 0.35 + 0.65 * timeComponent
+
+  return clamp((base / weightSum) * survivalModifier, 0, 1)
+}
+
+/**
+ * Compute gated fitness for a single agent.
+ * Formula: qualityScore * actionDiversityGate * engagementGate * survivalGate
+ */
+export function weightedFitnessSum(
+  metrics: RawMetrics,
+  weights: FitnessWeights,
+  config: SimulationConfig,
+  gateConfig: GateConfig
+): number {
+  const quality = qualityScore(metrics, weights, config, gateConfig)
+  const actionGate = actionDiversityGate(metrics, gateConfig)
+  const engagement = engagementGate(metrics, gateConfig)
+  const survival = survivalGate(metrics, gateConfig, config)
+
+  return clamp(quality * actionGate * engagement * survival, 0, 1)
+}
+
+/**
+ * Population-level Z-score fitness.
+ * Computes per-organism gated fitness, then Z-scores across population.
  */
 export function calculateFitness(
   allMetrics: RawMetrics[],
-  weights?: Partial<FitnessWeights>
+  weights?: Partial<FitnessWeights>,
+  gateConfig?: Partial<GateConfig>,
+  simConfig?: Partial<SimulationConfig>
 ): number[] {
   const n = allMetrics.length
   if (n === 0) return []
@@ -116,45 +234,32 @@ export function calculateFitness(
     ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
     ...weights,
   }
-
-  // Extract raw component arrays
-  const components: { key: keyof FitnessWeights; values: number[] }[] = [
-    { key: 'score', values: allMetrics.map((m) => m.score) },
-    { key: 'livesRemaining', values: allMetrics.map((m) => m.livesRemaining) },
-    { key: 'accuracy', values: allMetrics.map((m) => m.accuracy) },
-    {
-      key: 'distanceTraveled',
-      values: allMetrics.map((m) => m.distanceTraveled),
-    },
-    { key: 'rocksDestroyed', values: allMetrics.map((m) => m.rocksDestroyed) },
-    { key: 'timeAlive', values: allMetrics.map((m) => m.timeAlive) },
-  ]
-
-  // Initialize fitness array
-  const fitness = new Array<number>(n).fill(0)
-
-  for (const { key, values } of components) {
-    // Compute mean
-    let sum = 0
-    for (const v of values) {
-      sum += v
-    }
-    const mean = sum / n
-
-    // Compute stdDev
-    let sqSum = 0
-    for (const v of values) {
-      sqSum += (v - mean) ** 2
-    }
-    const stdDev = Math.sqrt(sqSum / n)
-
-    // Accumulate weighted Z-scores
-    const weight = w[key]
-    for (let i = 0; i < n; i++) {
-      fitness[i] =
-        (fitness[i] ?? 0) + weight * zScore(values[i] ?? 0, mean, stdDev)
-    }
+  const gc: GateConfig = {
+    ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
+    ...gateConfig,
+  }
+  const sc: SimulationConfig = {
+    ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation,
+    ...simConfig,
   }
 
-  return fitness
+  // Compute raw fitness per organism
+  const rawFitness = allMetrics.map((m) => weightedFitnessSum(m, w, sc, gc))
+
+  // Compute mean
+  let sum = 0
+  for (const f of rawFitness) {
+    sum += f
+  }
+  const mean = sum / n
+
+  // Compute stdDev
+  let sqSum = 0
+  for (const f of rawFitness) {
+    sqSum += (f - mean) ** 2
+  }
+  const stdDev = Math.sqrt(sqSum / n)
+
+  // Z-score
+  return rawFitness.map((f) => zScore(f, mean, stdDev))
 }

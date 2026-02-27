@@ -44,7 +44,8 @@ export class HexagonoidsEnvironment
     return weightedFitnessSum(
       metrics,
       this.config.fitnessWeights,
-      this.config.simulation
+      this.config.simulation,
+      this.config.gateConfig
     )
   }
 
@@ -68,6 +69,7 @@ export class HexagonoidsEnvironment
     return {
       simulation: { ...this.config.simulation },
       fitnessWeights: { ...this.config.fitnessWeights },
+      gateConfig: { ...this.config.gateConfig },
       profiling: { ...this.config.profiling },
     }
   }

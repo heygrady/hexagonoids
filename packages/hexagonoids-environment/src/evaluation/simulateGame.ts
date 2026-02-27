@@ -4,6 +4,7 @@ import {
   MAX_SPEED,
   type PlayerInputs,
   RADIUS,
+  ROCK_WAVE_SIZES,
   startPlayer,
   step,
 } from '@heygrady/hexagonoids-engine'
@@ -23,6 +24,7 @@ import {
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   type SimulationConfig,
 } from '../HexagonoidsEnvironmentConfig.js'
+import { findBucketXYZ } from './icosahedralBuckets.js'
 import type { SimulationProfiler } from './perfProfiler.js'
 import type { RawMetrics } from './RawMetrics.js'
 import { createMetricsCollector } from './RawMetrics.js'
@@ -40,6 +42,7 @@ const HIGH_SPEED_PENALTY = 0.1
 const HIGH_SPEED_THRESHOLD = MAX_SPEED * 0.8
 const PREV_DISTANCE_CLEANUP_INTERVAL = 8
 const TWO_PI = Math.PI * 2
+const DEG_TO_RAD = Math.PI / 180
 const MIN_CENTROID_VECTOR_LENGTH = 1e-9
 const HIGH_SPEED_THRESHOLD_SQUARED = HIGH_SPEED_THRESHOLD * HIGH_SPEED_THRESHOLD
 const ROCK_KEY_CACHE = new QuickLRU<string, string>({ maxSize: 8192 })
@@ -157,6 +160,7 @@ export function simulateGame(
   let prevLat: number | null = null
   let prevLng: number | null = null
   const seenDistanceKeys = new Set<string>()
+  const visitedBuckets = new Set<number>()
 
   // 4. Game loop
   let tickCount = 0
@@ -180,6 +184,15 @@ export function simulateGame(
       }
       prevLat = ship.lat
       prevLng = ship.lng
+
+      // Spatial coverage bucket tracking
+      const latRad = ship.lat * DEG_TO_RAD
+      const lngRad = ship.lng * DEG_TO_RAD
+      const cosLat = Math.cos(latRad)
+      const bx = cosLat * Math.cos(lngRad)
+      const by = cosLat * Math.sin(lngRad)
+      const bz = Math.sin(latRad)
+      visitedBuckets.add(findBucketXYZ(bx, by, bz))
     } else {
       // Ship dead or missing — reset tracking
       prevLat = null
@@ -206,11 +219,37 @@ export function simulateGame(
     const inputs = agent(state, PLAYER_ID, context)
     if (agentStartedAt != null) profiler?.stop('agent', agentStartedAt)
 
+    // Track action usage per live frame
+    collector.addActionFrame(inputs, ship?.alive === true)
+
+    // Track rocks in SOI and unique rocks seen
+    if (rockPerception != null && rockPerception.rocks.length > 0) {
+      const visibleIds: string[] = []
+      for (const entry of rockPerception.rocks) {
+        if (entry.inVisionRange) {
+          visibleIds.push(entry.id)
+        }
+      }
+      if (visibleIds.length > 0) {
+        collector.addRocksSeen(visibleIds)
+        collector.addFrameWithRocksInSOI()
+      }
+    }
+
+    // Record wave before step for transition detection
+    const waveBefore = state.wave
+
     // Step the simulation
     const stepStartedAt = profiler?.start('step')
     stepInputs[PLAYER_ID] = inputs
     step(state, stepInputs, dtMs, rng, collector.hooks)
     if (stepStartedAt != null) profiler?.stop('step', stepStartedAt)
+
+    // Detect wave transition and track large rocks spawned
+    if (state.wave > waveBefore) {
+      const waveIndex = Math.min(state.wave, ROCK_WAVE_SIZES.length - 1)
+      collector.addLargeRocksSpawned(ROCK_WAVE_SIZES[waveIndex] ?? 4)
+    }
 
     // Track new bullets fired
     const newBullets = state.bullets.size - bulletsBefore
@@ -318,6 +357,7 @@ export function simulateGame(
 
   // 7. Return collected metrics
   profiler?.onGameComplete(tickCount)
+  collector.setUniqueCellsVisited(visitedBuckets.size)
 
   return collector.getMetrics({
     episodeReward,
