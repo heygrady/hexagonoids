@@ -51,6 +51,7 @@
     "format": "biome check --write",
     "lint": "biome lint",
     "demo": "node ./bin/index.js",
+    "bench": "vitest bench --run",
     "prebuild:cjs": "mkdir -p dist/cjs && echo '{\"type\":\"commonjs\",\"main\":\"./index.js\"}' > dist/cjs/package.json",
     "test": "vitest --run --passWithNoTests",
     "test:dev": "vitest"

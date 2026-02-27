@@ -1,3 +1,4 @@
+import { INPUT_COUNT } from '@heygrady/hexagonoids-environment'
 import { defaultNEATConfigOptions } from '@neat-evolution/core'
 import {
   CPPNAlgorithm,
@@ -110,7 +111,7 @@ export interface SerializedGenome {
 }
 
 export const HEXAGONOIDS_IO: AlgorithmIO = {
-  inputs: 30,
+  inputs: INPUT_COUNT,
   outputs: 4,
 }
 

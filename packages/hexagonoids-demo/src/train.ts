@@ -3,7 +3,6 @@ import {
   doNothingAgent,
   type RawMetrics,
   randomAgent,
-  seekDestroyAgent,
 } from '@heygrady/hexagonoids-environment'
 import type {
   CPPNGenome,
@@ -240,12 +239,6 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
         simulation
       ),
       summarizeBaselineAgent('randomAgent', randomAgent, seedPack, simulation),
-      summarizeBaselineAgent(
-        'seekDestroyAgent',
-        seekDestroyAgent,
-        seedPack,
-        simulation
-      ),
     ]
 
     const result: BaselineRunResult = {

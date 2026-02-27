@@ -12,8 +12,7 @@ yarn workspace @heygrady/hexagonoids-demo build
 
 ### Baseline mode (no evolution)
 
-Scores `doNothingAgent`, `randomAgent`, and `seekDestroyAgent` over a shared
-seed pack.
+Scores `doNothingAgent` and `randomAgent` over a shared seed pack.
 
 ```bash
 yarn workspace @heygrady/hexagonoids-demo demo baseline
@@ -49,7 +48,7 @@ yarn workspace @heygrady/hexagonoids-demo demo train \
   --baseSeed session04-train-v1 \
   --maxTicks 1500 \
   --dtMs 33 \
-  --outputDir packages/hexagonoids-demo/.artifacts/manual
+  --outputDir .artifacts/manual
 ```
 
 ### Replay mode

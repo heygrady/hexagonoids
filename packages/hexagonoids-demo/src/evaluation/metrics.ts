@@ -29,7 +29,12 @@ export const median = (values: readonly number[]): number => {
 }
 
 export const aggregateRawMetrics = (runs: RawMetrics[]): RawMetrics => {
+  const [firstRun] = runs
+  if (firstRun == null) {
+    throw new Error('Cannot aggregate empty RawMetrics runs')
+  }
   return {
+    ...firstRun,
     score: mean(runs.map((run) => run.score)),
     rocksDestroyed: mean(runs.map((run) => run.rocksDestroyed)),
     accuracy: mean(runs.map((run) => run.accuracy)),
