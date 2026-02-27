@@ -26,7 +26,8 @@ export const summarizeBaselineAgent = (
     weightedFitnessSum(
       raw,
       DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
-      simulation
+      simulation,
+      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig
     )
   )
 

@@ -189,7 +189,8 @@ export async function replayGenome(
   const fitness = weightedFitnessSum(
     metrics,
     DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
-    simulation
+    simulation,
+    DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig
   )
 
   console.log(`Replay completed for ${options.method}`)
