@@ -174,6 +174,9 @@ export interface GameState {
   /** Game mode */
   mode: GameMode
 
+  /** Whether ship thrust uses fast scalar math (vs quaternion validation path). */
+  useFastThrust: boolean
+
   /** Timestamp (game time ms) when the game started */
   startedAt: number | null
 
@@ -186,4 +189,5 @@ export interface GameState {
 export interface EngineOptions {
   mode?: GameMode
   seed?: string
+  useFastThrust?: boolean
 }

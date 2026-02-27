@@ -29,7 +29,11 @@ function applyInputs(
   dtMs: number,
   rng: RNG
 ): void {
-  for (const [playerId, input] of Object.entries(inputs)) {
+  const now = state.now
+  const useFastThrust = state.useFastThrust
+  for (const playerId in inputs) {
+    const input = inputs[playerId]
+    if (input == null) continue
     const player = state.players.get(playerId)
     if (player == null || !player.alive || player.shipId == null) continue
     const ship = state.ships.get(player.shipId)
@@ -37,37 +41,35 @@ function applyInputs(
 
     // Track left input hold
     if (input.left && player.leftPressedAt == null) {
-      player.leftPressedAt = state.now
+      player.leftPressedAt = now
     } else if (!input.left) {
       player.leftPressedAt = null
     }
 
     // Track right input hold
     if (input.right && player.rightPressedAt == null) {
-      player.rightPressedAt = state.now
+      player.rightPressedAt = now
     } else if (!input.right) {
       player.rightPressedAt = null
     }
 
     // Track thrust input hold
     if (input.thrust && player.thrustPressedAt == null) {
-      player.thrustPressedAt = state.now
+      player.thrustPressedAt = now
     } else if (!input.thrust) {
       player.thrustPressedAt = null
     }
 
     if (input.left) {
-      const leftDuration = state.now - player.leftPressedAt!
+      const leftDuration = now - player.leftPressedAt!
       turnShip(ship, -1, dtMs, leftDuration)
     }
     if (input.right) {
-      const rightDuration = state.now - player.rightPressedAt!
+      const rightDuration = now - player.rightPressedAt!
       turnShip(ship, 1, dtMs, rightDuration)
     }
-    const thrustDuration = input.thrust
-      ? state.now - player.thrustPressedAt!
-      : 0
-    accelerateShip(ship, input.thrust, dtMs, thrustDuration)
+    const thrustDuration = input.thrust ? now - player.thrustPressedAt! : 0
+    accelerateShip(ship, input.thrust, dtMs, thrustDuration, useFastThrust)
     if (input.fire) fireBullet(state, ship, rng)
   }
 }
@@ -77,13 +79,13 @@ function applyInputs(
  */
 function moveEntities(state: GameState, dtMs: number): void {
   for (const ship of state.ships.values()) {
-    moveShip(ship, dtMs)
+    moveShip(ship, dtMs, RADIUS, state.useFastThrust)
   }
   for (const rock of state.rocks.values()) {
-    moveRock(rock, dtMs)
+    moveRock(rock, dtMs, RADIUS, state.useFastThrust)
   }
   for (const bullet of state.bullets.values()) {
-    moveBullet(bullet, dtMs)
+    moveBullet(bullet, dtMs, RADIUS, state.useFastThrust)
   }
 }
 

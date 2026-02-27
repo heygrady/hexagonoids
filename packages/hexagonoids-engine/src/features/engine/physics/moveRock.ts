@@ -1,8 +1,11 @@
 import { RADIUS } from '../constants.js'
 import type { RockState } from '../types.js'
 
-import { quaternionToLatLng } from './latLng.js'
-import { integrateAngularVelocity } from './quaternionPhysics.js'
+import { quaternionToLatLng, quaternionToLatLngFastInPlace } from './latLng.js'
+import {
+  integrateAngularVelocity,
+  integrateAngularVelocityFastInPlace,
+} from './quaternionPhysics.js'
 
 /**
  * Move a rock by integrating its constant angular velocity.
@@ -16,20 +19,26 @@ import { integrateAngularVelocity } from './quaternionPhysics.js'
 export const moveRock = (
   rock: RockState,
   dtMs: number,
-  radius: number = RADIUS
+  radius: number = RADIUS,
+  useFastMath: boolean = true
 ): void => {
-  if (rock.angularVelocity.length() < 0.00001) {
+  const omega = rock.angularVelocity
+  if (omega.lengthSquared() < 1e-10) {
     return
   }
 
   const dtSeconds = dtMs / 1000
-  rock.orientation = integrateAngularVelocity(
-    rock.orientation,
-    rock.angularVelocity,
-    dtSeconds
-  )
-
-  const [lat, lng] = quaternionToLatLng(rock.orientation, radius)
-  rock.lat = lat
-  rock.lng = lng
+  if (useFastMath) {
+    integrateAngularVelocityFastInPlace(rock.orientation, omega, dtSeconds)
+    quaternionToLatLngFastInPlace(rock.orientation, rock, radius)
+  } else {
+    rock.orientation = integrateAngularVelocity(
+      rock.orientation,
+      omega,
+      dtSeconds
+    )
+    const [lat, lng] = quaternionToLatLng(rock.orientation, radius)
+    rock.lat = lat
+    rock.lng = lng
+  }
 }

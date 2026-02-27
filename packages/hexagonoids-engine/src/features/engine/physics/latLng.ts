@@ -51,6 +51,44 @@ export const quaternionToLatLng = (
 }
 
 /**
+ * Fast scalar conversion from quaternion to [lat, lng] in degrees.
+ * Equivalent to quaternionToLatLng but avoids Vector3 allocations.
+ */
+export const quaternionToLatLngFast = (
+  orientation: Quaternion,
+  _radius: number = RADIUS
+): [lat: number, lng: number] => {
+  const { x, y, z, w } = orientation
+
+  // Rotate local up (0,1,0) by quaternion.
+  const px = 2 * (x * y - z * w)
+  const py = 1 - 2 * (x * x + z * z)
+  const pz = 2 * (y * z + x * w)
+
+  const lat = Math.asin(Math.max(-1, Math.min(1, py))) * RAD_TO_DEG
+  const lng = Math.atan2(pz, px) * RAD_TO_DEG
+  return [lat, lng]
+}
+
+/**
+ * Fast scalar conversion that writes lat/lng into an existing target object.
+ * Avoids allocating a tuple in hot movement loops.
+ */
+export const quaternionToLatLngFastInPlace = (
+  orientation: Quaternion,
+  target: { lat: number; lng: number },
+  _radius: number = RADIUS
+): void => {
+  const { x, y, z, w } = orientation
+  const px = 2 * (x * y - z * w)
+  const py = 1 - 2 * (x * x + z * z)
+  const pz = 2 * (y * z + x * w)
+
+  target.lat = Math.asin(Math.max(-1, Math.min(1, py))) * RAD_TO_DEG
+  target.lng = Math.atan2(pz, px) * RAD_TO_DEG
+}
+
+/**
  * Convert [lat, lng] in degrees to an orientation quaternion.
  * Aligns local +Y with the surface normal and local +Z (forward) with
  * geographic east so yaw=0 is always east, regardless of longitude.

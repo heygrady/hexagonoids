@@ -7,9 +7,11 @@ import {
   getPositionFromQuaternion,
   headingToAngularVelocity,
   integrateAngularVelocity,
+  integrateAngularVelocityFast,
   latLngToQuaternion,
   latLngToVector3,
   quaternionToLatLng,
+  quaternionToLatLngFast,
   vector3ToLatLng,
 } from '../../../src/index.js'
 
@@ -56,6 +58,35 @@ describe('integrateAngularVelocity', () => {
       result.x ** 2 + result.y ** 2 + result.z ** 2 + result.w ** 2
     )
     expect(len).toBeCloseTo(1, 5)
+  })
+
+  it('fast integrator matches quaternion integrator across representative states', () => {
+    const scenarios = [
+      {
+        q: Quaternion.Identity(),
+        omega: new Vector3(0.5, 0.1, -0.2),
+        dt: 0.016,
+      },
+      {
+        q: latLngToQuaternion(32, -74),
+        omega: new Vector3(-0.3, 0.4, 0.15),
+        dt: 0.1,
+      },
+      {
+        q: latLngToQuaternion(-68, 121),
+        omega: new Vector3(0.2, -0.6, 0.45),
+        dt: 0.033,
+      },
+    ]
+
+    for (const { q, omega, dt } of scenarios) {
+      const a = integrateAngularVelocity(q, omega, dt)
+      const b = integrateAngularVelocityFast(q, omega, dt)
+      expect(a.x).toBeCloseTo(b.x, 6)
+      expect(a.y).toBeCloseTo(b.y, 6)
+      expect(a.z).toBeCloseTo(b.z, 6)
+      expect(a.w).toBeCloseTo(b.w, 6)
+    }
   })
 })
 
@@ -158,5 +189,22 @@ describe('lat/lng round-trip', () => {
     const expectedUp = latLngToVector3(lat, lng, 1).normalize()
 
     expect(Vector3.Dot(worldUp, expectedUp)).toBeCloseTo(1, 6)
+  })
+
+  it('quaternionToLatLngFast matches quaternionToLatLng', () => {
+    const quaternions = [
+      Quaternion.Identity(),
+      latLngToQuaternion(0, 0),
+      latLngToQuaternion(45, 10),
+      latLngToQuaternion(-35, 130),
+      latLngToQuaternion(80, -150),
+    ]
+
+    for (const q of quaternions) {
+      const [latA, lngA] = quaternionToLatLng(q)
+      const [latB, lngB] = quaternionToLatLngFast(q)
+      expect(latB).toBeCloseTo(latA, 6)
+      expect(lngB).toBeCloseTo(lngA, 6)
+    }
   })
 })

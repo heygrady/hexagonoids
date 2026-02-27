@@ -1,8 +1,11 @@
 import { RADIUS } from '../constants.js'
 import type { BulletState } from '../types.js'
 
-import { quaternionToLatLng } from './latLng.js'
-import { integrateAngularVelocity } from './quaternionPhysics.js'
+import { quaternionToLatLng, quaternionToLatLngFastInPlace } from './latLng.js'
+import {
+  integrateAngularVelocity,
+  integrateAngularVelocityFastInPlace,
+} from './quaternionPhysics.js'
 
 /**
  * Move a bullet by integrating its constant angular velocity.
@@ -16,20 +19,26 @@ import { integrateAngularVelocity } from './quaternionPhysics.js'
 export const moveBullet = (
   bullet: BulletState,
   dtMs: number,
-  radius: number = RADIUS
+  radius: number = RADIUS,
+  useFastMath: boolean = true
 ): void => {
-  if (bullet.angularVelocity.length() < 0.00001) {
+  const omega = bullet.angularVelocity
+  if (omega.lengthSquared() < 1e-10) {
     return
   }
 
   const dtSeconds = dtMs / 1000
-  bullet.orientation = integrateAngularVelocity(
-    bullet.orientation,
-    bullet.angularVelocity,
-    dtSeconds
-  )
-
-  const [lat, lng] = quaternionToLatLng(bullet.orientation, radius)
-  bullet.lat = lat
-  bullet.lng = lng
+  if (useFastMath) {
+    integrateAngularVelocityFastInPlace(bullet.orientation, omega, dtSeconds)
+    quaternionToLatLngFastInPlace(bullet.orientation, bullet, radius)
+  } else {
+    bullet.orientation = integrateAngularVelocity(
+      bullet.orientation,
+      omega,
+      dtSeconds
+    )
+    const [lat, lng] = quaternionToLatLng(bullet.orientation, radius)
+    bullet.lat = lat
+    bullet.lng = lng
+  }
 }

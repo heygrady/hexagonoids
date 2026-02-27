@@ -106,6 +106,7 @@ export {
   latLngToQuaternion,
   latLngToVector3,
   quaternionToLatLng,
+  quaternionToLatLngFast,
   vector3ToLatLng,
 } from './features/engine/physics/latLng.js'
 export { moveBullet } from './features/engine/physics/moveBullet.js'
@@ -117,6 +118,7 @@ export {
   getPositionFromQuaternion,
   headingToAngularVelocity,
   integrateAngularVelocity,
+  integrateAngularVelocityFast,
 } from './features/engine/physics/quaternionPhysics.js'
 export {
   easeCircleOut,

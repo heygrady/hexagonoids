@@ -43,6 +43,72 @@ export const integrateAngularVelocity = (
 }
 
 /**
+ * Fast scalar variant of integrateAngularVelocity.
+ * Matches integrateAngularVelocity semantics with reduced allocations.
+ */
+export const integrateAngularVelocityFast = (
+  currentRotation: Quaternion,
+  angularVelocity: Vector3,
+  deltaTime: number
+): Quaternion => {
+  const next = currentRotation.clone()
+  integrateAngularVelocityFastInPlace(next, angularVelocity, deltaTime)
+  return next
+}
+
+/**
+ * Fast scalar integration that mutates the provided quaternion in place.
+ * This avoids per-tick allocation in hot movement loops.
+ */
+export const integrateAngularVelocityFastInPlace = (
+  currentRotation: Quaternion,
+  angularVelocity: Vector3,
+  deltaTime: number
+): void => {
+  const wx = angularVelocity.x
+  const wy = angularVelocity.y
+  const wz = angularVelocity.z
+  const speed = Math.sqrt(wx * wx + wy * wy + wz * wz)
+
+  if (speed < 0.00001) {
+    return
+  }
+
+  const angle = speed * deltaTime
+  const halfAngle = angle * 0.5
+  const sinHalf = Math.sin(halfAngle)
+  const cosHalf = Math.cos(halfAngle)
+  const k = sinHalf / speed
+
+  // Delta quaternion (world-space axis-angle), left-multiplied.
+  const dx = wx * k
+  const dy = wy * k
+  const dz = wz * k
+  const dw = cosHalf
+
+  const qx = currentRotation.x
+  const qy = currentRotation.y
+  const qz = currentRotation.z
+  const qw = currentRotation.w
+
+  const rx = dw * qx + dx * qw + dy * qz - dz * qy
+  const ry = dw * qy - dx * qz + dy * qw + dz * qx
+  const rz = dw * qz + dx * qy - dy * qx + dz * qw
+  const rw = dw * qw - dx * qx - dy * qy - dz * qz
+
+  const rLen = Math.sqrt(rx * rx + ry * ry + rz * rz + rw * rw)
+  if (rLen < 0.00001) {
+    return
+  }
+
+  const invLen = 1 / rLen
+  currentRotation.x = rx * invLen
+  currentRotation.y = ry * invLen
+  currentRotation.z = rz * invLen
+  currentRotation.w = rw * invLen
+}
+
+/**
  * Apply friction (exponential decay) to angular velocity.
  * Frame-rate independent: omega' = omega * exp(-friction * dt)
  *

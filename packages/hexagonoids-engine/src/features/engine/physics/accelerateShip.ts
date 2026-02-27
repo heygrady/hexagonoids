@@ -1,3 +1,5 @@
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
+
 import {
   ACCELERATION_RATE,
   FRICTION_COEFFICIENT,
@@ -13,50 +15,96 @@ import { clampAngularVelocity } from './quaternionPhysics.js'
  * Equivalent to d3-ease easeQuadOut.
  */
 const easeQuadOut = (t: number): number => t * (2 - t)
-const DEG_TO_RAD = Math.PI / 180
 
-function applyThrustAcceleration(
-  ship: ShipState,
-  accelMagnitude: number
-): void {
-  const latRad = ship.lat * DEG_TO_RAD
-  const lngRad = ship.lng * DEG_TO_RAD
-  const cosLat = Math.cos(latRad)
-  const sinLat = Math.sin(latRad)
-  const cosLng = Math.cos(lngRad)
-  const sinLng = Math.sin(lngRad)
+function getThrustAxisQuaternion(ship: ShipState): Vector3 {
+  const worldUp = Vector3.Up().applyRotationQuaternion(ship.orientation)
+  const localHeadingRotation = Quaternion.RotationAxis(Vector3.Up(), ship.yaw)
+  const localHeading =
+    Vector3.Forward().applyRotationQuaternion(localHeadingRotation)
+  const worldHeading = localHeading.applyRotationQuaternion(ship.orientation)
+  return Vector3.Cross(worldUp, worldHeading)
+}
 
-  // Surface tangent basis from lat/lng.
-  const upX = cosLat * cosLng
-  const upY = sinLat
-  const upZ = cosLat * sinLng
+function getThrustAxisFast(ship: ShipState): Vector3 {
+  // Derive world basis from orientation (not lat/lng) to avoid pole singularities.
+  const { x, y, z, w } = ship.orientation
+  const x2 = x + x
+  const y2 = y + y
+  const z2 = z + z
+  const xx = x * x2
+  const xy = x * y2
+  const xz = x * z2
+  const yy = y * y2
+  const yz = y * z2
+  const zz = z * z2
+  const wx = w * x2
+  const wy = w * y2
+  const wz = w * z2
 
-  const eastX = -sinLng
-  const eastY = 0
-  const eastZ = cosLng
+  // Rotated local up (0,1,0).
+  const upX = xy - wz
+  const upY = 1 - xx - zz
+  const upZ = yz + wx
 
-  const northX = -sinLat * cosLng
-  const northY = cosLat
-  const northZ = -sinLat * sinLng
+  // Rotated local forward (0,0,1) is yaw=0 heading.
+  const forwardX = xz + wy
+  const forwardY = yz - wx
+  const forwardZ = 1 - xx - yy
 
-  // yaw=0 points east.
   const sinYaw = Math.sin(ship.yaw)
   const cosYaw = Math.cos(ship.yaw)
-  const headingX = eastX * cosYaw - northX * sinYaw
-  const headingY = eastY * cosYaw - northY * sinYaw
-  const headingZ = eastZ * cosYaw - northZ * sinYaw
+
+  // Rotate heading in tangent plane around surface normal.
+  const crossX = upY * forwardZ - upZ * forwardY
+  const crossY = upZ * forwardX - upX * forwardZ
+  const crossZ = upX * forwardY - upY * forwardX
+  const dot = upX * forwardX + upY * forwardY + upZ * forwardZ
+  const oneMinusCos = 1 - cosYaw
+
+  const headingX = forwardX * cosYaw + crossX * sinYaw + upX * dot * oneMinusCos
+  const headingY = forwardY * cosYaw + crossY * sinYaw + upY * dot * oneMinusCos
+  const headingZ = forwardZ * cosYaw + crossZ * sinYaw + upZ * dot * oneMinusCos
 
   // Acceleration axis: up × heading.
   const axisX = upY * headingZ - upZ * headingY
   const axisY = upZ * headingX - upX * headingZ
   const axisZ = upX * headingY - upY * headingX
-  const axisLen = Math.sqrt(axisX * axisX + axisY * axisY + axisZ * axisZ)
-  if (axisLen < 0.00001) return
+  return new Vector3(axisX, axisY, axisZ)
+}
 
-  const scale = accelMagnitude / axisLen
-  ship.angularVelocity.x += axisX * scale
-  ship.angularVelocity.y += axisY * scale
-  ship.angularVelocity.z += axisZ * scale
+export function getThrustAccelerationQuaternion(
+  ship: ShipState,
+  accelMagnitude: number
+): Vector3 {
+  const axis = getThrustAxisQuaternion(ship)
+  const axisLen = axis.length()
+  if (axisLen < 0.00001) {
+    return Vector3.Zero()
+  }
+  return axis.scale(accelMagnitude / axisLen)
+}
+
+export function getThrustAccelerationFast(
+  ship: ShipState,
+  accelMagnitude: number
+): Vector3 {
+  const axis = getThrustAxisFast(ship)
+  const axisLen = axis.length()
+  if (axisLen < 0.00001) {
+    return Vector3.Zero()
+  }
+  return axis.scale(accelMagnitude / axisLen)
+}
+
+function applyThrustAcceleration(
+  ship: ShipState,
+  accelMagnitude: number,
+  useFastThrust: boolean
+): void {
+  const acceleration = useFastThrust
+    ? getThrustAccelerationFast(ship, accelMagnitude)
+    : getThrustAccelerationQuaternion(ship, accelMagnitude)
+  ship.angularVelocity.addInPlace(acceleration)
 }
 
 /**
@@ -72,7 +120,8 @@ export const accelerateShip = (
   ship: ShipState,
   thrusting: boolean,
   dtMs: number,
-  duration: number
+  duration: number,
+  useFastThrust: boolean = true
 ): void => {
   if (thrusting) {
     // Ease acceleration from 50% to 100% over MAX_DURATION
@@ -82,7 +131,7 @@ export const accelerateShip = (
     const accelMagnitude = (et * halfRate + halfRate) * dtMs
 
     if (accelMagnitude > 0) {
-      applyThrustAcceleration(ship, accelMagnitude)
+      applyThrustAcceleration(ship, accelMagnitude, useFastThrust)
     }
   }
 

@@ -9,13 +9,21 @@
  */
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import { describe, expect, it } from 'vitest'
+import { RADIUS } from '../../../src/features/engine/constants.js'
+import {
+  getThrustAccelerationFast,
+  getThrustAccelerationQuaternion,
+} from '../../../src/features/engine/physics/accelerateShip.js'
+import { turnShip } from '../../../src/features/engine/physics/turnShip.js'
 import type { ShipState } from '../../../src/index.js'
 import {
   ACCELERATION_RATE,
   accelerateShip,
   FRICTION_COEFFICIENT,
+  latLngToQuaternion,
   MAX_DURATION,
   MAX_SPEED,
+  moveShip,
 } from '../../../src/index.js'
 
 function makeShip(overrides: Partial<ShipState> = {}): ShipState {
@@ -149,5 +157,177 @@ describe('accelerateShip — friction decay magnitude', () => {
     const ship = makeShip()
     accelerateShip(ship, false, 100, 0)
     expect(ship.angularVelocity.length()).toBe(0)
+  })
+})
+
+describe('accelerateShip — fast thrust parity', () => {
+  it('fast thrust direction closely matches quaternion thrust across representative orientations', () => {
+    const accelMagnitude = 0.25
+    const scenarios: Array<{ lat: number; lng: number; yaw: number }> = [
+      { lat: 0, lng: 0, yaw: 0 },
+      { lat: 0, lng: 0, yaw: Math.PI / 2 },
+      { lat: 0, lng: 90, yaw: -Math.PI / 3 },
+      { lat: 30, lng: 45, yaw: Math.PI / 4 },
+      { lat: -42, lng: 123, yaw: -Math.PI / 2 },
+      { lat: 70, lng: -120, yaw: Math.PI },
+      { lat: -75, lng: 30, yaw: -2.2 },
+      { lat: 85, lng: 10, yaw: 1.1 },
+      { lat: -85, lng: -150, yaw: -0.7 },
+    ]
+
+    for (const scenario of scenarios) {
+      const orientation = latLngToQuaternion(scenario.lat, scenario.lng)
+      const ship = makeShip({
+        lat: scenario.lat,
+        lng: scenario.lng,
+        yaw: scenario.yaw,
+        orientation,
+      })
+
+      const quaternionAccel = getThrustAccelerationQuaternion(
+        ship,
+        accelMagnitude
+      )
+      const fastAccel = getThrustAccelerationFast(ship, accelMagnitude)
+
+      expect(quaternionAccel.length()).toBeCloseTo(accelMagnitude, 6)
+      expect(fastAccel.length()).toBeCloseTo(accelMagnitude, 6)
+      expect(fastAccel.x).toBeCloseTo(quaternionAccel.x, 6)
+      expect(fastAccel.y).toBeCloseTo(quaternionAccel.y, 6)
+      expect(fastAccel.z).toBeCloseTo(quaternionAccel.z, 6)
+    }
+  })
+})
+
+function createDeterministicRng(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0
+    return state / 4294967296
+  }
+}
+
+function orientationAlignment(a: Quaternion, b: Quaternion): number {
+  const dot = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w
+  return Math.abs(dot)
+}
+
+describe('accelerateShip — dynamic fast/parity across gameplay-like loops', () => {
+  it('fast math stays aligned with quaternion math under long mixed control sequences', () => {
+    const dtMs = 16
+    const ticks = 700
+    const rng = createDeterministicRng(0xdecafbad)
+    const starts = [
+      { lat: 0, lng: 0, yaw: 0 },
+      { lat: 0, lng: 179.9, yaw: -Math.PI / 2 },
+      { lat: 0, lng: -179.9, yaw: Math.PI / 2 },
+      { lat: 45, lng: 45, yaw: 2.1 },
+      { lat: -50, lng: 130, yaw: -1.8 },
+      { lat: 89.9, lng: 10, yaw: 0.7 },
+      { lat: -89.9, lng: -25, yaw: -2.4 },
+    ]
+
+    for (const start of starts) {
+      const orientation = latLngToQuaternion(start.lat, start.lng)
+      const fast = makeShip({
+        lat: start.lat,
+        lng: start.lng,
+        yaw: start.yaw,
+        orientation,
+      })
+      const slow = makeShip({
+        lat: start.lat,
+        lng: start.lng,
+        yaw: start.yaw,
+        orientation: orientation.clone(),
+      })
+
+      let thrustDuration = 0
+      let turnDuration = 0
+      let lastTurn: -1 | 1 | 0 = 0
+
+      for (let tick = 0; tick < ticks; tick++) {
+        const thrusting = rng() < 0.68
+        const turnRoll = rng()
+        const turn: -1 | 1 | 0 = turnRoll < 0.2 ? -1 : turnRoll < 0.4 ? 1 : 0
+
+        thrustDuration = thrusting
+          ? Math.min(MAX_DURATION, thrustDuration + dtMs)
+          : 0
+        if (turn !== 0 && turn === lastTurn) {
+          turnDuration = Math.min(MAX_DURATION, turnDuration + dtMs)
+        } else if (turn !== 0) {
+          turnDuration = dtMs
+        } else {
+          turnDuration = 0
+        }
+        lastTurn = turn
+
+        if (turn !== 0) {
+          turnShip(fast, turn, dtMs, turnDuration)
+          turnShip(slow, turn, dtMs, turnDuration)
+        }
+
+        accelerateShip(fast, thrusting, dtMs, thrustDuration, true)
+        accelerateShip(slow, thrusting, dtMs, thrustDuration, false)
+        moveShip(fast, dtMs, RADIUS, true)
+        moveShip(slow, dtMs, RADIUS, false)
+
+        expect(fast.yaw).toBeCloseTo(slow.yaw, 10)
+        expect(fast.angularVelocity.x).toBeCloseTo(slow.angularVelocity.x, 5)
+        expect(fast.angularVelocity.y).toBeCloseTo(slow.angularVelocity.y, 5)
+        expect(fast.angularVelocity.z).toBeCloseTo(slow.angularVelocity.z, 5)
+        expect(
+          orientationAlignment(fast.orientation, slow.orientation)
+        ).toBeGreaterThan(1 - 1e-6)
+      }
+    }
+  })
+
+  it('remains stable in pole-adjacent loops with sustained turning + thrust', () => {
+    const dtMs = 16
+    const ticks = 900
+    const starts = [
+      { lat: 89.95, lng: 0, yaw: 0 },
+      { lat: 89.95, lng: 120, yaw: 1.7 },
+      { lat: -89.95, lng: -45, yaw: -2.2 },
+      { lat: -89.95, lng: 170, yaw: 0.5 },
+    ]
+
+    for (const start of starts) {
+      const orientation = latLngToQuaternion(start.lat, start.lng)
+      const fast = makeShip({
+        lat: start.lat,
+        lng: start.lng,
+        yaw: start.yaw,
+        orientation,
+      })
+      const slow = makeShip({
+        lat: start.lat,
+        lng: start.lng,
+        yaw: start.yaw,
+        orientation: orientation.clone(),
+      })
+
+      for (let tick = 0; tick < ticks; tick++) {
+        const turnDirection: -1 | 1 = tick % 120 < 60 ? 1 : -1
+        const turnDuration = (tick % 60) * dtMs + dtMs
+        const thrustDuration = Math.min(MAX_DURATION, tick * dtMs)
+
+        turnShip(fast, turnDirection, dtMs, turnDuration)
+        turnShip(slow, turnDirection, dtMs, turnDuration)
+        accelerateShip(fast, true, dtMs, thrustDuration, true)
+        accelerateShip(slow, true, dtMs, thrustDuration, false)
+        moveShip(fast, dtMs, RADIUS, true)
+        moveShip(slow, dtMs, RADIUS, false)
+      }
+
+      expect(
+        orientationAlignment(fast.orientation, slow.orientation)
+      ).toBeGreaterThan(1 - 1e-6)
+      expect(fast.angularVelocity.x).toBeCloseTo(slow.angularVelocity.x, 5)
+      expect(fast.angularVelocity.y).toBeCloseTo(slow.angularVelocity.y, 5)
+      expect(fast.angularVelocity.z).toBeCloseTo(slow.angularVelocity.z, 5)
+    }
   })
 })

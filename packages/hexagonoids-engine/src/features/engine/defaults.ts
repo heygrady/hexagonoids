@@ -80,6 +80,7 @@ export const defaultGameState: GameState = {
   now: 0,
   wave: 0,
   mode: 'single',
+  useFastThrust: true,
   startedAt: null,
   endedAt: null,
 }

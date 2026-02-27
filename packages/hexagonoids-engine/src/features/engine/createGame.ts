@@ -15,6 +15,7 @@ export function createGame(options?: EngineOptions): {
     bullets: new Map(),
     players: new Map(),
     mode: options?.mode ?? 'single',
+    useFastThrust: options?.useFastThrust ?? true,
   }
   return { state, rng }
 }
