@@ -6,13 +6,11 @@ import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import {
   type CollisionType,
   type EntityRef,
-  hasNearbyRocks,
-  MAX_ROCKS,
-  ROCK_ENCOUNTER_COOLDOWN,
+  evaluateWaveSpawnGate,
+  nextWaveDelayMs,
   ROCK_LARGE_SIZE,
   ROCK_MEDIUM_SIZE,
   ROCK_WAVE_GRACE_PERIOD,
-  ROCK_WAVE_PERIOD,
   spawnWave,
 } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
@@ -49,6 +47,8 @@ import { AppModeProvider, useAppMode } from './modes/AppModeProvider'
 import { PlaybackController } from './modes/PlaybackController'
 import { PlayerIdentity } from './modes/PlayerIdentity'
 import { RecordController } from './modes/RecordController'
+import { RecordCountdownScreen } from './modes/RecordCountdownScreen'
+import { SpawnDebugController } from './modes/SpawnDebugController'
 import { CameraLighting } from './NewLights'
 import { NodeRegistryProvider, useNodeRegistry } from './NodeRegistry'
 import { Rocks } from './Rocks'
@@ -175,26 +175,24 @@ function EngineGameLoop() {
   }
   hooks.onCollision = onCollision
 
-  // Attract-mode: spawn waves at the normal cadence while no player exists.
-  // Mirrors checkWaveSpawn logic: grace period, wave period, encounter cooldown.
-  let attractWaveAt = -ROCK_WAVE_PERIOD + ROCK_WAVE_GRACE_PERIOD
+  // Attract-mode: use the same engine wave policy as player mode.
+  let attractNextWaveAt = ROCK_WAVE_GRACE_PERIOD
   onBeforeRender(() => {
     const state = engine.state
     // Only run attract-mode spawning when no players are in the game
     if (state.players.size > 0) return
-    if (state.rocks.size >= MAX_ROCKS) return
-    if (state.now - attractWaveAt < ROCK_WAVE_PERIOD) return
+    if (state.now < attractNextWaveAt) return
 
-    // Don't spawn if rocks are nearby — delay by encounter cooldown
-    if (hasNearbyRocks(state, 0, 0)) {
-      attractWaveAt = state.now - ROCK_WAVE_PERIOD + ROCK_ENCOUNTER_COOLDOWN
+    const gate = evaluateWaveSpawnGate(state, 0, 0, 0)
+    if (!gate.canSpawn) {
+      attractNextWaveAt = state.now + gate.deferMs
       return
     }
 
     engine.mutate((s) => {
-      spawnWave(s, 0, 0, engine.rng, { minDistance: 10, maxDistance: 30 })
+      spawnWave(s, 0, 0, engine.rng)
     })
-    attractWaveAt = state.now
+    attractNextWaveAt = state.now + nextWaveDelayMs(0)
   })
 
   return null
@@ -227,6 +225,9 @@ function ModeGameLoop() {
       </Match>
       <Match when={appMode() === 'playback'}>
         <PlaybackController />
+      </Match>
+      <Match when={appMode() === 'spawn-debug'}>
+        <SpawnDebugController />
       </Match>
     </Switch>
   )
@@ -285,6 +286,7 @@ export const HexagonoidsCanvas: Component<HexagonoidsCanvasProps> = (props) => {
                     <CameraLighting>
                       <Culling />
                       <UI>
+                        <RecordCountdownScreen />
                         <Score />
                         <StartScreen />
                         <EndScreen />

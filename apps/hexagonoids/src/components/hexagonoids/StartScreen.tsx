@@ -37,12 +37,13 @@ const allowedKeys = new Set([
 ])
 
 const PLAYER_ID = DEFAULT_PLAYER_ID
+const START_SCREEN_INPUT_GUARD_MS = 350
 
 export const StartScreen: Component = () => {
   const scene = useScene()
   const engine = useGameState()
   const inputs = useInputs()
-  const { setAppMode } = useAppMode()
+  const { appMode, setAppMode } = useAppMode()
   const hudNode = useUI()
   const { originNode: cameraOriginNode } = useCamera()
 
@@ -69,7 +70,10 @@ export const StartScreen: Component = () => {
 
   // Only show the record/playback hint in dev mode — not in production builds
   const line3 = import.meta.env.DEV
-    ? createTextMesh(scene, 'Shift+R: Record | Shift+P: Playback')
+    ? createTextMesh(
+        scene,
+        'Shift+R: Record | Shift+P: Playback | Shift+S: Spawn Debug'
+      )
     : null
   if (line3 != null) {
     line3.scaling.setAll(0.045)
@@ -78,10 +82,25 @@ export const StartScreen: Component = () => {
     line3.material = hintMaterial
   }
 
+  let showing = false
+  let allowInputAt = 0
   const hideScreen = () => {
-    line1.dispose()
-    line2.dispose()
-    line3?.dispose()
+    if (!showing) return
+    line1.isVisible = false
+    line2.isVisible = false
+    if (line3 != null) line3.isVisible = false
+    showing = false
+    window.removeEventListener('keydown', handleKeyDown)
+  }
+
+  const showScreen = () => {
+    if (showing) return
+    line1.isVisible = true
+    line2.isVisible = true
+    if (line3 != null) line3.isVisible = true
+    showing = true
+    allowInputAt = performance.now() + START_SCREEN_INPUT_GUARD_MS
+    window.addEventListener('keydown', handleKeyDown)
   }
 
   disposables.add(line1)
@@ -90,6 +109,9 @@ export const StartScreen: Component = () => {
   disposables.add(hintMaterial)
 
   const handleKeyDown = (event: KeyboardEvent) => {
+    if (!showing) return
+    if (performance.now() < allowInputAt) return
+
     // Shift+R enters record mode
     if (event.shiftKey && event.key === 'R') {
       event.preventDefault()
@@ -106,6 +128,16 @@ export const StartScreen: Component = () => {
       hideScreen()
       inputs.reset()
       setAppMode('playback')
+      window.removeEventListener('keydown', handleKeyDown)
+      return
+    }
+
+    // Shift+S enters spawn-debug mode
+    if (event.shiftKey && event.key === 'S') {
+      event.preventDefault()
+      hideScreen()
+      inputs.reset()
+      setAppMode('spawn-debug')
       window.removeEventListener('keydown', handleKeyDown)
       return
     }
@@ -136,9 +168,19 @@ export const StartScreen: Component = () => {
     window.removeEventListener('keydown', handleKeyDown)
   }
 
-  window.addEventListener('keydown', handleKeyDown)
+  hideScreen()
+
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    const shouldShow = appMode() === 'play' && engine.state.players.size === 0
+    if (shouldShow) {
+      showScreen()
+    } else {
+      hideScreen()
+    }
+  })
 
   onCleanup(() => {
+    scene.onBeforeRenderObservable.remove(observer)
     window.removeEventListener('keydown', handleKeyDown)
     disposables.forEach((d) => {
       d.dispose()
