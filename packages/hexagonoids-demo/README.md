@@ -51,6 +51,20 @@ yarn workspace @heygrady/hexagonoids-demo demo train \
   --outputDir .artifacts/manual
 ```
 
+Profiling example (writes per-process simulation stage timings as NDJSON):
+
+```bash
+yarn workspace @heygrady/hexagonoids-demo demo train \
+  --method HyperNEAT \
+  --populationSize 32 \
+  --iterations 5 \
+  --maxTicks 1000 \
+  --dtMs 33 \
+  --perfProfile \
+  --perfProfileSampleEveryNGames 64 \
+  --perfProfileOutput .artifacts/manual/perf-profile.ndjson
+```
+
 ### Replay mode
 
 Loads a saved genome JSON and runs one simulation.
@@ -70,12 +84,26 @@ yarn workspace @heygrady/hexagonoids-demo demo replay \
 yarn workspace @heygrady/hexagonoids-demo demo --help
 ```
 
+### Benchmarking
+
+```bash
+yarn workspace @heygrady/hexagonoids-demo bench test/training.performance.bench.ts
+```
+
+Generate a CPU profile for flamegraph inspection:
+
+```bash
+node --cpu-prof ./node_modules/vitest/vitest.mjs bench --run \
+  packages/hexagonoids-demo/test/training.flamegraph.bench.ts
+```
+
 ## Notes
 
 - `baseline` and `train` share core numeric options (`--maxTicks`, `--dtMs`,
   `--evaluationSeedsPerOrganism`, `--baseSeed`, `--method`).
 - `train` additionally accepts evolution options (`--populationSize`,
   `--iterations`, `--secondsLimit`, `--earlyStopPatience`, `--threadCount`,
-  `--logInterval`, `--outputDir`).
+  `--logInterval`, `--outputDir`, `--perfProfile`,
+  `--perfProfileSampleEveryNGames`, `--perfProfileOutput`).
 - `replay` uses replay-specific options (`--path`, `--method`, `--seed`,
   `--maxTicks`, `--dtMs`).

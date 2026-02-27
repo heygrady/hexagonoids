@@ -89,10 +89,16 @@ class MultiSeedGenerationStrategy {
       this.seedsPerOrganism,
       this.baseSeed
     )
-    const pending: Array<Promise<FitnessData>> = []
+    const pending = new Map<
+      number,
+      Promise<{ id: number; result: FitnessData }>
+    >()
+    let nextPendingId = 0
 
     for (const entry of genomeEntries) {
       const [speciesIndex, organismIndex] = entry
+      const pendingId = nextPendingId
+      nextPendingId += 1
 
       const evaluationPromise = evaluateOrganismMultiSeed(
         seeds,
@@ -101,16 +107,18 @@ class MultiSeedGenerationStrategy {
           return fitness
         },
         this.aggregate
-      ).then((fitness) => [speciesIndex, organismIndex, fitness] as FitnessData)
+      ).then((fitness) => ({
+        id: pendingId,
+        result: [speciesIndex, organismIndex, fitness] as FitnessData,
+      }))
 
-      pending.push(evaluationPromise)
+      pending.set(pendingId, evaluationPromise)
     }
 
-    while (pending.length > 0) {
-      const result = pending.shift()
-      if (result != null) {
-        yield await result
-      }
+    while (pending.size > 0) {
+      const settled = await Promise.race(pending.values())
+      pending.delete(settled.id)
+      yield settled.result
     }
   }
 }
@@ -171,6 +179,9 @@ const toRunConfig = (options: TrainOptions) => {
     logInterval: options.logInterval ?? defaultEvolutionOptions.logInterval,
     threadCount:
       options.threadCount ?? Math.max(1, Math.floor(hardwareConcurrency - 1)),
+    perfProfile: options.perfProfile ?? false,
+    perfProfileSampleEveryNGames: options.perfProfileSampleEveryNGames ?? 64,
+    perfProfileOutputPath: options.perfProfileOutputPath,
     signal: options.signal,
   }
 }
@@ -189,6 +200,9 @@ export interface TrainOptions {
   outputDir?: string | undefined
   logInterval?: number | undefined
   threadCount?: number | undefined
+  perfProfile?: boolean | undefined
+  perfProfileSampleEveryNGames?: number | undefined
+  perfProfileOutputPath?: string | undefined
   signal?: AbortSignal | undefined
 }
 
@@ -261,12 +275,20 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   let populationFitnessMean: number | null = null
   let populationFitnessMedian: number | null = null
 
-  const environment = createEnvironment({
+  const environmentOptions = {
     simulation: {
       maxTicks: config.maxTicks,
       dtMs: config.dtMs,
     },
-  })
+    profiling: {
+      enabled: config.perfProfile,
+      sampleEveryNGames: config.perfProfileSampleEveryNGames,
+      outputPath: config.perfProfileOutputPath,
+    },
+  }
+  const environment = createEnvironment(
+    environmentOptions as Parameters<typeof createEnvironment>[0]
+  )
 
   const algorithm = getAlgorithmDefinition(method).createAlgorithm()
   const evaluator = new WorkerEvaluator(algorithm, environment, {

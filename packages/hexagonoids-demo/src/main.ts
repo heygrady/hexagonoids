@@ -20,7 +20,7 @@ const usage = () => {
     '  hexagonoids-demo replay [replay-options]',
     '',
     'Commands:',
-    '  baseline  Run baseline-only scoring (doNothing/random/seekDestroy)',
+    '  baseline  Run baseline-only scoring (doNothing/random)',
     '  train     Run evolution training',
     '  replay    Replay a saved genome (delegates to replay CLI)',
     '',
@@ -39,6 +39,9 @@ const usage = () => {
     '  --outputDir <path>',
     '  --logInterval <int>',
     '  --threadCount <int>',
+    '  --perfProfile',
+    '  --perfProfileSampleEveryNGames <int>',
+    '  --perfProfileOutput <path>',
     '',
     'Replay options:',
     '  replay --path <best-genome.json> [--method <name>] [--seed <seed>]',
@@ -145,6 +148,26 @@ const parseTrainLikeOptions = (
 
     if (token === '--threadCount') {
       options.threadCount = readInt(token, next)
+      index += 1
+      continue
+    }
+
+    if (token === '--perfProfile') {
+      options.perfProfile = true
+      continue
+    }
+
+    if (token === '--perfProfileSampleEveryNGames') {
+      options.perfProfileSampleEveryNGames = readInt(token, next)
+      index += 1
+      continue
+    }
+
+    if (token === '--perfProfileOutput') {
+      if (next == null || next.startsWith('-')) {
+        throw new Error(`Missing value for --perfProfileOutput.\n\n${usage()}`)
+      }
+      options.perfProfileOutputPath = next
       index += 1
       continue
     }
