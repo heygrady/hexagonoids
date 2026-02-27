@@ -64,6 +64,7 @@ import { ShipCamera } from './ShipCamera'
 import { Ships } from './Ships'
 import { StartScreen } from './StartScreen'
 import { spawnExplosion } from './ship/spawnExplosion'
+import type { AppMode } from './types'
 import { UI } from './UI'
 
 const PLAYER_ID = DEFAULT_PLAYER_ID
@@ -72,6 +73,7 @@ export interface HexagonoidsCanvasProps
   extends JSX.CanvasHTMLAttributes<HTMLCanvasElement> {
   enableWebGPU?: boolean
   debug?: boolean
+  initialAppMode?: AppMode
 }
 
 /**
@@ -289,7 +291,7 @@ export const HexagonoidsCanvas: Component<HexagonoidsCanvasProps> = (props) => {
       {...props}
     >
       <EngineProvider>
-        <AppModeProvider>
+        <AppModeProvider initialAppMode={props.initialAppMode}>
           <PlayerIdentity />
           <Show when={ready()}>
             <Globe>

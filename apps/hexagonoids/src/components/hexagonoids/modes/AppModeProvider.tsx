@@ -59,8 +59,13 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '')
 }
 
-export function AppModeProvider(props: { children: JSX.Element }) {
-  const [appMode, setAppMode] = createSignal<AppMode>('play')
+export function AppModeProvider(props: {
+  children: JSX.Element
+  initialAppMode?: AppMode
+}) {
+  const [appMode, setAppMode] = createSignal<AppMode>(
+    props.initialAppMode ?? 'play'
+  )
   const [recordCountdownMs, setRecordCountdownMs] = createSignal(0)
   const [recordRoundIndex, setRecordRoundIndex] = createSignal(0)
   const [observeTrainingGeneration, setObserveTrainingGeneration] =

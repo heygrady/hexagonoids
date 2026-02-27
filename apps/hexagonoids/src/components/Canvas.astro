@@ -2,9 +2,10 @@
 export interface Props {
   enableWebGPU?: boolean
   debug?: boolean
+  initialAppMode?: 'play' | 'observe' | 'record' | 'playback' | 'spawn-debug'
 }
 
-const { enableWebGPU = false, debug = false } = Astro.props
+const { enableWebGPU = false, debug = false, initialAppMode } = Astro.props
 
 import { HexagonoidsCanvas } from './hexagonoids/HexagonoidsCanvas'
 ---
@@ -17,6 +18,7 @@ import { HexagonoidsCanvas } from './hexagonoids/HexagonoidsCanvas'
     client:only="solid-js"
     debug={debug}
     enableWebGPU={enableWebGPU}
+    initialAppMode={initialAppMode}
     role="application"
     tabindex="0"
   />

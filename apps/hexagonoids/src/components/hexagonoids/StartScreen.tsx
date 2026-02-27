@@ -82,10 +82,10 @@ export const StartScreen: Component = () => {
   let showing = false
   let allowInputAt = 0
   const hideScreen = () => {
-    if (!showing) return
     line1.isVisible = false
     line2.isVisible = false
     if (line3 != null) line3.isVisible = false
+    if (!showing) return
     showing = false
     window.removeEventListener('keydown', handleKeyDown)
   }

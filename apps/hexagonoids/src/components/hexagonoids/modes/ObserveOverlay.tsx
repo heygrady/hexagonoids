@@ -35,12 +35,12 @@ export const ObserveOverlay: Component = () => {
 
   const trainingOrigin = new TransformNode('observeTrainingText', scene)
   trainingOrigin.parent = hudNode
-  trainingOrigin.position.set(0, 0.16, 0.22)
+  trainingOrigin.position.set(0, 0, 0.22)
   trainingOrigin.setEnabled(false)
 
   const runningOrigin = new TransformNode('observeRunningText', scene)
   runningOrigin.parent = hudNode
-  runningOrigin.position.set(0, -0.16, 0.22)
+  runningOrigin.position.set(0, 0, 0.34)
   runningOrigin.setEnabled(false)
 
   const summaryLine1Origin = new TransformNode('observeSummaryLine1', scene)

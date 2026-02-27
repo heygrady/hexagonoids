@@ -1,0 +1,34 @@
+---
+import Canvas from '../../components/Canvas.astro'
+import Layout from '../../layouts/Layout.astro'
+
+const { mode } = Astro.params
+const validModes = new Set([
+  'play',
+  'observe',
+  'record',
+  'playback',
+  'spawn-debug',
+] as const)
+
+if (mode == null || !validModes.has(mode as never)) {
+  return Astro.redirect('/')
+}
+---
+
+<Layout title={`Hexagonoids - ${mode}`}>
+  <main class="container m-auto">
+    <div class="max-w-screen-xl m-auto mb-10">
+      <Canvas
+        debug={false}
+        enableWebGPU={true}
+        initialAppMode={mode as
+          | 'play'
+          | 'observe'
+          | 'record'
+          | 'playback'
+          | 'spawn-debug'}
+      />
+    </div>
+  </main>
+</Layout>
