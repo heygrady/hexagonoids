@@ -20,10 +20,19 @@ describe('decodeOutputs', () => {
     })
   })
 
-  it('mixed outputs', () => {
-    expect(decodeOutputs([0.6, 0.6, 0.4, 0.4])).toEqual({
+  it('mixed outputs around 0.75 threshold', () => {
+    expect(decodeOutputs([0.8, 0.8, 0.4, 0.4])).toEqual({
       thrust: true,
       fire: true,
+      left: false,
+      right: false,
+    })
+  })
+
+  it('values between 0.5 and 0.75 → false', () => {
+    expect(decodeOutputs([0.6, 0.7, 0.74, 0.5])).toEqual({
+      thrust: false,
+      fire: false,
       left: false,
       right: false,
     })
@@ -38,8 +47,8 @@ describe('decodeOutputs', () => {
     })
   })
 
-  it('exactly 0.5 → false (strictly greater than threshold)', () => {
-    expect(decodeOutputs([0.5, 0.5, 0.5, 0.5])).toEqual({
+  it('exactly 0.75 → false (strictly greater than threshold)', () => {
+    expect(decodeOutputs([0.75, 0.75, 0.75, 0.75])).toEqual({
       thrust: false,
       fire: false,
       left: false,

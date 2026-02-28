@@ -1,7 +1,4 @@
-import {
-  PLAYER_STARTING_LIVES,
-  ROCK_TOTAL_VALUE,
-} from '@heygrady/hexagonoids-engine'
+import { PLAYER_STARTING_LIVES } from '@heygrady/hexagonoids-engine'
 
 import type {
   FitnessWeights,
@@ -25,7 +22,7 @@ function saturating(value: number, scale: number): number {
  * Returns 0 when stdDev is 0 (no discriminating signal).
  */
 export function zScore(value: number, mean: number, stdDev: number): number {
-  if (stdDev === 0) return 0
+  if (stdDev < 1e-12) return 0
   return (value - mean) / stdDev
 }
 
@@ -100,121 +97,84 @@ export function actionDiversityGate(
 }
 
 /**
- * Engagement gate: did the agent actually interact with rocks?
- * Combines rock observation breadth with accuracy.
+ * Engagement gate: did the agent spend time near rocks?
+ * Measures what fraction of alive frames had rocks within the sphere of
+ * influence (SOI). Produces a smooth gradient — agents that actively seek
+ * out rocks score higher than those that drift or spin in place.
  */
 export function engagementGate(
   metrics: RawMetrics,
   gateConfig: GateConfig
 ): number {
-  const totalRocks =
-    metrics.largeRocksSpawned > 0 ? metrics.largeRocksSpawned : 1
-  const seenRatio = clamp(metrics.uniqueRocksSeen / totalRocks, 0, 1)
-  const accuracyFactor =
-    metrics.shotsFired > 0 ? clamp(metrics.accuracy, 0, 1) : 0
-  const raw = seenRatio * Math.max(accuracyFactor, 0.2)
-  return Math.max(raw, gateConfig.floor)
+  if (metrics.aliveFrames <= 0) return gateConfig.floor
+  const soiFraction = clamp(
+    metrics.framesWithRocksInSOI / metrics.aliveFrames,
+    0,
+    1
+  )
+  return Math.max(soiFraction, gateConfig.floor)
 }
 
 /**
- * Survival gate: fraction of total time survived.
+ * Survival gate: penalizes deaths using exponential decay.
+ * 0 deaths → 1.0, more deaths → decays toward floor.
+ * Formula: max(exp(-deaths / deathScale), floor)
  */
 export function survivalGate(
   metrics: RawMetrics,
   gateConfig: GateConfig,
-  simConfig: SimulationConfig
+  _simConfig: Pick<SimulationConfig, 'maxTicks' | 'dtMs'>
 ): number {
-  const maxTime = simConfig.maxTicks * simConfig.dtMs
-  const raw = maxTime > 0 ? clamp(metrics.timeAlive / maxTime, 0, 1) : 0
+  const raw = Math.exp(-metrics.deaths / Math.max(gateConfig.deathScale, 1e-9))
   return Math.max(raw, gateConfig.floor)
 }
 
 /**
- * Cells visited score: capped coverage curve.
+ * Fitness context for passing scenario-derived data to the fitness function.
  */
-function cellsVisitedScore(
-  uniqueCells: number,
-  gateConfig: GateConfig
-): number {
-  const target = gateConfig.cellsCoverageTarget
-  if (target <= 0) return 0
-  return clamp(uniqueCells / target, 0, 1)
+export interface FitnessContext {
+  /** Total possible deaths across all scenarios (sum of starting lives). */
+  possibleDeaths?: number
 }
 
 /**
- * Quality score: weighted sum of 5 normalized components, range [0, 1].
- */
-function qualityScore(
-  metrics: RawMetrics,
-  weights: FitnessWeights,
-  simConfig: SimulationConfig,
-  gateConfig: GateConfig
-): number {
-  const maxTime = simConfig.maxTicks * simConfig.dtMs
-
-  // Score efficiency: saturating transform of game score
-  const scoreComponent = saturating(metrics.score, ROCK_TOTAL_VALUE * 10)
-
-  // Lives remaining: fraction of starting lives
-  const livesComponent = clamp(
-    metrics.livesRemaining / PLAYER_STARTING_LIVES,
-    0,
-    1
-  )
-
-  // Accuracy with reliability scaling
-  const accuracyReliability = clamp(metrics.shotsFired / 15, 0, 1)
-  const accuracyComponent = clamp(metrics.accuracy, 0, 1) * accuracyReliability
-
-  // Rocks destroyed: saturating curve
-  const rocksComponent = saturating(metrics.rocksDestroyed, 25)
-
-  // Cells visited
-  const cellsComponent = cellsVisitedScore(
-    metrics.uniqueCellsVisited,
-    gateConfig
-  )
-
-  const weightSum =
-    weights.scoreEfficiency +
-    weights.livesRemaining +
-    weights.accuracy +
-    weights.rocksDestroyed +
-    weights.cellsVisited
-
-  if (weightSum <= 0) return 0
-
-  const base =
-    weights.scoreEfficiency * scoreComponent +
-    weights.livesRemaining * livesComponent +
-    weights.accuracy * accuracyComponent +
-    weights.rocksDestroyed * rocksComponent +
-    weights.cellsVisited * cellsComponent
-
-  // Add survival modulation
-  const timeComponent =
-    maxTime > 0 ? clamp(metrics.timeAlive / maxTime, 0, 1) : 0
-  const survivalModifier = 0.35 + 0.65 * timeComponent
-
-  return clamp((base / weightSum) * survivalModifier, 0, 1)
-}
-
-/**
- * Compute gated fitness for a single agent.
- * Formula: qualityScore * actionDiversityGate * engagementGate * survivalGate
+ * Compute multiplicative fitness for a single agent.
+ *
+ * Formula (geometric mean × action gate):
+ *   scoreNorm     = saturating(score, 5000)
+ *   rocksNorm     = saturating(rocksDestroyed, 15)
+ *   accuracyTerm  = accuracy + 0.01
+ *   survivalTerm  = 1 - deaths / possibleDeaths
+ *   perfScore     = (scoreNorm × rocksNorm × accuracyTerm × survivalTerm) ^ 0.25
+ *   fitness       = perfScore × actionDiversityGate
+ *
+ * Zero in any dimension collapses fitness toward zero, giving NEAT a
+ * strong gradient to develop all capabilities simultaneously.
  */
 export function weightedFitnessSum(
   metrics: RawMetrics,
-  weights: FitnessWeights,
-  config: SimulationConfig,
-  gateConfig: GateConfig
+  _weights: FitnessWeights,
+  _config: Pick<SimulationConfig, 'maxTicks' | 'dtMs'>,
+  gateConfig: GateConfig,
+  context?: FitnessContext
 ): number {
-  const quality = qualityScore(metrics, weights, config, gateConfig)
-  const actionGate = actionDiversityGate(metrics, gateConfig)
-  const engagement = engagementGate(metrics, gateConfig)
-  const survival = survivalGate(metrics, gateConfig, config)
+  const possibleDeaths = context?.possibleDeaths ?? PLAYER_STARTING_LIVES
 
-  return clamp(quality * actionGate * engagement * survival, 0, 1)
+  // Performance components (all in [0, 1])
+  const scoreNorm = saturating(metrics.score, 5000)
+  const rocksNorm = saturating(metrics.rocksDestroyed, 15)
+  const accuracyTerm = metrics.accuracy + 0.01
+  const survivalTerm =
+    possibleDeaths > 0 ? clamp(1 - metrics.deaths / possibleDeaths, 0, 1) : 1
+
+  // Geometric mean of 4 performance components
+  const perfScore =
+    (scoreNorm * rocksNorm * accuracyTerm * survivalTerm) ** 0.25
+
+  // Action diversity gate
+  const actionGate = actionDiversityGate(metrics, gateConfig)
+
+  return clamp(perfScore * actionGate, 0, 1)
 }
 
 /**
@@ -225,7 +185,8 @@ export function calculateFitness(
   allMetrics: RawMetrics[],
   weights?: Partial<FitnessWeights>,
   gateConfig?: Partial<GateConfig>,
-  simConfig?: Partial<SimulationConfig>
+  simConfig?: Partial<SimulationConfig>,
+  context?: FitnessContext
 ): number[] {
   const n = allMetrics.length
   if (n === 0) return []
@@ -244,7 +205,9 @@ export function calculateFitness(
   }
 
   // Compute raw fitness per organism
-  const rawFitness = allMetrics.map((m) => weightedFitnessSum(m, w, sc, gc))
+  const rawFitness = allMetrics.map((m) =>
+    weightedFitnessSum(m, w, sc, gc, context)
+  )
 
   // Compute mean
   let sum = 0
