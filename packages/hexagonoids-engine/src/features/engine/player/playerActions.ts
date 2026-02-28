@@ -6,7 +6,6 @@ import {
   ROCK_ENCOUNTER_DISTANCE,
   ROCK_FAR_CLEAR_DISTANCE,
   ROCK_NO_ENCOUNTER_REPLENISH_DELAY,
-  ROCK_WAVE_GRACE_PERIOD,
   ROCK_WAVE_RETRY_DEFER_PERIOD,
   ROCK_WAVE_SIZES,
   ROCK_WORLD_CAP_WAVE_MULTIPLIER,
@@ -249,7 +248,7 @@ export function startPlayer(game: GameState, playerId: string, rng: RNG): void {
     score: 0,
     startedAt: game.now,
     waveSpawnedAt: null,
-    nextWaveCheckAt: game.now + ROCK_WAVE_GRACE_PERIOD,
+    nextWaveCheckAt: game.now,
     lastRockEncounterAt: game.now,
   }
   game.players.set(id, player)

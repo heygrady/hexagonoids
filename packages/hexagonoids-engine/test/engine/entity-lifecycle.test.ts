@@ -20,7 +20,6 @@ import {
   ROCK_MEDIUM_SIZE,
   ROCK_MEDIUM_VALUE,
   ROCK_SMALL_SIZE,
-  ROCK_WAVE_PERIOD,
   ROCK_WAVE_RETRY_DEFER_PERIOD,
   regeneratePlayer,
   resetIdCounter,
@@ -217,16 +216,10 @@ describe('entity lifecycle', () => {
   })
 
   describe('wave spawning via checkWaveSpawn', () => {
-    it('respects grace period then spawns waves', () => {
+    it('spawns first wave immediately then respects grace period', () => {
       startPlayer(game, 'p1', rng)
 
-      // Should not spawn immediately — grace period applies
-      checkWaveSpawn(game, 'p1', rng)
-      expect(game.rocks.size).toBe(0)
-      expect(game.wave).toBe(0)
-
-      // Advance past grace period (waveSpawnedAt is set so first wave comes after ROCK_WAVE_PERIOD total)
-      advanceGameTime(game, ROCK_WAVE_PERIOD + 100)
+      // First wave spawns immediately (no grace period on first call)
       checkWaveSpawn(game, 'p1', rng)
       expect(game.rocks.size).toBeGreaterThan(0)
       expect(game.wave).toBe(1)

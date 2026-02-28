@@ -219,23 +219,9 @@ describe('step function', () => {
   })
 
   describe('wave spawning', () => {
-    it('does not spawn immediately — grace period applies', () => {
+    it('spawns first wave immediately on first step', () => {
       startPlayer(game, 'p1', rng)
-      step(game, NO_INPUT, 16, rng)
-
-      // Grace period means no rocks yet
-      expect(game.rocks.size).toBe(0)
-      expect(game.wave).toBe(0)
-    })
-
-    it('spawns first wave after grace period', () => {
-      startPlayer(game, 'p1', rng)
-
-      // Step past grace period
-      const stepsNeeded = Math.ceil(ROCK_WAVE_GRACE_PERIOD / 16) + 2
-      for (let i = 0; i < stepsNeeded; i++) {
-        step(game, IDLE_INPUT('p1'), 16, rng)
-      }
+      step(game, IDLE_INPUT('p1'), 16, rng)
 
       expect(game.rocks.size).toBeGreaterThan(0)
       expect(game.wave).toBe(1)
