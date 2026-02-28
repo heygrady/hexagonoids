@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { createEnvironment } from '../src/createEnvironment.js'
 import { INPUT_COUNT } from '../src/encoding/encodeGameState.js'
 import { HexagonoidsEnvironment } from '../src/HexagonoidsEnvironment.js'
+import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '../src/HexagonoidsEnvironmentConfig.js'
 
 /** A trivial SyncExecutor that returns 0.5 for all outputs. */
 function createMidpointExecutor(): SyncExecutor {
@@ -52,6 +53,13 @@ function createRandomExecutor(): SyncExecutor {
 }
 
 describe('HexagonoidsEnvironment', () => {
+  const simulationOverrides = {
+    scenariosPerOrganism:
+      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.scenariosPerOrganism,
+    scenarioMaxTicks:
+      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.scenarioMaxTicks,
+  }
+
   it('has correct description', () => {
     const env = new HexagonoidsEnvironment()
     expect(env.description).toEqual({ inputs: INPUT_COUNT, outputs: 4 })
@@ -64,7 +72,12 @@ describe('HexagonoidsEnvironment', () => {
 
   it('evaluate returns a number', () => {
     const env = new HexagonoidsEnvironment({
-      simulation: { maxTicks: 100, dtMs: 33, useFastThrust: true },
+      simulation: {
+        maxTicks: 100,
+        dtMs: 33,
+        useFastThrust: true,
+        ...simulationOverrides,
+      },
     })
     const executor = createMidpointExecutor()
     const result = env.evaluate(executor)
@@ -74,7 +87,12 @@ describe('HexagonoidsEnvironment', () => {
 
   it('same seed + same executor produces same result (determinism)', () => {
     const env = new HexagonoidsEnvironment({
-      simulation: { maxTicks: 100, dtMs: 33, useFastThrust: true },
+      simulation: {
+        maxTicks: 100,
+        dtMs: 33,
+        useFastThrust: true,
+        ...simulationOverrides,
+      },
     })
     // Use a fake RNG that returns the same value to produce identical seeds
     const makeRng = () => {
@@ -93,7 +111,12 @@ describe('HexagonoidsEnvironment', () => {
 
   it('evaluateBatch returns array of numbers', () => {
     const env = new HexagonoidsEnvironment({
-      simulation: { maxTicks: 50, dtMs: 33, useFastThrust: true },
+      simulation: {
+        maxTicks: 50,
+        dtMs: 33,
+        useFastThrust: true,
+        ...simulationOverrides,
+      },
     })
     const executors = [createMidpointExecutor(), createRandomExecutor()]
     const results = env.evaluateBatch(executors)
@@ -119,7 +142,12 @@ describe('HexagonoidsEnvironment', () => {
 
   it('toFactoryOptions → createEnvironment round-trip', () => {
     const env = new HexagonoidsEnvironment({
-      simulation: { maxTicks: 200, dtMs: 33, useFastThrust: true },
+      simulation: {
+        maxTicks: 200,
+        dtMs: 33,
+        useFastThrust: true,
+        ...simulationOverrides,
+      },
     })
     const options = env.toFactoryOptions()
     const env2 = createEnvironment(options)

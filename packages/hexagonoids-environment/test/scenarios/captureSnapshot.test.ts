@@ -122,6 +122,9 @@ describe('restoreSnapshot round-trip', () => {
     for (let i = 0; i < snapshot.rocks.length; i++) {
       const expected = snapshot.rocks[i]
       const actual = restoredRocks[i]
+      if (actual == null || expected == null) {
+        throw new Error(`Missing rock at index ${i}`)
+      }
       expect(actual.lat).toBeCloseTo(expected.lat, 6)
       expect(actual.lng).toBeCloseTo(expected.lng, 6)
       expect(actual.size).toBe(expected.size)

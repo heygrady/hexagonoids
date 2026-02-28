@@ -8,7 +8,7 @@ import {
 } from '@heygrady/hexagonoids-engine'
 
 import { randomAgent } from '../agents/randomAgent.js'
-import type { AgentContext } from '../agents/types.js'
+import type { AgentContext, AgentFn, SyncExecutor } from '../agents/types.js'
 import type { SimulationConfig } from '../HexagonoidsEnvironmentConfig.js'
 import { SOI_ANGULAR_RADIUS } from '../utils/constants.js'
 
@@ -26,11 +26,18 @@ export interface GenerateScenariosOptions {
   maxGames?: number
   /** Simulation config overrides (maxTicks, dtMs). */
   simulation?: Partial<SimulationConfig>
+  /** Agent function to use. @default randomAgent */
+  agent?: AgentFn
+  /** Executor for neural-network agents (passed to AgentContext). */
+  executor?: SyncExecutor
 }
 
 /**
- * Generate scenario snapshots by playing games with `randomAgent` and
+ * Generate scenario snapshots by playing games with an agent and
  * capturing state before each player death.
+ *
+ * By default uses `randomAgent`. Pass `agent` and `executor` to use
+ * a trained neural-network agent for adversarial scenario generation.
  *
  * This is a Node-only function intended for offline generation.
  */
@@ -43,6 +50,8 @@ export function generateScenarios(
   const maxGames = options?.maxGames ?? 500
   const maxTicks = options?.simulation?.maxTicks ?? 3000
   const dtMs = options?.simulation?.dtMs ?? 33
+  const agent = options?.agent ?? randomAgent
+  const executor = options?.executor
 
   const PLAYER_ID = 'player-1'
   const results: ScenarioSnapshot[] = []
@@ -55,7 +64,7 @@ export function generateScenarios(
     const { state, rng } = createGame({ seed: gameSeed, useFastThrust: true })
     startPlayer(state, PLAYER_ID, rng)
 
-    const context: AgentContext = { rng, memory: {}, executor: undefined }
+    const context: AgentContext = { rng, memory: {}, executor }
     const stepInputs: PlayerInputs = {
       [PLAYER_ID]: { left: false, right: false, thrust: false, fire: false },
     }
@@ -81,7 +90,7 @@ export function generateScenarios(
       }
 
       // Get agent inputs and step
-      const inputs = randomAgent(state, PLAYER_ID, context)
+      const inputs = agent(state, PLAYER_ID, context)
       stepInputs[PLAYER_ID] = inputs
       step(state, stepInputs, dtMs, rng)
 

@@ -12,13 +12,13 @@ export const INPUT_COUNT = GLOBAL_FEATURES + LIDAR_RAY_COUNT * FEATURES_PER_RAY
 /**
  * Encode game state into a fixed-size vector.
  *
- * Layout (133):
+ * Layout (69):
  * [0] speed_norm
  * [1] heading_forward_drift
  * [2] heading_lateral_drift
  * [3] angular_velocity_norm
  * [4] cooldown_norm
- * [5..] 32 rays x 4:
+ * [5..] 16 rays x 4:
  *   proximity(1-distance_norm), closing_speed_norm, is_rock, is_bullet
  */
 export function encodeGameState(

@@ -18,7 +18,7 @@ import type {
   TemporalObservation,
 } from './observationTypes.js'
 
-export const LIDAR_RAY_COUNT = 32
+export const LIDAR_RAY_COUNT = 16
 const TWO_PI = Math.PI * 2
 const MAX_VISION_ARC = SOI_ARC_DISTANCE
 const DEG_TO_RAD = Math.PI / 180

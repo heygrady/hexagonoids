@@ -39,7 +39,7 @@ describe('encodeGameState', () => {
     const { state } = setupGame('enc-v2-length', 5)
     const result = encodeGameState(state, PLAYER_ID, new Map(), 33)
     expect(result).toHaveLength(INPUT_COUNT)
-    expect(result).toHaveLength(133)
+    expect(result).toHaveLength(69)
   })
 
   it('returns all finite numbers', () => {
@@ -122,7 +122,7 @@ describe('encodeGameState', () => {
     const result = encodeGameState(state, PLAYER_ID, prevDistances, 33)
 
     const closingFeatures: number[] = []
-    for (let ray = 0; ray < 32; ray++) {
+    for (let ray = 0; ray < 16; ray++) {
       const base = 5 + ray * 4
       closingFeatures.push(result[base + 1] ?? 0)
     }
