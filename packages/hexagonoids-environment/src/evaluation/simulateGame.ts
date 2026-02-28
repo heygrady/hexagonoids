@@ -214,7 +214,7 @@ export function simulateGame(
     context.memory[MEMORY_ROCK_PERCEPTION] = rockPerception
     const rockSignals = rockRewardSignals(rockPerception)
 
-    // Get agent inputs
+    // Get agent inputs (reads prevDistances from previous tick)
     const agentStartedAt = profiler?.start('agent')
     const inputs = agent(state, PLAYER_ID, context)
     if (agentStartedAt != null) profiler?.stop('agent', agentStartedAt)
@@ -235,6 +235,61 @@ export function simulateGame(
         collector.addFrameWithRocksInSOI()
       }
     }
+
+    // Update prevDistances BEFORE step so closing speed reflects movement.
+    // The agent already read prevDistances above; now we snapshot current
+    // pre-step distances. After step() moves entities, the next tick's
+    // encodeGameState will compute delta between these and new positions.
+    const memoryStartedAt = profiler?.start('memory')
+    if (ship?.alive) {
+      const prevDistances = context.memory[MEMORY_PREV_DISTANCES] as
+        | Map<string, number>
+        | undefined
+      if (prevDistances != null) {
+        const shouldCleanup = tick % PREV_DISTANCE_CLEANUP_INTERVAL === 0
+        if (shouldCleanup) {
+          seenDistanceKeys.clear()
+        }
+
+        for (const rock of state.rocks.values()) {
+          const key = rockDistanceKey(rock.id)
+          const dist = greatCircleDistance(
+            ship.lat,
+            ship.lng,
+            rock.lat,
+            rock.lng,
+            RADIUS
+          )
+          prevDistances.set(key, dist)
+          if (shouldCleanup) seenDistanceKeys.add(key)
+        }
+        for (const bullet of state.bullets.values()) {
+          const key = bulletDistanceKey(bullet.id)
+          const dist = greatCircleDistance(
+            ship.lat,
+            ship.lng,
+            bullet.lat,
+            bullet.lng,
+            RADIUS
+          )
+          prevDistances.set(key, dist)
+          if (shouldCleanup) seenDistanceKeys.add(key)
+        }
+
+        // Prune destroyed entities periodically to keep map growth bounded.
+        if (shouldCleanup) {
+          for (const id of prevDistances.keys()) {
+            if (!seenDistanceKeys.has(id)) {
+              prevDistances.delete(id)
+            }
+          }
+        }
+      }
+    }
+
+    // Store dtMs for encoding approach speed calculation
+    context.memory[MEMORY_LAST_DT_MS] = dtMs
+    if (memoryStartedAt != null) profiler?.stop('memory', memoryStartedAt)
 
     // Record wave before step for transition detection
     const waveBefore = state.wave
@@ -282,63 +337,6 @@ export function simulateGame(
     }
     episodeReward += frameReward
     if (rewardStartedAt != null) profiler?.stop('reward', rewardStartedAt)
-
-    // Update prevDistances for approach speed tracking (used by neatAgent encoding)
-    const memoryStartedAt = profiler?.start('memory')
-    const playerAfter = trackedPlayer ?? state.players.get(PLAYER_ID)
-    const shipAfter =
-      playerAfter?.shipId != null
-        ? state.ships.get(playerAfter.shipId)
-        : undefined
-    if (shipAfter?.alive) {
-      const prevDistances = context.memory[MEMORY_PREV_DISTANCES] as
-        | Map<string, number>
-        | undefined
-      if (prevDistances != null) {
-        const shouldCleanup = tick % PREV_DISTANCE_CLEANUP_INTERVAL === 0
-        if (shouldCleanup) {
-          seenDistanceKeys.clear()
-        }
-
-        for (const rock of state.rocks.values()) {
-          const key = rockDistanceKey(rock.id)
-          const dist = greatCircleDistance(
-            shipAfter.lat,
-            shipAfter.lng,
-            rock.lat,
-            rock.lng,
-            RADIUS
-          )
-          prevDistances.set(key, dist)
-          if (shouldCleanup) seenDistanceKeys.add(key)
-        }
-        for (const bullet of state.bullets.values()) {
-          const key = bulletDistanceKey(bullet.id)
-          const dist = greatCircleDistance(
-            shipAfter.lat,
-            shipAfter.lng,
-            bullet.lat,
-            bullet.lng,
-            RADIUS
-          )
-          prevDistances.set(key, dist)
-          if (shouldCleanup) seenDistanceKeys.add(key)
-        }
-
-        // Prune destroyed entities periodically to keep map growth bounded.
-        if (shouldCleanup) {
-          for (const id of prevDistances.keys()) {
-            if (!seenDistanceKeys.has(id)) {
-              prevDistances.delete(id)
-            }
-          }
-        }
-      }
-    }
-
-    // Store dtMs for encoding approach speed calculation
-    context.memory[MEMORY_LAST_DT_MS] = dtMs
-    if (memoryStartedAt != null) profiler?.stop('memory', memoryStartedAt)
   }
 
   // Final distance update
