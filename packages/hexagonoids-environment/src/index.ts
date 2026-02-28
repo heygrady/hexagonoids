@@ -4,8 +4,8 @@ export { neatAgent } from './agents/neatAgent.js'
 export { randomAgent } from './agents/randomAgent.js'
 export type { AgentContext, AgentFn } from './agents/types.js'
 
-// Environment
-export { createEnvironment } from './createEnvironment.js'
+// Environment (Node-only exports like HexagonoidsEnvironment and createEnvironment
+// are in ./node.ts to avoid pulling node:fs into browser bundles)
 export {
   collectObservations,
   LIDAR_RAY_COUNT,
@@ -15,10 +15,12 @@ export { decodeOutputs } from './encoding/decodeOutputs.js'
 export { encodeGameState, INPUT_COUNT } from './encoding/encodeGameState.js'
 export { bearingToSector } from './encoding/sectorUtils.js'
 // Evaluation
+export { aggregateMetrics } from './evaluation/aggregateMetrics.js'
 export {
   actionDiversityGate,
   calculateFitness,
   engagementGate,
+  type FitnessContext,
   survivalGate,
   weightedFitnessSum,
   zScore,
@@ -30,7 +32,6 @@ export {
 export type { MetricsCollector, RawMetrics } from './evaluation/RawMetrics.js'
 export { createMetricsCollector } from './evaluation/RawMetrics.js'
 export { simulateGame } from './evaluation/simulateGame.js'
-export { HexagonoidsEnvironment } from './HexagonoidsEnvironment.js'
 export type {
   FitnessWeights,
   GateConfig,
@@ -42,7 +43,17 @@ export {
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   mergeConfig,
 } from './HexagonoidsEnvironmentConfig.js'
-
+// Scenarios
+export { captureSnapshot } from './scenarios/captureSnapshot.js'
+export { restoreSnapshot } from './scenarios/restoreSnapshot.js'
+export { simulateScenario } from './scenarios/simulateScenario.js'
+export type {
+  ScenarioBulletState,
+  ScenarioPlayerState,
+  ScenarioRockState,
+  ScenarioShipState,
+  ScenarioSnapshot,
+} from './scenarios/types.js'
 // Utils
 export {
   MAX_CLOSING_SPEED,
