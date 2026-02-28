@@ -1,7 +1,11 @@
+import type { ScenarioSnapshot } from './scenarios/types.js'
+
 export interface SimulationConfig {
   maxTicks: number
   dtMs: number
   useFastThrust: boolean
+  scenariosPerOrganism: number
+  scenarioMaxTicks: number
 }
 
 export interface ProfilingConfig {
@@ -13,7 +17,6 @@ export interface ProfilingConfig {
 export interface FitnessWeights {
   scoreEfficiency: number
   livesRemaining: number
-  accuracy: number
   rocksDestroyed: number
   cellsVisited: number
 }
@@ -29,6 +32,8 @@ export interface GateConfig {
   actionSteepness: number
   /** Target number of unique cells for full coverage score. */
   cellsCoverageTarget: number
+  /** Scale for death penalty: exp(-deaths / deathScale). Higher = more lenient. */
+  deathScale: number
 }
 
 export interface HexagonoidsEnvironmentConfig {
@@ -36,6 +41,7 @@ export interface HexagonoidsEnvironmentConfig {
   fitnessWeights: FitnessWeights
   gateConfig: GateConfig
   profiling: ProfilingConfig
+  scenarioBank?: ScenarioSnapshot[] | undefined
 }
 
 export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfig =
@@ -44,20 +50,22 @@ export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfi
       maxTicks: 3000,
       dtMs: 33,
       useFastThrust: true,
+      scenariosPerOrganism: 20,
+      scenarioMaxTicks: 120,
     },
     fitnessWeights: {
-      scoreEfficiency: 0.3,
+      scoreEfficiency: 0.35,
       livesRemaining: 0.2,
-      accuracy: 0.2,
-      rocksDestroyed: 0.2,
-      cellsVisited: 0.1,
+      rocksDestroyed: 0.3,
+      cellsVisited: 0.15,
     },
     gateConfig: {
-      floor: 0.1,
+      floor: 0.5,
       actionLow: 0.05,
-      actionHigh: 0.85,
+      actionHigh: 0.65,
       actionSteepness: 8,
       cellsCoverageTarget: 40,
+      deathScale: 5,
     },
     profiling: {
       enabled: false,
@@ -101,5 +109,8 @@ export function mergeConfig(
       ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.profiling,
       ...partial.profiling,
     },
+    ...(partial.scenarioBank != null && {
+      scenarioBank: partial.scenarioBank,
+    }),
   }
 }
