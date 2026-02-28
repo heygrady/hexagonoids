@@ -381,29 +381,6 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
         mutateOnlyOneLink: false,
       }
 
-      const allActivations: Activation[] = [
-        Activation.Linear,
-        Activation.Step,
-        Activation.ReLU,
-        Activation.LeakyReLU,
-        Activation.ELU,
-        Activation.Sigmoid,
-        Activation.Swish,
-        Activation.HardSigmoid,
-        Activation.Tanh,
-        Activation.HardTanh,
-        Activation.Gaussian,
-        Activation.OffsetGaussian,
-        Activation.GELU,
-        Activation.Square,
-        Activation.Abs,
-        Activation.Softsign,
-        Activation.Exp,
-        Activation.ClippedExp,
-        Activation.Softplus,
-        Activation.Mish,
-      ]
-
       const population = createHyperNEATPopulation(
         createReproducer,
         evaluator,
@@ -418,8 +395,7 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
           outputConfig: 'line',
           hiddenActivation: Activation.GELU,
           outputActivation: Activation.Sigmoid,
-          hiddenActivations: allActivations,
-          outputActivations: [Activation.Sigmoid],
+          hiddenLayerSizes: [32, 16],
         }
       )
 
