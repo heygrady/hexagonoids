@@ -6,6 +6,8 @@ export interface DemoDefaults {
   evaluationSeedsPerOrganism: number
   maxTicks: number
   dtMs: number
+  scenariosPerOrganism: number
+  scenarioMaxTicks: number
 }
 
 export const DEMO_DEFAULTS: DemoDefaults = {
@@ -16,4 +18,6 @@ export const DEMO_DEFAULTS: DemoDefaults = {
   evaluationSeedsPerOrganism: 4,
   maxTicks: 1500,
   dtMs: 33,
+  scenariosPerOrganism: 20,
+  scenarioMaxTicks: 120,
 }

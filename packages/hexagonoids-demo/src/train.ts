@@ -1,9 +1,9 @@
 import {
-  createEnvironment,
   doNothingAgent,
   type RawMetrics,
   randomAgent,
 } from '@heygrady/hexagonoids-environment'
+import { createEnvironment } from '@heygrady/hexagonoids-environment/node'
 import type {
   CPPNGenome,
   CPPNGenomeOptions,
@@ -53,7 +53,7 @@ import { saveGenome } from './persistence/saveGenome.js'
 
 const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
 const DEFAULT_BASE_SEED = 'hexagonoids-phase03'
-const CREATE_ENVIRONMENT_PATHNAME = '@heygrady/hexagonoids-environment'
+const CREATE_ENVIRONMENT_PATHNAME = '@heygrady/hexagonoids-environment/node'
 const CREATE_EXECUTOR_PATHNAME = '@neat-evolution/executor'
 
 class MultiSeedGenerationStrategy {
@@ -184,6 +184,11 @@ const toRunConfig = (options: TrainOptions) => {
     perfProfileSampleEveryNGames: options.perfProfileSampleEveryNGames ?? 64,
     perfProfileOutputPath: options.perfProfileOutputPath,
     signal: options.signal,
+    scenarioMode: options.scenarioMode ?? false,
+    scenariosPerOrganism:
+      options.scenariosPerOrganism ?? DEMO_DEFAULTS.scenariosPerOrganism,
+    scenarioMaxTicks:
+      options.scenarioMaxTicks ?? DEMO_DEFAULTS.scenarioMaxTicks,
   }
 }
 
@@ -206,6 +211,9 @@ export interface TrainOptions {
   perfProfileSampleEveryNGames?: number | undefined
   perfProfileOutputPath?: string | undefined
   signal?: AbortSignal | undefined
+  scenarioMode?: boolean | undefined
+  scenariosPerOrganism?: number | undefined
+  scenarioMaxTicks?: number | undefined
 }
 
 export interface BaselineRunResult {
@@ -278,11 +286,13 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   let populationFitnessMean: number | null = null
   let populationFitnessMedian: number | null = null
 
-  const environmentOptions = {
+  const environmentOptions: Parameters<typeof createEnvironment>[0] = {
     simulation: {
       maxTicks: config.maxTicks,
       dtMs: config.dtMs,
       useFastThrust: config.useFastThrust,
+      scenariosPerOrganism: config.scenariosPerOrganism,
+      scenarioMaxTicks: config.scenarioMaxTicks,
     },
     profiling: {
       enabled: config.perfProfile,
@@ -290,9 +300,22 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
       outputPath: config.perfProfileOutputPath,
     },
   }
-  const environment = createEnvironment(
-    environmentOptions as Parameters<typeof createEnvironment>[0]
-  )
+
+  if (config.scenarioMode) {
+    const { loadScenarioBank } = await import('./data/scenarios.js')
+    const scenarioBank = loadScenarioBank()
+    if (scenarioBank.length === 0) {
+      throw new Error(
+        'Scenario mode enabled but no scenarios found. Run: node scripts/generate-scenarios.js'
+      )
+    }
+    environmentOptions.scenarioBank = scenarioBank
+    console.log(
+      `Scenario mode: ${scenarioBank.length} scenarios loaded, ${config.scenariosPerOrganism} per organism, ${config.scenarioMaxTicks} max ticks each`
+    )
+  }
+
+  const environment = createEnvironment(environmentOptions)
 
   const algorithm = getAlgorithmDefinition(method).createAlgorithm()
   const evaluator = new WorkerEvaluator(algorithm, environment, {

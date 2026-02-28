@@ -32,6 +32,11 @@ const usage = () => {
     '  --dtMs <int>',
     '  --thrustMath <fast|quaternion>          Math mode for thrust + movement',
     '',
+    'Scenario options:',
+    '  --scenarios                              Enable scenario-based evaluation',
+    '  --scenariosPerOrganism <int>             Scenarios per organism (default: 20)',
+    '  --scenarioMaxTicks <int>                 Max ticks per scenario (default: 120)',
+    '',
     'Training-only options:',
     '  --populationSize <int>',
     '  --iterations <int>',
@@ -180,6 +185,23 @@ const parseTrainLikeOptions = (
         throw new Error(`Missing value for --perfProfileOutput.\n\n${usage()}`)
       }
       options.perfProfileOutputPath = next
+      index += 1
+      continue
+    }
+
+    if (token === '--scenarios') {
+      options.scenarioMode = true
+      continue
+    }
+
+    if (token === '--scenariosPerOrganism') {
+      options.scenariosPerOrganism = readInt(token, next)
+      index += 1
+      continue
+    }
+
+    if (token === '--scenarioMaxTicks') {
+      options.scenarioMaxTicks = readInt(token, next)
       index += 1
       continue
     }
