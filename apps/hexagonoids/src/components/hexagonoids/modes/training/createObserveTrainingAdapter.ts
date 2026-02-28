@@ -1,4 +1,11 @@
-import { defaultNEATConfigOptions } from '@neat-evolution/core'
+import {
+  type HexagonoidsEnvironmentConfig,
+  INPUT_COUNT,
+  mergeConfig,
+  type ScenarioSnapshot,
+} from '@heygrady/hexagonoids-environment'
+import { Activation, defaultNEATConfigOptions } from '@neat-evolution/core'
+import type { CPPNGenome } from '@neat-evolution/cppn'
 import type {
   Environment,
   EnvironmentDescription,
@@ -14,14 +21,14 @@ import {
 } from '@neat-evolution/evolution'
 import type { Executor, SyncExecutor } from '@neat-evolution/executor'
 import { createExecutor } from '@neat-evolution/executor'
+import type { HyperNEATGenomeOptions } from '@neat-evolution/hyperneat'
 import {
-  createPopulation as createNEATPopulation,
+  createPopulation as createHyperNEATPopulation,
   createPhenotype,
-  defaultNEATGenomeOptions,
-  NEATAlgorithm,
-  type NEATGenome,
-  type NEATPopulation,
-} from '@neat-evolution/neat'
+  defaultHyperNEATGenomeOptions,
+  HyperNEATAlgorithm,
+  type HyperNEATReproducerFactory,
+} from '@neat-evolution/hyperneat'
 import type { WorkerEvaluatorOptions } from '@neat-evolution/worker-evaluator'
 import { WorkerEvaluator } from '@neat-evolution/worker-evaluator'
 // eslint-disable-next-line import/default
@@ -33,8 +40,6 @@ import {
 // eslint-disable-next-line import/default
 import workerReproducerScriptUrl from '@neat-evolution/worker-reproducer/workerReproducerScript?worker&url'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
-
-import { INPUT_COUNT } from '../../../../../../../packages/hexagonoids-environment/src/encoding/encodeGameState'
 
 export interface ObserveGenerationBestEvent {
   generation: number
@@ -58,17 +63,9 @@ export interface ObserveTrainingConfig {
   maxTicks: number
   dtMs: number
   threadCount?: number
-}
-
-interface WorkerEnvironmentOptions {
-  simulation: {
-    maxTicks: number
-    dtMs: number
-    useFastThrust: boolean
-  }
-  profiling: {
-    enabled: boolean
-  }
+  scenarioMode?: boolean
+  scenariosPerOrganism?: number
+  scenarioMaxTicks?: number
 }
 
 export interface ObserveTrainingAdapter {
@@ -98,7 +95,7 @@ function resolveWorkerModulePathnames() {
   let createExecutorPathname = ''
 
   for (const [key, importFn] of Object.entries(modules)) {
-    if (key.includes('NEATAlgorithmPathname')) {
+    if (key.includes('HyperNEATAlgorithmPathname')) {
       algorithmPathname = extractModulePath(key, importFn)
     } else if (key.includes('createEnvironmentPathname')) {
       createEnvironmentPathname = extractModulePath(key, importFn)
@@ -108,7 +105,7 @@ function resolveWorkerModulePathnames() {
   }
 
   if (algorithmPathname.length === 0) {
-    throw new Error('Observe training: missing NEAT algorithm pathname')
+    throw new Error('Observe training: missing HyperNEAT algorithm pathname')
   }
   if (createEnvironmentPathname.length === 0) {
     throw new Error('Observe training: missing createEnvironment pathname')
@@ -151,7 +148,11 @@ function generationSeedPack(
   })
 }
 
-class MultiSeedGenerationStrategy implements EvaluationStrategy<NEATGenome> {
+type HyperNEATGenome = CPPNGenome<HyperNEATGenomeOptions>
+
+class MultiSeedGenerationStrategy
+  implements EvaluationStrategy<HyperNEATGenome>
+{
   private generation = 0
   private readonly seedsPerOrganism: number
   private readonly baseSeed: string
@@ -162,8 +163,8 @@ class MultiSeedGenerationStrategy implements EvaluationStrategy<NEATGenome> {
   }
 
   async *evaluate(
-    context: EvaluationContext<NEATGenome>,
-    genomeEntries: Iterable<[number, number, NEATGenome]>
+    context: EvaluationContext<HyperNEATGenome>,
+    genomeEntries: Iterable<[number, number, HyperNEATGenome]>
   ): AsyncIterable<[number, number, number]> {
     const generation = this.generation
     this.generation += 1
@@ -214,8 +215,9 @@ class MultiSeedGenerationStrategy implements EvaluationStrategy<NEATGenome> {
 }
 
 function createBrowserWorkerEnvironment(
-  options: WorkerEnvironmentOptions
-): Environment<WorkerEnvironmentOptions> {
+  options: Partial<HexagonoidsEnvironmentConfig>
+): Environment<HexagonoidsEnvironmentConfig> {
+  const config = mergeConfig(options)
   const description: EnvironmentDescription = {
     inputs: INPUT_COUNT,
     outputs: 4,
@@ -236,10 +238,15 @@ function createBrowserWorkerEnvironment(
     async evaluateBatchAsync(_executors: Executor[]): Promise<number[]> {
       throw new Error('Browser worker environment should evaluate in workers')
     },
-    toFactoryOptions(): WorkerEnvironmentOptions {
+    toFactoryOptions(): HexagonoidsEnvironmentConfig {
       return {
-        simulation: { ...options.simulation },
-        profiling: { ...options.profiling },
+        simulation: { ...config.simulation },
+        fitnessWeights: { ...config.fitnessWeights },
+        gateConfig: { ...config.gateConfig },
+        profiling: { ...config.profiling },
+        ...(config.scenarioBank != null && {
+          scenarioBank: config.scenarioBank,
+        }),
       }
     },
   }
@@ -312,15 +319,33 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
         emitStatus('training')
       }, 250)
 
+      let scenarioBank: ScenarioSnapshot[] | undefined
+      if (config.scenarioMode !== false) {
+        try {
+          const mod = await import('./data/scenarios.json')
+          scenarioBank = mod.default as ScenarioSnapshot[]
+          console.log(`[OBSERVE] Loaded ${scenarioBank.length} scenarios`)
+        } catch (error) {
+          console.warn(
+            '[OBSERVE] Failed to load scenarios, falling back to full-game evaluation',
+            error
+          )
+        }
+      }
+
       const environment = createBrowserWorkerEnvironment({
         simulation: {
           maxTicks: config.maxTicks,
           dtMs: config.dtMs,
           useFastThrust: true,
+          scenariosPerOrganism: config.scenariosPerOrganism ?? 20,
+          scenarioMaxTicks: config.scenarioMaxTicks ?? 120,
         },
         profiling: {
           enabled: false,
+          sampleEveryNGames: 0,
         },
+        ...(scenarioBank != null && { scenarioBank }),
       })
 
       const evaluatorOptions: WorkerEvaluatorOptions = {
@@ -336,31 +361,67 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
         ),
       }
       const evaluator = new WorkerEvaluator(
-        NEATAlgorithm,
+        HyperNEATAlgorithm,
         environment,
         evaluatorOptions
       )
       terminables.add(evaluator)
 
-      const createReproducer = createReproducerFactory<NEATGenome>(
+      const createReproducer = createReproducerFactory<HyperNEATGenome>(
         {
           algorithmPathname,
           threadCount,
           workerScriptUrl: workerReproducerScriptUrl,
         },
         terminables
-      )
+      ) as HyperNEATReproducerFactory
 
-      const population = createNEATPopulation(
+      const neatOptions = {
+        ...defaultNEATConfigOptions,
+        mutateOnlyOneLink: false,
+      }
+
+      const allActivations: Activation[] = [
+        Activation.Linear,
+        Activation.Step,
+        Activation.ReLU,
+        Activation.LeakyReLU,
+        Activation.ELU,
+        Activation.Sigmoid,
+        Activation.Swish,
+        Activation.HardSigmoid,
+        Activation.Tanh,
+        Activation.HardTanh,
+        Activation.Gaussian,
+        Activation.OffsetGaussian,
+        Activation.GELU,
+        Activation.Square,
+        Activation.Abs,
+        Activation.Softsign,
+        Activation.Exp,
+        Activation.ClippedExp,
+        Activation.Softplus,
+        Activation.Mish,
+      ]
+
+      const population = createHyperNEATPopulation(
         createReproducer,
         evaluator,
-        defaultNEATConfigOptions,
+        neatOptions,
         {
           ...defaultPopulationOptions,
           populationSize: config.populationSize,
         },
-        { ...defaultNEATGenomeOptions }
-      ) as NEATPopulation
+        {
+          ...defaultHyperNEATGenomeOptions,
+          inputConfig: 'line',
+          outputConfig: 'line',
+          hiddenActivation: Activation.GELU,
+          outputActivation: Activation.Sigmoid,
+          hiddenActivations: allActivations,
+          outputActivations: [Activation.Sigmoid],
+        }
+      )
 
       runPromise = evolve(population, {
         ...defaultEvolutionOptions,

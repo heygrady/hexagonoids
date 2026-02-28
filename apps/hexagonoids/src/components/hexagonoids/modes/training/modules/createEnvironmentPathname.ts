@@ -1,3 +1,16 @@
+import {
+  aggregateMetrics,
+  type FitnessContext,
+  type HexagonoidsEnvironmentConfig,
+  INPUT_COUNT,
+  mergeConfig,
+  neatAgent,
+  type RawMetrics,
+  type ScenarioSnapshot,
+  simulateGame,
+  simulateScenario,
+  weightedFitnessSum,
+} from '@heygrady/hexagonoids-environment'
 import type {
   Environment,
   EnvironmentDescription,
@@ -5,12 +18,7 @@ import type {
 } from '@neat-evolution/environment'
 import type { Executor, SyncExecutor } from '@neat-evolution/executor'
 import type { RNG } from '@neat-evolution/utils'
-import { neatAgent } from '../../../../../../../../packages/hexagonoids-environment/src/agents/neatAgent'
-import { INPUT_COUNT } from '../../../../../../../../packages/hexagonoids-environment/src/encoding/encodeGameState'
-import { weightedFitnessSum } from '../../../../../../../../packages/hexagonoids-environment/src/evaluation/calculateFitness'
-import { simulateGame } from '../../../../../../../../packages/hexagonoids-environment/src/evaluation/simulateGame'
-import type { HexagonoidsEnvironmentConfig } from '../../../../../../../../packages/hexagonoids-environment/src/HexagonoidsEnvironmentConfig'
-import { mergeConfig } from '../../../../../../../../packages/hexagonoids-environment/src/HexagonoidsEnvironmentConfig'
+import { createRNG } from '@neat-evolution/utils'
 
 const OUTPUT_COUNT = 4
 
@@ -30,6 +38,12 @@ class BrowserHexagonoidsEnvironment
 
   evaluate(executor: SyncExecutor, rng?: RNG): number {
     const seed = rng != null ? String(rng.gen()) : 'default-seed'
+
+    const bank = this.config.scenarioBank
+    if (bank != null && bank.length > 0) {
+      return this.evaluateScenarios(bank, executor, seed)
+    }
+
     const metrics = simulateGame(
       neatAgent,
       this.config.simulation,
@@ -60,12 +74,82 @@ class BrowserHexagonoidsEnvironment
     )
   }
 
+  private evaluateScenarios(
+    bank: ScenarioSnapshot[],
+    executor: SyncExecutor,
+    seed: string
+  ): number {
+    const { scenariosPerOrganism, scenarioMaxTicks } = this.config.simulation
+
+    // Select scenarios using a seeded RNG for reproducibility
+    const selectionRng = createRNG(seed)
+    const selected: ScenarioSnapshot[] = []
+    const count = Math.min(scenariosPerOrganism, bank.length)
+    if (count >= bank.length) {
+      selected.push(...bank)
+    } else {
+      // Fisher-Yates partial shuffle for uniform selection
+      const indices = Array.from({ length: bank.length }, (_, i) => i)
+      for (let i = 0; i < count; i++) {
+        const j = i + Math.floor(selectionRng.gen() * (bank.length - i))
+        const temp = indices[i]!
+        indices[i] = indices[j]!
+        indices[j] = temp
+        selected.push(bank[indices[i]!]!)
+      }
+    }
+
+    // Run each scenario and collect metrics
+    const allMetrics: RawMetrics[] = []
+    const scenarioConfig = {
+      ...this.config.simulation,
+      maxTicks: scenarioMaxTicks,
+    }
+    for (const scenario of selected) {
+      const metrics = simulateScenario(
+        neatAgent,
+        scenario,
+        scenarioConfig,
+        seed,
+        executor
+      )
+      allMetrics.push(metrics)
+    }
+
+    // Aggregate metrics across scenarios
+    const aggregated = aggregateMetrics(allMetrics)
+
+    // Compute possibleDeaths from selected scenarios' starting lives
+    const possibleDeaths = selected.reduce(
+      (sum, sc) => sum + sc.player.lives,
+      0
+    )
+
+    const fitnessSimConfig = {
+      ...this.config.simulation,
+      maxTicks: scenariosPerOrganism * scenarioMaxTicks,
+    }
+
+    const context: FitnessContext = { possibleDeaths }
+
+    return weightedFitnessSum(
+      aggregated,
+      this.config.fitnessWeights,
+      fitnessSimConfig,
+      this.config.gateConfig,
+      context
+    )
+  }
+
   toFactoryOptions(): HexagonoidsEnvironmentConfig {
     return {
       simulation: { ...this.config.simulation },
       fitnessWeights: { ...this.config.fitnessWeights },
       gateConfig: { ...this.config.gateConfig },
       profiling: { ...this.config.profiling },
+      ...(this.config.scenarioBank != null && {
+        scenarioBank: this.config.scenarioBank,
+      }),
     }
   }
 }

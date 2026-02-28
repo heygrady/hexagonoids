@@ -16,5 +16,7 @@ export const RECORD_COUNTDOWN_ZERO_HOLD_MS = 300
 /** Observe mode defaults */
 export const OBSERVE_MAX_GENERATIONS = 100
 export const OBSERVE_SEED = 'observe-seed-001'
-export const OBSERVE_WINDOW_MS = 5_000
-export const OBSERVE_EVALUATION_SEEDS_PER_ORGANISM = 4
+export const OBSERVE_WINDOW_MS = 10_000
+export const OBSERVE_EVALUATION_SEEDS_PER_ORGANISM = 1
+export const OBSERVE_SCENARIOS_PER_ORGANISM = 16
+export const OBSERVE_SCENARIO_MAX_TICKS = 120

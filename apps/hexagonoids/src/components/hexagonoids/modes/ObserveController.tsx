@@ -2,12 +2,10 @@ import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
 import { MAX_DELTA, restartGame } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
+import { type AgentContext, neatAgent } from '@heygrady/hexagonoids-environment'
 import type { SyncExecutor } from '@neat-evolution/executor'
 import { createRNG } from '@neat-evolution/utils'
 import { onCleanup } from 'solid-js'
-
-import { neatAgent } from '../../../../../../packages/hexagonoids-environment/src/agents/neatAgent'
-import type { AgentContext } from '../../../../../../packages/hexagonoids-environment/src/agents/types'
 import { useScene } from '../../solid-babylon/hooks/useScene'
 import { DEFAULT_PLAYER_ID, RADIUS } from '../constants'
 import { useInputs } from '../engine/useInputBridge'
@@ -18,6 +16,8 @@ import { useAppMode } from './AppModeProvider'
 import {
   OBSERVE_EVALUATION_SEEDS_PER_ORGANISM,
   OBSERVE_MAX_GENERATIONS,
+  OBSERVE_SCENARIO_MAX_TICKS,
+  OBSERVE_SCENARIOS_PER_ORGANISM,
   OBSERVE_SEED,
   OBSERVE_WINDOW_MS,
 } from './constants'
@@ -259,6 +259,9 @@ export function ObserveController() {
     evaluationBaseSeed: OBSERVE_SEED,
     maxTicks: 1500,
     dtMs: 33,
+    scenarioMode: true,
+    scenariosPerOrganism: OBSERVE_SCENARIOS_PER_ORGANISM,
+    scenarioMaxTicks: OBSERVE_SCENARIO_MAX_TICKS,
   })
 
   const handleKeyDown = (event: KeyboardEvent) => {
