@@ -106,6 +106,8 @@ export const EndScreen: Component = () => {
   const observer = scene.onBeforeRenderObservable.add(() => {
     if (!showing && gameOver()) {
       showScreen()
+    } else if (showing && !gameOver()) {
+      hideScreen()
     }
   })
 

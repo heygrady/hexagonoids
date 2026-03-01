@@ -2,7 +2,12 @@ import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
 import { MAX_DELTA, restartGame } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
-import { type AgentContext, neatAgent } from '@heygrady/hexagonoids-environment'
+import {
+  type AgentContext,
+  neatAgent,
+  restoreSnapshot,
+  type ScenarioSnapshot,
+} from '@heygrady/hexagonoids-environment'
 import type { SyncExecutor } from '@neat-evolution/executor'
 import { createRNG } from '@neat-evolution/utils'
 import { onCleanup } from 'solid-js'
@@ -23,8 +28,10 @@ import {
 } from './constants'
 import {
   createObserveTrainingAdapter,
+  type ObserveTrainingConfig,
   organismToExecutor,
 } from './training/createObserveTrainingAdapter'
+import { getObserveProfile } from './training/profiles'
 
 /**
  * Observe-mode shell. Session 01 wires mode entry/exit and HUD ownership.
@@ -167,9 +174,40 @@ export function ObserveController() {
 
     aiContext.executor = executor
     aiContext.memory = {}
-    aiContext.rng = createRNG(`${OBSERVE_SEED}:g${generation}`)
+    const gameSeed = `${OBSERVE_SEED}:g${generation}`
+    aiContext.rng = createRNG(`${gameSeed}:agent`)
 
-    engine.reseed(OBSERVE_SEED, DEFAULT_PLAYER_ID)
+    engine.reseed(gameSeed, DEFAULT_PLAYER_ID)
+
+    // In scenario playback mode, overwrite the fresh game with a random scenario
+    if (
+      scenarioPlayback &&
+      playbackScenarioBank != null &&
+      playbackScenarioBank.length > 0
+    ) {
+      const pickRng = createRNG(`${gameSeed}:scenario-pick`)
+      const idx = Math.floor(pickRng.gen() * playbackScenarioBank.length)
+      const scenario = playbackScenarioBank[idx]
+      const { state: snapState } = restoreSnapshot(scenario, gameSeed)
+
+      engine.mutate((draft) => {
+        draft.ships.clear()
+        draft.rocks.clear()
+        draft.bullets.clear()
+        draft.players.clear()
+
+        draft.now = snapState.now
+        draft.wave = snapState.wave
+        draft.startedAt = snapState.startedAt
+        draft.endedAt = null
+
+        for (const [id, ship] of snapState.ships) draft.ships.set(id, ship)
+        for (const [id, rock] of snapState.rocks) draft.rocks.set(id, rock)
+        for (const [id, player] of snapState.players)
+          draft.players.set(id, player)
+      })
+    }
+
     const player = engine.state.players.get(DEFAULT_PLAYER_ID)
     const ship =
       player?.shipId != null ? engine.state.ships.get(player.shipId) : undefined
@@ -252,16 +290,61 @@ export function ObserveController() {
 
   startWaiting(1)
 
+  // Read optional query params
+  const searchParams = new URLSearchParams(window.location.search)
+  const scenarioPlayback = searchParams.get('scenario') === 'true'
+  let playbackScenarioBank: ScenarioSnapshot[] | null = null
+  if (scenarioPlayback) {
+    void import('@heygrady/hexagonoids-demo/data/scenarios.json')
+      .then((mod) => {
+        playbackScenarioBank = (mod.default ?? mod) as ScenarioSnapshot[]
+        console.log(
+          `[OBSERVE] Loaded ${playbackScenarioBank.length} scenarios for playback`
+        )
+      })
+      .catch(() => {
+        console.warn('[OBSERVE] Failed to load scenarios for playback')
+      })
+  }
+
+  const profileName = searchParams.get('profile') ?? 'default'
+  const profileConfig: Partial<ObserveTrainingConfig> =
+    getObserveProfile(profileName) ?? {}
+  if (Object.keys(profileConfig).length > 0) {
+    console.log(`[OBSERVE] profile=${profileName}`, profileConfig)
+  } else if (profileName !== 'default') {
+    console.log(`[OBSERVE] profile=${profileName} (not found)`)
+  }
+
   void adapter.start({
     maxGenerations: OBSERVE_MAX_GENERATIONS,
-    populationSize: 64,
-    evaluationSeedsPerOrganism: OBSERVE_EVALUATION_SEEDS_PER_ORGANISM,
+    populationSize: profileConfig.populationSize ?? 64,
+    evaluationSeedsPerOrganism:
+      profileConfig.evaluationSeedsPerOrganism ??
+      OBSERVE_EVALUATION_SEEDS_PER_ORGANISM,
     evaluationBaseSeed: OBSERVE_SEED,
-    maxTicks: 1500,
+    maxTicks: profileConfig.maxTicks ?? 1500,
     dtMs: 33,
     scenarioMode: true,
-    scenariosPerOrganism: OBSERVE_SCENARIOS_PER_ORGANISM,
-    scenarioMaxTicks: OBSERVE_SCENARIO_MAX_TICKS,
+    scenariosPerOrganism:
+      profileConfig.scenariosPerOrganism ?? OBSERVE_SCENARIOS_PER_ORGANISM,
+    scenarioMaxTicks:
+      profileConfig.scenarioMaxTicks ?? OBSERVE_SCENARIO_MAX_TICKS,
+    ...(profileConfig.fitnessWeights != null && {
+      fitnessWeights: profileConfig.fitnessWeights,
+    }),
+    ...(profileConfig.gateConfig != null && {
+      gateConfig: profileConfig.gateConfig,
+    }),
+    ...(profileConfig.scenarioWeight != null && {
+      scenarioWeight: profileConfig.scenarioWeight,
+    }),
+    ...(profileConfig.scenarioSeedsPerOrganism != null && {
+      scenarioSeedsPerOrganism: profileConfig.scenarioSeedsPerOrganism,
+    }),
+    ...(profileConfig.fullGameSeedsPerOrganism != null && {
+      fullGameSeedsPerOrganism: profileConfig.fullGameSeedsPerOrganism,
+    }),
   })
 
   const handleKeyDown = (event: KeyboardEvent) => {

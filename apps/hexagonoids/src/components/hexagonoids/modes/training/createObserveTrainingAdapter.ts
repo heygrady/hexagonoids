@@ -66,6 +66,24 @@ export interface ObserveTrainingConfig {
   scenarioMode?: boolean
   scenariosPerOrganism?: number
   scenarioMaxTicks?: number
+  fitnessWeights?: {
+    rocksDestroyed: number
+    accuracy: number
+    survival: number
+  }
+  gateConfig?: Partial<{
+    floor: number
+    actionLow: number
+    actionHigh: number
+    actionSteepness: number
+    turnFloor: number
+    turnLow: number
+    turnHigh: number
+    turnSteepness: number
+  }>
+  scenarioWeight?: number
+  scenarioSeedsPerOrganism?: number
+  fullGameSeedsPerOrganism?: number
 }
 
 export interface ObserveTrainingAdapter {
@@ -214,10 +232,46 @@ class MultiSeedGenerationStrategy
   }
 }
 
+interface BrowserWorkerEnvironmentOptions {
+  simulation?: Partial<HexagonoidsEnvironmentConfig['simulation']>
+  fitnessWeights?: Partial<HexagonoidsEnvironmentConfig['fitnessWeights']>
+  gateConfig?: Partial<HexagonoidsEnvironmentConfig['gateConfig']>
+  profiling?: Partial<HexagonoidsEnvironmentConfig['profiling']>
+  scenarioBank?: HexagonoidsEnvironmentConfig['scenarioBank']
+  scenarioWeight?: number
+  scenarioSeedsPerOrganism?: number
+  fullGameSeedsPerOrganism?: number
+}
+
 function createBrowserWorkerEnvironment(
-  options: Partial<HexagonoidsEnvironmentConfig>
+  options: BrowserWorkerEnvironmentOptions
 ): Environment<HexagonoidsEnvironmentConfig> {
-  const config = mergeConfig(options)
+  const defaults = mergeConfig({})
+  const config: HexagonoidsEnvironmentConfig = {
+    ...defaults,
+    ...options,
+    simulation: {
+      ...defaults.simulation,
+      ...options.simulation,
+    },
+    fitnessWeights: {
+      ...defaults.fitnessWeights,
+      ...options.fitnessWeights,
+    },
+    gateConfig: {
+      ...defaults.gateConfig,
+      ...options.gateConfig,
+    },
+    profiling: {
+      ...defaults.profiling,
+      ...options.profiling,
+    },
+    scenarioWeight: options.scenarioWeight ?? defaults.scenarioWeight,
+    scenarioSeedsPerOrganism:
+      options.scenarioSeedsPerOrganism ?? defaults.scenarioSeedsPerOrganism,
+    fullGameSeedsPerOrganism:
+      options.fullGameSeedsPerOrganism ?? defaults.fullGameSeedsPerOrganism,
+  }
   const description: EnvironmentDescription = {
     inputs: INPUT_COUNT,
     outputs: 4,
@@ -244,6 +298,9 @@ function createBrowserWorkerEnvironment(
         fitnessWeights: { ...config.fitnessWeights },
         gateConfig: { ...config.gateConfig },
         profiling: { ...config.profiling },
+        scenarioWeight: config.scenarioWeight,
+        scenarioSeedsPerOrganism: config.scenarioSeedsPerOrganism,
+        fullGameSeedsPerOrganism: config.fullGameSeedsPerOrganism,
         ...(config.scenarioBank != null && {
           scenarioBank: config.scenarioBank,
         }),
@@ -322,8 +379,10 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
       let scenarioBank: ScenarioSnapshot[] | undefined
       if (config.scenarioMode !== false) {
         try {
-          const mod = await import('./data/scenarios.json')
-          scenarioBank = mod.default as ScenarioSnapshot[]
+          const mod = await import(
+            '@heygrady/hexagonoids-demo/data/scenarios.json'
+          )
+          scenarioBank = (mod.default ?? mod) as ScenarioSnapshot[]
           console.log(`[OBSERVE] Loaded ${scenarioBank.length} scenarios`)
         } catch (error) {
           console.warn(
@@ -346,6 +405,19 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
           sampleEveryNGames: 0,
         },
         ...(scenarioBank != null && { scenarioBank }),
+        ...(config.fitnessWeights != null && {
+          fitnessWeights: config.fitnessWeights,
+        }),
+        ...(config.gateConfig != null && { gateConfig: config.gateConfig }),
+        ...(config.scenarioWeight != null && {
+          scenarioWeight: config.scenarioWeight,
+        }),
+        ...(config.scenarioSeedsPerOrganism != null && {
+          scenarioSeedsPerOrganism: config.scenarioSeedsPerOrganism,
+        }),
+        ...(config.fullGameSeedsPerOrganism != null && {
+          fullGameSeedsPerOrganism: config.fullGameSeedsPerOrganism,
+        }),
       })
 
       const evaluatorOptions: WorkerEvaluatorOptions = {
