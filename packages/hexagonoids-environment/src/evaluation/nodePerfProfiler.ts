@@ -15,7 +15,6 @@ function emptyStageTotals(): StageTotals {
   return {
     agent: 0,
     step: 0,
-    reward: 0,
     memory: 0,
   }
 }
@@ -47,7 +46,6 @@ class EnvironmentProfiler implements SimulationProfiler {
     this.ticks += ticks
     this.totals.agent += this.current.agent
     this.totals.step += this.current.step
-    this.totals.reward += this.current.reward
     this.totals.memory += this.current.memory
 
     if (this.games % this.sampleEveryNGames === 0) {
@@ -56,18 +54,13 @@ class EnvironmentProfiler implements SimulationProfiler {
 
     this.current.agent = 0
     this.current.step = 0
-    this.current.reward = 0
     this.current.memory = 0
   }
 
   private flush(): void {
     if (this.outputPath == null) return
 
-    const totalMs =
-      this.totals.agent +
-      this.totals.step +
-      this.totals.reward +
-      this.totals.memory
+    const totalMs = this.totals.agent + this.totals.step + this.totals.memory
     const safeTotal = totalMs > 0 ? totalMs : 1
     const payload = {
       kind: 'hexagonoids-sim-profile',
@@ -81,7 +74,6 @@ class EnvironmentProfiler implements SimulationProfiler {
       stagePercent: {
         agent: (this.totals.agent / safeTotal) * 100,
         step: (this.totals.step / safeTotal) * 100,
-        reward: (this.totals.reward / safeTotal) * 100,
         memory: (this.totals.memory / safeTotal) * 100,
       },
       msPerGame: totalMs / this.games,

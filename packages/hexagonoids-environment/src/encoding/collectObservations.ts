@@ -7,8 +7,6 @@ import {
   RADIUS,
   TURN_RATE,
 } from '@heygrady/hexagonoids-engine'
-import QuickLRU from 'quick-lru'
-
 import { yawToBearing } from '../utils/sphericalBearing.js'
 import { MAX_CLOSING_SPEED, SOI_ARC_DISTANCE } from './constants.js'
 import type {
@@ -24,8 +22,10 @@ const MAX_VISION_ARC = SOI_ARC_DISTANCE
 const DEG_TO_RAD = Math.PI / 180
 const CLOSING_EPSILON = 1e-9
 const RAY_STEP = TWO_PI / LIDAR_RAY_COUNT
-const ROCK_KEY_CACHE = new QuickLRU<string, string>({ maxSize: 8192 })
-const BULLET_KEY_CACHE = new QuickLRU<string, string>({ maxSize: 8192 })
+// Precomputed dot-product threshold for SOI culling.
+// cos(maxVisionAngle) — rocks with dot product below this are outside SOI.
+const MAX_VISION_ANGLE = MAX_VISION_ARC / RADIUS
+const SOI_DOT_THRESHOLD = Math.cos(MAX_VISION_ANGLE)
 const RAY_ANGLES = new Array<number>(LIDAR_RAY_COUNT)
 
 for (let i = 0; i < LIDAR_RAY_COUNT; i++) {
@@ -212,22 +212,6 @@ function updateRayHit(
   }
 }
 
-function prevDistanceKey(entityType: 'rock' | 'bullet', id: string): string {
-  if (entityType === 'rock') {
-    const cached = ROCK_KEY_CACHE.get(id)
-    if (cached != null) return cached
-    const key = `rock:${id}`
-    ROCK_KEY_CACHE.set(id, key)
-    return key
-  }
-
-  const cached = BULLET_KEY_CACHE.get(id)
-  if (cached != null) return cached
-  const key = `bullet:${id}`
-  BULLET_KEY_CACHE.set(id, key)
-  return key
-}
-
 interface ShipGeoContext {
   latDeg: number
   lngDeg: number
@@ -248,18 +232,6 @@ export interface RockPerceptionEntry {
 }
 
 export interface RockPerceptionPrecompute {
-  shipLatRad: number
-  shipLngRad: number
-  shipSinLat: number
-  shipCosLat: number
-  nearestCosPhi: number
-  nearestSinPhi: number
-  nearestDLambda: number
-  nearestRelativeBearing: number
-  hasNearest: boolean
-  centroidX: number
-  centroidY: number
-  centroidZ: number
   rocks: RockPerceptionEntry[]
 }
 
@@ -298,17 +270,14 @@ export function buildRockPerceptionPrecompute(
   const shipLngRad = shipLngDeg * DEG_TO_RAD
   const shipSinLat = Math.sin(shipLatRad)
   const shipCosLat = Math.cos(shipLatRad)
+  // Ship XYZ on unit sphere for dot-product culling
+  const shipCosLng = Math.cos(shipLngRad)
+  const shipSinLng = Math.sin(shipLngRad)
+  const shipX = shipCosLat * shipCosLng
+  const shipY = shipCosLat * shipSinLng
+  const shipZ = shipSinLat
   const rocks = new Array<RockPerceptionEntry>(state.rocks.size)
 
-  let nearestDistance = Number.POSITIVE_INFINITY
-  let nearestCosPhi = 0
-  let nearestSinPhi = 0
-  let nearestDLambda = 0
-  let nearestRelativeBearing = 0
-  let hasNearest = false
-  let centroidX = 0
-  let centroidY = 0
-  let centroidZ = 0
   let index = 0
 
   for (const rock of state.rocks.values()) {
@@ -316,25 +285,37 @@ export function buildRockPerceptionPrecompute(
     const lambda = rock.lng * DEG_TO_RAD
     const sinPhi = Math.sin(phi)
     const cosPhi = Math.cos(phi)
-    centroidX += cosPhi * Math.cos(lambda)
-    centroidY += cosPhi * Math.sin(lambda)
-    centroidZ += sinPhi
+    const rx = cosPhi * Math.cos(lambda)
+    const ry = cosPhi * Math.sin(lambda)
+    const rz = sinPhi
 
-    const dLat = phi - shipLatRad
-    const dLng = wrapAngle(lambda - shipLngRad)
-    const sinHalfLat = Math.sin(dLat * 0.5)
-    const sinHalfLng = Math.sin(dLng * 0.5)
-    const a =
-      sinHalfLat * sinHalfLat + shipCosLat * cosPhi * sinHalfLng * sinHalfLng
-    const distance = RADIUS * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
+    // Dot product = cos(angle) between ship and rock on unit sphere.
+    // Higher dot = closer. Skip expensive haversine for distant rocks.
+    const dot = shipX * rx + shipY * ry + shipZ * rz
 
+    let distance = 0
     let relativeBearing = 0
     let inVisionRange = false
-    if (distance <= MAX_VISION_ARC) {
-      const y = Math.sin(dLng) * cosPhi
-      const x = shipCosLat * sinPhi - shipSinLat * cosPhi * Math.cos(dLng)
-      relativeBearing = wrapRelative(Math.atan2(y, x) - shipBearing)
-      inVisionRange = true
+
+    if (dot >= SOI_DOT_THRESHOLD) {
+      // Rock is within or near SOI — compute precise haversine distance
+      const dLat = phi - shipLatRad
+      const dLng = wrapAngle(lambda - shipLngRad)
+      const sinHalfLat = Math.sin(dLat * 0.5)
+      const sinHalfLng = Math.sin(dLng * 0.5)
+      const a =
+        sinHalfLat * sinHalfLat + shipCosLat * cosPhi * sinHalfLng * sinHalfLng
+      distance = RADIUS * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
+
+      if (distance <= MAX_VISION_ARC) {
+        const y = Math.sin(dLng) * cosPhi
+        const x = shipCosLat * sinPhi - shipSinLat * cosPhi * Math.cos(dLng)
+        relativeBearing = wrapRelative(Math.atan2(y, x) - shipBearing)
+        inVisionRange = true
+      }
+    } else {
+      // Rock is far outside SOI — use arc-cosine of dot for approximate distance
+      distance = RADIUS * Math.acos(clamp(dot, -1, 1))
     }
 
     rocks[index] = {
@@ -345,39 +326,9 @@ export function buildRockPerceptionPrecompute(
       radius: rockRadiusBySize(rock.size),
     }
     index += 1
-
-    if (distance < nearestDistance) {
-      nearestDistance = distance
-      nearestCosPhi = cosPhi
-      nearestSinPhi = sinPhi
-      nearestDLambda = dLng
-      nearestRelativeBearing = inVisionRange
-        ? relativeBearing
-        : wrapRelative(
-            Math.atan2(
-              Math.sin(dLng) * cosPhi,
-              shipCosLat * sinPhi - shipSinLat * cosPhi * Math.cos(dLng)
-            ) - shipBearing
-          )
-      hasNearest = true
-    }
   }
 
-  return {
-    shipLatRad,
-    shipLngRad,
-    shipSinLat,
-    shipCosLat,
-    nearestCosPhi,
-    nearestSinPhi,
-    nearestDLambda,
-    nearestRelativeBearing,
-    hasNearest,
-    centroidX,
-    centroidY,
-    centroidZ,
-    rocks,
-  }
+  return { rocks }
 }
 
 function isWithinVisionBounds(
@@ -483,10 +434,9 @@ function scanRocks(
 ): void {
   for (const rock of rockPerception.rocks) {
     if (!rock.inVisionRange) continue
-    const key = prevDistanceKey('rock', rock.id)
     const closing = closingSpeedFromPrev(
       prevDistances,
-      key,
+      rock.id,
       rock.distance,
       invDtSeconds
     )
@@ -506,9 +456,11 @@ function scanBullets(
   prevDistances: Map<string, number>,
   invDtSeconds: number,
   ship: ShipGeoContext,
-  lidar: LidarHit[]
+  lidar: LidarHit[],
+  ownShipId?: string
 ): void {
   for (const bullet of state.bullets.values()) {
+    if (ownShipId != null && bullet.ownerId === ownShipId) continue
     if (!isWithinVisionBounds(ship, bullet.lat, bullet.lng)) continue
     const phi2 = bullet.lat * DEG_TO_RAD
     const cosPhi2 = Math.cos(phi2)
@@ -527,8 +479,12 @@ function scanBullets(
       ship.cosLat * Math.sin(phi2) - ship.sinLat * cosPhi2 * Math.cos(dLng)
     const relativeBearing = wrapRelative(Math.atan2(y, x) - ship.shipBearing)
 
-    const key = prevDistanceKey('bullet', bullet.id)
-    const closing = closingSpeedFromPrev(prevDistances, key, dist, invDtSeconds)
+    const closing = closingSpeedFromPrev(
+      prevDistances,
+      bullet.id,
+      dist,
+      invDtSeconds
+    )
     updateRayHit(lidar, relativeBearing, dist, 0.03, closing, false)
   }
 }
@@ -556,8 +512,16 @@ export function collectObservations(
     buildRockPerceptionPrecompute(state, ship.lat, ship.lng, ship.shipBearing)
   const invDtSeconds = dtMs > 0 ? 1000 / dtMs : 0
 
+  const ownShipId = state.players.get(playerId)?.shipId ?? undefined
   scanRocks(rockPerception, prevDistances, invDtSeconds, frame.lidar)
-  scanBullets(state, prevDistances, invDtSeconds, shipGeo, frame.lidar)
+  scanBullets(
+    state,
+    prevDistances,
+    invDtSeconds,
+    shipGeo,
+    frame.lidar,
+    ownShipId
+  )
 
   return frame
 }

@@ -1,4 +1,4 @@
-export type SimulationStage = 'agent' | 'step' | 'reward' | 'memory'
+export type SimulationStage = 'agent' | 'step' | 'memory'
 
 export interface SimulationProfiler {
   enabled: true

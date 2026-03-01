@@ -8,14 +8,16 @@ import { createRNG } from '@neat-evolution/utils'
 
 import { neatAgent } from './agents/neatAgent.js'
 import { INPUT_COUNT } from './encoding/encodeGameState.js'
-import { aggregateMetrics } from './evaluation/aggregateMetrics.js'
 import {
   type FitnessContext,
   weightedFitnessSum,
 } from './evaluation/calculateFitness.js'
-import { createSimulationProfiler } from './evaluation/nodePerfProfiler.js'
 import type { SimulationProfiler } from './evaluation/perfProfiler.js'
-import type { RawMetrics } from './evaluation/RawMetrics.js'
+import {
+  fullGameMaximums,
+  scenarioMaximums,
+  scenarioPossibleDeaths,
+} from './evaluation/scenarioContext.js'
 import { simulateGame } from './evaluation/simulateGame.js'
 import type { HexagonoidsEnvironmentConfig } from './HexagonoidsEnvironmentConfig.js'
 import { mergeConfig } from './HexagonoidsEnvironmentConfig.js'
@@ -35,9 +37,12 @@ export class HexagonoidsEnvironment
   private readonly config: HexagonoidsEnvironmentConfig
   private readonly profiler: SimulationProfiler | undefined
 
-  constructor(config?: Partial<HexagonoidsEnvironmentConfig>) {
+  constructor(
+    config?: Partial<HexagonoidsEnvironmentConfig>,
+    profiler?: SimulationProfiler
+  ) {
     this.config = mergeConfig(config)
-    this.profiler = createSimulationProfiler(this.config.profiling)
+    this.profiler = profiler
   }
 
   evaluate(executor: SyncExecutor, rng?: RNG): number {
@@ -45,22 +50,23 @@ export class HexagonoidsEnvironment
 
     const bank = this.config.scenarioBank
     if (bank != null && bank.length > 0) {
-      return this.evaluateScenarios(bank, executor, seed)
+      const w = this.config.scenarioWeight
+      if (w >= 1.0) {
+        return this.evaluateScenariosMultiSeed(bank, executor, seed)
+      }
+      if (w <= 0.0) {
+        return this.evaluateFullGameMultiSeed(executor, seed)
+      }
+      const scenarioFitness = this.evaluateScenariosMultiSeed(
+        bank,
+        executor,
+        seed
+      )
+      const fullGameFitness = this.evaluateFullGameMultiSeed(executor, seed)
+      return w * scenarioFitness + (1 - w) * fullGameFitness
     }
 
-    const metrics = simulateGame(
-      neatAgent,
-      this.config.simulation,
-      seed,
-      executor,
-      this.profiler
-    )
-    return weightedFitnessSum(
-      metrics,
-      this.config.fitnessWeights,
-      this.config.simulation,
-      this.config.gateConfig
-    )
+    return this.evaluateFullGameMultiSeed(executor, seed)
   }
 
   evaluateBatch(executors: SyncExecutor[], rng?: RNG): number[] {
@@ -76,6 +82,54 @@ export class HexagonoidsEnvironment
   async evaluateBatchAsync(_executors: Executor[]): Promise<number[]> {
     throw new Error(
       'evaluateBatchAsync is not implemented for this synchronous environment.'
+    )
+  }
+
+  private evaluateScenariosMultiSeed(
+    bank: ScenarioSnapshot[],
+    executor: SyncExecutor,
+    seed: string
+  ): number {
+    const count = this.config.scenarioSeedsPerOrganism
+    if (count <= 1) {
+      return this.evaluateScenarios(bank, executor, seed)
+    }
+    let sum = 0
+    for (let i = 0; i < count; i++) {
+      sum += this.evaluateScenarios(bank, executor, `${seed}:scenario:${i}`)
+    }
+    return sum / count
+  }
+
+  private evaluateFullGameMultiSeed(
+    executor: SyncExecutor,
+    seed: string
+  ): number {
+    const count = this.config.fullGameSeedsPerOrganism
+    if (count <= 1) {
+      return this.evaluateFullGame(executor, seed)
+    }
+    let sum = 0
+    for (let i = 0; i < count; i++) {
+      sum += this.evaluateFullGame(executor, `${seed}:fullgame:${i}`)
+    }
+    return sum / count
+  }
+
+  private evaluateFullGame(executor: SyncExecutor, seed: string): number {
+    const metrics = simulateGame(
+      neatAgent,
+      this.config.simulation,
+      seed,
+      executor,
+      this.profiler
+    )
+    const context: FitnessContext = { ...fullGameMaximums() }
+    return weightedFitnessSum(
+      metrics,
+      this.config.fitnessWeights,
+      this.config.gateConfig,
+      context
     )
   }
 
@@ -105,12 +159,12 @@ export class HexagonoidsEnvironment
       }
     }
 
-    // Run each scenario and collect metrics
-    const allMetrics: RawMetrics[] = []
+    // Score each scenario individually, then average
     const scenarioConfig = {
       ...this.config.simulation,
       maxTicks: scenarioMaxTicks,
     }
+    let fitnessSum = 0
     for (const scenario of selected) {
       const metrics = simulateScenario(
         neatAgent,
@@ -120,32 +174,23 @@ export class HexagonoidsEnvironment
         executor,
         this.profiler
       )
-      allMetrics.push(metrics)
+      const context: FitnessContext = {
+        possibleDeaths: scenarioPossibleDeaths(
+          scenario.player.lives,
+          scenarioMaxTicks,
+          this.config.simulation.dtMs
+        ),
+        ...scenarioMaximums(scenario.rocks),
+      }
+      fitnessSum += weightedFitnessSum(
+        metrics,
+        this.config.fitnessWeights,
+        this.config.gateConfig,
+        context
+      )
     }
 
-    // Aggregate metrics across scenarios
-    const aggregated = aggregateMetrics(allMetrics)
-
-    // Compute possibleDeaths from selected scenarios' starting lives
-    const possibleDeaths = selected.reduce(
-      (sum, sc) => sum + sc.player.lives,
-      0
-    )
-
-    const fitnessSimConfig = {
-      ...this.config.simulation,
-      maxTicks: scenariosPerOrganism * scenarioMaxTicks,
-    }
-
-    const context: FitnessContext = { possibleDeaths }
-
-    return weightedFitnessSum(
-      aggregated,
-      this.config.fitnessWeights,
-      fitnessSimConfig,
-      this.config.gateConfig,
-      context
-    )
+    return fitnessSum / selected.length
   }
 
   toFactoryOptions(): HexagonoidsEnvironmentConfig {
@@ -157,6 +202,9 @@ export class HexagonoidsEnvironment
       ...(this.config.scenarioBank != null && {
         scenarioBank: this.config.scenarioBank,
       }),
+      scenarioWeight: this.config.scenarioWeight,
+      scenarioSeedsPerOrganism: this.config.scenarioSeedsPerOrganism,
+      fullGameSeedsPerOrganism: this.config.fullGameSeedsPerOrganism,
     }
   }
 }

@@ -80,7 +80,7 @@ function getMemory(memory: Record<string, unknown>): NeatMemory {
  * Binary flags (isRock, isBullet) are set to 1 while the trace is active
  * and cleared when the trace falls below epsilon.
  */
-function applyLidarDecay(inputs: number[], trace: number[]): void {
+export function applyLidarDecay(inputs: number[], trace: number[]): void {
   for (let r = 0; r < LIDAR_RAY_COUNT; r++) {
     const base = GLOBAL_FEATURES + r * FEATURES_PER_RAY
     const traceBase = r * FEATURES_PER_RAY
@@ -171,7 +171,8 @@ export const neatAgent: AgentFn = (state, playerId, context) => {
     mem.observationBuffer,
     mem.rockPerception
   )
-  applyLidarDecay(inputs, mem.lidarTrace)
+  // TODO: re-enable decay trace after tuning
+  // applyLidarDecay(inputs, mem.lidarTrace)
   addLidarNoise(inputs, context.rng)
   const outputs = context.executor.execute(inputs)
   return decodeOutputs(outputs)
