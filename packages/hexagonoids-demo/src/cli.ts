@@ -3,9 +3,9 @@ import { pathToFileURL } from 'node:url'
 
 import {
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
+  evaluateFullGameFitness,
   neatAgent,
   simulateGame,
-  weightedFitnessSum,
 } from '@heygrady/hexagonoids-environment'
 
 import {
@@ -186,12 +186,7 @@ export async function replayGenome(
     useFastThrust: options.useFastThrust,
   }
   const metrics = simulateGame(neatAgent, simulation, options.seed, executor)
-  const fitness = weightedFitnessSum(
-    metrics,
-    DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
-    simulation,
-    DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig
-  )
+  const fitness = evaluateFullGameFitness(metrics)
 
   console.log(`Replay completed for ${options.method}`)
   console.log(`Genome: ${options.pathname}`)

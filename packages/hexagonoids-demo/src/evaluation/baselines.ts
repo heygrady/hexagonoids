@@ -1,10 +1,9 @@
 import {
   type AgentFn,
-  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
+  evaluateFullGameFitness,
   type RawMetrics,
   type SimulationConfig,
   simulateGame,
-  weightedFitnessSum,
 } from '@heygrady/hexagonoids-environment'
 
 import { aggregateRawMetrics, mean } from './metrics.js'
@@ -22,14 +21,7 @@ export const summarizeBaselineAgent = (
   simulation: Pick<SimulationConfig, 'maxTicks' | 'dtMs' | 'useFastThrust'>
 ): BaselineScore => {
   const metrics = seeds.map((seed) => simulateGame(agent, simulation, seed))
-  const fitnessBySeed = metrics.map((raw) =>
-    weightedFitnessSum(
-      raw,
-      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
-      simulation,
-      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig
-    )
-  )
+  const fitnessBySeed = metrics.map(evaluateFullGameFitness)
 
   return {
     name,

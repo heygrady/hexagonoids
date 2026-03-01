@@ -1,5 +1,12 @@
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import {
+  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   doNothingAgent,
+  type FitnessWeights,
+  type GateConfig,
+  type HexagonoidsEnvironmentConfig,
   type RawMetrics,
   randomAgent,
 } from '@heygrady/hexagonoids-environment'
@@ -45,12 +52,14 @@ import {
 import { mean, median } from './evaluation/metrics.js'
 import { generationSeedPack } from './evaluation/seedSchedule.js'
 import {
-  appendHeroesLog,
-  type HeroLogEntry,
-  resolveHeroesLogPath,
-} from './persistence/appendHeroesLog.js'
+  appendGenerationLog,
+  type GenerationLogEntry,
+  resolveGenerationsLogPath,
+  saveGenerationGenome,
+} from './persistence/appendGenerationLog.js'
 import { saveGenome } from './persistence/saveGenome.js'
 
+const DEFAULT_OUTPUT_DIR = fileURLToPath(new URL('../../', import.meta.url))
 const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
 const DEFAULT_BASE_SEED = 'hexagonoids-phase03'
 const CREATE_ENVIRONMENT_PATHNAME = '@heygrady/hexagonoids-environment/node'
@@ -193,6 +202,7 @@ const toRunConfig = (options: TrainOptions) => {
 }
 
 export interface TrainOptions {
+  profilePath?: string | undefined
   method?: SupportedAlgorithm | undefined
   baselineOnly?: boolean | undefined
   populationSize?: number | undefined
@@ -214,6 +224,11 @@ export interface TrainOptions {
   scenarioMode?: boolean | undefined
   scenariosPerOrganism?: number | undefined
   scenarioMaxTicks?: number | undefined
+  fitnessWeights?: FitnessWeights | undefined
+  gateConfig?: Partial<GateConfig> | undefined
+  scenarioWeight?: number | undefined
+  scenarioSeedsPerOrganism?: number | undefined
+  fullGameSeedsPerOrganism?: number | undefined
 }
 
 export interface BaselineRunResult {
@@ -235,7 +250,8 @@ export interface TrainingRunResult {
   populationFitnessMedian: number | null
   bestOrganism: unknown
   bestFilePath: string
-  heroesLogPath: string
+  generationsLogPath: string
+  genomesDir: string
 }
 
 export type TrainResult = BaselineRunResult | TrainingRunResult
@@ -277,7 +293,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   }
 
   const terminables = new Set<Terminable>()
-  const pendingHeroWrites: Array<
+  const pendingGenerationWrites: Array<
     Promise<{ ok: true } | { ok: false; error: unknown }>
   > = []
   const runStart = Date.now()
@@ -286,7 +302,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   let populationFitnessMean: number | null = null
   let populationFitnessMedian: number | null = null
 
-  const environmentOptions: Parameters<typeof createEnvironment>[0] = {
+  const environmentOptions: Partial<HexagonoidsEnvironmentConfig> = {
     simulation: {
       maxTicks: config.maxTicks,
       dtMs: config.dtMs,
@@ -299,6 +315,24 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
       sampleEveryNGames: config.perfProfileSampleEveryNGames,
       outputPath: config.perfProfileOutputPath,
     },
+    ...(options.fitnessWeights != null && {
+      fitnessWeights: options.fitnessWeights,
+    }),
+    ...(options.gateConfig != null && {
+      gateConfig: {
+        ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
+        ...options.gateConfig,
+      },
+    }),
+    ...(options.scenarioWeight != null && {
+      scenarioWeight: options.scenarioWeight,
+    }),
+    ...(options.scenarioSeedsPerOrganism != null && {
+      scenarioSeedsPerOrganism: options.scenarioSeedsPerOrganism,
+    }),
+    ...(options.fullGameSeedsPerOrganism != null && {
+      fullGameSeedsPerOrganism: options.fullGameSeedsPerOrganism,
+    }),
   }
 
   if (config.scenarioMode) {
@@ -306,7 +340,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     const scenarioBank = loadScenarioBank()
     if (scenarioBank.length === 0) {
       throw new Error(
-        'Scenario mode enabled but no scenarios found. Run: node scripts/generate-scenarios.js'
+        'Scenario mode enabled but no scenarios found. Run: yarn workspace @heygrady/hexagonoids-demo demo scenarios'
       )
     }
     environmentOptions.scenarioBank = scenarioBank
@@ -372,7 +406,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
         return
       }
 
-      const entry: HeroLogEntry = {
+      const entry: GenerationLogEntry = {
         generation: iteration,
         method,
         bestFitness: best.fitness ?? 0,
@@ -387,10 +421,19 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
         timestamp: new Date().toISOString(),
       }
 
-      const write = appendHeroesLog(entry, config.outputDir)
+      const logWrite = appendGenerationLog(entry, config.outputDir)
         .then(() => ({ ok: true }) as const)
         .catch((error) => ({ ok: false, error }) as const)
-      pendingHeroWrites.push(write)
+      pendingGenerationWrites.push(logWrite)
+
+      const genomeWrite = saveGenerationGenome(
+        best,
+        iteration,
+        config.outputDir
+      )
+        .then(() => ({ ok: true }) as const)
+        .catch((error) => ({ ok: false, error }) as const)
+      pendingGenerationWrites.push(genomeWrite)
     },
   }
 
@@ -402,14 +445,14 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     }
     bestOrganism = best
 
-    const heroWriteResults = await Promise.all(pendingHeroWrites)
+    const heroWriteResults = await Promise.all(pendingGenerationWrites)
     const firstFailedWrite = heroWriteResults.find((result) => !result.ok)
     if (firstFailedWrite != null && !firstFailedWrite.ok) {
       const reason =
         firstFailedWrite.error instanceof Error
           ? firstFailedWrite.error.message
           : String(firstFailedWrite.error)
-      throw new Error(`Failed to append heroes log: ${reason}`)
+      throw new Error(`Failed to write generation data: ${reason}`)
     }
 
     if (
@@ -445,7 +488,8 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
       populationFitnessMedian,
       bestOrganism,
       bestFilePath,
-      heroesLogPath: resolveHeroesLogPath(config.outputDir),
+      generationsLogPath: resolveGenerationsLogPath(config.outputDir),
+      genomesDir: join(config.outputDir ?? DEFAULT_OUTPUT_DIR, 'genomes'),
     }
   } finally {
     for (const terminable of terminables) {

@@ -14,8 +14,9 @@ export const createNodeEvolutionManager = (
 }
 
 export * from '../cli.js'
+export * from '../features/lab/index.js'
 export * from '../main.js'
-export * from '../persistence/appendHeroesLog.js'
+export * from '../persistence/appendGenerationLog.js'
 export * from '../persistence/loadGenome.js'
 export * from '../persistence/saveGenome.js'
 export * from '../train.js'

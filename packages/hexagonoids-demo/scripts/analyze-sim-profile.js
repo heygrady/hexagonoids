@@ -57,7 +57,6 @@ function run() {
     totalMs: 0,
     agentMs: 0,
     stepMs: 0,
-    rewardMs: 0,
     memoryMs: 0,
   }
 
@@ -67,7 +66,6 @@ function run() {
     aggregate.totalMs += worker.totalMs
     aggregate.agentMs += worker.stagesMs.agent
     aggregate.stepMs += worker.stagesMs.step
-    aggregate.rewardMs += worker.stagesMs.reward
     aggregate.memoryMs += worker.stagesMs.memory
   }
 
@@ -82,9 +80,6 @@ function run() {
       'Total ms': Number(worker.totalMs.toFixed(2)),
       'Agent %': Number(pct(worker.stagesMs.agent, worker.totalMs).toFixed(2)),
       'Step %': Number(pct(worker.stagesMs.step, worker.totalMs).toFixed(2)),
-      'Reward %': Number(
-        pct(worker.stagesMs.reward, worker.totalMs).toFixed(2)
-      ),
       'Memory %': Number(
         pct(worker.stagesMs.memory, worker.totalMs).toFixed(2)
       ),
@@ -103,7 +98,6 @@ function run() {
       'Total ms': Number(aggregate.totalMs.toFixed(2)),
       'Agent %': Number(pct(aggregate.agentMs, aggregate.totalMs).toFixed(2)),
       'Step %': Number(pct(aggregate.stepMs, aggregate.totalMs).toFixed(2)),
-      'Reward %': Number(pct(aggregate.rewardMs, aggregate.totalMs).toFixed(2)),
       'Memory %': Number(pct(aggregate.memoryMs, aggregate.totalMs).toFixed(2)),
       'ms/tick': Number(
         (aggregate.ticks > 0 ? aggregate.totalMs / aggregate.ticks : 0).toFixed(

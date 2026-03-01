@@ -261,7 +261,6 @@ function run() {
         totalMs: 0,
         agentMs: 0,
         stepMs: 0,
-        rewardMs: 0,
         memoryMs: 0,
       }
       for (const worker of workerRows) {
@@ -270,7 +269,6 @@ function run() {
         aggregate.totalMs += worker.totalMs
         aggregate.agentMs += worker.stagesMs.agent
         aggregate.stepMs += worker.stagesMs.step
-        aggregate.rewardMs += worker.stagesMs.reward
         aggregate.memoryMs += worker.stagesMs.memory
       }
       const percent = (part, whole) => (whole > 0 ? (part / whole) * 100 : 0)
@@ -286,9 +284,6 @@ function run() {
           ),
           'Step %': Number(
             percent(worker.stagesMs.step, worker.totalMs).toFixed(2)
-          ),
-          'Reward %': Number(
-            percent(worker.stagesMs.reward, worker.totalMs).toFixed(2)
           ),
           'Memory %': Number(
             percent(worker.stagesMs.memory, worker.totalMs).toFixed(2)
@@ -309,9 +304,6 @@ function run() {
           ),
           'Step %': Number(
             percent(aggregate.stepMs, aggregate.totalMs).toFixed(2)
-          ),
-          'Reward %': Number(
-            percent(aggregate.rewardMs, aggregate.totalMs).toFixed(2)
           ),
           'Memory %': Number(
             percent(aggregate.memoryMs, aggregate.totalMs).toFixed(2)

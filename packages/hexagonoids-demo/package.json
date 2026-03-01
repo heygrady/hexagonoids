@@ -26,7 +26,8 @@
       "types": "./dist/types/node/index.d.ts",
       "import": "./dist/esm/node/index.js",
       "require": "./dist/cjs/node/index.js"
-    }
+    },
+    "./data/scenarios.json": "./src/data/scenarios.json"
   },
   "files": [
     "dist/**/*",
