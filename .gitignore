@@ -155,3 +155,4 @@ CLAUDE.md
 GEMINI.md
 
 *.cpuprofile
+.artifacts/
