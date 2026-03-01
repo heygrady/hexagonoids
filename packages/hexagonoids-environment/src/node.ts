@@ -3,7 +3,5 @@
 
 export { createEnvironment } from './createEnvironment.js'
 export { createSimulationProfiler } from './evaluation/nodePerfProfiler.js'
-export type { SimulationProfiler } from './evaluation/perfProfiler.js'
-export { HexagonoidsEnvironment } from './HexagonoidsEnvironment.js'
 export type { GenerateScenariosOptions } from './scenarios/generateScenarios.js'
 export { generateScenarios } from './scenarios/generateScenarios.js'

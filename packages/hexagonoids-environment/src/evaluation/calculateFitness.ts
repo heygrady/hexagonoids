@@ -3,18 +3,13 @@ import { PLAYER_STARTING_LIVES } from '@heygrady/hexagonoids-engine'
 import type {
   FitnessWeights,
   GateConfig,
-  SimulationConfig,
 } from '../HexagonoidsEnvironmentConfig.js'
 import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '../HexagonoidsEnvironmentConfig.js'
 import type { RawMetrics } from './RawMetrics.js'
+import { fullGameMaximums } from './scenarioContext.js'
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
-}
-
-function saturating(value: number, scale: number): number {
-  if (value <= 0 || scale <= 0) return 0
-  return 1 - Math.exp(-value / scale)
 }
 
 /**
@@ -97,6 +92,25 @@ export function actionDiversityGate(
 }
 
 /**
+ * Turn gate: ensures agents actually steer, not just feather thrust.
+ * Uses combined (left + right) turn fraction through the same saturation
+ * curve as the action gate. Agents that never turn get gated hard.
+ */
+export function turnGate(metrics: RawMetrics, gateConfig: GateConfig): number {
+  const { turnLow, turnHigh, turnSteepness, turnFloor } = gateConfig
+  const alive = metrics.aliveFrames
+  const turnFrames = metrics.leftFrames + metrics.rightFrames
+  const score = actionSaturationScore(
+    turnFrames,
+    alive,
+    turnLow,
+    turnHigh,
+    turnSteepness
+  )
+  return Math.max(score, turnFloor)
+}
+
+/**
  * Engagement gate: did the agent spend time near rocks?
  * Measures what fraction of alive frames had rocks within the sphere of
  * influence (SOI). Produces a smooth gradient — agents that actively seek
@@ -116,65 +130,56 @@ export function engagementGate(
 }
 
 /**
- * Survival gate: penalizes deaths using exponential decay.
- * 0 deaths → 1.0, more deaths → decays toward floor.
- * Formula: max(exp(-deaths / deathScale), floor)
- */
-export function survivalGate(
-  metrics: RawMetrics,
-  gateConfig: GateConfig,
-  _simConfig: Pick<SimulationConfig, 'maxTicks' | 'dtMs'>
-): number {
-  const raw = Math.exp(-metrics.deaths / Math.max(gateConfig.deathScale, 1e-9))
-  return Math.max(raw, gateConfig.floor)
-}
-
-/**
  * Fitness context for passing scenario-derived data to the fitness function.
  */
 export interface FitnessContext {
   /** Total possible deaths across all scenarios (sum of starting lives). */
   possibleDeaths?: number
+  /** Maximum destroyable rocks for the scenario/game rock composition. */
+  maxRocksDestroyed: number
 }
 
 /**
- * Compute multiplicative fitness for a single agent.
+ * Compute weighted-sum fitness for a single agent.
  *
- * Formula (geometric mean × action gate):
- *   scoreNorm     = saturating(score, 5000)
- *   rocksNorm     = saturating(rocksDestroyed, 15)
- *   accuracyTerm  = accuracy + 0.01
- *   survivalTerm  = 1 - deaths / possibleDeaths
- *   perfScore     = (scoreNorm × rocksNorm × accuracyTerm × survivalTerm) ^ 0.25
- *   fitness       = perfScore × actionDiversityGate
+ * Formula (weighted sum × action gate):
+ *   rocksNorm     = clamp(rocksDestroyed / maxRocksDestroyed, 0, 1)
+ *   accuracyTerm  = accuracy                          // [0, 1]
+ *   survivalTerm  = clamp(1 - deaths / possibleDeaths, 0, 1)
+ *   perfScore     = w1 × rocksNorm + w2 × accuracyTerm + w3 × survivalTerm
+ *   fitness       = clamp(perfScore × actionDiversityGate × turnGate, 0, 1)
  *
- * Zero in any dimension collapses fitness toward zero, giving NEAT a
- * strong gradient to develop all capabilities simultaneously.
+ * The weighted sum provides gradient everywhere — an agent with zero kills
+ * but nonzero accuracy still receives a fitness signal.
  */
 export function weightedFitnessSum(
   metrics: RawMetrics,
-  _weights: FitnessWeights,
-  _config: Pick<SimulationConfig, 'maxTicks' | 'dtMs'>,
+  weights: FitnessWeights,
   gateConfig: GateConfig,
-  context?: FitnessContext
+  context: FitnessContext
 ): number {
-  const possibleDeaths = context?.possibleDeaths ?? PLAYER_STARTING_LIVES
+  const possibleDeaths = context.possibleDeaths ?? PLAYER_STARTING_LIVES
 
   // Performance components (all in [0, 1])
-  const scoreNorm = saturating(metrics.score, 5000)
-  const rocksNorm = saturating(metrics.rocksDestroyed, 15)
-  const accuracyTerm = metrics.accuracy + 0.01
+  const rocksNorm =
+    context.maxRocksDestroyed > 0
+      ? clamp(metrics.rocksDestroyed / context.maxRocksDestroyed, 0, 1)
+      : 1
+  const accuracyTerm = metrics.accuracy
   const survivalTerm =
     possibleDeaths > 0 ? clamp(1 - metrics.deaths / possibleDeaths, 0, 1) : 1
 
-  // Geometric mean of 4 performance components
+  // Weighted sum of performance components
   const perfScore =
-    (scoreNorm * rocksNorm * accuracyTerm * survivalTerm) ** 0.25
+    weights.rocksDestroyed * rocksNorm +
+    weights.accuracy * accuracyTerm +
+    weights.survival * survivalTerm
 
-  // Action diversity gate
+  // Gates
   const actionGate = actionDiversityGate(metrics, gateConfig)
+  const turn = turnGate(metrics, gateConfig)
 
-  return clamp(perfScore * actionGate, 0, 1)
+  return clamp(perfScore * actionGate * turn, 0, 1)
 }
 
 /**
@@ -183,10 +188,9 @@ export function weightedFitnessSum(
  */
 export function calculateFitness(
   allMetrics: RawMetrics[],
+  context: FitnessContext,
   weights?: Partial<FitnessWeights>,
-  gateConfig?: Partial<GateConfig>,
-  simConfig?: Partial<SimulationConfig>,
-  context?: FitnessContext
+  gateConfig?: Partial<GateConfig>
 ): number[] {
   const n = allMetrics.length
   if (n === 0) return []
@@ -199,14 +203,10 @@ export function calculateFitness(
     ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
     ...gateConfig,
   }
-  const sc: SimulationConfig = {
-    ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation,
-    ...simConfig,
-  }
 
   // Compute raw fitness per organism
   const rawFitness = allMetrics.map((m) =>
-    weightedFitnessSum(m, w, sc, gc, context)
+    weightedFitnessSum(m, w, gc, context)
   )
 
   // Compute mean
@@ -225,4 +225,17 @@ export function calculateFitness(
 
   // Z-score
   return rawFitness.map((f) => zScore(f, mean, stdDev))
+}
+
+/**
+ * Convenience: evaluate a single agent's fitness using full-game defaults.
+ * Uses default weights, gate config, and full-game context (wave 0, 4 large rocks).
+ */
+export function evaluateFullGameFitness(metrics: RawMetrics): number {
+  return weightedFitnessSum(
+    metrics,
+    DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
+    DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
+    fullGameMaximums()
+  )
 }

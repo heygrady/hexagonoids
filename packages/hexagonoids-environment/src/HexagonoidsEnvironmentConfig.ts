@@ -15,14 +15,16 @@ export interface ProfilingConfig {
 }
 
 export interface FitnessWeights {
-  scoreEfficiency: number
-  livesRemaining: number
+  /** Weight for rock destruction progress (w1). */
   rocksDestroyed: number
-  cellsVisited: number
+  /** Weight for shooting accuracy (w2). */
+  accuracy: number
+  /** Weight for survival / death avoidance (w3). */
+  survival: number
 }
 
 export interface GateConfig {
-  /** Minimum gate output (prevents zero-fitness collapse). */
+  /** Minimum action gate output (prevents zero-fitness collapse). */
   floor: number
   /** Action saturation low threshold (fraction of aliveFrames). */
   actionLow: number
@@ -30,10 +32,14 @@ export interface GateConfig {
   actionHigh: number
   /** Steepness of the saturation penalty curve. */
   actionSteepness: number
-  /** Target number of unique cells for full coverage score. */
-  cellsCoverageTarget: number
-  /** Scale for death penalty: exp(-deaths / deathScale). Higher = more lenient. */
-  deathScale: number
+  /** Minimum turn gate output. */
+  turnFloor: number
+  /** Turn saturation low threshold (fraction of aliveFrames). */
+  turnLow: number
+  /** Turn saturation high threshold (fraction of aliveFrames). */
+  turnHigh: number
+  /** Steepness of the turn saturation penalty curve. */
+  turnSteepness: number
 }
 
 export interface HexagonoidsEnvironmentConfig {
@@ -42,6 +48,9 @@ export interface HexagonoidsEnvironmentConfig {
   gateConfig: GateConfig
   profiling: ProfilingConfig
   scenarioBank?: ScenarioSnapshot[] | undefined
+  scenarioWeight: number
+  scenarioSeedsPerOrganism: number
+  fullGameSeedsPerOrganism: number
 }
 
 export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfig =
@@ -54,24 +63,28 @@ export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfi
       scenarioMaxTicks: 120,
     },
     fitnessWeights: {
-      scoreEfficiency: 0.35,
-      livesRemaining: 0.2,
-      rocksDestroyed: 0.3,
-      cellsVisited: 0.15,
+      rocksDestroyed: 0.4,
+      accuracy: 0.4,
+      survival: 0.2,
     },
     gateConfig: {
       floor: 0.5,
-      actionLow: 0.05,
-      actionHigh: 0.65,
+      actionLow: 0.1,
+      actionHigh: 0.5,
       actionSteepness: 8,
-      cellsCoverageTarget: 40,
-      deathScale: 5,
+      turnFloor: 0.1,
+      turnLow: 0.1,
+      turnHigh: 0.65,
+      turnSteepness: 7,
     },
     profiling: {
       enabled: false,
       sampleEveryNGames: 1,
       outputPath: undefined,
     },
+    scenarioWeight: 1.0,
+    scenarioSeedsPerOrganism: 1,
+    fullGameSeedsPerOrganism: 1,
   }
 
 export function mergeConfig(
@@ -89,6 +102,11 @@ export function mergeConfig(
       profiling: {
         ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.profiling,
       },
+      scenarioWeight: DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.scenarioWeight,
+      scenarioSeedsPerOrganism:
+        DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.scenarioSeedsPerOrganism,
+      fullGameSeedsPerOrganism:
+        DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fullGameSeedsPerOrganism,
     }
   }
 
@@ -112,5 +130,14 @@ export function mergeConfig(
     ...(partial.scenarioBank != null && {
       scenarioBank: partial.scenarioBank,
     }),
+    scenarioWeight:
+      partial.scenarioWeight ??
+      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.scenarioWeight,
+    scenarioSeedsPerOrganism:
+      partial.scenarioSeedsPerOrganism ??
+      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.scenarioSeedsPerOrganism,
+    fullGameSeedsPerOrganism:
+      partial.fullGameSeedsPerOrganism ??
+      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fullGameSeedsPerOrganism,
   }
 }

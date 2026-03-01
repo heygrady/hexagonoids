@@ -3,9 +3,6 @@ export { doNothingAgent } from './agents/doNothingAgent.js'
 export { neatAgent } from './agents/neatAgent.js'
 export { randomAgent } from './agents/randomAgent.js'
 export type { AgentContext, AgentFn } from './agents/types.js'
-
-// Environment (Node-only exports like HexagonoidsEnvironment and createEnvironment
-// are in ./node.ts to avoid pulling node:fs into browser bundles)
 export {
   collectObservations,
   LIDAR_RAY_COUNT,
@@ -20,8 +17,9 @@ export {
   actionDiversityGate,
   calculateFitness,
   engagementGate,
+  evaluateFullGameFitness,
   type FitnessContext,
-  survivalGate,
+  turnGate,
   weightedFitnessSum,
   zScore,
 } from './evaluation/calculateFitness.js'
@@ -29,9 +27,20 @@ export {
   BUCKET_SYSTEM,
   findBucketXYZ,
 } from './evaluation/icosahedralBuckets.js'
+export type {
+  SimulationProfiler,
+  SimulationStage,
+} from './evaluation/perfProfiler.js'
 export type { MetricsCollector, RawMetrics } from './evaluation/RawMetrics.js'
 export { createMetricsCollector } from './evaluation/RawMetrics.js'
+export {
+  fullGameMaximums,
+  scenarioMaximums,
+  scenarioPossibleDeaths,
+} from './evaluation/scenarioContext.js'
 export { simulateGame } from './evaluation/simulateGame.js'
+// Environment
+export { HexagonoidsEnvironment } from './HexagonoidsEnvironment.js'
 export type {
   FitnessWeights,
   GateConfig,
