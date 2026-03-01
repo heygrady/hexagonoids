@@ -116,7 +116,7 @@ describe('encodeGameState', () => {
         rock.lng,
         RADIUS
       )
-      prevDistances.set(`rock:${rock.id}`, dist + 0.08)
+      prevDistances.set(rock.id, dist + 0.08)
     }
 
     const result = encodeGameState(state, PLAYER_ID, prevDistances, 33)

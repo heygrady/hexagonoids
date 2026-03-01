@@ -2,12 +2,27 @@ import { describe, expect, it } from 'vitest'
 import { decodeOutputs } from '../../src/encoding/decodeOutputs.js'
 
 describe('decodeOutputs', () => {
-  it('all above threshold → all true', () => {
+  it('all above threshold → left wins tie when left=right', () => {
     expect(decodeOutputs([1, 1, 1, 1])).toEqual({
       thrust: true,
       fire: true,
       left: true,
+      right: false,
+    })
+  })
+
+  it('both turns above threshold → stronger signal wins', () => {
+    expect(decodeOutputs([1, 1, 0.7, 0.9])).toEqual({
+      thrust: true,
+      fire: true,
+      left: false,
       right: true,
+    })
+    expect(decodeOutputs([1, 1, 0.9, 0.7])).toEqual({
+      thrust: true,
+      fire: true,
+      left: true,
+      right: false,
     })
   })
 
@@ -29,7 +44,7 @@ describe('decodeOutputs', () => {
     })
   })
 
-  it('values between 0.5 and 0.75 → false', () => {
+  it('values between 0.5 and 0.75 → false (below 0.75 threshold)', () => {
     expect(decodeOutputs([0.6, 0.7, 0.74, 0.5])).toEqual({
       thrust: false,
       fire: false,
@@ -47,8 +62,8 @@ describe('decodeOutputs', () => {
     })
   })
 
-  it('exactly 0.75 → false (strictly greater than threshold)', () => {
-    expect(decodeOutputs([0.75, 0.75, 0.75, 0.75])).toEqual({
+  it('exactly 0.5 → false (strictly greater than threshold)', () => {
+    expect(decodeOutputs([0.5, 0.5, 0.5, 0.5])).toEqual({
       thrust: false,
       fire: false,
       left: false,
