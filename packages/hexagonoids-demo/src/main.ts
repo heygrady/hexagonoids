@@ -25,7 +25,7 @@ const usage = () => {
     '  hexagonoids-demo baseline [options]',
     '  hexagonoids-demo train [options]',
     '  hexagonoids-demo replay [replay-options]',
-    '  hexagonoids-demo lab [lab-options]',
+    '  hexagonoids-demo lab [--method <name> | <method>] [lab-options]',
     '  hexagonoids-demo scenarios [scenario-options]',
     '',
     'Commands:',
@@ -60,9 +60,6 @@ const usage = () => {
     '  --outputDir <path>',
     '  --logInterval <int>',
     '  --threadCount <int>',
-    '  --perfProfile',
-    '  --perfProfileSampleEveryNGames <int>',
-    '  --perfProfileOutput <path>',
     '',
     'Replay options:',
     '  replay --path <best-genome.json> [--method <name>] [--seed <seed>]',
@@ -83,6 +80,7 @@ const usage = () => {
     '  --turnSteepness <float>                  Turn saturation steepness (default: 7)',
     '',
     'Lab options (also accepts common + training options):',
+    `  <method>                                 ${SUPPORTED_ALGORITHMS.join(' | ')}`,
     '  --profile <path>                         Profile file (.json or .mjs)',
     '  --name <string>                          Experiment name',
     '  --analysisSeedsPerGenome <int>            Seeds per genome during analysis (default: 8)',
@@ -234,26 +232,6 @@ const parseTrainLikeOptions = (
 
     if (token === '--threadCount') {
       options.threadCount = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--perfProfile') {
-      options.perfProfile = true
-      continue
-    }
-
-    if (token === '--perfProfileSampleEveryNGames') {
-      options.perfProfileSampleEveryNGames = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--perfProfileOutput') {
-      if (next == null || next.startsWith('-')) {
-        throw new Error(`Missing value for --perfProfileOutput.\n\n${usage()}`)
-      }
-      options.perfProfileOutputPath = next
       index += 1
       continue
     }
@@ -622,6 +600,11 @@ const parseLabOptions = (args: string[]): LabOptions => {
     if (token === '--turnSteepness') {
       options.turnSteepness = readFloat(token, next, 0, 100)
       index += 1
+      continue
+    }
+
+    if (isSupportedAlgorithm(token) && options.method == null) {
+      options.method = token
       continue
     }
 
