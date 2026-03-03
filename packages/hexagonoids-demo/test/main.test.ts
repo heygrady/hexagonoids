@@ -50,4 +50,20 @@ describe('runMainCli', () => {
     expect(code).toBe(1)
     vi.restoreAllMocks()
   })
+
+  it('accepts a positional method for lab before parsing later options', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const code = await runMainCli([
+      'lab',
+      'NEAT',
+      '--analysisSeedsPerGenome',
+      '0',
+    ])
+
+    expect(code).toBe(1)
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Invalid value for --analysisSeedsPerGenome.'
+    )
+    vi.restoreAllMocks()
+  })
 })

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createHexagonoidsIO,
   getAlgorithmDefinition,
   getAlgorithmDefinitions,
   HEXAGONOIDS_IO,
@@ -25,6 +26,12 @@ describe('algorithmRegistry', () => {
       const population = definition.createPopulation(6, HEXAGONOIDS_IO)
       expect(population).toBeTruthy()
     }
+  })
+
+  it('can derive alternate I/O sizes from encoding presets', () => {
+    expect(HEXAGONOIDS_IO.inputs).toBe(69)
+    expect(createHexagonoidsIO('six').inputs).toBe(101)
+    expect(createHexagonoidsIO('cone8').inputs).toBe(37)
   })
 
   it('all definitions expose stable method metadata', () => {

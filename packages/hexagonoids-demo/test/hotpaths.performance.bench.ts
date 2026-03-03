@@ -5,12 +5,12 @@ import {
   spawnBullet,
   spawnRock,
   startPlayer,
-  step,
 } from '@heygrady/hexagonoids-engine'
 import {
   collectObservations,
   doNothingAgent,
   encodeGameState,
+  getInputCountForEncoding,
   simulateGame,
 } from '@heygrady/hexagonoids-environment'
 import { bench, describe } from 'vitest'
@@ -18,7 +18,8 @@ import { bench, describe } from 'vitest'
 const PLAYER_ID = 'player-1'
 
 function createDenseScenario() {
-  const { state, rng } = createGame({ seed: 'hotpath-bench-v1' })
+  const engine = createGame({ seed: 'hotpath-bench-v1' })
+  const { state, rng } = engine
   startPlayer(state, PLAYER_ID, rng)
   const player = state.players.get(PLAYER_ID)
   if (player?.shipId == null) {
@@ -41,21 +42,69 @@ function createDenseScenario() {
     spawnBullet(state, ship, rng)
   }
 
+  const prevProjections = new Map<string, [number, number]>()
   const prevDistances = new Map<string, number>()
   for (const rock of state.rocks.values()) {
+    prevProjections.set(rock.id, [0, 0])
     prevDistances.set(
-      `rock:${rock.id}`,
+      rock.id,
       greatCircleDistance(ship.lat, ship.lng, rock.lat, rock.lng, 5)
     )
   }
-  for (const bullet of state.bullets.values()) {
+
+  return { engine, state, prevProjections, prevDistances, rng }
+}
+
+function createInVisionRingScenario() {
+  const engine = createGame({ seed: 'hotpath-bench-vision-v1' })
+  const { state, rng } = engine
+  startPlayer(state, PLAYER_ID, rng)
+  const player = state.players.get(PLAYER_ID)
+  if (player?.shipId == null) {
+    throw new Error('Expected player ship to exist')
+  }
+  const ship = state.ships.get(player.shipId)
+  if (ship == null) {
+    throw new Error('Expected ship to exist')
+  }
+
+  ship.lat = 0
+  ship.lng = 0
+  ship.yaw = 0
+
+  for (let ring = 0; ring < 3; ring++) {
+    const latOffset = (ring - 1) * 3
+    for (let i = 0; i < 16; i++) {
+      const lngOffset = -20 + i * 2.5
+      spawnRock(state, latOffset, lngOffset, (i % 3) as 0 | 1 | 2, rng)
+    }
+  }
+
+  const prevProjections = new Map<string, [number, number]>()
+  const prevDistances = new Map<string, number>()
+  for (const rock of state.rocks.values()) {
+    prevProjections.set(rock.id, [0, 0])
     prevDistances.set(
-      `bullet:${bullet.id}`,
-      greatCircleDistance(ship.lat, ship.lng, bullet.lat, bullet.lng, 5)
+      rock.id,
+      greatCircleDistance(ship.lat, ship.lng, rock.lat, rock.lng, 5)
     )
   }
 
-  return { state, prevDistances, rng }
+  return { engine, state, prevProjections, prevDistances }
+}
+
+function createBulletCollisionScenario() {
+  const scenario = createDenseScenario()
+  for (const ship of scenario.state.ships.values()) {
+    ship.alive = false
+  }
+  return scenario
+}
+
+function createShipCollisionScenario() {
+  const scenario = createDenseScenario()
+  scenario.state.bullets.clear()
+  return scenario
 }
 
 describe('hotpath performance', () => {
@@ -65,9 +114,44 @@ describe('hotpath performance', () => {
   bench(
     'detectCollisions dense scene',
     () => {
-      const { state } = createDenseScenario()
+      const { engine, state } = createDenseScenario()
       for (let i = 0; i < 240; i++) {
-        detectCollisions(state)
+        engine.invalidateSpatialIndex()
+        detectCollisions(state, undefined, engine)
+      }
+    },
+    {
+      iterations: BENCH_ITERATIONS,
+      warmupIterations: BENCH_WARMUP,
+      time: 0,
+      warmupTime: 0,
+    }
+  )
+
+  bench(
+    'detectCollisions bullet-only dense scene',
+    () => {
+      const { engine, state } = createBulletCollisionScenario()
+      for (let i = 0; i < 240; i++) {
+        engine.invalidateSpatialIndex()
+        detectCollisions(state, undefined, engine)
+      }
+    },
+    {
+      iterations: BENCH_ITERATIONS,
+      warmupIterations: BENCH_WARMUP,
+      time: 0,
+      warmupTime: 0,
+    }
+  )
+
+  bench(
+    'detectCollisions ship-only dense scene',
+    () => {
+      const { engine, state } = createShipCollisionScenario()
+      for (let i = 0; i < 240; i++) {
+        engine.invalidateSpatialIndex()
+        detectCollisions(state, undefined, engine)
       }
     },
     {
@@ -81,9 +165,47 @@ describe('hotpath performance', () => {
   bench(
     'collectObservations dense scene',
     () => {
-      const { state, prevDistances } = createDenseScenario()
+      const { engine, state, prevProjections, prevDistances } =
+        createDenseScenario()
       for (let i = 0; i < 240; i++) {
-        collectObservations(state, PLAYER_ID, prevDistances, 33)
+        collectObservations(
+          state,
+          PLAYER_ID,
+          prevProjections,
+          prevDistances,
+          33,
+          undefined,
+          undefined,
+          'four',
+          engine
+        )
+      }
+    },
+    {
+      iterations: BENCH_ITERATIONS,
+      warmupIterations: BENCH_WARMUP,
+      time: 0,
+      warmupTime: 0,
+    }
+  )
+
+  bench(
+    'collectObservations in-vision ring scene (bearingOffset hot path)',
+    () => {
+      const { engine, state, prevProjections, prevDistances } =
+        createInVisionRingScenario()
+      for (let i = 0; i < 240; i++) {
+        collectObservations(
+          state,
+          PLAYER_ID,
+          prevProjections,
+          prevDistances,
+          33,
+          undefined,
+          undefined,
+          'four',
+          engine
+        )
       }
     },
     {
@@ -97,10 +219,78 @@ describe('hotpath performance', () => {
   bench(
     'encodeGameState dense scene',
     () => {
-      const { state, prevDistances } = createDenseScenario()
-      const inputBuffer = new Array<number>(133)
+      const { engine, state, prevProjections, prevDistances } =
+        createDenseScenario()
+      const inputBuffer = new Array<number>(getInputCountForEncoding('four'))
       for (let i = 0; i < 240; i++) {
-        encodeGameState(state, PLAYER_ID, prevDistances, 33, inputBuffer)
+        encodeGameState(
+          state,
+          PLAYER_ID,
+          prevProjections,
+          prevDistances,
+          33,
+          inputBuffer,
+          undefined,
+          undefined,
+          undefined,
+          engine
+        )
+      }
+    },
+    {
+      iterations: BENCH_ITERATIONS,
+      warmupIterations: BENCH_WARMUP,
+      time: 0,
+      warmupTime: 0,
+    }
+  )
+
+  bench(
+    'encodeGameState in-vision ring scene (four)',
+    () => {
+      const { engine, state, prevProjections, prevDistances } =
+        createInVisionRingScenario()
+      const inputBuffer = new Array<number>(getInputCountForEncoding('four'))
+      for (let i = 0; i < 240; i++) {
+        encodeGameState(
+          state,
+          PLAYER_ID,
+          prevProjections,
+          prevDistances,
+          33,
+          inputBuffer,
+          undefined,
+          undefined,
+          'four',
+          engine
+        )
+      }
+    },
+    {
+      iterations: BENCH_ITERATIONS,
+      warmupIterations: BENCH_WARMUP,
+      time: 0,
+      warmupTime: 0,
+    }
+  )
+
+  bench(
+    'collectObservations in-vision ring scene (six tangent-plane drift)',
+    () => {
+      const { engine, state, prevProjections, prevDistances } =
+        createInVisionRingScenario()
+      for (let i = 0; i < 240; i++) {
+        collectObservations(
+          state,
+          PLAYER_ID,
+          prevProjections,
+          prevDistances,
+          33,
+          undefined,
+          undefined,
+          'six',
+          engine
+        )
       }
     },
     {
@@ -114,7 +304,7 @@ describe('hotpath performance', () => {
   bench(
     'engine step dense scene',
     () => {
-      const { state, rng } = createDenseScenario()
+      const { engine } = createDenseScenario()
       const inputs = {
         [PLAYER_ID]: {
           left: false,
@@ -124,7 +314,7 @@ describe('hotpath performance', () => {
         },
       }
       for (let i = 0; i < 240; i++) {
-        step(state, inputs, 33, rng)
+        engine.tick(inputs, 33)
       }
     },
     {
