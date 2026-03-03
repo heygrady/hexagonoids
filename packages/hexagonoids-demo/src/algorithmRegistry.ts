@@ -1,7 +1,16 @@
-import { INPUT_COUNT } from '@heygrady/hexagonoids-environment'
-import { defaultNEATConfigOptions } from '@neat-evolution/core'
+import {
+  DEFAULT_ENCODING_PRESET,
+  type EncodingPreset,
+  getInputCountForEncoding,
+} from '@heygrady/hexagonoids-environment'
+import {
+  Activation,
+  defaultNEATConfigOptions,
+  type NEATConfigOptions,
+} from '@neat-evolution/core'
 import {
   CPPNAlgorithm,
+  type CPPNGenomeOptions,
   type CPPNReproducerFactory,
   createConfig as createCPPNConfig,
   createGenome as createCPPNGenome,
@@ -17,6 +26,7 @@ import {
   createPopulation as createDESHyperNEATPopulation,
   createState as createDESHyperNEATState,
   DESHyperNEATAlgorithm,
+  type DESHyperNEATGenomeOptions,
   type DESHyperNEATReproducerFactory,
   defaultDESHyperNEATGenomeOptions,
   defaultTopologyConfigOptions,
@@ -30,6 +40,7 @@ import {
   createState as createESHyperNEATState,
   defaultESHyperNEATGenomeOptions,
   ESHyperNEATAlgorithm,
+  type ESHyperNEATGenomeOptions,
   type ESHyperNEATReproducerFactory,
 } from '@neat-evolution/es-hyperneat'
 import type { Evaluator } from '@neat-evolution/evaluator'
@@ -43,6 +54,7 @@ import {
   createState as createHyperNEATState,
   defaultHyperNEATGenomeOptions,
   HyperNEATAlgorithm,
+  type HyperNEATGenomeOptions,
   type HyperNEATReproducerFactory,
 } from '@neat-evolution/hyperneat'
 import {
@@ -53,6 +65,7 @@ import {
   createState as createNEATState,
   defaultNEATGenomeOptions,
   NEATAlgorithm,
+  type NEATGenomeOptions,
   type NEATReproducerFactory,
 } from '@neat-evolution/neat'
 import type { RNG } from '@neat-evolution/utils'
@@ -111,11 +124,84 @@ export interface SerializedGenome {
 }
 
 export const HEXAGONOIDS_IO: AlgorithmIO = {
-  inputs: INPUT_COUNT,
+  inputs: getInputCountForEncoding(DEFAULT_ENCODING_PRESET),
   outputs: 4,
 }
 
+export const createHexagonoidsIO = (
+  encodingPreset: EncodingPreset = DEFAULT_ENCODING_PRESET
+): AlgorithmIO => {
+  return {
+    inputs: getInputCountForEncoding(encodingPreset),
+    outputs: 4,
+  }
+}
+
 const cloneDefaultOptions = <T>(defaults: T): T => structuredClone(defaults)
+
+export const HEXAGONOIDS_HIDDEN_ACTIVATION = Activation.GELU
+export const HEXAGONOIDS_OUTPUT_ACTIVATION = Activation.Sigmoid
+export const HEXAGONOIDS_HYPERNEAT_HIDDEN_LAYER_SIZES = [4, 4] as const
+
+export const defaultHexagonoidsNEATConfigOptions: NEATConfigOptions = {
+  ...defaultNEATConfigOptions,
+  mutateOnlyOneLink: true, // default: true
+  addNodeProbability: 0.03, // default: 0.03
+  addLinkProbability: 0.2,
+}
+
+export const createHexagonoidsNEATConfigOptions = (): NEATConfigOptions => {
+  return { ...defaultHexagonoidsNEATConfigOptions }
+}
+
+export const createHexagonoidsNEATGenomeOptions = (): NEATGenomeOptions => {
+  return {
+    ...cloneDefaultOptions(defaultNEATGenomeOptions),
+    hiddenActivation: HEXAGONOIDS_HIDDEN_ACTIVATION,
+    outputActivation: HEXAGONOIDS_OUTPUT_ACTIVATION,
+  }
+}
+
+export const createHexagonoidsCPPNGenomeOptions = (): CPPNGenomeOptions => {
+  return {
+    ...cloneDefaultOptions(defaultCPPNGenomeOptions),
+    outputActivations: [HEXAGONOIDS_OUTPUT_ACTIVATION],
+  }
+}
+
+export const createHexagonoidsHyperNEATGenomeOptions =
+  (): HyperNEATGenomeOptions => {
+    return {
+      ...cloneDefaultOptions(defaultHyperNEATGenomeOptions),
+      inputConfig: 'line',
+      outputConfig: 'line',
+      hiddenActivation: HEXAGONOIDS_HIDDEN_ACTIVATION,
+      outputActivation: HEXAGONOIDS_OUTPUT_ACTIVATION,
+      hiddenLayerSizes: [...HEXAGONOIDS_HYPERNEAT_HIDDEN_LAYER_SIZES],
+    }
+  }
+
+export const createHexagonoidsESHyperNEATGenomeOptions =
+  (): ESHyperNEATGenomeOptions => {
+    return {
+      ...cloneDefaultOptions(defaultESHyperNEATGenomeOptions),
+      inputConfig: 'line',
+      outputConfig: 'line',
+      hiddenActivation: HEXAGONOIDS_HIDDEN_ACTIVATION,
+      outputActivation: HEXAGONOIDS_OUTPUT_ACTIVATION,
+    }
+  }
+
+export const createHexagonoidsDESHyperNEATGenomeOptions =
+  (): DESHyperNEATGenomeOptions => {
+    return {
+      ...cloneDefaultOptions(defaultDESHyperNEATGenomeOptions),
+      inputConfig: 'line',
+      outputConfig: 'line',
+      hiddenActivation: HEXAGONOIDS_HIDDEN_ACTIVATION,
+      outputActivation: HEXAGONOIDS_OUTPUT_ACTIVATION,
+    }
+  }
 
 const createEvaluatorStub = (
   io: AlgorithmIO
@@ -185,9 +271,9 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
       return createNEATPopulation(
         createNEATReproducerStub,
         createEvaluatorStub(io),
-        defaultNEATConfigOptions,
+        createHexagonoidsNEATConfigOptions(),
         createPopulationOptions(size),
-        cloneDefaultOptions(defaultNEATGenomeOptions)
+        createHexagonoidsNEATGenomeOptions()
       )
     },
     usesCPPNActivations: false,
@@ -199,9 +285,9 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
       return createCPPNPopulation(
         createCPPNReproducerStub,
         createEvaluatorStub(io),
-        defaultNEATConfigOptions,
+        createHexagonoidsNEATConfigOptions(),
         createPopulationOptions(size),
-        cloneDefaultOptions(defaultCPPNGenomeOptions)
+        createHexagonoidsCPPNGenomeOptions()
       )
     },
     usesCPPNActivations: true,
@@ -213,13 +299,9 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
       return createHyperNEATPopulation(
         createHyperNEATReproducerStub,
         createEvaluatorStub(io),
-        defaultNEATConfigOptions,
+        createHexagonoidsNEATConfigOptions(),
         createPopulationOptions(size),
-        {
-          ...cloneDefaultOptions(defaultHyperNEATGenomeOptions),
-          inputConfig: 'line',
-          outputConfig: 'line',
-        }
+        createHexagonoidsHyperNEATGenomeOptions()
       )
     },
     usesCPPNActivations: true,
@@ -231,13 +313,9 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
       return createESHyperNEATPopulation(
         createESHyperNEATReproducerStub,
         createEvaluatorStub(io),
-        defaultNEATConfigOptions,
+        createHexagonoidsNEATConfigOptions(),
         createPopulationOptions(size),
-        {
-          ...cloneDefaultOptions(defaultESHyperNEATGenomeOptions),
-          inputConfig: 'line',
-          outputConfig: 'line',
-        }
+        createHexagonoidsESHyperNEATGenomeOptions()
       )
     },
     usesCPPNActivations: true,
@@ -250,13 +328,9 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
         createDESHyperNEATReproducerStub,
         createEvaluatorStub(io),
         cloneDefaultOptions(defaultTopologyConfigOptions),
-        defaultNEATConfigOptions,
+        createHexagonoidsNEATConfigOptions(),
         createPopulationOptions(size),
-        {
-          ...cloneDefaultOptions(defaultDESHyperNEATGenomeOptions),
-          inputConfig: 'line',
-          outputConfig: 'line',
-        }
+        createHexagonoidsDESHyperNEATGenomeOptions()
       )
     },
     usesCPPNActivations: true,
@@ -287,7 +361,7 @@ export const createPopulationForTraining = (
   options: TrainingPopulationOptions
 ): AlgorithmPopulation => {
   const populationOptions = createPopulationOptions(options.populationSize)
-  const neatOptions = defaultNEATConfigOptions
+  const neatOptions = createHexagonoidsNEATConfigOptions()
 
   switch (method) {
     case 'NEAT':
@@ -296,7 +370,7 @@ export const createPopulationForTraining = (
         options.evaluator,
         neatOptions,
         populationOptions,
-        cloneDefaultOptions(defaultNEATGenomeOptions)
+        createHexagonoidsNEATGenomeOptions()
       )
     case 'CPPN':
       return createCPPNPopulation(
@@ -304,7 +378,7 @@ export const createPopulationForTraining = (
         options.evaluator,
         neatOptions,
         populationOptions,
-        cloneDefaultOptions(defaultCPPNGenomeOptions)
+        createHexagonoidsCPPNGenomeOptions()
       )
     case 'HyperNEAT':
       return createHyperNEATPopulation(
@@ -312,11 +386,7 @@ export const createPopulationForTraining = (
         options.evaluator,
         neatOptions,
         populationOptions,
-        {
-          ...cloneDefaultOptions(defaultHyperNEATGenomeOptions),
-          inputConfig: 'line',
-          outputConfig: 'line',
-        }
+        createHexagonoidsHyperNEATGenomeOptions()
       )
     case 'ES-HyperNEAT':
       return createESHyperNEATPopulation(
@@ -324,11 +394,7 @@ export const createPopulationForTraining = (
         options.evaluator,
         neatOptions,
         populationOptions,
-        {
-          ...cloneDefaultOptions(defaultESHyperNEATGenomeOptions),
-          inputConfig: 'line',
-          outputConfig: 'line',
-        }
+        createHexagonoidsESHyperNEATGenomeOptions()
       )
     case 'DES-HyperNEAT':
       return createDESHyperNEATPopulation(
@@ -337,11 +403,7 @@ export const createPopulationForTraining = (
         cloneDefaultOptions(defaultTopologyConfigOptions),
         neatOptions,
         populationOptions,
-        {
-          ...cloneDefaultOptions(defaultDESHyperNEATGenomeOptions),
-          inputConfig: 'line',
-          outputConfig: 'line',
-        }
+        createHexagonoidsDESHyperNEATGenomeOptions()
       )
   }
 }
