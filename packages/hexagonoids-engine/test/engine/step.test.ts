@@ -58,13 +58,17 @@ describe('step function', () => {
       // Give ship some velocity
       ship.angularVelocity.x = 0.1
 
-      const latBefore = ship.lat
-      const lngBefore = ship.lng
+      const xBefore = ship.x ?? 0
+      const yBefore = ship.y ?? 1
+      const zBefore = ship.z ?? 0
 
       step(game, NO_INPUT, 16, rng)
 
       // Position should have changed
-      const moved = ship.lat !== latBefore || ship.lng !== lngBefore
+      const moved =
+        (ship.x ?? 0) !== xBefore ||
+        (ship.y ?? 1) !== yBefore ||
+        (ship.z ?? 0) !== zBefore
       expect(moved).toBe(true)
     })
   })

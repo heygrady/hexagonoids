@@ -18,21 +18,25 @@ const makeRock = (overrides: Partial<RockState> = {}): RockState => ({
 describe('moveRock', () => {
   it('does not move a rock at rest', () => {
     const rock = makeRock()
-    const latBefore = rock.lat
-    const lngBefore = rock.lng
+    const xBefore = rock.x
+    const yBefore = rock.y
+    const zBefore = rock.z
     moveRock(rock, 16, RADIUS)
-    expect(rock.lat).toBe(latBefore)
-    expect(rock.lng).toBe(lngBefore)
+    expect(rock.x).toBe(xBefore)
+    expect(rock.y).toBe(yBefore)
+    expect(rock.z).toBe(zBefore)
   })
 
-  it('updates lat/lng when rock has angular velocity', () => {
+  it('updates xyz when rock has angular velocity', () => {
     const rock = makeRock({ angularVelocity: new Vector3(0.5, 0, 0) })
-    const latBefore = rock.lat
-    const lngBefore = rock.lng
+    const xBefore = rock.x ?? 0
+    const yBefore = rock.y ?? 1
+    const zBefore = rock.z ?? 0
     moveRock(rock, 100, RADIUS)
     const moved =
-      Math.abs(rock.lat - latBefore) > 0.001 ||
-      Math.abs(rock.lng - lngBefore) > 0.001
+      Math.abs((rock.x ?? 0) - xBefore) > 0.001 ||
+      Math.abs((rock.y ?? 1) - yBefore) > 0.001 ||
+      Math.abs((rock.z ?? 0) - zBefore) > 0.001
     expect(moved).toBe(true)
   })
 })

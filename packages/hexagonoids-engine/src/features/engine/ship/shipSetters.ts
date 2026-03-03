@@ -1,5 +1,6 @@
 import type { Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 
+import { latLngToUnitPoint } from '../physics/latLng.js'
 import type { ShipState } from '../types.js'
 
 /**
@@ -15,12 +16,14 @@ function wrapAngle(angle: number): number {
 export function setLat(ship: ShipState, lat: number): boolean {
   if (ship.lat === lat) return false
   ship.lat = lat
+  ;[ship.x, ship.y, ship.z] = latLngToUnitPoint(ship.lat, ship.lng)
   return true
 }
 
 export function setLng(ship: ShipState, lng: number): boolean {
   if (ship.lng === lng) return false
   ship.lng = lng
+  ;[ship.x, ship.y, ship.z] = latLngToUnitPoint(ship.lat, ship.lng)
   return true
 }
 
@@ -51,7 +54,9 @@ export function setLocation(
   lat: number,
   lng: number
 ): boolean {
-  const latChanged = setLat(ship, lat)
-  const lngChanged = setLng(ship, lng)
-  return latChanged || lngChanged
+  if (ship.lat === lat && ship.lng === lng) return false
+  ship.lat = lat
+  ship.lng = lng
+  ;[ship.x, ship.y, ship.z] = latLngToUnitPoint(lat, lng)
+  return true
 }

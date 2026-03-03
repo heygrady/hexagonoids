@@ -5,7 +5,7 @@ import { FIRE_COOLDOWN } from '../constants.js'
 import { defaultShipState } from '../defaults.js'
 import { elapsed } from '../gameTime.js'
 import { generateId } from '../generateId.js'
-import { latLngToQuaternion } from '../physics/latLng.js'
+import { latLngToQuaternion, latLngToUnitPoint } from '../physics/latLng.js'
 import type { BulletState, GameState, ShipState } from '../types.js'
 
 /**
@@ -20,6 +20,7 @@ export function spawnShip(
 ): ShipState {
   const id = generateId('ship')
   const orientation = latLngToQuaternion(lat, lng)
+  const [x, y, z] = latLngToUnitPoint(lat, lng)
   const ship: ShipState = {
     ...defaultShipState,
     id,
@@ -27,6 +28,9 @@ export function spawnShip(
     orientation,
     lat,
     lng,
+    x,
+    y,
+    z,
     angularVelocity: Vector3.Zero(),
   }
   game.ships.set(id, ship)

@@ -1,15 +1,15 @@
 import { RADIUS } from '../constants.js'
 import type { ShipState } from '../types.js'
 
-import { quaternionToLatLng, quaternionToLatLngFastInPlace } from './latLng.js'
+import { quaternionToUnitPointFastInPlace } from './latLng.js'
 import {
   integrateAngularVelocity,
   integrateAngularVelocityFastInPlace,
 } from './quaternionPhysics.js'
 
 /**
- * Integrate ship angular velocity into orientation and update lat/lng.
- * Mutates `ship.orientation`, `ship.lat`, `ship.lng`.
+ * Integrate ship angular velocity into orientation and update unit-sphere xyz.
+ * Mutates `ship.orientation`, `ship.x`, `ship.y`, `ship.z`.
  *
  * @param ship - The ship state to mutate
  * @param dtMs - Time delta in milliseconds
@@ -29,15 +29,13 @@ export const moveShip = (
   const dtSeconds = dtMs / 1000
   if (useFastMath) {
     integrateAngularVelocityFastInPlace(ship.orientation, omega, dtSeconds)
-    quaternionToLatLngFastInPlace(ship.orientation, ship, radius)
+    quaternionToUnitPointFastInPlace(ship.orientation, ship, radius)
   } else {
     ship.orientation = integrateAngularVelocity(
       ship.orientation,
       omega,
       dtSeconds
     )
-    const [lat, lng] = quaternionToLatLng(ship.orientation, radius)
-    ship.lat = lat
-    ship.lng = lng
+    quaternionToUnitPointFastInPlace(ship.orientation, ship, radius)
   }
 }

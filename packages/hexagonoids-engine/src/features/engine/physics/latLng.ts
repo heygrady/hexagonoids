@@ -38,6 +38,20 @@ export const latLngToVector3 = (
   return new Vector3(x, y, z)
 }
 
+export const latLngToUnitPoint = (
+  lat: number,
+  lng: number
+): [x: number, y: number, z: number] => {
+  const latRad = lat * DEG_TO_RAD
+  const lngRad = lng * DEG_TO_RAD
+  const cosLat = Math.cos(latRad)
+  return [
+    cosLat * Math.cos(lngRad),
+    Math.sin(latRad),
+    cosLat * Math.sin(lngRad),
+  ]
+}
+
 /**
  * Convert a quaternion orientation to [lat, lng] in degrees.
  * Uses getPositionFromQuaternion then vector3ToLatLng.
@@ -76,7 +90,7 @@ export const quaternionToLatLngFast = (
  */
 export const quaternionToLatLngFastInPlace = (
   orientation: Quaternion,
-  target: { lat: number; lng: number },
+  target: { lat: number; lng: number; x?: number; y?: number; z?: number },
   _radius: number = RADIUS
 ): void => {
   const { x, y, z, w } = orientation
@@ -86,6 +100,45 @@ export const quaternionToLatLngFastInPlace = (
 
   target.lat = Math.asin(Math.max(-1, Math.min(1, py))) * RAD_TO_DEG
   target.lng = Math.atan2(pz, px) * RAD_TO_DEG
+  if ('x' in target) target.x = px
+  if ('y' in target) target.y = py
+  if ('z' in target) target.z = pz
+}
+
+/**
+ * Fast scalar conversion that writes only the unit-sphere position into an
+ * existing target object. Use this in hot simulation loops where lat/lng is
+ * not needed.
+ */
+export const quaternionToUnitPointFastInPlace = (
+  orientation: Quaternion,
+  target: { x?: number; y?: number; z?: number },
+  _radius: number = RADIUS
+): void => {
+  const { x, y, z, w } = orientation
+  target.x = 2 * (x * y - z * w)
+  target.y = 1 - 2 * (x * x + z * z)
+  target.z = 2 * (y * z + x * w)
+}
+
+export const unitPointToLatLng = (
+  x: number,
+  y: number,
+  z: number
+): [lat: number, lng: number] => {
+  const lat = Math.asin(Math.max(-1, Math.min(1, y))) * RAD_TO_DEG
+  const lng = Math.atan2(z, x) * RAD_TO_DEG
+  return [lat, lng]
+}
+
+export const unitPointToLatLngInPlace = (
+  x: number,
+  y: number,
+  z: number,
+  target: { lat: number; lng: number }
+): void => {
+  target.lat = Math.asin(Math.max(-1, Math.min(1, y))) * RAD_TO_DEG
+  target.lng = Math.atan2(z, x) * RAD_TO_DEG
 }
 
 /**

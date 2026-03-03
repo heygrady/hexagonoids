@@ -3,6 +3,8 @@ import type { RNG } from '@neat-evolution/utils'
 import { expireBullets } from './bullet/bulletActions.js'
 import { detectCollisions, handleCollisions } from './collision/index.js'
 import { RADIUS } from './constants.js'
+import type { ManagedSpatialQueries } from './createManagedSpatialQueries.js'
+import { createManagedSpatialQueries } from './createManagedSpatialQueries.js'
 import { advanceGameTime } from './gameTime.js'
 import type { EngineHooks } from './hooks.js'
 import { accelerateShip } from './physics/accelerateShip.js'
@@ -111,9 +113,12 @@ export function step(
   inputs: PlayerInputs,
   dtMs: number,
   rng: RNG,
-  hooks?: EngineHooks
+  hooks?: EngineHooks,
+  spatialQueries?: ManagedSpatialQueries
 ): void {
   const gameOver = state.endedAt != null
+  const queries = spatialQueries ?? createManagedSpatialQueries(() => state)
+  let spatialIndexDirty = true
 
   // 1. Advance game time
   advanceGameTime(state, dtMs)
@@ -131,8 +136,15 @@ export function step(
 
   // 5–6. Detect and handle collisions
   if (!gameOver) {
-    const collisions = detectCollisions(state, RADIUS)
+    if (spatialIndexDirty) {
+      queries.invalidateSpatialIndex()
+      spatialIndexDirty = false
+    }
+    const collisions = detectCollisions(state, RADIUS, queries)
     handleCollisions(state, collisions, rng, hooks)
+    if (collisions.length > 0) {
+      spatialIndexDirty = true
+    }
   }
 
   // 7. Regenerate players
@@ -142,14 +154,19 @@ export function step(
         const pos = hooks?.getRegenerationPosition?.(player.id)
         regeneratePlayer(state, player.id, rng, pos?.lat, pos?.lng)
         hooks?.onPlayerRegenerated?.(player.id)
+        spatialIndexDirty = true
       }
     }
   }
 
   // 8. Spawn waves
   if (!gameOver) {
+    if (spatialIndexDirty) {
+      queries.invalidateSpatialIndex()
+      spatialIndexDirty = false
+    }
     for (const player of state.players.values()) {
-      checkWaveSpawn(state, player.id, rng)
+      checkWaveSpawn(state, player.id, rng, queries)
     }
   }
 }

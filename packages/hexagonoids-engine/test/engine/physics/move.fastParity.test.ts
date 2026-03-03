@@ -78,8 +78,9 @@ describe('movement fast math parity', () => {
       moveShip(slow, 16, RADIUS, false)
     }
 
-    expect(fast.lat).toBeCloseTo(slow.lat, 5)
-    expect(fast.lng).toBeCloseTo(slow.lng, 5)
+    expect(fast.x ?? 0).toBeCloseTo(slow.x ?? 0, 5)
+    expect(fast.y ?? 1).toBeCloseTo(slow.y ?? 1, 5)
+    expect(fast.z ?? 0).toBeCloseTo(slow.z ?? 0, 5)
     expect(
       orientationAlignment(fast.orientation, slow.orientation)
     ).toBeCloseTo(1, 5)
@@ -106,8 +107,9 @@ describe('movement fast math parity', () => {
       moveRock(slow, 16, RADIUS, false)
     }
 
-    expect(fast.lat).toBeCloseTo(slow.lat, 5)
-    expect(fast.lng).toBeCloseTo(slow.lng, 5)
+    expect(fast.x ?? 0).toBeCloseTo(slow.x ?? 0, 5)
+    expect(fast.y ?? 1).toBeCloseTo(slow.y ?? 1, 5)
+    expect(fast.z ?? 0).toBeCloseTo(slow.z ?? 0, 5)
     expect(
       orientationAlignment(fast.orientation, slow.orientation)
     ).toBeCloseTo(1, 5)
@@ -134,8 +136,9 @@ describe('movement fast math parity', () => {
       moveBullet(slow, 16, RADIUS, false)
     }
 
-    expect(fast.lat).toBeCloseTo(slow.lat, 5)
-    expect(fast.lng).toBeCloseTo(slow.lng, 5)
+    expect(fast.x ?? 0).toBeCloseTo(slow.x ?? 0, 5)
+    expect(fast.y ?? 1).toBeCloseTo(slow.y ?? 1, 5)
+    expect(fast.z ?? 0).toBeCloseTo(slow.z ?? 0, 5)
     expect(
       orientationAlignment(fast.orientation, slow.orientation)
     ).toBeCloseTo(1, 5)

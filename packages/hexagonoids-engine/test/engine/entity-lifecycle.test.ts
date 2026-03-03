@@ -36,11 +36,12 @@ import { createTestRng } from '../helpers/createTestRng.js'
 describe('entity lifecycle', () => {
   let game: GameState
   let rng: RNG
+  let engine: ReturnType<typeof createGame>
 
   beforeEach(() => {
     resetIdCounter()
-    const result = createGame({ seed: 'test' })
-    game = result.state
+    engine = createGame({ seed: 'test' })
+    game = engine.state
     rng = createTestRng()
   })
 
@@ -220,7 +221,7 @@ describe('entity lifecycle', () => {
       startPlayer(game, 'p1', rng)
 
       // First wave spawns immediately (no grace period on first call)
-      checkWaveSpawn(game, 'p1', rng)
+      checkWaveSpawn(game, 'p1', rng, engine)
       expect(game.rocks.size).toBeGreaterThan(0)
       expect(game.wave).toBe(1)
 
@@ -228,7 +229,7 @@ describe('entity lifecycle', () => {
 
       // Not enough time for another wave
       advanceGameTime(game, 1000)
-      checkWaveSpawn(game, 'p1', rng)
+      checkWaveSpawn(game, 'p1', rng, engine)
       expect(game.rocks.size).toBe(firstWaveCount)
     })
 
@@ -241,7 +242,7 @@ describe('entity lifecycle', () => {
       player.nextWaveCheckAt = game.now
       spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
 
-      checkWaveSpawn(game, 'p1', rng)
+      checkWaveSpawn(game, 'p1', rng, engine)
 
       expect(game.wave).toBe(0)
       expect(player.nextWaveCheckAt).toBe(
@@ -267,7 +268,17 @@ describe('entity lifecycle', () => {
         )
       }
 
-      const gate = evaluateWaveSpawnGate(game, ship.lat, ship.lng, player.score)
+      const gate = evaluateWaveSpawnGate(
+        game,
+        {
+          x: ship.x ?? 0,
+          y: ship.y ?? 1,
+          z: ship.z ?? 0,
+        },
+        player.score,
+        null,
+        engine
+      )
       expect(gate.canSpawn).toBe(false)
       expect(gate.reason).toBe('world-cap')
     })
@@ -283,12 +294,12 @@ describe('entity lifecycle', () => {
       player.lastRockEncounterAt = 0
 
       // Before timeout, should remain blocked at low score.
-      checkWaveSpawn(game, 'p1', rng)
+      checkWaveSpawn(game, 'p1', rng, engine)
       expect(game.wave).toBe(0)
 
       // After timeout, should spawn despite leftover far rock.
       advanceGameTime(game, 4100)
-      checkWaveSpawn(game, 'p1', rng)
+      checkWaveSpawn(game, 'p1', rng, engine)
       expect(game.wave).toBe(1)
       expect(game.rocks.size).toBeGreaterThan(1)
     })

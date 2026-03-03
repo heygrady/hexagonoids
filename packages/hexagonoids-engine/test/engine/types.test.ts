@@ -5,6 +5,8 @@ import {
   createGame,
   defaultShipState,
   elapsed,
+  latLngToSpatialPoint,
+  spawnWave,
 } from '../../src/index.js'
 
 describe('createGame', () => {
@@ -25,6 +27,23 @@ describe('createGame', () => {
       playerId: 'p1',
     } as ShipState)
     expect(b.ships.size).toBe(0)
+  })
+
+  it('manages a cached spatial index and invalidates it after engine mutations', () => {
+    const engine = createGame({ seed: 'test-seed' })
+
+    const before = engine.getSpatialIndex()
+    expect(engine.getSpatialIndex()).toBe(before)
+
+    engine.mutate((state) => {
+      spawnWave(state, 0, 0, engine.rng)
+    })
+
+    const after = engine.getSpatialIndex()
+    expect(after).not.toBe(before)
+    expect(
+      engine.queryRocksNear(latLngToSpatialPoint(0, 0), Math.PI).length
+    ).toBeGreaterThan(0)
   })
 })
 

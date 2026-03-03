@@ -22,6 +22,9 @@ export const defaultShipState: Omit<
 > = {
   lat: 90,
   lng: 0,
+  x: 0,
+  y: 1,
+  z: 0,
   yaw: 0,
   alive: true,
   firedAt: null,
@@ -38,6 +41,9 @@ export const defaultRockState: Omit<
 > = {
   lat: 90,
   lng: 0,
+  x: 0,
+  y: 1,
+  z: 0,
   size: ROCK_LARGE_SIZE,
   value: ROCK_LARGE_VALUE,
 }
@@ -53,6 +59,9 @@ export const defaultBulletState: Omit<
 > = {
   lat: 90,
   lng: 0,
+  x: 0,
+  y: 1,
+  z: 0,
   firedAt: null,
 }
 

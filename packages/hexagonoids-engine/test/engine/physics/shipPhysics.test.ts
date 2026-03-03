@@ -74,23 +74,27 @@ describe('turnShip', () => {
 describe('moveShip', () => {
   it('does not move a ship at rest', () => {
     const ship = makeShip()
-    const latBefore = ship.lat
-    const lngBefore = ship.lng
+    const xBefore = ship.x
+    const yBefore = ship.y
+    const zBefore = ship.z
     moveShip(ship, 16, RADIUS)
-    // Zero velocity → no movement, lat/lng unchanged
-    expect(ship.lat).toBe(latBefore)
-    expect(ship.lng).toBe(lngBefore)
+    // Zero velocity -> no movement, xyz unchanged
+    expect(ship.x).toBe(xBefore)
+    expect(ship.y).toBe(yBefore)
+    expect(ship.z).toBe(zBefore)
   })
 
-  it('updates lat/lng when ship has velocity', () => {
+  it('updates xyz when ship has velocity', () => {
     const ship = makeShip({ angularVelocity: new Vector3(0.5, 0, 0) })
-    const latBefore = ship.lat
-    const lngBefore = ship.lng
+    const xBefore = ship.x ?? 0
+    const yBefore = ship.y ?? 1
+    const zBefore = ship.z ?? 0
     moveShip(ship, 100, RADIUS)
-    // At least one of lat/lng should change
+    // At least one xyz component should change
     const moved =
-      Math.abs(ship.lat - latBefore) > 0.001 ||
-      Math.abs(ship.lng - lngBefore) > 0.001
+      Math.abs((ship.x ?? 0) - xBefore) > 0.001 ||
+      Math.abs((ship.y ?? 1) - yBefore) > 0.001 ||
+      Math.abs((ship.z ?? 0) - zBefore) > 0.001
     expect(moved).toBe(true)
   })
 
@@ -101,9 +105,11 @@ describe('moveShip', () => {
       accelerateShip(ship, true, 16, MAX_DURATION)
       moveShip(ship, 16, RADIUS)
     }
-    const [lat, lng] = [ship.lat, ship.lng]
-    // Should have moved from origin
-    const distance = Math.sqrt(lat * lat + lng * lng)
+    const dx = (ship.x ?? 1) - 1
+    const dy = ship.y ?? 0
+    const dz = ship.z ?? 0
+    // Should have moved from the initial unit point at (1,0,0)
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
     expect(distance).toBeGreaterThan(0)
   })
 })

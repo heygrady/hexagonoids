@@ -1,16 +1,19 @@
 import type { Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 
+import { latLngToUnitPoint } from '../physics/latLng.js'
 import type { BulletState } from '../types.js'
 
 export function setLat(bullet: BulletState, lat: number): boolean {
   if (bullet.lat === lat) return false
   bullet.lat = lat
+  ;[bullet.x, bullet.y, bullet.z] = latLngToUnitPoint(bullet.lat, bullet.lng)
   return true
 }
 
 export function setLng(bullet: BulletState, lng: number): boolean {
   if (bullet.lng === lng) return false
   bullet.lng = lng
+  ;[bullet.x, bullet.y, bullet.z] = latLngToUnitPoint(bullet.lat, bullet.lng)
   return true
 }
 
@@ -19,9 +22,11 @@ export function setLocation(
   lat: number,
   lng: number
 ): boolean {
-  const latChanged = setLat(bullet, lat)
-  const lngChanged = setLng(bullet, lng)
-  return latChanged || lngChanged
+  if (bullet.lat === lat && bullet.lng === lng) return false
+  bullet.lat = lat
+  bullet.lng = lng
+  ;[bullet.x, bullet.y, bullet.z] = latLngToUnitPoint(lat, lng)
+  return true
 }
 
 export function setAngularVelocity(

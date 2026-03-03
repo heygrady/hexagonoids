@@ -9,15 +9,27 @@ import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import { describe, expect, it } from 'vitest'
 import type { RockState } from '../../../src/index.js'
 import {
-  greatCircleDistance,
   headingToAngularVelocity,
   latLngToQuaternion,
+  latLngToSpatialPoint,
   moveRock,
   RADIUS,
   ROCK_LARGE_SPEED,
   ROCK_MEDIUM_SPEED,
   ROCK_SMALL_SPEED,
 } from '../../../src/index.js'
+
+function arcDistanceFromPoints(
+  ax: number,
+  ay: number,
+  az: number,
+  bx: number,
+  by: number,
+  bz: number
+): number {
+  const dot = Math.max(-1, Math.min(1, ax * bx + ay * by + az * bz))
+  return Math.acos(dot) * RADIUS
+}
 
 function makeRock(overrides: Partial<RockState> = {}): RockState {
   return {
@@ -50,17 +62,17 @@ describe('moveRock — quantitative distance per frame', () => {
       ),
       size: 2,
     })
-    const latBefore = rock.lat
-    const lngBefore = rock.lng
+    const start = latLngToSpatialPoint(0, 0)
 
     moveRock(rock, dtMs, RADIUS)
 
-    const actualArcDistance = greatCircleDistance(
-      latBefore,
-      lngBefore,
-      rock.lat,
-      rock.lng,
-      RADIUS
+    const actualArcDistance = arcDistanceFromPoints(
+      start.x,
+      start.y,
+      start.z,
+      rock.x ?? 0,
+      rock.y ?? 1,
+      rock.z ?? 0
     )
 
     expect(actualArcDistance).toBeCloseTo(expectedArcDistance, 4)
@@ -83,17 +95,17 @@ describe('moveRock — quantitative distance per frame', () => {
       ),
       size: 1,
     })
-    const latBefore = rock.lat
-    const lngBefore = rock.lng
+    const start = latLngToSpatialPoint(0, 0)
 
     moveRock(rock, dtMs, RADIUS)
 
-    const actualArcDistance = greatCircleDistance(
-      latBefore,
-      lngBefore,
-      rock.lat,
-      rock.lng,
-      RADIUS
+    const actualArcDistance = arcDistanceFromPoints(
+      start.x,
+      start.y,
+      start.z,
+      rock.x ?? 0,
+      rock.y ?? 1,
+      rock.z ?? 0
     )
 
     expect(actualArcDistance).toBeCloseTo(expectedArcDistance, 4)
@@ -116,17 +128,17 @@ describe('moveRock — quantitative distance per frame', () => {
       ),
       size: 0,
     })
-    const latBefore = rock.lat
-    const lngBefore = rock.lng
+    const start = latLngToSpatialPoint(0, 0)
 
     moveRock(rock, dtMs, RADIUS)
 
-    const actualArcDistance = greatCircleDistance(
-      latBefore,
-      lngBefore,
-      rock.lat,
-      rock.lng,
-      RADIUS
+    const actualArcDistance = arcDistanceFromPoints(
+      start.x,
+      start.y,
+      start.z,
+      rock.x ?? 0,
+      rock.y ?? 1,
+      rock.z ?? 0
     )
 
     expect(actualArcDistance).toBeCloseTo(expectedArcDistance, 4)
@@ -148,12 +160,14 @@ describe('moveRock — quantitative distance per frame', () => {
       size: 2,
     })
     moveRock(rockLarge, dtMs, RADIUS)
-    const distLarge = greatCircleDistance(
-      0,
-      0,
-      rockLarge.lat,
-      rockLarge.lng,
-      RADIUS
+    const start = latLngToSpatialPoint(0, 0)
+    const distLarge = arcDistanceFromPoints(
+      start.x,
+      start.y,
+      start.z,
+      rockLarge.x ?? 0,
+      rockLarge.y ?? 1,
+      rockLarge.z ?? 0
     )
 
     const orientationSmall = latLngToQuaternion(0, 0)
@@ -169,12 +183,13 @@ describe('moveRock — quantitative distance per frame', () => {
       size: 0,
     })
     moveRock(rockSmall, dtMs, RADIUS)
-    const distSmall = greatCircleDistance(
-      0,
-      0,
-      rockSmall.lat,
-      rockSmall.lng,
-      RADIUS
+    const distSmall = arcDistanceFromPoints(
+      start.x,
+      start.y,
+      start.z,
+      rockSmall.x ?? 0,
+      rockSmall.y ?? 1,
+      rockSmall.z ?? 0
     )
 
     expect(distSmall).toBeGreaterThan(distLarge)

@@ -1,8 +1,9 @@
 import type { RNG } from '@neat-evolution/utils'
-
+import type { SpatialPoint } from '../../spatial-index/index.js'
 import {
   MAX_ROCKS,
   PLAYER_STARTING_LIVES,
+  RADIUS,
   ROCK_ENCOUNTER_DISTANCE,
   ROCK_FAR_CLEAR_DISTANCE,
   ROCK_NO_ENCOUNTER_REPLENISH_DELAY,
@@ -23,48 +24,50 @@ import {
   SCORE_WAVE_WORLD_CAP_STEP,
   SHIP_REGENERATION_WAIT_PERIOD,
 } from '../constants.js'
+import type { ManagedSpatialQueries } from '../createManagedSpatialQueries.js'
 import { defaultPlayerState } from '../defaults.js'
 import { elapsed } from '../gameTime.js'
+import { unitPointToLatLng } from '../physics/latLng.js'
 import { getSpawnBorderExtents, spawnWave } from '../rock/rockActions.js'
 import { destroyShip, spawnShip } from '../ship/shipActions.js'
 import type { GameState } from '../types.js'
 
 import { decrementLives, incrementScore } from './playerSetters.js'
 
-const DEG_TO_RAD = Math.PI / 180
+function pointFromLatLng(lat: number, lng: number): SpatialPoint {
+  const latRad = (lat * Math.PI) / 180
+  const lngRad = (lng * Math.PI) / 180
+  const cosLat = Math.cos(latRad)
+  return {
+    x: cosLat * Math.cos(lngRad),
+    y: Math.sin(latRad),
+    z: cosLat * Math.sin(lngRad),
+  }
+}
 
-/**
- * Angular distance between two lat/lng points in radians (unit sphere).
- * Uses the Haversine formula.
- */
-function angularDistance(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
-  const lat1Rad = lat1 * DEG_TO_RAD
-  const lat2Rad = lat2 * DEG_TO_RAD
-  const dLat = (lat2 - lat1) * DEG_TO_RAD
-  const dLng = (lng2 - lng1) * DEG_TO_RAD
-
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(dLng / 2) ** 2
-  return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+function pointFromPosition(position: {
+  x?: number
+  y?: number
+  z?: number
+  lat: number
+  lng: number
+}): SpatialPoint {
+  if (position.x != null && position.y != null && position.z != null) {
+    return {
+      x: position.x,
+      y: position.y,
+      z: position.z,
+    }
+  }
+  return pointFromLatLng(position.lat, position.lng)
 }
 
 function rocksWithinDistance(
-  game: GameState,
-  lat: number,
-  lng: number,
-  distanceRad: number
+  center: SpatialPoint,
+  distanceRad: number,
+  spatialQueries: Pick<ManagedSpatialQueries, 'countRocksNear'>
 ): number {
-  let count = 0
-  for (const rock of game.rocks.values()) {
-    if (angularDistance(lat, lng, rock.lat, rock.lng) < distanceRad) count++
-  }
-  return count
+  return spatialQueries.countRocksNear(center, distanceRad * RADIUS)
 }
 
 export function nextWaveDelayMs(score: number): number {
@@ -106,18 +109,10 @@ function spawnBorderGateDistanceRad(): number {
 }
 
 function areLeftoverRocksFar(
-  game: GameState,
-  lat: number,
-  lng: number
+  center: SpatialPoint,
+  spatialQueries: Pick<ManagedSpatialQueries, 'hasRocksNear'>
 ): boolean {
-  for (const rock of game.rocks.values()) {
-    if (
-      angularDistance(lat, lng, rock.lat, rock.lng) < ROCK_FAR_CLEAR_DISTANCE
-    ) {
-      return false
-    }
-  }
-  return true
+  return !spatialQueries.hasRocksNear(center, ROCK_FAR_CLEAR_DISTANCE * RADIUS)
 }
 
 export type WaveSpawnBlockReason =
@@ -142,10 +137,10 @@ function noRecentEncounter(
 
 export function evaluateWaveSpawnGate(
   game: GameState,
-  lat: number,
-  lng: number,
+  center: SpatialPoint,
   score: number,
-  lastEncounterAt: number | null = null
+  lastEncounterAt: number | null = null,
+  spatialQueries: Pick<ManagedSpatialQueries, 'countRocksNear' | 'hasRocksNear'>
 ): WaveSpawnGateResult {
   const worldRocks = game.rocks.size
   const worldCap = worldRockCapForScore(score, game.wave)
@@ -158,10 +153,9 @@ export function evaluateWaveSpawnGate(
   }
 
   const spawnGateRocks = rocksWithinDistance(
-    game,
-    lat,
-    lng,
-    spawnBorderGateDistanceRad()
+    center,
+    spawnBorderGateDistanceRad(),
+    spatialQueries
   )
   const replenishmentAllowed = noRecentEncounter(game, lastEncounterAt)
 
@@ -176,7 +170,7 @@ export function evaluateWaveSpawnGate(
   } else if (score < SCORE_BAND_HIGH_MIN) {
     if (
       worldRocks > SCORE_CLEAR_THRESHOLD_MID ||
-      (worldRocks > 0 && !areLeftoverRocksFar(game, lat, lng))
+      (worldRocks > 0 && !areLeftoverRocksFar(center, spatialQueries))
     ) {
       if (replenishmentAllowed) {
         return { canSpawn: true, reason: 'none', deferMs: 0 }
@@ -190,7 +184,7 @@ export function evaluateWaveSpawnGate(
   } else if (
     worldRocks > SCORE_CLEAR_THRESHOLD_HIGH ||
     spawnGateRocks > 0 ||
-    (worldRocks > 0 && !areLeftoverRocksFar(game, lat, lng))
+    (worldRocks > 0 && !areLeftoverRocksFar(center, spatialQueries))
   ) {
     if (replenishmentAllowed && spawnGateRocks === 0) {
       return { canSpawn: true, reason: 'none', deferMs: 0 }
@@ -217,18 +211,14 @@ export function evaluateWaveSpawnGate(
  * Check if any rock is within encounter distance of the given position.
  */
 export function hasNearbyRocks(
-  game: GameState,
   lat: number,
-  lng: number
+  lng: number,
+  spatialQueries: Pick<ManagedSpatialQueries, 'hasRocksNear'>
 ): boolean {
-  for (const rock of game.rocks.values()) {
-    if (
-      angularDistance(lat, lng, rock.lat, rock.lng) < ROCK_ENCOUNTER_DISTANCE
-    ) {
-      return true
-    }
-  }
-  return false
+  return spatialQueries.hasRocksNear(
+    pointFromLatLng(lat, lng),
+    ROCK_ENCOUNTER_DISTANCE * RADIUS
+  )
 }
 
 /**
@@ -357,7 +347,8 @@ export function scorePlayer(
 export function checkWaveSpawn(
   game: GameState,
   playerId: string,
-  rng: RNG
+  rng: RNG,
+  spatialQueries: Pick<ManagedSpatialQueries, 'hasRocksNear' | 'countRocksNear'>
 ): void {
   const player = game.players.get(playerId)
   if (player == null || !player.alive) return
@@ -366,8 +357,11 @@ export function checkWaveSpawn(
 
   const ship = player.shipId != null ? game.ships.get(player.shipId) : undefined
   if (ship == null) return
+  const shipPoint = pointFromPosition(ship)
 
-  if (hasNearbyRocks(game, ship.lat, ship.lng)) {
+  if (
+    spatialQueries.hasRocksNear(shipPoint, ROCK_ENCOUNTER_DISTANCE * RADIUS)
+  ) {
     player.lastRockEncounterAt = game.now
     player.nextWaveCheckAt = game.now + ROCK_WAVE_RETRY_DEFER_PERIOD
     return
@@ -375,17 +369,21 @@ export function checkWaveSpawn(
 
   const gate = evaluateWaveSpawnGate(
     game,
-    ship.lat,
-    ship.lng,
+    shipPoint,
     player.score,
-    player.lastRockEncounterAt
+    player.lastRockEncounterAt,
+    spatialQueries
   )
   if (!gate.canSpawn) {
     player.nextWaveCheckAt = game.now + gate.deferMs
     return
   }
 
-  spawnWave(game, ship.lat, ship.lng, rng)
+  const [lat, lng] =
+    ship.x != null && ship.y != null && ship.z != null
+      ? unitPointToLatLng(ship.x, ship.y, ship.z)
+      : [ship.lat, ship.lng]
+  spawnWave(game, lat, lng, rng)
   player.waveSpawnedAt = game.now
   player.nextWaveCheckAt = game.now + nextWaveDelayMs(player.score)
 }

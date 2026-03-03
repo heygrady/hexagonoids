@@ -86,8 +86,10 @@ export {
   SPLIT_SPEED_MIN_FACTOR,
   TURN_RATE,
 } from './features/engine/constants.js'
+export type { EngineInstance } from './features/engine/createGame.js'
 // Factory
 export { createGame } from './features/engine/createGame.js'
+export type { ManagedSpatialQueries } from './features/engine/createManagedSpatialQueries.js'
 // Defaults
 export {
   defaultBulletState,
@@ -104,6 +106,7 @@ export type { EngineHooks } from './features/engine/hooks.js'
 export { accelerateShip } from './features/engine/physics/accelerateShip.js'
 export {
   latLngToQuaternion,
+  latLngToUnitPoint,
   latLngToVector3,
   quaternionToLatLng,
   quaternionToLatLngFast,
@@ -191,3 +194,24 @@ export type {
   RockState,
   ShipState,
 } from './features/engine/types.js'
+export type {
+  QueryCellsOptions,
+  QueryEntitiesOptions,
+  SpatialBulletEntity,
+  SpatialEntityRef,
+  SpatialIndexEntity,
+  SpatialIndexResolution,
+  SpatialPoint,
+  SpatialRockEntity,
+  SpatialShipEntity,
+} from './features/spatial-index/index.js'
+// Spatial index
+export {
+  BUCKET_SYSTEM,
+  buildSpatialIndex,
+  findBucketXYZ,
+  getSpatialBucketCount,
+  getSpatialBucketCoveringAngle,
+  latLngToSpatialPoint,
+  SpatialIndex,
+} from './features/spatial-index/index.js'

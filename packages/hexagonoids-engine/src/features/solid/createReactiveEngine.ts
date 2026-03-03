@@ -1,9 +1,13 @@
 import { createRNG, type RNG } from '@neat-evolution/utils'
 import { type Accessor, createSignal } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
-
 import { createGame } from '../engine/createGame.js'
+import {
+  createManagedSpatialQueries,
+  type ManagedSpatialQueries,
+} from '../engine/createManagedSpatialQueries.js'
 import type { EngineHooks } from '../engine/hooks.js'
+import { unitPointToLatLngInPlace } from '../engine/physics/latLng.js'
 import { reseedGame } from '../engine/player/reseedGame.js'
 import { step } from '../engine/step.js'
 import type { EngineOptions, GameState, PlayerInputs } from '../engine/types.js'
@@ -29,7 +33,25 @@ function syncIds(
   }
 }
 
-export interface ReactiveEngine {
+function syncDerivedLatLng(state: GameState): void {
+  for (const ship of state.ships.values()) {
+    if (ship.x != null && ship.y != null && ship.z != null) {
+      unitPointToLatLngInPlace(ship.x, ship.y, ship.z, ship)
+    }
+  }
+  for (const rock of state.rocks.values()) {
+    if (rock.x != null && rock.y != null && rock.z != null) {
+      unitPointToLatLngInPlace(rock.x, rock.y, rock.z, rock)
+    }
+  }
+  for (const bullet of state.bullets.values()) {
+    if (bullet.x != null && bullet.y != null && bullet.z != null) {
+      unitPointToLatLngInPlace(bullet.x, bullet.y, bullet.z, bullet)
+    }
+  }
+}
+
+export interface ReactiveEngine extends ManagedSpatialQueries {
   state: GameState
   tick: (inputs: PlayerInputs, dtMs: number) => void
   mutate: (fn: (draft: GameState) => void) => void
@@ -48,6 +70,7 @@ export function createReactiveEngine(
   const { state: initialState, rng: initialRng } = createGame(options)
   let rng: RNG = initialRng
   const [state, setState] = createStore(initialState)
+  const spatialQueries = createManagedSpatialQueries(() => state)
 
   // SolidJS stores don't track Map mutations, so we maintain
   // separate signals for entity id lists
@@ -73,9 +96,11 @@ export function createReactiveEngine(
   function tick(inputs: PlayerInputs, dtMs: number) {
     setState(
       produce((draft) => {
-        step(draft, inputs, dtMs, rng, hooks)
+        step(draft, inputs, dtMs, rng, hooks, spatialQueries)
+        syncDerivedLatLng(draft)
       })
     )
+    spatialQueries.invalidateSpatialIndex()
     syncPoolSignals()
   }
 
@@ -86,7 +111,13 @@ export function createReactiveEngine(
    * and entity invariants.
    */
   function mutate(fn: (draft: GameState) => void) {
-    setState(produce(fn))
+    setState(
+      produce((draft) => {
+        fn(draft)
+        syncDerivedLatLng(draft)
+      })
+    )
+    spatialQueries.invalidateSpatialIndex()
     syncPoolSignals()
   }
 
@@ -100,8 +131,10 @@ export function createReactiveEngine(
     setState(
       produce((draft) => {
         reseedGame(draft, playerId, rng)
+        syncDerivedLatLng(draft)
       })
     )
+    spatialQueries.invalidateSpatialIndex()
     syncPoolSignals()
   }
 
@@ -120,6 +153,7 @@ export function createReactiveEngine(
     rockIds,
     bulletIds,
     playerIds,
+    ...spatialQueries,
   }
 
   return engine

@@ -1,7 +1,7 @@
 import { RADIUS } from '../constants.js'
 import type { RockState } from '../types.js'
 
-import { quaternionToLatLng, quaternionToLatLngFastInPlace } from './latLng.js'
+import { quaternionToUnitPointFastInPlace } from './latLng.js'
 import {
   integrateAngularVelocity,
   integrateAngularVelocityFastInPlace,
@@ -10,7 +10,7 @@ import {
 /**
  * Move a rock by integrating its constant angular velocity.
  * Rocks have no thrust, friction, or turning — just constant drift.
- * Mutates `rock.orientation`, `rock.lat`, `rock.lng`.
+ * Mutates `rock.orientation`, `rock.x`, `rock.y`, `rock.z`.
  *
  * @param rock - The rock state to mutate
  * @param dtMs - Time delta in milliseconds
@@ -30,15 +30,13 @@ export const moveRock = (
   const dtSeconds = dtMs / 1000
   if (useFastMath) {
     integrateAngularVelocityFastInPlace(rock.orientation, omega, dtSeconds)
-    quaternionToLatLngFastInPlace(rock.orientation, rock, radius)
+    quaternionToUnitPointFastInPlace(rock.orientation, rock, radius)
   } else {
     rock.orientation = integrateAngularVelocity(
       rock.orientation,
       omega,
       dtSeconds
     )
-    const [lat, lng] = quaternionToLatLng(rock.orientation, radius)
-    rock.lat = lat
-    rock.lng = lng
+    quaternionToUnitPointFastInPlace(rock.orientation, rock, radius)
   }
 }

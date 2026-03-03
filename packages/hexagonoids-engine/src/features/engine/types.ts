@@ -36,6 +36,11 @@ export interface ShipState {
   /** Longitude in degrees on the surface of the sphere */
   lng: number
 
+  /** Cached unit-sphere position for fast spatial queries. */
+  x?: number
+  y?: number
+  z?: number
+
   /**
    * Angular velocity of the ship as a 3D vector.
    * Direction: axis of rotation on the sphere.
@@ -65,6 +70,11 @@ export interface RockState {
   /** Longitude in degrees on the surface of the sphere */
   lng: number
 
+  /** Cached unit-sphere position for fast spatial queries. */
+  x?: number
+  y?: number
+  z?: number
+
   /**
    * Angular velocity of the rock as a 3D vector.
    * Direction: axis of rotation on the sphere.
@@ -90,6 +100,11 @@ export interface BulletState {
 
   /** Longitude in degrees on the surface of the sphere */
   lng: number
+
+  /** Cached unit-sphere position for fast spatial queries. */
+  x?: number
+  y?: number
+  z?: number
 
   /**
    * Angular velocity of the bullet as a 3D vector.

@@ -5,7 +5,7 @@ import { BULLET_LIFETIME, BULLET_SPEED, GUN_DISTANCE } from '../constants.js'
 import { defaultBulletState } from '../defaults.js'
 import { elapsed } from '../gameTime.js'
 import { generateId } from '../generateId.js'
-import { quaternionToLatLng } from '../physics/latLng.js'
+import { latLngToUnitPoint, quaternionToLatLng } from '../physics/latLng.js'
 import { headingToAngularVelocity } from '../physics/quaternionPhysics.js'
 import type { BulletState, GameState, ShipState } from '../types.js'
 
@@ -45,6 +45,7 @@ export function spawnBullet(
   bulletVelocity.addInPlace(firingVelocity)
 
   const [lat, lng] = quaternionToLatLng(bulletOrientation)
+  const [x, y, z] = latLngToUnitPoint(lat, lng)
 
   const bullet: BulletState = {
     ...defaultBulletState,
@@ -53,6 +54,9 @@ export function spawnBullet(
     orientation: bulletOrientation,
     lat,
     lng,
+    x,
+    y,
+    z,
     angularVelocity: bulletVelocity,
     firedAt: game.now,
   }

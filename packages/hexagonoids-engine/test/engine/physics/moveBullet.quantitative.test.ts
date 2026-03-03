@@ -10,12 +10,24 @@ import { describe, expect, it } from 'vitest'
 import type { BulletState } from '../../../src/index.js'
 import {
   BULLET_SPEED,
-  greatCircleDistance,
   headingToAngularVelocity,
   latLngToQuaternion,
+  latLngToSpatialPoint,
   moveBullet,
   RADIUS,
 } from '../../../src/index.js'
+
+function arcDistanceFromPoints(
+  ax: number,
+  ay: number,
+  az: number,
+  bx: number,
+  by: number,
+  bz: number
+): number {
+  const dot = Math.max(-1, Math.min(1, ax * bx + ay * by + az * bz))
+  return Math.acos(dot) * RADIUS
+}
 
 function makeBullet(overrides: Partial<BulletState> = {}): BulletState {
   return {
@@ -46,17 +58,17 @@ describe('moveBullet — quantitative distance per frame', () => {
       BULLET_SPEED
     )
     const bullet = makeBullet({ orientation, lat: 0, lng: 0, angularVelocity })
-    const latBefore = bullet.lat
-    const lngBefore = bullet.lng
+    const start = latLngToSpatialPoint(0, 0)
 
     moveBullet(bullet, dtMs, RADIUS)
 
-    const actualArcDistance = greatCircleDistance(
-      latBefore,
-      lngBefore,
-      bullet.lat,
-      bullet.lng,
-      RADIUS
+    const actualArcDistance = arcDistanceFromPoints(
+      start.x,
+      start.y,
+      start.z,
+      bullet.x ?? 0,
+      bullet.y ?? 1,
+      bullet.z ?? 0
     )
 
     expect(actualArcDistance).toBeCloseTo(expectedArcDistance, 4)
@@ -73,12 +85,13 @@ describe('moveBullet — quantitative distance per frame', () => {
       angularVelocity: headingToAngularVelocity(orientation1, 0, BULLET_SPEED),
     })
     moveBullet(bulletSmall, 1, RADIUS)
-    const distSmall = greatCircleDistance(
+    const distSmall = arcDistanceFromPoints(
+      1,
       0,
       0,
-      bulletSmall.lat,
-      bulletSmall.lng,
-      RADIUS
+      bulletSmall.x ?? 0,
+      bulletSmall.y ?? 1,
+      bulletSmall.z ?? 0
     )
 
     const orientation2 = latLngToQuaternion(0, 0)
@@ -89,12 +102,13 @@ describe('moveBullet — quantitative distance per frame', () => {
       angularVelocity: headingToAngularVelocity(orientation2, 0, BULLET_SPEED),
     })
     moveBullet(bulletBig, 1000, RADIUS)
-    const distBig = greatCircleDistance(
+    const distBig = arcDistanceFromPoints(
+      1,
       0,
       0,
-      bulletBig.lat,
-      bulletBig.lng,
-      RADIUS
+      bulletBig.x ?? 0,
+      bulletBig.y ?? 1,
+      bulletBig.z ?? 0
     )
 
     expect(distBig / distSmall).toBeCloseTo(1000, 2)
@@ -112,7 +126,14 @@ describe('moveBullet — distance scales correctly with dtMs', () => {
       angularVelocity: headingToAngularVelocity(orientation, 0, BULLET_SPEED),
     })
     moveBullet(bullet16, 16, RADIUS)
-    const dist16 = greatCircleDistance(0, 0, bullet16.lat, bullet16.lng, RADIUS)
+    const dist16 = arcDistanceFromPoints(
+      1,
+      0,
+      0,
+      bullet16.x ?? 0,
+      bullet16.y ?? 1,
+      bullet16.z ?? 0
+    )
 
     const bullet32 = makeBullet({
       orientation: latLngToQuaternion(0, 0),
@@ -125,7 +146,14 @@ describe('moveBullet — distance scales correctly with dtMs', () => {
       ),
     })
     moveBullet(bullet32, 32, RADIUS)
-    const dist32 = greatCircleDistance(0, 0, bullet32.lat, bullet32.lng, RADIUS)
+    const dist32 = arcDistanceFromPoints(
+      1,
+      0,
+      0,
+      bullet32.x ?? 0,
+      bullet32.y ?? 1,
+      bullet32.z ?? 0
+    )
 
     expect(dist32 / dist16).toBeCloseTo(2, 4)
   })
@@ -144,17 +172,17 @@ describe('moveBullet — distance scales correctly with dtMs', () => {
       BULLET_SPEED
     )
     const bullet = makeBullet({ orientation, lat, lng, angularVelocity })
-    const latBefore = bullet.lat
-    const lngBefore = bullet.lng
+    const start = latLngToSpatialPoint(lat, lng)
 
     moveBullet(bullet, dtMs, RADIUS)
 
-    const actualArcDistance = greatCircleDistance(
-      latBefore,
-      lngBefore,
-      bullet.lat,
-      bullet.lng,
-      RADIUS
+    const actualArcDistance = arcDistanceFromPoints(
+      start.x,
+      start.y,
+      start.z,
+      bullet.x ?? 0,
+      bullet.y ?? 1,
+      bullet.z ?? 0
     )
 
     expect(actualArcDistance).toBeCloseTo(expectedArcDistance, 4)

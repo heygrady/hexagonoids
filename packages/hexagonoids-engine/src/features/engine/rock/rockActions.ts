@@ -26,6 +26,7 @@ import { defaultRockState } from '../defaults.js'
 import { generateId } from '../generateId.js'
 import {
   latLngToQuaternion,
+  latLngToUnitPoint,
   latLngToVector3,
   quaternionToLatLng,
   vector3ToLatLng,
@@ -58,6 +59,7 @@ export function spawnRock(
 ): RockState {
   const id = generateId('rock')
   const orientation = latLngToQuaternion(lat, lng)
+  const [x, y, z] = latLngToUnitPoint(lat, lng)
   const speed = rockSpeedForSize(size)
   const randomHeading = localHeading ?? rng.gen() * Math.PI * 2
   const angularVelocity = headingToAngularVelocity(
@@ -72,6 +74,9 @@ export function spawnRock(
     orientation,
     lat,
     lng,
+    x,
+    y,
+    z,
     angularVelocity,
     size,
     value: rockValueForSize(size),
@@ -136,6 +141,7 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
     )
 
     const [lat, lng] = quaternionToLatLng(childOrientation)
+    const [x, y, z] = latLngToUnitPoint(lat, lng)
 
     const id = generateId('rock')
     const child: RockState = {
@@ -144,6 +150,9 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
       orientation: childOrientation,
       lat,
       lng,
+      x,
+      y,
+      z,
       angularVelocity: normalizedVelocity.scale(clampedSpeed),
       size: newSize,
       value: rockValueForSize(newSize),

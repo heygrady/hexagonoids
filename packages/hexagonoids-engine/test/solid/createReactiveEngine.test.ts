@@ -6,7 +6,12 @@ import {
   useGameTime,
   useWave,
 } from '../../src/features/solid/index.js'
-import { resetIdCounter, spawnWave, startPlayer } from '../../src/index.js'
+import {
+  latLngToSpatialPoint,
+  resetIdCounter,
+  spawnWave,
+  startPlayer,
+} from '../../src/index.js'
 
 const IDLE_INPUT = (playerId: string) => ({
   [playerId]: { left: false, right: false, thrust: false, fire: false },
@@ -25,7 +30,24 @@ describe('createReactiveEngine', () => {
       expect(engine.state.wave).toBe(0)
       expect(engine.state.endedAt).toBeNull()
       expect(engine.tick).toBeInstanceOf(Function)
+      expect(engine.getSpatialIndex).toBeInstanceOf(Function)
       expect(engine.rng).toBeDefined()
+      dispose()
+    })
+  })
+
+  it('invalidates the cached spatial index after reactive mutations', () => {
+    createRoot((dispose) => {
+      const engine = createReactiveEngine({ seed: 'test' })
+      const before = engine.getSpatialIndex()
+
+      engine.mutate((state) => spawnWave(state, 0, 0, engine.rng))
+
+      const after = engine.getSpatialIndex()
+      expect(after).not.toBe(before)
+      expect(
+        engine.queryRocksNear(latLngToSpatialPoint(0, 0), Math.PI).length
+      ).toBeGreaterThan(0)
       dispose()
     })
   })
