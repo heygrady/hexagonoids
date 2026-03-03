@@ -71,10 +71,13 @@
     "@neat-evolution/executor": "^0.3.11",
     "@neat-evolution/hyperneat": "^0.6.6",
     "@neat-evolution/neat": "^0.6.6",
+    "@neat-evolution/worker-actions": "^0.4.4",
     "@neat-evolution/worker-evaluator": "^0.7.6",
+    "@neat-evolution/worker-pool": "^0.4.4",
     "@neat-evolution/worker-reproducer": "^0.7.6",
     "@neat-evolution/worker-threads": "^0.4.4",
-    "@swc/helpers": "^0.5.19"
+    "@swc/helpers": "^0.5.19",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.2",

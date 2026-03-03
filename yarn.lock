@@ -1663,7 +1663,9 @@ __metadata:
     "@babylonjs/core": "npm:^8.37.3"
     "@biomejs/biome": "npm:^2.4.2"
     "@heygrady/h3-babylon": "workspace:^"
+    "@heygrady/hexagonoids-demo": "workspace:^"
     "@heygrady/hexagonoids-engine": "workspace:^"
+    "@heygrady/hexagonoids-environment": "workspace:^"
     "@heygrady/tictactoe-demo": "workspace:^"
     "@heygrady/tictactoe-environment": "workspace:^"
     "@nanostores/solid": "npm:^1.1.1"
@@ -1712,7 +1714,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@heygrady/hexagonoids-demo@workspace:packages/hexagonoids-demo":
+"@heygrady/hexagonoids-demo@workspace:^, @heygrady/hexagonoids-demo@workspace:packages/hexagonoids-demo":
   version: 0.0.0-use.local
   resolution: "@heygrady/hexagonoids-demo@workspace:packages/hexagonoids-demo"
   dependencies:
@@ -1728,7 +1730,9 @@ __metadata:
     "@neat-evolution/executor": "npm:^0.3.11"
     "@neat-evolution/hyperneat": "npm:^0.6.6"
     "@neat-evolution/neat": "npm:^0.6.6"
+    "@neat-evolution/worker-actions": "npm:^0.4.4"
     "@neat-evolution/worker-evaluator": "npm:^0.7.6"
+    "@neat-evolution/worker-pool": "npm:^0.4.4"
     "@neat-evolution/worker-reproducer": "npm:^0.7.6"
     "@neat-evolution/worker-threads": "npm:^0.4.4"
     "@swc/cli": "npm:^0.7.9"
@@ -1742,6 +1746,7 @@ __metadata:
     turbo: "npm:^2.6.1"
     typescript: "npm:^5.9.3"
     vitest: "npm:^4.0.14"
+    zod: "npm:^4.3.6"
   bin:
     hexagonoids-demo: ./bin/index.js
   languageName: unknown
