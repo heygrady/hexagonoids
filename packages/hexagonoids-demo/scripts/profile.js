@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -10,7 +10,7 @@ const distTrain = resolve(packageRoot, 'dist/esm/train.js')
 function parseArgs(argv) {
   const args = argv.filter((arg) => arg !== '--')
   const options = {
-    outputDir: '.artifacts/profiles',
+    outputDir: '.artifacts/cpuprofiles',
     name: `hexagonoids-${new Date().toISOString().replace(/[:.]/g, '-')}.cpuprofile`,
     trainArgs: [],
   }
@@ -54,34 +54,33 @@ function main() {
   const { outputDir, name, trainArgs } = parseArgs(process.argv.slice(2))
   const profileDir = resolve(packageRoot, outputDir)
   const profilePath = join(profileDir, name)
-  const simProfilePath = profilePath.replace(/\.cpuprofile$/u, '.sim.jsonl')
+  const workerProfileDir = profilePath.replace(/\.cpuprofile$/u, '.workers')
   const targetScript = resolve(packageRoot, 'scripts/profile-target.js')
+  const analyzeScript = resolve(packageRoot, 'scripts/analyze-profile.js')
 
   mkdirSync(profileDir, { recursive: true })
   ensureBuild()
 
   console.log(`CPU profile output: ${profilePath}`)
-  if (existsSync(simProfilePath)) {
-    unlinkSync(simProfilePath)
-  }
-  console.log(`Worker stage output: ${simProfilePath}`)
+  console.log(`Worker CPU profile dir: ${workerProfileDir}`)
   run(process.execPath, [
     targetScript,
     '--profileOutput',
     profilePath,
-    '--perfProfile',
-    '--perfProfileSampleEveryNGames',
-    '1',
-    '--perfProfileOutput',
-    simProfilePath,
+    '--workerCpuProfiles',
+    '--workerCpuProfileDir',
+    workerProfileDir,
     ...trainArgs,
   ])
 
   console.log(`Profile saved: ${profilePath}`)
-  console.log(
-    'Analyze with: yarn workspace @heygrady/hexagonoids-demo profile:analyze -- ' +
-      profilePath
-  )
+  console.log('\nAnalyzing profile...')
+  run(process.execPath, [
+    analyzeScript,
+    profilePath,
+    '--worker-cpu-profile-dir',
+    workerProfileDir,
+  ])
 }
 
 main()

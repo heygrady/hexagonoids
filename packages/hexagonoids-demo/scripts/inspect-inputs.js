@@ -292,7 +292,12 @@ async function main() {
   const env = await import('@heygrady/hexagonoids-environment')
   const { createRNG } = await import('@neat-evolution/utils')
 
-  const { restoreSnapshot, doNothingAgent, randomAgent } = env
+  const {
+    decodeScenarioBankDocument,
+    restoreSnapshot,
+    doNothingAgent,
+    randomAgent,
+  } = env
   const {
     step,
     greatCircleDistance,
@@ -340,7 +345,9 @@ async function main() {
   // ── Load scenarios ──────────────────────────────────────────────────
 
   const scenariosPath = resolve(packageRoot, 'src/data/scenarios.json')
-  const scenarioBank = JSON.parse(readFileSync(scenariosPath, 'utf-8'))
+  const scenarioBank = decodeScenarioBankDocument(
+    JSON.parse(readFileSync(scenariosPath, 'utf-8'))
+  )
 
   const selectionRng = createRNG(options.seed)
   const count = Math.min(options.scenariosPerRun, scenarioBank.length)

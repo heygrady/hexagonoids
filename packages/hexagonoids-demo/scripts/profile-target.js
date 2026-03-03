@@ -19,10 +19,9 @@ function parseArgs(argv) {
     dtMs: 33,
     threadCount: 1,
     outputDir: '.artifacts/profile-output',
-    perfProfile: false,
-    perfProfileSampleEveryNGames: 64,
-    perfProfileOutputPath: '.artifacts/profiles/latest.sim.jsonl',
-    profileOutput: '.artifacts/profiles/latest.cpuprofile',
+    profileOutput: '.artifacts/cpuprofiles/latest.cpuprofile',
+    workerCpuProfiles: false,
+    workerCpuProfileDir: '.artifacts/cpuprofiles/latest.workers',
   }
 
   for (let i = 0; i < args.length; i++) {
@@ -43,20 +42,19 @@ function parseArgs(argv) {
     else if (arg === '--threadCount' && args[i + 1])
       options.threadCount = Number(args[++i])
     else if (arg === '--outputDir' && args[i + 1]) options.outputDir = args[++i]
-    else if (arg === '--perfProfile') options.perfProfile = true
-    else if (arg === '--perfProfileSampleEveryNGames' && args[i + 1]) {
-      options.perfProfileSampleEveryNGames = Number(args[++i])
-    } else if (arg === '--perfProfileOutput' && args[i + 1]) {
-      options.perfProfileOutputPath = args[++i]
-    } else if (arg === '--profileOutput' && args[i + 1])
+    else if (arg === '--profileOutput' && args[i + 1])
       options.profileOutput = args[++i]
+    else if (arg === '--workerCpuProfiles') options.workerCpuProfiles = true
+    else if (arg === '--workerCpuProfileDir' && args[i + 1]) {
+      options.workerCpuProfileDir = args[++i]
+    }
   }
 
   options.outputDir = resolve(packageRoot, options.outputDir)
   options.profileOutput = resolve(packageRoot, options.profileOutput)
-  options.perfProfileOutputPath = resolve(
+  options.workerCpuProfileDir = resolve(
     packageRoot,
-    options.perfProfileOutputPath
+    options.workerCpuProfileDir
   )
   return options
 }

@@ -34,7 +34,7 @@ function parseArgs(argv) {
 }
 
 function pct(value) {
-  return (value * 100).toFixed(1) + '%'
+  return `${(value * 100).toFixed(1)}%`
 }
 function pad(str, len) {
   return String(str).padEnd(len)
@@ -48,6 +48,7 @@ async function main() {
 
   const env = await import('@heygrady/hexagonoids-environment')
   const {
+    decodeScenarioBankDocument,
     doNothingAgent,
     randomAgent,
     simulateScenario,
@@ -55,14 +56,15 @@ async function main() {
     scenarioPossibleDeaths,
     weightedFitnessSum,
     actionDiversityGate,
-    DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
     mergeConfig,
   } = env
 
   const { createRNG } = await import('@neat-evolution/utils')
 
   const scenariosPath = resolve(packageRoot, 'src/data/scenarios.json')
-  const scenarioBank = JSON.parse(readFileSync(scenariosPath, 'utf-8'))
+  const scenarioBank = decodeScenarioBankDocument(
+    JSON.parse(readFileSync(scenariosPath, 'utf-8'))
+  )
 
   const config = mergeConfig({
     simulation: {
@@ -139,7 +141,7 @@ async function main() {
         options.seed,
         executor
       )
-      const { maxRocksDestroyed } = scenarioMaximums(scenario.rocks)
+      const { maxRocksDestroyed } = scenarioMaximums(scenarioMaxTicks)
       const possibleDeaths = scenarioPossibleDeaths(
         scenario.player.lives,
         scenarioMaxTicks,

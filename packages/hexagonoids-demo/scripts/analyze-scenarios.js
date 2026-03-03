@@ -53,15 +53,12 @@ async function main() {
   console.log(`Max ticks: ${options.maxTicks}`)
   console.log()
 
-  // Load scenarios
-  const scenarios = JSON.parse(readFileSync(scenariosPath, 'utf-8'))
-  console.log(`Loaded ${scenarios.length} scenarios`)
-
   // Load genome + create executor
   const { createNodeEvolutionManager, loadGenome } = await import(
     '@heygrady/hexagonoids-demo/node'
   )
   const {
+    decodeScenarioBankDocument,
     neatAgent,
     simulateScenario,
     weightedFitnessSum,
@@ -69,6 +66,12 @@ async function main() {
     scenarioPossibleDeaths,
     DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   } = await import('@heygrady/hexagonoids-environment')
+
+  // Load scenarios
+  const scenarios = decodeScenarioBankDocument(
+    JSON.parse(readFileSync(scenariosPath, 'utf-8'))
+  )
+  console.log(`Loaded ${scenarios.length} scenarios`)
 
   const manager = createNodeEvolutionManager({ method: 'HyperNEAT' })
   const serialized = loadGenome(genomePath)
@@ -105,7 +108,7 @@ async function main() {
         options.maxTicks,
         simulation.dtMs
       ),
-      ...scenarioMaximums(scenario.rocks),
+      ...scenarioMaximums(options.maxTicks),
     }
 
     const fitness = weightedFitnessSum(

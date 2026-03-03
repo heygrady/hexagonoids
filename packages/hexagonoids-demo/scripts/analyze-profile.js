@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import {
   basename,
   dirname,
@@ -14,7 +14,7 @@ const packageRoot = resolve(__dirname, '..')
 const repoRoot = resolve(packageRoot, '..', '..')
 const defaultProfilePath = join(
   packageRoot,
-  '.artifacts/profiles/latest.cpuprofile'
+  '.artifacts/cpuprofiles/latest.cpuprofile'
 )
 
 function resolveInputPath(inputPath) {
@@ -47,7 +47,7 @@ function parseArgs(argv) {
     includeRuntime: false,
     sort: 'total',
     repoOnly: false,
-    simProfilePath: '',
+    workerCpuProfileDir: '',
     noWorkerProfile: false,
   }
 
@@ -64,8 +64,8 @@ function parseArgs(argv) {
       options.sort = sortMode === 'self' ? 'self' : 'total'
     } else if (arg === '--repo-only') {
       options.repoOnly = true
-    } else if (arg === '--sim-profile' && args[i + 1]) {
-      options.simProfilePath = resolveInputPath(args[++i])
+    } else if (arg === '--worker-cpu-profile-dir' && args[i + 1]) {
+      options.workerCpuProfileDir = resolveInputPath(args[++i])
     } else if (arg === '--no-worker-profile') {
       options.noWorkerProfile = true
     }
@@ -131,6 +131,7 @@ function analyzeCpuprofile(profile) {
     const entry = byFunction.get(key) || {
       function: label,
       sourcePath,
+      key,
       selfSamples: 0,
       selfMs: 0,
       totalSamples: 0,
@@ -174,6 +175,11 @@ function analyzeCpuprofile(profile) {
   return { totalMs, rows }
 }
 
+function parseCpuprofileContent(content) {
+  const parsed = JSON.parse(content)
+  return typeof parsed === 'string' ? JSON.parse(parsed) : parsed
+}
+
 function run() {
   const {
     profilePath,
@@ -182,11 +188,11 @@ function run() {
     includeRuntime,
     sort,
     repoOnly,
-    simProfilePath,
+    workerCpuProfileDir,
     noWorkerProfile,
   } = parseArgs(process.argv.slice(2))
   const content = readFileSync(profilePath, 'utf8')
-  const profile = JSON.parse(content)
+  const profile = parseCpuprofileContent(content)
   const { totalMs, rows } = analyzeCpuprofile(profile)
   const filteredBase = includeRuntime
     ? rows
@@ -229,97 +235,98 @@ function run() {
 
   const outputPath =
     summaryPath || profilePath.replace(/\.cpuprofile$/u, '.summary.json')
-  const defaultSimProfilePath = profilePath.replace(
+  const defaultWorkerCpuProfileDir = profilePath.replace(
     /\.cpuprofile$/u,
-    '.sim.jsonl'
+    '.workers'
   )
-  const resolvedSimProfilePath =
-    simProfilePath || resolveInputPath(defaultSimProfilePath)
-  let workerSimSummary = null
-  if (!noWorkerProfile && existsSync(resolvedSimProfilePath)) {
-    const simEntries = readFileSync(resolvedSimProfilePath, 'utf8')
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => JSON.parse(line))
-      .filter((entry) => entry.kind === 'hexagonoids-sim-profile')
+  const resolvedWorkerCpuProfileDir =
+    workerCpuProfileDir || resolveInputPath(defaultWorkerCpuProfileDir)
+  let workerCpuSummary = null
+  if (!noWorkerProfile && existsSync(resolvedWorkerCpuProfileDir)) {
+    const workerProfilePaths = readdirSync(resolvedWorkerCpuProfileDir)
+      .filter((name) => name.endsWith('.cpuprofile'))
+      .sort()
+      .map((name) => join(resolvedWorkerCpuProfileDir, name))
 
-    const latestByWorker = new Map()
-    for (const entry of simEntries) {
-      const workerId = `${entry.pid}:${entry.workerThreadId ?? 0}`
-      const current = latestByWorker.get(workerId)
-      if (current == null || entry.games > current.games) {
-        latestByWorker.set(workerId, entry)
+    if (workerProfilePaths.length > 0) {
+      const aggregateByFunction = new Map()
+      let workerTotalMs = 0
+
+      for (const pathname of workerProfilePaths) {
+        const content = readFileSync(pathname, 'utf8')
+        const profile = parseCpuprofileContent(content)
+        const { totalMs: profileTotalMs, rows: profileRows } =
+          analyzeCpuprofile(profile)
+        workerTotalMs += profileTotalMs
+
+        for (const row of profileRows) {
+          const current = aggregateByFunction.get(row.key) || {
+            function: row.function,
+            sourcePath: row.sourcePath,
+            selfSamples: 0,
+            selfMs: 0,
+            totalSamples: 0,
+            totalMs: 0,
+          }
+          current.selfSamples += row.selfSamples
+          current.selfMs += row.selfMs
+          current.totalSamples += row.totalSamples
+          current.totalMs += row.totalMs
+          aggregateByFunction.set(row.key, current)
+        }
       }
-    }
-    const workerRows = Array.from(latestByWorker.values())
-    if (workerRows.length > 0) {
-      const aggregate = {
-        workers: workerRows.length,
-        games: 0,
-        ticks: 0,
-        totalMs: 0,
-        agentMs: 0,
-        stepMs: 0,
-        memoryMs: 0,
-      }
-      for (const worker of workerRows) {
-        aggregate.games += worker.games
-        aggregate.ticks += worker.ticks
-        aggregate.totalMs += worker.totalMs
-        aggregate.agentMs += worker.stagesMs.agent
-        aggregate.stepMs += worker.stagesMs.step
-        aggregate.memoryMs += worker.stagesMs.memory
-      }
-      const percent = (part, whole) => (whole > 0 ? (part / whole) * 100 : 0)
-      console.log(`Worker stage profile: ${resolvedSimProfilePath}`)
+
+      const workerRows = [...aggregateByFunction.values()]
+      const filteredWorkerRows = includeRuntime
+        ? workerRows
+        : workerRows.filter(
+            (row) =>
+              row.function !== '(idle)' &&
+              row.function !== '(program)' &&
+              row.function !== '(root)'
+          )
+      const repoFilteredWorkerRows = repoOnly
+        ? filteredWorkerRows.filter(
+            (row) =>
+              isAbsolute(row.sourcePath) &&
+              row.sourcePath.startsWith(repoRoot) &&
+              !row.sourcePath.includes('/node_modules/')
+          )
+        : filteredWorkerRows
+      const sortedWorkerRows =
+        sort === 'self'
+          ? repoFilteredWorkerRows.sort((a, b) => b.selfMs - a.selfMs)
+          : repoFilteredWorkerRows.sort((a, b) => b.totalMs - a.totalMs)
+      const topWorkerRows = sortedWorkerRows.slice(0, top)
+
+      console.log(`Worker CPU profiles: ${resolvedWorkerCpuProfileDir}`)
+      console.log(
+        `Aggregated worker sampled time: ${workerTotalMs.toFixed(1)} ms`
+      )
       console.table(
-        workerRows.map((worker) => ({
-          Worker: `${worker.pid}:${worker.workerThreadId ?? 0}`,
-          Games: worker.games,
-          Ticks: worker.ticks,
-          'Total ms': Number(worker.totalMs.toFixed(2)),
-          'Agent %': Number(
-            percent(worker.stagesMs.agent, worker.totalMs).toFixed(2)
+        topWorkerRows.map((row) => ({
+          Function:
+            row.function.length > 100
+              ? `${row.function.slice(0, 97)}...`
+              : row.function,
+          'Self ms': Number(row.selfMs.toFixed(2)),
+          'Self %': Number(
+            ((row.selfMs / Math.max(workerTotalMs, 1)) * 100).toFixed(2)
           ),
-          'Step %': Number(
-            percent(worker.stagesMs.step, worker.totalMs).toFixed(2)
+          'Total ms': Number(row.totalMs.toFixed(2)),
+          'Total %': Number(
+            ((row.totalMs / Math.max(workerTotalMs, 1)) * 100).toFixed(2)
           ),
-          'Memory %': Number(
-            percent(worker.stagesMs.memory, worker.totalMs).toFixed(2)
-          ),
-          'ms/tick': Number(
-            (worker.ticks > 0 ? worker.totalMs / worker.ticks : 0).toFixed(4)
-          ),
+          'Self Samples': row.selfSamples,
+          'Total Samples': row.totalSamples,
         }))
       )
-      console.table([
-        {
-          Workers: aggregate.workers,
-          Games: aggregate.games,
-          Ticks: aggregate.ticks,
-          'Total ms': Number(aggregate.totalMs.toFixed(2)),
-          'Agent %': Number(
-            percent(aggregate.agentMs, aggregate.totalMs).toFixed(2)
-          ),
-          'Step %': Number(
-            percent(aggregate.stepMs, aggregate.totalMs).toFixed(2)
-          ),
-          'Memory %': Number(
-            percent(aggregate.memoryMs, aggregate.totalMs).toFixed(2)
-          ),
-          'ms/tick': Number(
-            (aggregate.ticks > 0
-              ? aggregate.totalMs / aggregate.ticks
-              : 0
-            ).toFixed(4)
-          ),
-        },
-      ])
-      workerSimSummary = {
-        path: resolvedSimProfilePath,
-        workers: workerRows,
-        aggregate,
+
+      workerCpuSummary = {
+        path: resolvedWorkerCpuProfileDir,
+        profiles: workerProfilePaths,
+        totalMs: workerTotalMs,
+        top: topWorkerRows,
       }
     }
   }
@@ -330,7 +337,7 @@ function run() {
         profilePath,
         totalMs,
         top: topRows,
-        workerSimSummary,
+        workerCpuSummary,
       },
       null,
       2
