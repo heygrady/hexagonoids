@@ -1,5 +1,6 @@
 import {
   createGame,
+  latLngToUnitPoint,
   type PlayerInputs,
   resetIdCounter,
   startPlayer,
@@ -92,8 +93,15 @@ describe('restoreSnapshot round-trip', () => {
     const { state: restored } = restoreSnapshot(snapshot)
 
     const restoredShip = restored.ships.values().next().value!
+    const [expectedX, expectedY, expectedZ] = latLngToUnitPoint(
+      snapshot.ship.lat,
+      snapshot.ship.lng
+    )
     expect(restoredShip.lat).toBeCloseTo(snapshot.ship.lat, 6)
     expect(restoredShip.lng).toBeCloseTo(snapshot.ship.lng, 6)
+    expect(restoredShip.x).toBeCloseTo(expectedX, 6)
+    expect(restoredShip.y).toBeCloseTo(expectedY, 6)
+    expect(restoredShip.z).toBeCloseTo(expectedZ, 6)
     expect(restoredShip.yaw).toBeCloseTo(snapshot.ship.yaw, 6)
     expect(restoredShip.angularVelocity.x).toBeCloseTo(
       snapshot.ship.angularVelocityX,

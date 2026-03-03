@@ -1,10 +1,10 @@
 import {
   createGame,
+  type EngineHooks,
   greatCircleDistance,
   type PlayerInputs,
   RADIUS,
   startPlayer,
-  step,
 } from '@heygrady/hexagonoids-engine'
 
 import { randomAgent } from '../agents/randomAgent.js'
@@ -30,11 +30,62 @@ export interface GenerateScenariosOptions {
   agent?: AgentFn
   /** Executor for neural-network agents (passed to AgentContext). */
   executor?: SyncExecutor
+  /** Which event types to capture. @default ['death'] */
+  captureTypes?: Array<'death' | 'kill'>
+  /** Fraction of `count` allocated to kill scenarios (0–1). @default 0 */
+  killRatio?: number
+}
+
+/**
+ * Capture a snapshot from the ring buffer at the oldest valid position,
+ * compute difficulty, and tag with the given captureType.
+ */
+function captureFromRingBuffer(
+  ringBuffer: (ScenarioSnapshot | undefined)[],
+  ringIndex: number,
+  rewindFrames: number,
+  baseSeed: string,
+  scenarioId: number,
+  captureType: 'death' | 'kill'
+): ScenarioSnapshot | null {
+  const filledCount = Math.min(ringIndex, rewindFrames)
+  if (filledCount === 0) return null
+
+  const oldestIdx = (ringIndex - filledCount) % rewindFrames
+  const snapshot = ringBuffer[(oldestIdx + rewindFrames) % rewindFrames]
+
+  if (snapshot == null || !snapshot.ship.alive) return null
+
+  // Compute difficulty: count rocks within SOI of ship position
+  let rocksInSOI = 0
+  for (const rock of snapshot.rocks) {
+    const dist = greatCircleDistance(
+      snapshot.ship.lat,
+      snapshot.ship.lng,
+      rock.lat,
+      rock.lng,
+      RADIUS
+    )
+    if (dist <= SOI_ANGULAR_RADIUS * RADIUS) {
+      rocksInSOI++
+    }
+  }
+
+  const difficulty = Math.min(rocksInSOI / 20, 1)
+  const id = `${baseSeed}-${scenarioId}`
+
+  snapshot.id = id
+  snapshot.difficulty = difficulty
+  if (captureType === 'kill') {
+    snapshot.captureType = 'kill'
+  }
+
+  return snapshot
 }
 
 /**
  * Generate scenario snapshots by playing games with an agent and
- * capturing state before each player death.
+ * capturing state before each player death and/or bullet-rock kill.
  *
  * By default uses `randomAgent`. Pass `agent` and `executor` to use
  * a trained neural-network agent for adversarial scenario generation.
@@ -52,19 +103,36 @@ export function generateScenarios(
   const dtMs = options?.simulation?.dtMs ?? 33
   const agent = options?.agent ?? randomAgent
   const executor = options?.executor
+  const captureTypes = options?.captureTypes ?? ['death']
+  const killRatio = options?.killRatio ?? 0
+
+  const captureDeaths = captureTypes.includes('death')
+  const captureKills = captureTypes.includes('kill')
+
+  // Compute per-type quotas so kills don't starve deaths
+  const killQuota = captureKills ? Math.round(count * killRatio) : 0
+  const deathQuota = captureDeaths ? count - killQuota : 0
 
   const PLAYER_ID = 'player-1'
   const results: ScenarioSnapshot[] = []
+  let killCount = 0
+  let deathCount = 0
   let scenarioId = 0
 
   for (let gameIdx = 0; gameIdx < maxGames; gameIdx++) {
-    if (results.length >= count) break
+    if (killCount >= killQuota && deathCount >= deathQuota) break
 
     const gameSeed = `${baseSeed}-game-${gameIdx}`
-    const { state, rng } = createGame({ seed: gameSeed, useFastThrust: true })
+    const engine = createGame({ seed: gameSeed, useFastThrust: true })
+    const { state, rng } = engine
     startPlayer(state, PLAYER_ID, rng)
 
-    const context: AgentContext = { rng, memory: {}, executor }
+    const context: AgentContext = {
+      rng,
+      memory: {},
+      executor,
+      spatialQueries: engine,
+    }
     const stepInputs: PlayerInputs = {
       [PLAYER_ID]: { left: false, right: false, thrust: false, fire: false },
     }
@@ -75,6 +143,18 @@ export function generateScenarios(
     ).fill(undefined)
     let ringIndex = 0
     let wasAlive = true
+    let killDetectedThisTick = false
+
+    // Build hooks for kill detection
+    const hooks: EngineHooks | undefined = captureKills
+      ? {
+          onCollision(_a, _b, type) {
+            if (type === 'bullet-rock') {
+              killDetectedThisTick = true
+            }
+          },
+        }
+      : undefined
 
     for (let tick = 0; tick < maxTicks; tick++) {
       if (state.endedAt != null) break
@@ -90,9 +170,32 @@ export function generateScenarios(
       }
 
       // Get agent inputs and step
+      killDetectedThisTick = false
       const inputs = agent(state, PLAYER_ID, context)
       stepInputs[PLAYER_ID] = inputs
-      step(state, stepInputs, dtMs, rng)
+      engine.tick(stepInputs, dtMs, hooks)
+
+      // Kill capture: grab snapshot from ring buffer but do NOT clear it
+      if (
+        captureKills &&
+        killDetectedThisTick &&
+        killCount < killQuota &&
+        ringIndex > 0
+      ) {
+        const snapshot = captureFromRingBuffer(
+          ringBuffer,
+          ringIndex,
+          rewindFrames,
+          baseSeed,
+          scenarioId,
+          'kill'
+        )
+        if (snapshot != null) {
+          scenarioId++
+          killCount++
+          results.push(snapshot)
+        }
+      }
 
       // Death detection: check if player just died
       const playerAfter = state.players.get(PLAYER_ID)
@@ -103,50 +206,29 @@ export function generateScenarios(
           : undefined
       const shipAlive = shipAfter?.alive === true
 
-      if (wasAlive && !shipAlive) {
-        // Grab oldest valid snapshot from ring buffer
-        const filledCount = Math.min(ringIndex, rewindFrames)
-        if (filledCount > 0) {
-          // Oldest snapshot is the one that was written `filledCount` entries ago
-          const oldestIdx = (ringIndex - filledCount) % rewindFrames
-          const snapshot = ringBuffer[(oldestIdx + rewindFrames) % rewindFrames]
+      if (captureDeaths && wasAlive && !shipAlive && deathCount < deathQuota) {
+        const snapshot = captureFromRingBuffer(
+          ringBuffer,
+          ringIndex,
+          rewindFrames,
+          baseSeed,
+          scenarioId,
+          'death'
+        )
+        if (snapshot != null) {
+          scenarioId++
+          deathCount++
+          results.push(snapshot)
 
-          if (snapshot != null && snapshot.ship.alive) {
-            // Compute difficulty: count rocks within SOI of ship position
-            let rocksInSOI = 0
-            for (const rock of snapshot.rocks) {
-              const dist = greatCircleDistance(
-                snapshot.ship.lat,
-                snapshot.ship.lng,
-                rock.lat,
-                rock.lng,
-                RADIUS
-              )
-              // SOI_ANGULAR_RADIUS is in radians, greatCircleDistance returns
-              // arc length in world units. Compare using arc distance.
-              if (dist <= SOI_ANGULAR_RADIUS * RADIUS) {
-                rocksInSOI++
-              }
-            }
-
-            // Normalize difficulty by 20 (clamped to [0, 1])
-            const difficulty = Math.min(rocksInSOI / 20, 1)
-            const id = `${baseSeed}-${scenarioId++}`
-
-            snapshot.id = id
-            snapshot.difficulty = difficulty
-            results.push(snapshot)
-
-            // Clear ring buffer for next death
-            ringBuffer.fill(undefined)
-            ringIndex = 0
-          }
+          // Clear ring buffer for next death
+          ringBuffer.fill(undefined)
+          ringIndex = 0
         }
       }
 
       wasAlive = shipAlive || (isAlive && ship == null)
 
-      if (results.length >= count) break
+      if (killCount >= killQuota && deathCount >= deathQuota) break
     }
   }
 

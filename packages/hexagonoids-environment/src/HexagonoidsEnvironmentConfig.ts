@@ -1,3 +1,7 @@
+import {
+  DEFAULT_ENCODING_PRESET,
+  type EncodingPreset,
+} from './encoding/encodingPresets.js'
 import type { ScenarioSnapshot } from './scenarios/types.js'
 
 export interface SimulationConfig {
@@ -6,12 +10,6 @@ export interface SimulationConfig {
   useFastThrust: boolean
   scenariosPerOrganism: number
   scenarioMaxTicks: number
-}
-
-export interface ProfilingConfig {
-  enabled: boolean
-  sampleEveryNGames: number
-  outputPath?: string | undefined
 }
 
 export interface FitnessWeights {
@@ -43,10 +41,10 @@ export interface GateConfig {
 }
 
 export interface HexagonoidsEnvironmentConfig {
+  encodingPreset: EncodingPreset
   simulation: SimulationConfig
   fitnessWeights: FitnessWeights
   gateConfig: GateConfig
-  profiling: ProfilingConfig
   scenarioBank?: ScenarioSnapshot[] | undefined
   scenarioWeight: number
   scenarioSeedsPerOrganism: number
@@ -55,6 +53,7 @@ export interface HexagonoidsEnvironmentConfig {
 
 export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfig =
   {
+    encodingPreset: DEFAULT_ENCODING_PRESET,
     simulation: {
       maxTicks: 3000,
       dtMs: 33,
@@ -77,11 +76,6 @@ export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfi
       turnHigh: 0.65,
       turnSteepness: 7,
     },
-    profiling: {
-      enabled: false,
-      sampleEveryNGames: 1,
-      outputPath: undefined,
-    },
     scenarioWeight: 1.0,
     scenarioSeedsPerOrganism: 1,
     fullGameSeedsPerOrganism: 1,
@@ -99,9 +93,7 @@ export function mergeConfig(
       gateConfig: {
         ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
       },
-      profiling: {
-        ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.profiling,
-      },
+      encodingPreset: DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.encodingPreset,
       scenarioWeight: DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.scenarioWeight,
       scenarioSeedsPerOrganism:
         DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.scenarioSeedsPerOrganism,
@@ -111,6 +103,9 @@ export function mergeConfig(
   }
 
   return {
+    encodingPreset:
+      partial.encodingPreset ??
+      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.encodingPreset,
     simulation: {
       ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation,
       ...partial.simulation,
@@ -122,10 +117,6 @@ export function mergeConfig(
     gateConfig: {
       ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
       ...partial.gateConfig,
-    },
-    profiling: {
-      ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.profiling,
-      ...partial.profiling,
     },
     ...(partial.scenarioBank != null && {
       scenarioBank: partial.scenarioBank,

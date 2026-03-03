@@ -24,15 +24,15 @@ describe('BUCKET_SYSTEM', () => {
 
 describe('findBucketXYZ', () => {
   it('returns different indices for north pole vs south pole', () => {
-    const north = findBucketXYZ(0, 0, 1)
-    const south = findBucketXYZ(0, 0, -1)
+    const north = findBucketXYZ(0, 1, 0)
+    const south = findBucketXYZ(0, -1, 0)
     expect(north).not.toBe(south)
   })
 
   it('returns same index for nearby points', () => {
-    const a = findBucketXYZ(0, 0, 1)
+    const a = findBucketXYZ(0, 1, 0)
     // Slightly offset from north pole
-    const b = findBucketXYZ(0.01, 0.01, 0.9999)
+    const b = findBucketXYZ(0.01, 0.9999, 0.01)
     expect(a).toBe(b)
   })
 

@@ -60,4 +60,8 @@ export interface ScenarioSnapshot {
   player: ScenarioPlayerState
   rocks: ScenarioRockState[]
   bullets: ScenarioBulletState[]
+  /** Panel failure signature from scenario generation (e.g. "0010110100"). Optional. */
+  failureSignature?: string
+  /** How this snapshot was captured. Optional — absent means 'death'. */
+  captureType?: 'death' | 'kill'
 }

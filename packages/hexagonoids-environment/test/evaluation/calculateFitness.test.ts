@@ -15,8 +15,12 @@ import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '../../src/HexagonoidsEnv
 const defaultWeights = DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights
 const defaultGateConfig = DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig
 
-/** Standard full-game context (4 large rocks → 28 rocks). */
-const defaultContext: FitnessContext = { ...fullGameMaximums() }
+/** Standard full-game context (rate-capped: 3000 ticks / 10 ticks-per-kill = 300). */
+const defaultContext: FitnessContext = {
+  ...fullGameMaximums(
+    DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.maxTicks
+  ),
+}
 
 function makeMetrics(overrides: Partial<RawMetrics> = {}): RawMetrics {
   return {
@@ -186,6 +190,7 @@ describe('weightedFitnessSum', () => {
       score: 500,
       accuracy: 0.5,
       rocksDestroyed: 5,
+      uniqueRocksSeen: 20,
       aliveFrames: 1000,
       thrustFrames: 400,
       fireFrames: 200,
@@ -278,6 +283,7 @@ describe('weightedFitnessSum', () => {
       score: 1200,
       accuracy: 0.4,
       rocksDestroyed: 12,
+      uniqueRocksSeen: 28,
       shotsFired: 30,
       shotsHit: 12,
       deaths: 1,
@@ -293,7 +299,8 @@ describe('weightedFitnessSum', () => {
       defaultGateConfig,
       defaultContext
     )
-    // rocksNorm=12/28≈0.43, accuracy=0.4, survival=1-1/3≈0.67
+    // effectiveMax = min(300, 28) = 28
+    // rocksNorm = 12/28 ≈ 0.43, accuracy=0.4, survival=1-1/3≈0.67
     // perfScore = 0.4*0.43 + 0.4*0.4 + 0.2*0.67 ≈ 0.466
     expect(result).toBeGreaterThan(0.3)
   })
@@ -303,6 +310,7 @@ describe('weightedFitnessSum', () => {
       score: 1000,
       accuracy: 0.3,
       rocksDestroyed: 10,
+      uniqueRocksSeen: 20,
       shotsFired: 30,
       shotsHit: 9,
       deaths: 10,
@@ -332,11 +340,12 @@ describe('weightedFitnessSum', () => {
     expect(result60).toBeGreaterThan(resultDefault)
   })
 
-  it('normalizes rocksDestroyed as linear ratio of maxRocksDestroyed', () => {
+  it('SOI-capped rocksNorm gives stronger signal for fewer visible rocks', () => {
     const metrics = makeMetrics({
       score: 200,
       accuracy: 0.5,
       rocksDestroyed: 1,
+      uniqueRocksSeen: 3,
       shotsFired: 2,
       shotsHit: 1,
       aliveFrames: 1000,
@@ -345,25 +354,31 @@ describe('weightedFitnessSum', () => {
       leftFrames: 200,
       rightFrames: 200,
     })
-    // 1/1 = 1.0 (destroyed all rocks in a single-small-rock scenario)
-    const smallCtx: FitnessContext = { maxRocksDestroyed: 1 }
-    const withSmall = weightedFitnessSum(
-      metrics,
-      defaultWeights,
-      defaultGateConfig,
-      smallCtx
-    )
-    // 1/28 ≈ 0.036 (tiny fraction of full game)
-    const withFull = weightedFitnessSum(
+    // effectiveMax = min(rateCap, 3) = 3
+    // rocksNorm = 1/3 ≈ 0.33
+    const withFewRocks = weightedFitnessSum(
       metrics,
       defaultWeights,
       defaultGateConfig,
       defaultContext
     )
-    expect(withSmall).toBeGreaterThan(withFull)
+    // Same kills but many more rocks seen → weaker signal
+    const metricsMany = makeMetrics({
+      ...metrics,
+      uniqueRocksSeen: 50,
+    })
+    // effectiveMax = min(rateCap, 50) = 50
+    // rocksNorm = 1/50 = 0.02
+    const withManyRocks = weightedFitnessSum(
+      metricsMany,
+      defaultWeights,
+      defaultGateConfig,
+      defaultContext
+    )
+    expect(withFewRocks).toBeGreaterThan(withManyRocks)
   })
 
-  it('returns 1 for rocksNorm when maxRocksDestroyed is 0 (vacuously perfect)', () => {
+  it('rocksNorm floors at 0 when no rocks seen and none destroyed', () => {
     const metrics = makeMetrics({
       accuracy: 0.5,
       deaths: 0,
@@ -372,22 +387,26 @@ describe('weightedFitnessSum', () => {
       fireFrames: 200,
       leftFrames: 200,
       rightFrames: 200,
+      uniqueRocksSeen: 0,
+      rocksDestroyed: 0,
     })
-    const ctx: FitnessContext = { maxRocksDestroyed: 0 }
     const result = weightedFitnessSum(
       metrics,
       defaultWeights,
       defaultGateConfig,
-      ctx
+      defaultContext
     )
-    // rocksNorm=1, accuracy=0.5, survival=1
-    // perfScore = 0.4*1 + 0.4*0.5 + 0.2*1 = 0.8
-    expect(result).toBeGreaterThan(0.6)
+    // rocksNorm = 0/1 = 0, accuracy=0.5, survival=1
+    // perfScore = 0.4*0 + 0.4*0.5 + 0.2*1 = 0.4
+    // Still gets signal from accuracy + survival
+    expect(result).toBeGreaterThan(0.02)
+    expect(result).toBeLessThan(0.6)
   })
 
   it('weights control component influence', () => {
     const metrics = makeMetrics({
       rocksDestroyed: 14,
+      uniqueRocksSeen: 28,
       accuracy: 0.0,
       deaths: 3,
       aliveFrames: 1000,

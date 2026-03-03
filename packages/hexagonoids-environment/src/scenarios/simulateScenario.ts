@@ -1,20 +1,18 @@
 import {
-  greatCircleDistance,
   type PlayerInputs,
   RADIUS,
   ROCK_WAVE_SIZES,
-  step,
 } from '@heygrady/hexagonoids-engine'
 
 import type { AgentContext, AgentFn, SyncExecutor } from '../agents/types.js'
 import {
   MEMORY_LAST_DT_MS,
   MEMORY_PREV_DISTANCES,
+  MEMORY_PREV_PROJECTIONS,
   MEMORY_ROCK_PERCEPTION,
 } from '../agents/types.js'
 import { buildRockPerceptionPrecompute } from '../encoding/collectObservations.js'
 import { findBucketXYZ } from '../evaluation/icosahedralBuckets.js'
-import type { SimulationProfiler } from '../evaluation/perfProfiler.js'
 import type { RawMetrics } from '../evaluation/RawMetrics.js'
 import { createMetricsCollector } from '../evaluation/RawMetrics.js'
 import {
@@ -27,8 +25,6 @@ import type { ScenarioSnapshot } from './types.js'
 
 const PLAYER_ID = 'player-1'
 const PREV_DISTANCE_CLEANUP_INTERVAL = 8
-const DEG_TO_RAD = Math.PI / 180
-
 /**
  * Run a short headless evaluation starting from a restored scenario snapshot.
  *
@@ -41,8 +37,7 @@ export function simulateScenario(
   scenario: ScenarioSnapshot,
   config: Partial<SimulationConfig>,
   seed: string,
-  executor?: SyncExecutor,
-  profiler?: SimulationProfiler
+  executor?: SyncExecutor
 ): RawMetrics {
   const { maxTicks, dtMs } = {
     ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation,
@@ -50,7 +45,8 @@ export function simulateScenario(
   }
 
   // 1. Restore game from snapshot
-  const { state, rng } = restoreSnapshot(scenario, seed)
+  const engine = restoreSnapshot(scenario, seed)
+  const { state, rng } = engine
 
   // Capture baselines for delta metrics
   const baselineGameTime = state.now
@@ -68,6 +64,7 @@ export function simulateScenario(
     rng,
     memory: {},
     executor,
+    spatialQueries: engine,
   }
   const stepInputs: PlayerInputs = {
     [PLAYER_ID]: {
@@ -90,24 +87,36 @@ export function simulateScenario(
   const seenDistanceKeys = new Set<string>()
   const visitedBuckets = new Set<number>()
 
+  const shipPoint = (target: {
+    lat: number
+    lng: number
+    x?: number
+    y?: number
+    z?: number
+  }) => {
+    if (target.x != null && target.y != null && target.z != null) {
+      return [target.x, target.y, target.z] as const
+    }
+    const latRad = (target.lat * Math.PI) / 180
+    const lngRad = (target.lng * Math.PI) / 180
+    const cosLat = Math.cos(latRad)
+    return [
+      cosLat * Math.cos(lngRad),
+      Math.sin(latRad),
+      cosLat * Math.sin(lngRad),
+    ] as const
+  }
+
   // 4. Game loop
-  let tickCount = 0
   for (let tick = 0; tick < maxTicks; tick++) {
     if (state.endedAt != null) break
-    tickCount = tick + 1
 
     // Track ship position before step for distance + spatial coverage
     const player = trackedPlayer ?? state.players.get(PLAYER_ID)
     const ship =
       player?.shipId != null ? state.ships.get(player.shipId) : undefined
     if (ship?.alive) {
-      // Convert lat/lng to unit-sphere XYZ once for both distance and bucket
-      const latRad = ship.lat * DEG_TO_RAD
-      const lngRad = ship.lng * DEG_TO_RAD
-      const cosLat = Math.cos(latRad)
-      const cx = cosLat * Math.cos(lngRad)
-      const cy = cosLat * Math.sin(lngRad)
-      const cz = Math.sin(latRad)
+      const [cx, cy, cz] = shipPoint(ship)
 
       // Chord distance on unit sphere (accurate for small deltas between ticks)
       if (hasPrev) {
@@ -143,18 +152,19 @@ export function simulateScenario(
     const rockPerception =
       ship?.alive === true
         ? buildRockPerceptionPrecompute(
-            state,
-            ship.lat,
-            ship.lng,
-            Math.PI / 2 + ship.yaw
+            {
+              x: ship.x ?? 0,
+              y: ship.y ?? 1,
+              z: ship.z ?? 0,
+            },
+            Math.PI / 2 + ship.yaw,
+            engine
           )
         : undefined
     context.memory[MEMORY_ROCK_PERCEPTION] = rockPerception
 
     // Get agent inputs (reads prevDistances from previous tick)
-    const agentStartedAt = profiler?.start('agent')
     const inputs = agent(state, PLAYER_ID, context)
-    if (agentStartedAt != null) profiler?.stop('agent', agentStartedAt)
 
     // Track action usage per live frame
     collector.addActionFrame(inputs, ship?.alive === true)
@@ -174,8 +184,10 @@ export function simulateScenario(
     }
 
     // Update prevDistances BEFORE step so closing speed reflects movement.
-    const memoryStartedAt = profiler?.start('memory')
     if (ship?.alive) {
+      const prevProjections = context.memory[MEMORY_PREV_PROJECTIONS] as
+        | Map<string, [number, number]>
+        | undefined
       const prevDistances = context.memory[MEMORY_PREV_DISTANCES] as
         | Map<string, number>
         | undefined
@@ -189,26 +201,24 @@ export function simulateScenario(
         if (rockPerception != null) {
           for (const rock of rockPerception.rocks) {
             prevDistances.set(rock.id, rock.distance)
+            if (prevProjections != null) {
+              const existing = prevProjections.get(rock.id)
+              if (existing != null) {
+                existing[0] = rock.localX
+                existing[1] = rock.localY
+              } else {
+                prevProjections.set(rock.id, [rock.localX, rock.localY])
+              }
+            }
             if (shouldCleanup) seenDistanceKeys.add(rock.id)
           }
         }
-        for (const bullet of state.bullets.values()) {
-          const dist = greatCircleDistance(
-            ship.lat,
-            ship.lng,
-            bullet.lat,
-            bullet.lng,
-            RADIUS
-          )
-          prevDistances.set(bullet.id, dist)
-          if (shouldCleanup) seenDistanceKeys.add(bullet.id)
-        }
-
         // Prune destroyed entities periodically to keep map growth bounded.
         if (shouldCleanup) {
           for (const id of prevDistances.keys()) {
             if (!seenDistanceKeys.has(id)) {
               prevDistances.delete(id)
+              prevProjections?.delete(id)
             }
           }
         }
@@ -217,16 +227,13 @@ export function simulateScenario(
 
     // Store dtMs for encoding approach speed calculation
     context.memory[MEMORY_LAST_DT_MS] = dtMs
-    if (memoryStartedAt != null) profiler?.stop('memory', memoryStartedAt)
 
     // Record wave before step for transition detection
     const waveBefore = state.wave
 
     // Step the simulation
-    const stepStartedAt = profiler?.start('step')
     stepInputs[PLAYER_ID] = inputs
-    step(state, stepInputs, dtMs, rng, collector.hooks)
-    if (stepStartedAt != null) profiler?.stop('step', stepStartedAt)
+    engine.tick(stepInputs, dtMs, collector.hooks)
 
     // Detect wave transition and track large rocks spawned
     if (state.wave > waveBefore) {
@@ -246,12 +253,7 @@ export function simulateScenario(
   const ship =
     player?.shipId != null ? state.ships.get(player.shipId) : undefined
   if (ship?.alive && hasPrev) {
-    const latRad = ship.lat * DEG_TO_RAD
-    const lngRad = ship.lng * DEG_TO_RAD
-    const cosLat = Math.cos(latRad)
-    const fx = cosLat * Math.cos(lngRad)
-    const fy = cosLat * Math.sin(lngRad)
-    const fz = Math.sin(latRad)
+    const [fx, fy, fz] = shipPoint(ship)
     const dx = fx - prevX
     const dy = fy - prevY
     const dz = fz - prevZ
@@ -259,7 +261,6 @@ export function simulateScenario(
   }
 
   // 7. Return collected metrics
-  profiler?.onGameComplete(tickCount)
   collector.setUniqueCellsVisited(visitedBuckets.size)
 
   return collector.getMetrics({

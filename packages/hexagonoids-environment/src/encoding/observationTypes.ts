@@ -13,8 +13,11 @@ export interface TemporalObservation {
 export interface LidarHit {
   distanceNorm: number
   closingSpeed: number
-  isRock: number
-  isBullet: number
+  rockSizeNorm: number
+  bearingOffsetNorm: number
+  centerWeight: number
+  bearingDriftNorm: number
+  tangentialSpeed: number
 }
 
 export interface ObservationFrame {

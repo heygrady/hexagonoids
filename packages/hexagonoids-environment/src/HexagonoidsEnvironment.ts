@@ -6,13 +6,12 @@ import type { Executor, SyncExecutor } from '@neat-evolution/executor'
 import type { RNG } from '@neat-evolution/utils'
 import { createRNG } from '@neat-evolution/utils'
 
-import { neatAgent } from './agents/neatAgent.js'
-import { INPUT_COUNT } from './encoding/encodeGameState.js'
+import { createNeatAgent } from './agents/neatAgent.js'
+import { getInputCountForEncoding } from './encoding/encodingPresets.js'
 import {
   type FitnessContext,
   weightedFitnessSum,
 } from './evaluation/calculateFitness.js'
-import type { SimulationProfiler } from './evaluation/perfProfiler.js'
 import {
   fullGameMaximums,
   scenarioMaximums,
@@ -22,6 +21,7 @@ import { simulateGame } from './evaluation/simulateGame.js'
 import type { HexagonoidsEnvironmentConfig } from './HexagonoidsEnvironmentConfig.js'
 import { mergeConfig } from './HexagonoidsEnvironmentConfig.js'
 import { simulateScenario } from './scenarios/simulateScenario.js'
+import { stratifiedSample } from './scenarios/stratifiedSample.js'
 import type { ScenarioSnapshot } from './scenarios/types.js'
 
 const OUTPUT_COUNT = 4
@@ -29,20 +29,18 @@ const OUTPUT_COUNT = 4
 export class HexagonoidsEnvironment
   implements Environment<HexagonoidsEnvironmentConfig>
 {
-  public readonly description: EnvironmentDescription = {
-    inputs: INPUT_COUNT,
-    outputs: OUTPUT_COUNT,
-  }
+  public readonly description: EnvironmentDescription
   public readonly isAsync = false
   private readonly config: HexagonoidsEnvironmentConfig
-  private readonly profiler: SimulationProfiler | undefined
+  private readonly agent: ReturnType<typeof createNeatAgent>
 
-  constructor(
-    config?: Partial<HexagonoidsEnvironmentConfig>,
-    profiler?: SimulationProfiler
-  ) {
+  constructor(config?: Partial<HexagonoidsEnvironmentConfig>) {
     this.config = mergeConfig(config)
-    this.profiler = profiler
+    this.description = {
+      inputs: getInputCountForEncoding(this.config.encodingPreset),
+      outputs: OUTPUT_COUNT,
+    }
+    this.agent = createNeatAgent(this.config.encodingPreset)
   }
 
   evaluate(executor: SyncExecutor, rng?: RNG): number {
@@ -118,13 +116,14 @@ export class HexagonoidsEnvironment
 
   private evaluateFullGame(executor: SyncExecutor, seed: string): number {
     const metrics = simulateGame(
-      neatAgent,
+      this.agent,
       this.config.simulation,
       seed,
-      executor,
-      this.profiler
+      executor
     )
-    const context: FitnessContext = { ...fullGameMaximums() }
+    const context: FitnessContext = {
+      ...fullGameMaximums(this.config.simulation.maxTicks),
+    }
     return weightedFitnessSum(
       metrics,
       this.config.fitnessWeights,
@@ -140,24 +139,10 @@ export class HexagonoidsEnvironment
   ): number {
     const { scenariosPerOrganism, scenarioMaxTicks } = this.config.simulation
 
-    // Select scenarios using a seeded RNG for reproducibility
+    // Select scenarios using stratified sampling by failure signature
     const selectionRng = createRNG(seed)
-    const selected: ScenarioSnapshot[] = []
     const count = Math.min(scenariosPerOrganism, bank.length)
-    if (count >= bank.length) {
-      // Use all scenarios
-      selected.push(...bank)
-    } else {
-      // Fisher-Yates partial shuffle for uniform selection
-      const indices = Array.from({ length: bank.length }, (_, i) => i)
-      for (let i = 0; i < count; i++) {
-        const j = i + Math.floor(selectionRng.gen() * (bank.length - i))
-        const temp = indices[i]!
-        indices[i] = indices[j]!
-        indices[j] = temp
-        selected.push(bank[indices[i]!]!)
-      }
-    }
+    const selected = stratifiedSample(bank, count, selectionRng)
 
     // Score each scenario individually, then average
     const scenarioConfig = {
@@ -167,12 +152,11 @@ export class HexagonoidsEnvironment
     let fitnessSum = 0
     for (const scenario of selected) {
       const metrics = simulateScenario(
-        neatAgent,
+        this.agent,
         scenario,
         scenarioConfig,
         seed,
-        executor,
-        this.profiler
+        executor
       )
       const context: FitnessContext = {
         possibleDeaths: scenarioPossibleDeaths(
@@ -180,7 +164,7 @@ export class HexagonoidsEnvironment
           scenarioMaxTicks,
           this.config.simulation.dtMs
         ),
-        ...scenarioMaximums(scenario.rocks),
+        ...scenarioMaximums(scenarioMaxTicks),
       }
       fitnessSum += weightedFitnessSum(
         metrics,
@@ -195,10 +179,10 @@ export class HexagonoidsEnvironment
 
   toFactoryOptions(): HexagonoidsEnvironmentConfig {
     return {
+      encodingPreset: this.config.encodingPreset,
       simulation: { ...this.config.simulation },
       fitnessWeights: { ...this.config.fitnessWeights },
       gateConfig: { ...this.config.gateConfig },
-      profiling: { ...this.config.profiling },
       ...(this.config.scenarioBank != null && {
         scenarioBank: this.config.scenarioBank,
       }),

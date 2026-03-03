@@ -4,12 +4,12 @@ import {
   defaultPlayerState,
   defaultRockState,
   defaultShipState,
-  type GameState,
+  type EngineInstance,
   generateId,
   latLngToQuaternion,
+  latLngToUnitPoint,
   resetIdCounter,
 } from '@heygrady/hexagonoids-engine'
-import { createRNG, type RNG } from '@neat-evolution/utils'
 
 import type { ScenarioSnapshot } from './types.js'
 
@@ -22,12 +22,13 @@ import type { ScenarioSnapshot } from './types.js'
 export function restoreSnapshot(
   snapshot: ScenarioSnapshot,
   seed?: string
-): { state: GameState; rng: RNG } {
+): EngineInstance {
   // Reset ID counter for deterministic IDs
   resetIdCounter()
 
   // Create fresh game state (no seed — state is fully specified by snapshot)
-  const { state } = createGame({ useFastThrust: true })
+  const engine = createGame({ seed: seed ?? snapshot.id, useFastThrust: true })
+  const { state } = engine
 
   // Set game-level fields
   state.now = snapshot.gameTime
@@ -41,6 +42,10 @@ export function restoreSnapshot(
     snapshot.ship.lat,
     snapshot.ship.lng
   )
+  const [shipX, shipY, shipZ] = latLngToUnitPoint(
+    snapshot.ship.lat,
+    snapshot.ship.lng
+  )
 
   state.ships.set(shipId, {
     ...defaultShipState,
@@ -49,6 +54,9 @@ export function restoreSnapshot(
     orientation: shipOrientation,
     lat: snapshot.ship.lat,
     lng: snapshot.ship.lng,
+    x: shipX,
+    y: shipY,
+    z: shipZ,
     yaw: snapshot.ship.yaw,
     angularVelocity: new Vector3(
       snapshot.ship.angularVelocityX,
@@ -82,12 +90,16 @@ export function restoreSnapshot(
   for (const rockData of snapshot.rocks) {
     const rockId = generateId('rock')
     const rockOrientation = latLngToQuaternion(rockData.lat, rockData.lng)
+    const [rockX, rockY, rockZ] = latLngToUnitPoint(rockData.lat, rockData.lng)
     state.rocks.set(rockId, {
       ...defaultRockState,
       id: rockId,
       orientation: rockOrientation,
       lat: rockData.lat,
       lng: rockData.lng,
+      x: rockX,
+      y: rockY,
+      z: rockZ,
       angularVelocity: new Vector3(
         rockData.angularVelocityX,
         rockData.angularVelocityY,
@@ -101,8 +113,5 @@ export function restoreSnapshot(
   // Skip restoring bullets — pre-existing bullets inflate metrics by
   // crediting the agent with hits it didn't earn.
 
-  // Create deterministic RNG from seed (defaults to snapshot ID)
-  const rng = createRNG(seed ?? snapshot.id)
-
-  return { state, rng }
+  return engine
 }

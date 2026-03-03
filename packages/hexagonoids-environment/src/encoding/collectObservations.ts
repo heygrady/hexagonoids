@@ -1,4 +1,9 @@
-import type { GameState, ShipState } from '@heygrady/hexagonoids-engine'
+import type {
+  GameState,
+  ManagedSpatialQueries,
+  ShipState,
+  SpatialPoint,
+} from '@heygrady/hexagonoids-engine'
 import {
   elapsed,
   FIRE_COOLDOWN,
@@ -9,6 +14,12 @@ import {
 } from '@heygrady/hexagonoids-engine'
 import { yawToBearing } from '../utils/sphericalBearing.js'
 import { MAX_CLOSING_SPEED, SOI_ARC_DISTANCE } from './constants.js'
+import {
+  DEFAULT_ENCODING_PRESET,
+  type EncodingPreset,
+  getLidarRayCount,
+  LIDAR_RAY_COUNT,
+} from './encodingPresets.js'
 import type {
   LidarHit,
   ObservationFrame,
@@ -16,31 +27,90 @@ import type {
   TemporalObservation,
 } from './observationTypes.js'
 
-export const LIDAR_RAY_COUNT = 16
+export { LIDAR_RAY_COUNT } from './encodingPresets.js'
+
 const TWO_PI = Math.PI * 2
 const MAX_VISION_ARC = SOI_ARC_DISTANCE
-const DEG_TO_RAD = Math.PI / 180
 const CLOSING_EPSILON = 1e-9
+const PROJECTION_EPSILON = 1e-6
+const MAX_BEARING_DRIFT = Math.PI
 const RAY_STEP = TWO_PI / LIDAR_RAY_COUNT
+const TAN_HALF_RAY_STEP = Math.tan(RAY_STEP * 0.5)
 // Precomputed dot-product threshold for SOI culling.
 // cos(maxVisionAngle) — rocks with dot product below this are outside SOI.
 const MAX_VISION_ANGLE = MAX_VISION_ARC / RADIUS
 const SOI_DOT_THRESHOLD = Math.cos(MAX_VISION_ANGLE)
-const RAY_ANGLES = new Array<number>(LIDAR_RAY_COUNT)
+const RAY_DIRECTIONS = new Array<{ x: number; y: number }>(LIDAR_RAY_COUNT)
 
 for (let i = 0; i < LIDAR_RAY_COUNT; i++) {
-  RAY_ANGLES[i] = (i / LIDAR_RAY_COUNT) * TWO_PI - Math.PI
+  const angle = (i / LIDAR_RAY_COUNT) * TWO_PI - Math.PI
+  RAY_DIRECTIONS[i] = {
+    x: Math.sin(angle),
+    y: Math.cos(angle),
+  }
+}
+
+const CONE8_COUNT = 8
+const CONE8_STEP = TWO_PI / CONE8_COUNT
+const CONE8_HALF_STEP = CONE8_STEP * 0.5
+const CONE8_DIRECTIONS = new Array<{ x: number; y: number }>(CONE8_COUNT)
+
+for (let i = 0; i < CONE8_COUNT; i++) {
+  const angle = (i / CONE8_COUNT) * TWO_PI - Math.PI
+  CONE8_DIRECTIONS[i] = {
+    x: Math.sin(angle),
+    y: Math.cos(angle),
+  }
 }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
 
-function wrapAngle(value: number): number {
-  let a = value
-  while (a > Math.PI) a -= TWO_PI
-  while (a < -Math.PI) a += TWO_PI
-  return a
+function requireSpatialQueries(
+  spatialQueries: Pick<ManagedSpatialQueries, 'queryRocksNear'> | undefined
+): Pick<ManagedSpatialQueries, 'queryRocksNear'> {
+  if (spatialQueries == null) {
+    throw new Error(
+      'collectObservations requires spatialQueries when computing rock perception'
+    )
+  }
+  return spatialQueries
+}
+
+function buildLocalBasisFromCenter(center: SpatialPoint): {
+  northX: number
+  northY: number
+  northZ: number
+  eastX: number
+  eastY: number
+  eastZ: number
+} {
+  const refX = Math.abs(center.y) > 0.99 ? 0 : 0
+  const refY = Math.abs(center.y) > 0.99 ? 0 : 1
+  const refZ = Math.abs(center.y) > 0.99 ? 1 : 0
+
+  let eastX = refY * center.z - refZ * center.y
+  let eastY = refZ * center.x - refX * center.z
+  let eastZ = refX * center.y - refY * center.x
+  const eastLen = Math.sqrt(eastX * eastX + eastY * eastY + eastZ * eastZ)
+  const invEastLen = eastLen > PROJECTION_EPSILON ? 1 / eastLen : 1
+  eastX *= invEastLen
+  eastY *= invEastLen
+  eastZ *= invEastLen
+
+  const northX = eastY * center.z - eastZ * center.y
+  const northY = eastZ * center.x - eastX * center.z
+  const northZ = eastX * center.y - eastY * center.x
+
+  return {
+    northX,
+    northY,
+    northZ,
+    eastX,
+    eastY,
+    eastZ,
+  }
 }
 
 function headingVelocityComponents(
@@ -118,42 +188,57 @@ function headingVelocityComponents(
   return [clamp(forward, -1, 1), clamp(lateral, -1, 1)]
 }
 
-function makeEmptyLidar(): LidarHit[] {
-  const lidar = new Array<LidarHit>(LIDAR_RAY_COUNT)
-  for (let i = 0; i < LIDAR_RAY_COUNT; i++) {
+function makeEmptyLidar(rayCount: number = LIDAR_RAY_COUNT): LidarHit[] {
+  const lidar = new Array<LidarHit>(rayCount)
+  for (let i = 0; i < rayCount; i++) {
     lidar[i] = {
       distanceNorm: 1,
       closingSpeed: 0,
-      isRock: 0,
-      isBullet: 0,
+      rockSizeNorm: 0,
+      bearingOffsetNorm: 0,
+      centerWeight: 0,
+      bearingDriftNorm: 0,
+      tangentialSpeed: 0,
     }
   }
   return lidar
 }
 
-function resetLidar(lidar: LidarHit[]): void {
-  for (let i = 0; i < LIDAR_RAY_COUNT; i++) {
+function resetLidar(
+  lidar: LidarHit[],
+  rayCount: number = LIDAR_RAY_COUNT
+): void {
+  for (let i = 0; i < rayCount; i++) {
     const hit = lidar[i]
     if (hit == null) {
       lidar[i] = {
         distanceNorm: 1,
         closingSpeed: 0,
-        isRock: 0,
-        isBullet: 0,
+        rockSizeNorm: 0,
+        bearingOffsetNorm: 0,
+        centerWeight: 0,
+        bearingDriftNorm: 0,
+        tangentialSpeed: 0,
       }
       continue
     }
     hit.distanceNorm = 1
     hit.closingSpeed = 0
-    hit.isRock = 0
-    hit.isBullet = 0
+    hit.rockSizeNorm = 0
+    hit.bearingOffsetNorm = 0
+    hit.centerWeight = 0
+    hit.bearingDriftNorm = 0
+    hit.tangentialSpeed = 0
   }
-  if (lidar.length !== LIDAR_RAY_COUNT) {
-    lidar.length = LIDAR_RAY_COUNT
+  if (lidar.length !== rayCount) {
+    lidar.length = rayCount
   }
 }
 
-export function createObservationFrameBuffer(): ObservationFrame {
+export function createObservationFrameBuffer(
+  encodingPreset: EncodingPreset = DEFAULT_ENCODING_PRESET
+): ObservationFrame {
+  const rayCount = getLidarRayCount(encodingPreset)
   return {
     shipAlive: false,
     ship: {
@@ -166,40 +251,78 @@ export function createObservationFrameBuffer(): ObservationFrame {
       cooldownNorm: 0,
       livesNorm: 0,
     },
-    lidar: makeEmptyLidar(),
+    lidar: makeEmptyLidar(rayCount),
   }
 }
 
-function rayIndexFromRelativeBearing(relative: number): number {
-  const normalized = (relative + Math.PI) / TWO_PI
-  return Math.floor(normalized * LIDAR_RAY_COUNT) % LIDAR_RAY_COUNT
+function rayDirectionAt(index: number): { x: number; y: number } {
+  return RAY_DIRECTIONS[index] ?? RAY_DIRECTIONS[0]!
 }
+
+function findBestRayIndex(localX: number, localY: number): number {
+  let bestIndex = 0
+  let bestProjection = -Infinity
+  for (let i = 0; i < LIDAR_RAY_COUNT; i++) {
+    const dir = rayDirectionAt(i)
+    const projection = localX * dir.x + localY * dir.y
+    if (projection > bestProjection) {
+      bestProjection = projection
+      bestIndex = i
+    }
+  }
+  return bestIndex
+}
+
+export type PreviousRockProjectionMap = Map<string, [number, number]>
 
 function updateRayHit(
   lidar: LidarHit[],
-  relBearing: number,
+  rockId: string,
+  localX: number,
+  localY: number,
   arcDist: number,
   entityRadius: number,
   closingSpeed: number,
-  isRock: boolean
+  rockSizeNorm: number,
+  prevProjections: PreviousRockProjectionMap | undefined,
+  invDtSeconds: number,
+  includeBearingDrift: boolean,
+  includeCenterWeight: boolean
 ): void {
   if (arcDist > MAX_VISION_ARC) return
 
-  const centerRayIndex = rayIndexFromRelativeBearing(relBearing)
-  const centerRayAngle = RAY_ANGLES[centerRayIndex] ?? 0
-  const baseDelta = wrapAngle(relBearing - centerRayAngle)
+  const centerRayIndex = findBestRayIndex(localX, localY)
   const distanceNorm = clamp(arcDist / MAX_VISION_ARC, 0, 1)
   const closingSpeedNorm = clamp(closingSpeed / MAX_CLOSING_SPEED, -1, 1)
-
-  // Approximate angular width of entity from ship center.
   const radiusArc = clamp(entityRadius / RADIUS, 0.001, 0.35)
+  const entityTan = Math.tan(radiusArc)
+  let velocityX = 0
+  let velocityY = 0
+  let hasPrevProjection = false
 
-  // Update neighboring rays if entity spans multiple directions.
+  if (
+    includeBearingDrift &&
+    prevProjections != null &&
+    invDtSeconds >= CLOSING_EPSILON
+  ) {
+    const prev = prevProjections.get(rockId)
+    if (prev != null) {
+      velocityX = (localX - prev[0]) * invDtSeconds
+      velocityY = (localY - prev[1]) * invDtSeconds
+      hasPrevProjection = true
+    }
+  }
+
   for (let offset = -2; offset <= 2; offset++) {
-    const delta = Math.abs(baseDelta - offset * RAY_STEP)
-    if (delta > radiusArc) continue
-
     const idx = (centerRayIndex + offset + LIDAR_RAY_COUNT) % LIDAR_RAY_COUNT
+    const dir = rayDirectionAt(idx)
+    const depth = localX * dir.x + localY * dir.y
+    if (depth <= PROJECTION_EPSILON) continue
+    const side = localX * dir.y - localY * dir.x
+    const rayHalfWidth = Math.max(PROJECTION_EPSILON, depth * TAN_HALF_RAY_STEP)
+    const entityHalfWidth = Math.max(rayHalfWidth, depth * entityTan)
+    const distanceToRay = Math.abs(side)
+    if (distanceToRay > entityHalfWidth) continue
 
     const current = lidar[idx]
     if (current == null) continue
@@ -207,28 +330,91 @@ function updateRayHit(
 
     current.distanceNorm = distanceNorm
     current.closingSpeed = closingSpeedNorm
-    current.isRock = isRock ? 1 : 0
-    current.isBullet = isRock ? 0 : 1
+    current.rockSizeNorm = rockSizeNorm
+    current.bearingOffsetNorm = clamp(side / rayHalfWidth, -1, 1)
+    if (includeCenterWeight) {
+      current.centerWeight = clamp(1 - distanceToRay / entityHalfWidth, 0, 1)
+    }
+    current.bearingDriftNorm = hasPrevProjection
+      ? clamp(
+          (velocityX * dir.y - velocityY * dir.x) /
+            Math.max(PROJECTION_EPSILON, depth) /
+            MAX_BEARING_DRIFT,
+          -1,
+          1
+        )
+      : 0
   }
 }
 
-interface ShipGeoContext {
-  latDeg: number
-  lngDeg: number
-  latRad: number
-  sinLat: number
-  cosLat: number
-  shipBearing: number
-  maxVisionAngle: number
-  maxLngDelta: number
+function findConeIndex(localX: number, localY: number): number {
+  let angle = Math.atan2(localX, localY)
+  if (angle < -Math.PI) angle += TWO_PI
+  return Math.floor(((angle + Math.PI) / TWO_PI) * CONE8_COUNT) % CONE8_COUNT
+}
+
+function updateConeHit(
+  lidar: LidarHit[],
+  rockId: string,
+  localX: number,
+  localY: number,
+  arcDist: number,
+  closingSpeed: number,
+  prevProjections: PreviousRockProjectionMap | undefined,
+  invDtSeconds: number
+): void {
+  if (arcDist > MAX_VISION_ARC) return
+
+  const coneIndex = findConeIndex(localX, localY)
+  const distanceNorm = clamp(arcDist / MAX_VISION_ARC, 0, 1)
+
+  const current = lidar[coneIndex]
+  if (current == null) return
+  if (distanceNorm >= current.distanceNorm) return
+
+  const closingSpeedNorm = clamp(closingSpeed / MAX_CLOSING_SPEED, -1, 1)
+
+  // Lateral offset: perpendicular displacement within the cone, normalized to [-1, 1]
+  const dir = CONE8_DIRECTIONS[coneIndex]!
+  const depth = localX * dir.x + localY * dir.y
+  const side = localX * dir.y - localY * dir.x
+  const coneHalfWidth = Math.max(
+    PROJECTION_EPSILON,
+    Math.abs(depth) * Math.tan(CONE8_HALF_STEP)
+  )
+  const lateralOffset = clamp(side / coneHalfWidth, -1, 1)
+
+  // Radial velocity (closing speed already computed)
+  current.distanceNorm = distanceNorm
+  current.closingSpeed = closingSpeedNorm
+  current.bearingOffsetNorm = lateralOffset
+
+  // Tangential velocity from frame-over-frame projections
+  let tangential = 0
+  if (prevProjections != null && invDtSeconds >= CLOSING_EPSILON) {
+    const prev = prevProjections.get(rockId)
+    if (prev != null) {
+      const velocityX = (localX - prev[0]) * invDtSeconds
+      const velocityY = (localY - prev[1]) * invDtSeconds
+      const safeDepth = Math.max(PROJECTION_EPSILON, Math.abs(depth))
+      tangential = clamp(
+        (velocityX * dir.y - velocityY * dir.x) / safeDepth / MAX_BEARING_DRIFT,
+        -1,
+        1
+      )
+    }
+  }
+  current.tangentialSpeed = tangential
 }
 
 export interface RockPerceptionEntry {
   id: string
   distance: number
-  relativeBearing: number
+  localX: number
+  localY: number
   inVisionRange: boolean
   radius: number
+  sizeNorm: number
 }
 
 export interface RockPerceptionPrecompute {
@@ -239,79 +425,67 @@ function rockRadiusBySize(size: 0 | 1 | 2): number {
   return size === 2 ? 0.26 : size === 1 ? 0.13 : 0.07
 }
 
-function createShipGeoContext(
-  latDeg: number,
-  lngDeg: number,
-  shipBearing: number
-): ShipGeoContext {
-  const latRad = latDeg * DEG_TO_RAD
-  const maxVisionAngle = MAX_VISION_ARC / RADIUS
-  const cosLatSafe = Math.max(Math.abs(Math.cos(latRad)), 0.12)
-  const maxLngDelta = Math.min(Math.PI, maxVisionAngle / cosLatSafe + 0.05)
-  return {
-    latDeg,
-    lngDeg,
-    latRad,
-    sinLat: Math.sin(latRad),
-    cosLat: Math.cos(latRad),
-    shipBearing,
-    maxVisionAngle,
-    maxLngDelta,
-  }
-}
-
 export function buildRockPerceptionPrecompute(
-  state: GameState,
-  shipLatDeg: number,
-  shipLngDeg: number,
-  shipBearing: number
+  shipCenter: SpatialPoint,
+  shipBearing: number,
+  spatialQueries?: Pick<ManagedSpatialQueries, 'queryRocksNear'>
 ): RockPerceptionPrecompute {
-  const shipLatRad = shipLatDeg * DEG_TO_RAD
-  const shipLngRad = shipLngDeg * DEG_TO_RAD
-  const shipSinLat = Math.sin(shipLatRad)
-  const shipCosLat = Math.cos(shipLatRad)
+  const queries = requireSpatialQueries(spatialQueries)
+  const basis = buildLocalBasisFromCenter(shipCenter)
   // Ship XYZ on unit sphere for dot-product culling
-  const shipCosLng = Math.cos(shipLngRad)
-  const shipSinLng = Math.sin(shipLngRad)
-  const shipX = shipCosLat * shipCosLng
-  const shipY = shipCosLat * shipSinLng
-  const shipZ = shipSinLat
-  const rocks = new Array<RockPerceptionEntry>(state.rocks.size)
+  // Spatial index points are y-up; the local projection math in this module
+  // uses a z-up basis, so remap the components once here.
+  const shipX = shipCenter.x
+  const shipY = shipCenter.z
+  const shipZ = shipCenter.y
+  const northX = basis.northX
+  const northY = basis.northZ
+  const northZ = basis.northY
+  const eastX = basis.eastX
+  const eastY = basis.eastZ
+  const eastZ = basis.eastY
+  const sinBearing = Math.sin(shipBearing)
+  const cosBearing = Math.cos(shipBearing)
+  const forwardX = northX * cosBearing + eastX * sinBearing
+  const forwardY = northY * cosBearing + eastY * sinBearing
+  const forwardZ = northZ * cosBearing + eastZ * sinBearing
+  const rightX = eastX * cosBearing - northX * sinBearing
+  const rightY = eastY * cosBearing - northY * sinBearing
+  const rightZ = eastZ * cosBearing - northZ * sinBearing
+  const candidateRocks = queries.queryRocksNear(shipCenter, MAX_VISION_ARC)
+  const rockCount = candidateRocks.length
+  const rocks = new Array<RockPerceptionEntry>(rockCount)
 
   let index = 0
 
-  for (const rock of state.rocks.values()) {
-    const phi = rock.lat * DEG_TO_RAD
-    const lambda = rock.lng * DEG_TO_RAD
-    const sinPhi = Math.sin(phi)
-    const cosPhi = Math.cos(phi)
-    const rx = cosPhi * Math.cos(lambda)
-    const ry = cosPhi * Math.sin(lambda)
-    const rz = sinPhi
+  const processRock = (rock: {
+    point: SpatialPoint
+    size: 0 | 1 | 2
+    id: string
+  }) => {
+    const rx = rock.point.x
+    const ry = rock.point.z
+    const rz = rock.point.y
 
     // Dot product = cos(angle) between ship and rock on unit sphere.
     // Higher dot = closer. Skip expensive haversine for distant rocks.
     const dot = shipX * rx + shipY * ry + shipZ * rz
 
     let distance = 0
-    let relativeBearing = 0
+    let localX = 0
+    let localY = 0
     let inVisionRange = false
 
     if (dot >= SOI_DOT_THRESHOLD) {
-      // Rock is within or near SOI — compute precise haversine distance
-      const dLat = phi - shipLatRad
-      const dLng = wrapAngle(lambda - shipLngRad)
-      const sinHalfLat = Math.sin(dLat * 0.5)
-      const sinHalfLng = Math.sin(dLng * 0.5)
-      const a =
-        sinHalfLat * sinHalfLat + shipCosLat * cosPhi * sinHalfLng * sinHalfLng
-      distance = RADIUS * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
+      distance = RADIUS * Math.acos(clamp(dot, -1, 1))
 
       if (distance <= MAX_VISION_ARC) {
-        const y = Math.sin(dLng) * cosPhi
-        const x = shipCosLat * sinPhi - shipSinLat * cosPhi * Math.cos(dLng)
-        relativeBearing = wrapRelative(Math.atan2(y, x) - shipBearing)
-        inVisionRange = true
+        const depth = dot
+        if (depth > PROJECTION_EPSILON) {
+          localX = (rx * rightX + ry * rightY + rz * rightZ) / depth
+          localY = (rx * forwardX + ry * forwardY + rz * forwardZ) / depth
+          inVisionRange = true
+        }
       }
     } else {
       // Rock is far outside SOI — use arc-cosine of dot for approximate distance
@@ -321,32 +495,24 @@ export function buildRockPerceptionPrecompute(
     rocks[index] = {
       id: rock.id,
       distance,
-      relativeBearing,
+      localX,
+      localY,
       inVisionRange,
       radius: rockRadiusBySize(rock.size),
+      sizeNorm: rock.size / 2,
     }
     index += 1
   }
 
+  for (const entry of candidateRocks) {
+    processRock({
+      id: entry.entity.id,
+      size: entry.entity.size,
+      point: entry.point,
+    })
+  }
+
   return { rocks }
-}
-
-function isWithinVisionBounds(
-  ship: ShipGeoContext,
-  entityLatDeg: number,
-  entityLngDeg: number
-): boolean {
-  const dLat = Math.abs((entityLatDeg - ship.latDeg) * DEG_TO_RAD)
-  if (dLat > ship.maxVisionAngle) return false
-  const dLng = Math.abs(wrapAngle((entityLngDeg - ship.lngDeg) * DEG_TO_RAD))
-  return dLng <= ship.maxLngDelta
-}
-
-function wrapRelative(angle: number): number {
-  let rel = angle
-  while (rel > Math.PI) rel -= TWO_PI
-  while (rel < -Math.PI) rel += TWO_PI
-  return rel
 }
 
 function collectShipObservation(
@@ -355,8 +521,9 @@ function collectShipObservation(
   frame: ObservationFrame
 ): {
   alive: boolean
-  lat: number
-  lng: number
+  x: number
+  y: number
+  z: number
   shipBearing: number
   ship: ShipObservation
   temporal: TemporalObservation
@@ -379,8 +546,9 @@ function collectShipObservation(
     )
     return {
       alive: false,
-      lat: 0,
-      lng: 0,
+      x: 0,
+      y: 1,
+      z: 0,
       shipBearing: 0,
       ship: frame.ship,
       temporal: frame.temporal,
@@ -407,8 +575,9 @@ function collectShipObservation(
 
   return {
     alive: true,
-    lat: ship.lat,
-    lng: ship.lng,
+    x: ship.x ?? 0,
+    y: ship.y ?? 1,
+    z: ship.z ?? 0,
     shipBearing: yawToBearing(ship.yaw),
     ship: frame.ship,
     temporal: frame.temporal,
@@ -428,9 +597,13 @@ function closingSpeedFromPrev(
 
 function scanRocks(
   rockPerception: RockPerceptionPrecompute,
+  prevProjections: PreviousRockProjectionMap | undefined,
   prevDistances: Map<string, number>,
   invDtSeconds: number,
-  lidar: LidarHit[]
+  lidar: LidarHit[],
+  includeBearingDrift: boolean,
+  includeCenterWeight: boolean,
+  useCones: boolean
 ): void {
   for (const rock of rockPerception.rocks) {
     if (!rock.inVisionRange) continue
@@ -440,87 +613,82 @@ function scanRocks(
       rock.distance,
       invDtSeconds
     )
-    updateRayHit(
-      lidar,
-      rock.relativeBearing,
-      rock.distance,
-      rock.radius,
-      closing,
-      true
-    )
-  }
-}
-
-function scanBullets(
-  state: GameState,
-  prevDistances: Map<string, number>,
-  invDtSeconds: number,
-  ship: ShipGeoContext,
-  lidar: LidarHit[],
-  ownShipId?: string
-): void {
-  for (const bullet of state.bullets.values()) {
-    if (ownShipId != null && bullet.ownerId === ownShipId) continue
-    if (!isWithinVisionBounds(ship, bullet.lat, bullet.lng)) continue
-    const phi2 = bullet.lat * DEG_TO_RAD
-    const cosPhi2 = Math.cos(phi2)
-    const dLat = phi2 - ship.latRad
-    const dLng = (bullet.lng - ship.lngDeg) * DEG_TO_RAD
-
-    const sinHalfLat = Math.sin(dLat * 0.5)
-    const sinHalfLng = Math.sin(dLng * 0.5)
-    const a =
-      sinHalfLat * sinHalfLat + ship.cosLat * cosPhi2 * sinHalfLng * sinHalfLng
-    const dist = RADIUS * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
-    if (dist > MAX_VISION_ARC) continue
-
-    const y = Math.sin(dLng) * cosPhi2
-    const x =
-      ship.cosLat * Math.sin(phi2) - ship.sinLat * cosPhi2 * Math.cos(dLng)
-    const relativeBearing = wrapRelative(Math.atan2(y, x) - ship.shipBearing)
-
-    const closing = closingSpeedFromPrev(
-      prevDistances,
-      bullet.id,
-      dist,
-      invDtSeconds
-    )
-    updateRayHit(lidar, relativeBearing, dist, 0.03, closing, false)
+    if (useCones) {
+      updateConeHit(
+        lidar,
+        rock.id,
+        rock.localX,
+        rock.localY,
+        rock.distance,
+        closing,
+        prevProjections,
+        invDtSeconds
+      )
+    } else {
+      updateRayHit(
+        lidar,
+        rock.id,
+        rock.localX,
+        rock.localY,
+        rock.distance,
+        rock.radius,
+        closing,
+        rock.sizeNorm,
+        prevProjections,
+        invDtSeconds,
+        includeBearingDrift,
+        includeCenterWeight
+      )
+    }
   }
 }
 
 export function collectObservations(
   state: GameState,
   playerId: string,
+  prevProjections: PreviousRockProjectionMap | undefined,
   prevDistances: Map<string, number>,
   dtMs: number,
   frameBuffer?: ObservationFrame,
-  rockPerceptionBuffer?: RockPerceptionPrecompute
+  rockPerceptionBuffer?: RockPerceptionPrecompute,
+  encodingPreset: EncodingPreset = DEFAULT_ENCODING_PRESET,
+  spatialQueries?: Pick<ManagedSpatialQueries, 'queryRocksNear'>
 ): ObservationFrame {
-  const frame = frameBuffer ?? createObservationFrameBuffer()
+  const rayCount = getLidarRayCount(encodingPreset)
+  const frame = frameBuffer ?? createObservationFrameBuffer(encodingPreset)
   if (frameBuffer != null) {
-    resetLidar(frame.lidar)
+    resetLidar(frame.lidar, rayCount)
   }
   const ship = collectShipObservation(state, playerId, frame)
   if (!ship.alive) {
     return frame
   }
 
-  const shipGeo = createShipGeoContext(ship.lat, ship.lng, ship.shipBearing)
   const rockPerception =
     rockPerceptionBuffer ??
-    buildRockPerceptionPrecompute(state, ship.lat, ship.lng, ship.shipBearing)
+    buildRockPerceptionPrecompute(
+      {
+        x: ship.x,
+        y: ship.y,
+        z: ship.z,
+      },
+      ship.shipBearing,
+      spatialQueries
+    )
   const invDtSeconds = dtMs > 0 ? 1000 / dtMs : 0
+  const useCones = encodingPreset === 'cone8'
+  const includeBearingDrift = encodingPreset !== 'four' && !useCones
+  const includeCenterWeight = encodingPreset === 'six'
 
-  const ownShipId = state.players.get(playerId)?.shipId ?? undefined
-  scanRocks(rockPerception, prevDistances, invDtSeconds, frame.lidar)
-  scanBullets(
-    state,
+  scanRocks(
+    rockPerception,
+    prevProjections,
     prevDistances,
     invDtSeconds,
-    shipGeo,
     frame.lidar,
-    ownShipId
+    includeBearingDrift,
+    includeCenterWeight,
+    useCones
   )
 
   return frame

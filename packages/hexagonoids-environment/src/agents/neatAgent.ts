@@ -3,27 +3,29 @@ import type { RNG } from '@neat-evolution/utils'
 import type { RockPerceptionPrecompute } from '../encoding/collectObservations.js'
 import {
   createObservationFrameBuffer,
-  LIDAR_RAY_COUNT,
+  type PreviousRockProjectionMap,
 } from '../encoding/collectObservations.js'
 import { decodeOutputs } from '../encoding/decodeOutputs.js'
 import { encodeGameState } from '../encoding/encodeGameState.js'
+import {
+  DEFAULT_ENCODING_PRESET,
+  type EncodingPreset,
+  GLOBAL_FEATURES,
+  getEncodingFeaturesPerRay,
+  getLidarRayCount,
+} from '../encoding/encodingPresets.js'
 import type { ObservationFrame } from '../encoding/observationTypes.js'
 import type { AgentFn } from './types.js'
 import {
   MEMORY_LAST_DT_MS,
   MEMORY_PREV_DISTANCES,
+  MEMORY_PREV_PROJECTIONS,
   MEMORY_ROCK_PERCEPTION,
 } from './types.js'
 
-const GLOBAL_FEATURES = 5
-const FEATURES_PER_RAY = 4
-const LIDAR_CHANNELS = LIDAR_RAY_COUNT * FEATURES_PER_RAY
-
 /**
- * Noise amplitude for LIDAR proximity and closing-speed channels.
- * Small enough to stay well below real signals (~0.4-0.9) but large
- * enough to break the all-zeros pattern that stalls learning.
- * Median |noise| ≈ 0.02, 95th percentile ≈ 0.06.
+ * Noise amplitude for empty LIDAR proximity channels.
+ * Kept small so it breaks the exact-zero pattern without obscuring real hits.
  */
 const LIDAR_NOISE_SCALE = 0.03
 
@@ -41,15 +43,26 @@ const LIDAR_DECAY = 0.85
 const DECAY_EPSILON = 0.005
 
 interface NeatMemory {
+  prevProjections: PreviousRockProjectionMap | undefined
   prevDistances: Map<string, number>
   lastDtMs: number
   inputBuffer: number[]
   observationBuffer: ObservationFrame
   rockPerception: RockPerceptionPrecompute | undefined
-  lidarTrace: number[] | undefined
 }
 
-function getMemory(memory: Record<string, unknown>): NeatMemory {
+function getMemory(
+  memory: Record<string, unknown>,
+  needsPrevProjections: boolean,
+  encodingPreset: EncodingPreset = DEFAULT_ENCODING_PRESET
+): NeatMemory {
+  if (needsPrevProjections) {
+    if (memory[MEMORY_PREV_PROJECTIONS] == null) {
+      memory[MEMORY_PREV_PROJECTIONS] = new Map<string, [number, number]>()
+    }
+  } else if (memory[MEMORY_PREV_PROJECTIONS] != null) {
+    delete memory[MEMORY_PREV_PROJECTIONS]
+  }
   if (memory[MEMORY_PREV_DISTANCES] == null) {
     memory[MEMORY_PREV_DISTANCES] = new Map<string, number>()
   }
@@ -60,8 +73,11 @@ function getMemory(memory: Record<string, unknown>): NeatMemory {
     memory.inputBuffer = []
   }
   if (memory.observationBuffer == null) {
-    memory.observationBuffer = createObservationFrameBuffer()
+    memory.observationBuffer = createObservationFrameBuffer(encodingPreset)
   }
+  memory.prevProjections = memory[MEMORY_PREV_PROJECTIONS] as
+    | PreviousRockProjectionMap
+    | undefined
   memory.rockPerception = memory[MEMORY_ROCK_PERCEPTION] as
     | RockPerceptionPrecompute
     | undefined
@@ -77,25 +93,34 @@ function getMemory(memory: Record<string, unknown>): NeatMemory {
  * - If the ray is empty (proximity ≈ 0), use the decayed previous value
  *   so the entity "fades out" over ~10 frames instead of vanishing.
  *
- * Binary flags (isRock, isBullet) are set to 1 while the trace is active
- * and cleared when the trace falls below epsilon.
+ * The rock-presence flag and rock-size channel are preserved while the trace
+ * is active and cleared when the trace falls below epsilon.
  */
-export function applyLidarDecay(inputs: number[], trace: number[]): void {
-  for (let r = 0; r < LIDAR_RAY_COUNT; r++) {
-    const base = GLOBAL_FEATURES + r * FEATURES_PER_RAY
-    const traceBase = r * FEATURES_PER_RAY
+export function applyLidarDecay(
+  inputs: number[],
+  trace: number[],
+  encodingPreset: EncodingPreset = DEFAULT_ENCODING_PRESET
+): void {
+  const featuresPerRay = getEncodingFeaturesPerRay(encodingPreset)
+  const rayCount = getLidarRayCount(encodingPreset)
+  for (let r = 0; r < rayCount; r++) {
+    const base = GLOBAL_FEATURES + r * featuresPerRay
+    const traceBase = r * featuresPerRay
 
     const rawProximity = inputs[base] ?? 0
     const rawClosing = inputs[base + 1] ?? 0
-    const rawIsRock = inputs[base + 2] ?? 0
-    const rawIsBullet = inputs[base + 3] ?? 0
+    const rawRockSize = inputs[base + 2] ?? 0
+    const rawBearingOffset = inputs[base + 3] ?? 0
 
     if (rawProximity > DECAY_EPSILON) {
       // Real signal — use it and update trace
       trace[traceBase] = rawProximity
       trace[traceBase + 1] = rawClosing
-      trace[traceBase + 2] = rawIsRock
-      trace[traceBase + 3] = rawIsBullet
+      trace[traceBase + 2] = rawRockSize
+      trace[traceBase + 3] = rawBearingOffset
+      for (let i = 4; i < featuresPerRay; i++) {
+        trace[traceBase + i] = inputs[base + i] ?? 0
+      }
     } else {
       // No signal — decay the trace
       const prevProx = (trace[traceBase] ?? 0) * LIDAR_DECAY
@@ -103,38 +128,44 @@ export function applyLidarDecay(inputs: number[], trace: number[]): void {
         const prevClosing = (trace[traceBase + 1] ?? 0) * LIDAR_DECAY
         inputs[base] = prevProx
         inputs[base + 1] = prevClosing
-        // Preserve entity type flags while trace is active
-        inputs[base + 2] = trace[traceBase + 2] ?? 0
-        inputs[base + 3] = trace[traceBase + 3] ?? 0
+        // Preserve other channels while the trace is active.
+        for (let i = 2; i < featuresPerRay; i++) {
+          inputs[base + i] = trace[traceBase + i] ?? 0
+        }
         trace[traceBase] = prevProx
         trace[traceBase + 1] = prevClosing
       } else {
         // Trace fully decayed — clear
-        trace[traceBase] = 0
-        trace[traceBase + 1] = 0
-        trace[traceBase + 2] = 0
-        trace[traceBase + 3] = 0
+        for (let i = 0; i < featuresPerRay; i++) {
+          trace[traceBase + i] = 0
+        }
       }
     }
   }
 }
 
 /**
- * Add low-level Gaussian noise to LIDAR proximity and closing-speed
- * channels. Keeps the network active during empty-vision frames
- * instead of receiving static zeros.
- * Binary flags (isRock, isBullet) are left clean.
+ * Add low-level noise only to empty LIDAR proximity channels.
+ * This avoids mutating real detections or inventing fake relative motion.
  */
-function addLidarNoise(inputs: number[], rng: RNG): void {
-  for (let r = 0; r < LIDAR_RAY_COUNT; r++) {
-    const base = GLOBAL_FEATURES + r * FEATURES_PER_RAY
-    // Box-Muller for two independent Gaussian samples
-    const u1 = rng.gen() || 1e-12 // avoid log(0)
-    const u2 = rng.gen()
-    const mag = LIDAR_NOISE_SCALE * Math.sqrt(-2 * Math.log(u1))
-    const theta = 2 * Math.PI * u2
-    inputs[base] = (inputs[base] ?? 0) + mag * Math.cos(theta) // proximity noise
-    inputs[base + 1] = (inputs[base + 1] ?? 0) + mag * Math.sin(theta) // closingSpeed noise
+function addLidarNoise(
+  inputs: number[],
+  rng: RNG,
+  encodingPreset: EncodingPreset
+): void {
+  const featuresPerRay = getEncodingFeaturesPerRay(encodingPreset)
+  const rayCount = getLidarRayCount(encodingPreset)
+  const isCone8 = encodingPreset === 'cone8'
+  for (let r = 0; r < rayCount; r++) {
+    const base = GLOBAL_FEATURES + r * featuresPerRay
+    const proximity = inputs[base] ?? 0
+    if (proximity > DECAY_EPSILON) continue
+    // cone8 has no rockSize channel; ray presets check rockSize at index 2
+    if (!isCone8) {
+      const rockSize = inputs[base + 2] ?? 0
+      if (rockSize > 0) continue
+    }
+    inputs[base] = rng.gen() * LIDAR_NOISE_SCALE
   }
 }
 
@@ -143,37 +174,46 @@ function addLidarNoise(inputs: number[], rng: RNG): void {
  * Requires `context.executor` to be set.
  *
  * Post-processing pipeline:
- * 1. Encode game state → 133 floats
- * 2. Apply decay trace → fading memory of departed entities
- * 3. Add Gaussian noise → break static-zero patterns
- * 4. Execute neural network → 4 output floats
- * 5. Decode outputs → boolean player inputs
+ * 1. Encode game state → 69 floats
+ * 2. Add low-level noise to empty LIDAR rays
+ * 3. Execute neural network → 4 output floats
+ * 4. Decode outputs → boolean player inputs
  */
-export const neatAgent: AgentFn = (state, playerId, context) => {
-  if (context.executor == null) {
-    throw new Error('neatAgent requires an executor in AgentContext')
+export function createNeatAgent(
+  encodingPreset: EncodingPreset = DEFAULT_ENCODING_PRESET
+): AgentFn {
+  // cone8 needs prevProjections for tangential velocity; five/six need it for bearingDrift
+  const needsPrevProjections = encodingPreset !== 'four'
+  return (state, playerId, context) => {
+    if (context.executor == null) {
+      throw new Error('neatAgent requires an executor in AgentContext')
+    }
+    if (context.spatialQueries == null) {
+      throw new Error('neatAgent requires spatialQueries in AgentContext')
+    }
+
+    const mem = getMemory(context.memory, needsPrevProjections, encodingPreset)
+
+    const inputs = encodeGameState(
+      state,
+      playerId,
+      mem.prevProjections,
+      mem.prevDistances,
+      mem.lastDtMs,
+      mem.inputBuffer,
+      mem.observationBuffer,
+      mem.rockPerception,
+      encodingPreset,
+      context.spatialQueries
+    )
+    if (mem.inputBuffer !== inputs) {
+      mem.inputBuffer = inputs
+      context.memory.inputBuffer = inputs
+    }
+    addLidarNoise(inputs, context.rng, encodingPreset)
+    const outputs = context.executor.execute(inputs)
+    return decodeOutputs(outputs)
   }
-
-  const mem = getMemory(context.memory)
-
-  // Lazily allocate trace buffer
-  if (mem.lidarTrace == null) {
-    mem.lidarTrace = new Array<number>(LIDAR_CHANNELS).fill(0)
-    context.memory.lidarTrace = mem.lidarTrace
-  }
-
-  const inputs = encodeGameState(
-    state,
-    playerId,
-    mem.prevDistances,
-    mem.lastDtMs,
-    mem.inputBuffer,
-    mem.observationBuffer,
-    mem.rockPerception
-  )
-  // TODO: re-enable decay trace after tuning
-  // applyLidarDecay(inputs, mem.lidarTrace)
-  addLidarNoise(inputs, context.rng)
-  const outputs = context.executor.execute(inputs)
-  return decodeOutputs(outputs)
 }
+
+export const neatAgent: AgentFn = createNeatAgent()

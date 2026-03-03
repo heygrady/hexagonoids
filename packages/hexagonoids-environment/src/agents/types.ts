@@ -1,4 +1,8 @@
-import type { GameState, PlayerInputState } from '@heygrady/hexagonoids-engine'
+import type {
+  GameState,
+  ManagedSpatialQueries,
+  PlayerInputState,
+} from '@heygrady/hexagonoids-engine'
 import type { SyncExecutor } from '@neat-evolution/executor'
 import type { RNG } from '@neat-evolution/utils'
 
@@ -18,6 +22,7 @@ export interface AgentContext {
   rng: RNG
   memory: Record<string, unknown>
   executor?: SyncExecutor | undefined
+  spatialQueries?: Pick<ManagedSpatialQueries, 'queryRocksNear'> | undefined
 }
 
 /**
@@ -25,5 +30,6 @@ export interface AgentContext {
  * Using named constants prevents silent breakage from string drift.
  */
 export const MEMORY_PREV_DISTANCES = 'prevDistances'
+export const MEMORY_PREV_PROJECTIONS = 'prevProjections'
 export const MEMORY_LAST_DT_MS = 'lastDtMs'
 export const MEMORY_ROCK_PERCEPTION = 'rockPerception'

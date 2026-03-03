@@ -161,10 +161,13 @@ export function weightedFitnessSum(
   const possibleDeaths = context.possibleDeaths ?? PLAYER_STARTING_LIVES
 
   // Performance components (all in [0, 1])
-  const rocksNorm =
-    context.maxRocksDestroyed > 0
-      ? clamp(metrics.rocksDestroyed / context.maxRocksDestroyed, 0, 1)
-      : 1
+  // Effective max = min(rate cap, SOI rocks actually seen by the agent).
+  // This prevents inflated denominators from unreachable rocks.
+  const effectiveMaxRocks = Math.max(
+    1,
+    Math.min(context.maxRocksDestroyed, metrics.uniqueRocksSeen)
+  )
+  const rocksNorm = clamp(metrics.rocksDestroyed / effectiveMaxRocks, 0, 1)
   const accuracyTerm = metrics.accuracy
   const survivalTerm =
     possibleDeaths > 0 ? clamp(1 - metrics.deaths / possibleDeaths, 0, 1) : 1
@@ -236,6 +239,6 @@ export function evaluateFullGameFitness(metrics: RawMetrics): number {
     metrics,
     DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
     DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
-    fullGameMaximums()
+    fullGameMaximums(DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.maxTicks)
   )
 }
