@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { basename } from 'node:path'
 
+import { decodeScenarioBankDocument } from '@heygrady/hexagonoids-environment'
+
 import { makeScenarioCandidate } from './candidates.js'
 import type {
   AgentHandle,
@@ -19,6 +21,7 @@ export async function loadScenarioRuntime(): Promise<ScenarioRuntime> {
     createNodeEvolutionManager: demoNode.createNodeEvolutionManager,
     loadGenome: demoNode.loadGenome,
     generateScenarios: envNode.generateScenarios,
+    createNeatAgent: env.createNeatAgent,
     neatAgent: env.neatAgent,
     randomAgent: env.randomAgent,
     simulateScenario: env.simulateScenario,
@@ -34,16 +37,23 @@ export async function createAgentHandle(
   runtime: ScenarioRuntime,
   source: SourceGenome
 ): Promise<AgentHandle> {
-  const manager = runtime.createNodeEvolutionManager({ method: 'HyperNEAT' })
+  if (source.method == null) {
+    throw new Error(`Source "${source.id}" is missing a training method`)
+  }
+  if (source.encodingPreset == null) {
+    throw new Error(`Source "${source.id}" is missing an encoding preset`)
+  }
+
+  const manager = runtime.createNodeEvolutionManager({ method: source.method })
   const serialized = runtime.loadGenome(source.genomePath)
-  const organism = manager.createOrganism('HyperNEAT', serialized)
+  const organism = manager.createOrganism(source.method, serialized)
   const executor = manager.organismToExecutor(organism)
 
   return {
     id: source.id,
     label: `${source.kind}:${source.labId}:${basename(source.genomePath)}`,
     source,
-    agent: runtime.neatAgent,
+    agent: runtime.createNeatAgent(source.encodingPreset),
     executor,
   }
 }
@@ -96,29 +106,22 @@ export function loadExistingScenarioCandidates(options: ScenarioOptions): {
     return { candidates: [], source: null }
   }
 
-  const scenarios = readJson(options.existing)
-  if (!Array.isArray(scenarios)) {
-    throw new Error(
-      `Existing scenario bank is not an array: ${options.existing}`
-    )
-  }
+  const scenarios = decodeScenarioBankDocument(readJson(options.existing))
 
   const source: SourceGenome = {
     id: `existing-bank:${basename(options.existing)}`,
     labId: 'existing-bank',
     kind: 'existing-bank',
     genomePath: options.existing,
+    method: null,
+    encodingPreset: null,
     generation: null,
     measuredFitness: null,
     io: null,
   }
 
   const candidates = scenarios.map((scenario, index) =>
-    makeScenarioCandidate(
-      `${source.id}:s${index}`,
-      source,
-      scenario as ScenarioCandidate['scenario']
-    )
+    makeScenarioCandidate(`${source.id}:s${index}`, source, scenario)
   )
 
   return { candidates, source }

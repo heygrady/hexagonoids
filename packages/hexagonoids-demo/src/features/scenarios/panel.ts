@@ -9,11 +9,11 @@ import type {
   SourceGenome,
 } from './types.js'
 
-function sourceFitnessValue(source: SourceGenome): number {
+export function sourceFitnessValue(source: SourceGenome): number {
   return typeof source.measuredFitness === 'number' ? source.measuredFitness : 0
 }
 
-function normalizeSourceFitness(
+export function normalizeSourceFitness(
   sources: SourceGenome[]
 ): (source: SourceGenome) => number {
   const values = sources.map((source) => sourceFitnessValue(source))
@@ -79,7 +79,7 @@ function evaluateScenarioWithAgent(
   }
 }
 
-function signatureDistance(a: number[], b: number[]): number {
+export function signatureDistance(a: number[], b: number[]): number {
   const total = Math.max(a.length, b.length)
   if (total === 0) return 0
 
@@ -90,18 +90,161 @@ function signatureDistance(a: number[], b: number[]): number {
   return mismatches / total
 }
 
+/**
+ * Compute scout signatures for all handles against scout candidates.
+ * Used when running sequentially on the main thread.
+ */
+export function computeScoutSignatures(
+  runtime: ScenarioRuntime,
+  allHandles: AgentHandle[],
+  scoutCandidates: ScenarioCandidate[],
+  evalTicks: number
+): Map<string, number[]> {
+  const signatures = new Map<string, number[]>()
+
+  for (const [i, handle] of allHandles.entries()) {
+    if ((i + 1) % 8 === 0 || i === 0) {
+      console.log(
+        `Scouting panel behavior ${i + 1}/${allHandles.length} against ${scoutCandidates.length} scenarios`
+      )
+    }
+
+    const signature = scoutCandidates.map((candidate) => {
+      const result = evaluateScenarioWithAgent(
+        runtime,
+        candidate.scenario,
+        handle,
+        evalTicks
+      )
+      return result.died ? 1 : 0
+    })
+    signatures.set(handle.id, signature)
+  }
+
+  return signatures
+}
+
+/**
+ * Sort sources by fitness (descending) for panel selection.
+ */
+export function sortSourcesByFitness(sources: SourceGenome[]): SourceGenome[] {
+  return [...sources].sort((a, b) => {
+    const diff = sourceFitnessValue(b) - sourceFitnessValue(a)
+    if (diff !== 0) return diff
+    if (a.kind !== b.kind) return a.kind < b.kind ? -1 : 1
+    return a.id < b.id ? -1 : 1
+  })
+}
+
+/**
+ * Greedy diversity selection using pre-computed signatures.
+ * Separated from signature computation so workers can provide signatures.
+ */
+export function selectPanelFromSignatures(
+  sources: SourceGenome[],
+  signatures: Map<string, number[]>,
+  options: ScenarioOptions
+): { selectedSourceIds: string[]; agentScores: PanelAgentScore[] } {
+  const sortedSources = sortSourcesByFitness(sources)
+  const fitnessNormalizer = normalizeSourceFitness(sortedSources)
+
+  const selectedIds: string[] = []
+  const selectedLabs = new Set<string>()
+  const agentScores: PanelAgentScore[] = []
+
+  const firstSource = sortedSources[0]
+  if (firstSource == null) {
+    return { selectedSourceIds: [], agentScores: [] }
+  }
+
+  selectedIds.push(firstSource.id)
+  selectedLabs.add(firstSource.labId)
+  agentScores.push({
+    sourceId: firstSource.id,
+    competence: fitnessNormalizer(firstSource),
+    diversity: 1,
+    lineageBonus: 1,
+    selectionScore: 1,
+    selected: true,
+  })
+
+  while (
+    selectedIds.length < options.panelMax &&
+    selectedIds.length < sortedSources.length
+  ) {
+    let bestCandidate: {
+      source: SourceGenome
+      competence: number
+      minDistance: number
+      lineageBonus: number
+      selectionScore: number
+    } | null = null
+    let bestScore = -Infinity
+
+    for (const source of sortedSources) {
+      if (selectedIds.includes(source.id)) continue
+
+      const signature = signatures.get(source.id) ?? []
+      let minDistance = 1
+      for (const selectedId of selectedIds) {
+        const selectedSignature = signatures.get(selectedId) ?? []
+        minDistance = Math.min(
+          minDistance,
+          signatureDistance(signature, selectedSignature)
+        )
+      }
+
+      const competence = fitnessNormalizer(source)
+      const lineageBonus = selectedLabs.has(source.labId) ? 0 : 1
+      const selectionScore =
+        minDistance * 0.7 + competence * 0.2 + lineageBonus * 0.1
+
+      if (selectionScore > bestScore) {
+        bestScore = selectionScore
+        bestCandidate = {
+          source,
+          competence,
+          minDistance,
+          lineageBonus,
+          selectionScore,
+        }
+      }
+    }
+
+    if (bestCandidate == null) break
+
+    selectedIds.push(bestCandidate.source.id)
+    selectedLabs.add(bestCandidate.source.labId)
+    agentScores.push({
+      sourceId: bestCandidate.source.id,
+      competence: bestCandidate.competence,
+      diversity: bestCandidate.minDistance,
+      lineageBonus: bestCandidate.lineageBonus,
+      selectionScore: bestCandidate.selectionScore,
+      selected: true,
+    })
+  }
+
+  for (const source of sortedSources) {
+    if (!selectedIds.includes(source.id)) {
+      agentScores.push({
+        sourceId: source.id,
+        competence: fitnessNormalizer(source),
+        selected: false,
+      })
+    }
+  }
+
+  return { selectedSourceIds: selectedIds, agentScores }
+}
+
 export async function selectReviewPanel(
   runtime: ScenarioRuntime,
   sources: SourceGenome[],
   scoutCandidates: ScenarioCandidate[],
   options: ScenarioOptions
 ): Promise<PanelReport> {
-  const sortedSources = [...sources].sort((a, b) => {
-    const diff = sourceFitnessValue(b) - sourceFitnessValue(a)
-    if (diff !== 0) return diff
-    if (a.kind !== b.kind) return a.kind < b.kind ? -1 : 1
-    return a.id < b.id ? -1 : 1
-  })
+  const sortedSources = sortSourcesByFitness(sources)
 
   const allHandles: AgentHandle[] = []
   for (const source of sortedSources) {
@@ -134,123 +277,109 @@ export async function selectReviewPanel(
     }
   }
 
-  const fitnessNormalizer = normalizeSourceFitness(sortedSources)
-  const signatures = new Map<string, number[]>()
+  // Compute signatures sequentially on main thread
+  const signatures = computeScoutSignatures(
+    runtime,
+    allHandles,
+    scoutCandidates,
+    options.evalTicks
+  )
 
-  for (const [i, handle] of allHandles.entries()) {
-    if ((i + 1) % 8 === 0 || i === 0) {
-      console.log(
-        `Scouting panel behavior ${i + 1}/${allHandles.length} against ${scoutCandidates.length} scenarios`
-      )
+  // Run greedy selection using source IDs as keys
+  const sourceSignatures = new Map<string, number[]>()
+  for (const handle of allHandles) {
+    const sig = signatures.get(handle.id)
+    if (sig != null) {
+      sourceSignatures.set(handle.source.id, sig)
     }
-
-    const signature = scoutCandidates.map((candidate) => {
-      const result = evaluateScenarioWithAgent(
-        runtime,
-        candidate.scenario,
-        handle,
-        options.evalTicks
-      )
-      return result.died ? 1 : 0
-    })
-    signatures.set(handle.id, signature)
   }
 
-  const selectedHandles: AgentHandle[] = []
-  const selectedLabs = new Set<string>()
-  const agentScores: PanelAgentScore[] = []
+  const { selectedSourceIds, agentScores } = selectPanelFromSignatures(
+    sortedSources,
+    sourceSignatures,
+    options
+  )
 
-  const firstHandle = allHandles[0]
-  if (firstHandle == null) {
+  const panelHandles = allHandles.filter((h) =>
+    selectedSourceIds.includes(h.source.id)
+  )
+  // Preserve selection order
+  panelHandles.sort(
+    (a, b) =>
+      selectedSourceIds.indexOf(a.source.id) -
+      selectedSourceIds.indexOf(b.source.id)
+  )
+
+  return {
+    panelHandles,
+    scoutCandidates,
+    selectionMode: 'diverse-greedy',
+    agentScores,
+  }
+}
+
+/**
+ * Build a PanelReport from pre-computed signatures (used by worker pool path).
+ */
+export async function selectReviewPanelFromSignatures(
+  runtime: ScenarioRuntime,
+  sources: SourceGenome[],
+  signatures: Map<string, number[]>,
+  scoutCandidates: ScenarioCandidate[],
+  options: ScenarioOptions
+): Promise<PanelReport> {
+  const sortedSources = sortSourcesByFitness(sources)
+
+  if (sortedSources.length <= options.panelMax) {
+    const allHandles: AgentHandle[] = []
+    for (const source of sortedSources) {
+      allHandles.push(await createAgentHandle(runtime, source))
+    }
     return {
-      panelHandles: [],
+      panelHandles: allHandles,
+      scoutCandidates,
+      selectionMode: 'all-sources',
+      agentScores: allHandles.map((handle) => ({
+        sourceId: handle.source.id,
+        competence: 1,
+        selected: true,
+      })),
+    }
+  }
+
+  if (scoutCandidates.length === 0) {
+    const allHandles: AgentHandle[] = []
+    for (const source of sortedSources) {
+      allHandles.push(await createAgentHandle(runtime, source))
+    }
+    return {
+      panelHandles: allHandles.slice(0, options.panelMax),
       scoutCandidates,
       selectionMode: 'top-fitness-fallback',
-      agentScores: [],
-    }
-  }
-
-  selectedHandles.push(firstHandle)
-  selectedLabs.add(firstHandle.source.labId)
-  agentScores.push({
-    sourceId: firstHandle.source.id,
-    competence: fitnessNormalizer(firstHandle.source),
-    diversity: 1,
-    lineageBonus: 1,
-    selectionScore: 1,
-    selected: true,
-  })
-
-  while (
-    selectedHandles.length < options.panelMax &&
-    selectedHandles.length < allHandles.length
-  ) {
-    let bestCandidate: {
-      handle: AgentHandle
-      competence: number
-      minDistance: number
-      lineageBonus: number
-      selectionScore: number
-    } | null = null
-    let bestScore = -Infinity
-
-    for (const handle of allHandles) {
-      if (selectedHandles.includes(handle)) continue
-
-      const signature = signatures.get(handle.id) ?? []
-      let minDistance = 1
-      for (const selected of selectedHandles) {
-        const selectedSignature = signatures.get(selected.id) ?? []
-        minDistance = Math.min(
-          minDistance,
-          signatureDistance(signature, selectedSignature)
-        )
-      }
-
-      const competence = fitnessNormalizer(handle.source)
-      const lineageBonus = selectedLabs.has(handle.source.labId) ? 0 : 1
-      const selectionScore =
-        minDistance * 0.7 + competence * 0.2 + lineageBonus * 0.1
-
-      if (selectionScore > bestScore) {
-        bestScore = selectionScore
-        bestCandidate = {
-          handle,
-          competence,
-          minDistance,
-          lineageBonus,
-          selectionScore,
-        }
-      }
-    }
-
-    if (bestCandidate == null) break
-
-    selectedHandles.push(bestCandidate.handle)
-    selectedLabs.add(bestCandidate.handle.source.labId)
-    agentScores.push({
-      sourceId: bestCandidate.handle.source.id,
-      competence: bestCandidate.competence,
-      diversity: bestCandidate.minDistance,
-      lineageBonus: bestCandidate.lineageBonus,
-      selectionScore: bestCandidate.selectionScore,
-      selected: true,
-    })
-  }
-
-  const selectedIds = new Set(selectedHandles.map((handle) => handle.id))
-  for (const handle of allHandles) {
-    if (!selectedIds.has(handle.id)) {
-      agentScores.push({
+      agentScores: allHandles.map((handle, index) => ({
         sourceId: handle.source.id,
-        competence: fitnessNormalizer(handle.source),
-        selected: false,
-      })
+        competence: index < options.panelMax ? 1 : 0,
+        selected: index < options.panelMax,
+      })),
+    }
+  }
+
+  const { selectedSourceIds, agentScores } = selectPanelFromSignatures(
+    sortedSources,
+    signatures,
+    options
+  )
+
+  const panelHandles: AgentHandle[] = []
+  for (const sourceId of selectedSourceIds) {
+    const source = sortedSources.find((s) => s.id === sourceId)
+    if (source != null) {
+      panelHandles.push(await createAgentHandle(runtime, source))
     }
   }
 
   return {
-    panelHandles: selectedHandles,
+    panelHandles,
     scoutCandidates,
     selectionMode: 'diverse-greedy',
     agentScores,

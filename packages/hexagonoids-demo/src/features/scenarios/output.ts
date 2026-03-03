@@ -1,4 +1,9 @@
-import { EXPECTED_IO } from './options.js'
+import {
+  type CompactScenarioBankDocument,
+  encodeScenarioBankDocument,
+} from '@heygrady/hexagonoids-environment'
+
+import { SUPPORTED_IO } from './options.js'
 import type {
   InstantDeathFilterReport,
   PanelReport,
@@ -18,7 +23,7 @@ export function makeOutputDocument(
 ) {
   return {
     generatedAt: new Date().toISOString(),
-    expectedIo: EXPECTED_IO,
+    expectedIo: SUPPORTED_IO,
     options: {
       maxLabs: options.maxLabs,
       heroCount: options.heroCount,
@@ -31,6 +36,7 @@ export function makeOutputDocument(
       instantDeathTrials: options.instantDeathTrials,
       randomBaselineTrials: options.randomBaselineTrials,
       finalCount: options.finalCount,
+      killRatio: options.killRatio,
       seed: options.seed,
       existing: options.existing,
       mergeExisting: options.mergeExisting,
@@ -50,6 +56,8 @@ export function makeOutputDocument(
         id: handle.source.id,
         labId: handle.source.labId,
         kind: handle.source.kind,
+        method: handle.source.method,
+        encodingPreset: handle.source.encodingPreset,
         generation: handle.source.generation,
         measuredFitness: handle.source.measuredFitness,
       })),
@@ -60,6 +68,8 @@ export function makeOutputDocument(
       labId: source.labId,
       kind: source.kind,
       genomePath: source.genomePath,
+      method: source.method,
+      encodingPreset: source.encodingPreset,
       generation: source.generation,
       measuredFitness: source.measuredFitness,
     })),
@@ -73,6 +83,8 @@ export function makeOutputDocument(
         id: entry.source.id,
         labId: entry.source.labId,
         kind: entry.source.kind,
+        method: entry.source.method,
+        encodingPreset: entry.source.encodingPreset,
         generation: entry.source.generation,
         measuredFitness: entry.source.measuredFitness,
       },
@@ -87,6 +99,12 @@ export function makeOutputDocument(
 
 export function makeScenarioBank(
   finalBank: ScenarioCandidate[]
-): Array<ScenarioCandidate['scenario']> {
-  return finalBank.map((entry) => entry.scenario)
+): CompactScenarioBankDocument {
+  const snapshots = finalBank.map((entry) => ({
+    ...entry.scenario,
+    ...(entry.cluster?.behaviorSignature != null && {
+      failureSignature: entry.cluster.behaviorSignature,
+    }),
+  }))
+  return encodeScenarioBankDocument(snapshots)
 }

@@ -2,6 +2,11 @@ import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import {
+  getInputCountForEncoding,
+  isEncodingPreset,
+} from '@heygrady/hexagonoids-environment'
+
 import type { ExpectedIoShape, ScenarioOptions } from './types.js'
 
 function findPackageRoot() {
@@ -14,7 +19,16 @@ function findPackageRoot() {
 }
 
 export const packageRoot = findPackageRoot()
-export const EXPECTED_IO: ExpectedIoShape = { inputs: 69, outputs: 4 }
+export const EXPECTED_OUTPUTS = 4
+export const SUPPORTED_ENCODING_PRESETS = ['four', 'five', 'six'].filter(
+  isEncodingPreset
+)
+export const SUPPORTED_IO: ExpectedIoShape[] = SUPPORTED_ENCODING_PRESETS.map(
+  (preset) => ({
+    inputs: getInputCountForEncoding(preset),
+    outputs: EXPECTED_OUTPUTS,
+  })
+)
 
 export function parseScenarioArgs(argv: string[]): ScenarioOptions {
   const options: ScenarioOptions = {
@@ -30,6 +44,7 @@ export function parseScenarioArgs(argv: string[]): ScenarioOptions {
     instantDeathTrials: 8,
     randomBaselineTrials: 5,
     finalCount: 200,
+    killRatio: 0.5,
     seed: 'robust-scenarios',
     output: resolve(packageRoot, 'src/data/scenarios.json'),
     existing: resolve(packageRoot, 'src/data/scenarios.json'),
@@ -65,6 +80,8 @@ export function parseScenarioArgs(argv: string[]): ScenarioOptions {
       options.randomBaselineTrials = Number(argv[++i] as string)
     else if (arg === '--final-count' && next != null)
       options.finalCount = Number(argv[++i] as string)
+    else if (arg === '--kill-ratio' && next != null)
+      options.killRatio = Number(argv[++i] as string)
     else if (arg === '--seed' && next != null)
       options.seed = argv[++i] as string
     else if (arg === '--output' && next != null)

@@ -1,3 +1,10 @@
+import type {
+  EncodingPreset,
+  ScenarioSnapshot as EnvironmentScenarioSnapshot,
+} from '@heygrady/hexagonoids-environment'
+
+import type { SupportedAlgorithm } from '../../algorithmRegistry.js'
+
 export type SourceKind = 'best-of-lab' | 'hero-gen' | 'existing-bank'
 
 export interface ExpectedIoShape {
@@ -18,6 +25,7 @@ export interface ScenarioOptions {
   instantDeathTrials: number
   randomBaselineTrials: number
   finalCount: number
+  killRatio: number
   seed: string
   output: string
   existing: string
@@ -36,6 +44,8 @@ export interface SourceGenome {
   labId: string
   kind: SourceKind
   genomePath: string
+  method: SupportedAlgorithm | null
+  encodingPreset: EncodingPreset | null
   generation: number | null
   measuredFitness: number | null
   io: GenomeIoShape | null
@@ -52,15 +62,7 @@ export interface SourceReport {
   kinds: SourceKind[]
 }
 
-export interface ScenarioSnapshot {
-  id?: string
-  wave: number
-  difficulty: number
-  rocks: unknown[]
-  player?: {
-    lives?: number
-  }
-}
+export type ScenarioSnapshot = EnvironmentScenarioSnapshot
 
 export interface CandidateSummary {
   wave: number
@@ -184,12 +186,14 @@ export interface ScenarioRunCounts {
 }
 
 interface EvolutionManager {
-  createOrganism(method: string, serialized: unknown): unknown
+  createOrganism(method: SupportedAlgorithm, serialized: unknown): unknown
   organismToExecutor(organism: unknown): unknown
 }
 
 export interface ScenarioRuntime {
-  createNodeEvolutionManager(config: { method: 'HyperNEAT' }): EvolutionManager
+  createNodeEvolutionManager(config: {
+    method: SupportedAlgorithm
+  }): EvolutionManager
   loadGenome(pathname: string): unknown
   generateScenarios(config: {
     count: number
@@ -198,7 +202,10 @@ export interface ScenarioRuntime {
     maxGames: number
     agent: unknown
     executor: unknown
+    captureTypes?: Array<'death' | 'kill'>
+    killRatio?: number
   }): ScenarioSnapshot[]
+  createNeatAgent(encodingPreset: EncodingPreset): unknown
   neatAgent: unknown
   randomAgent: unknown
   simulateScenario(
@@ -221,7 +228,7 @@ export interface ScenarioRuntime {
     gateConfig: Record<string, unknown>,
     context: Record<string, unknown>
   ): number
-  scenarioMaximums(rocks: unknown[]): Record<string, unknown>
+  scenarioMaximums(maxTicks: number): Record<string, unknown>
   scenarioPossibleDeaths(lives: number, maxTicks: number, dtMs: number): number
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: {
     simulation?: { dtMs?: number }

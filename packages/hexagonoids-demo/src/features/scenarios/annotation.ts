@@ -7,7 +7,17 @@ import type {
   ScenarioRuntime,
 } from './types.js'
 
-function simulateRandomTrials(
+/** Determine failure based on captureType: kills fail when no rocks destroyed, deaths fail when agent dies. */
+export function isAnnotationFailure(
+  evaluation: CandidateEvaluation,
+  captureType: string | undefined
+): boolean {
+  return captureType === 'kill'
+    ? evaluation.rocksDestroyed === 0
+    : evaluation.died
+}
+
+export function simulateRandomTrials(
   runtime: ScenarioRuntime,
   scenario: ScenarioCandidate['scenario'],
   maxTicks: number,
@@ -46,6 +56,12 @@ export function filterInstantDeathCandidates(
   const instantDeathTicks = Math.min(Math.ceil(options.rewind * 1.5), 30)
 
   for (const candidate of candidates) {
+    // Kill candidates skip instant-death filter
+    if (candidate.scenario.captureType === 'kill') {
+      kept.push(candidate)
+      continue
+    }
+
     const trials = simulateRandomTrials(
       runtime,
       candidate.scenario,
@@ -77,7 +93,7 @@ export function filterInstantDeathCandidates(
   return { kept, removed, instantDeathTicks }
 }
 
-function evaluateScenarioWithAgent(
+export function evaluateScenarioWithAgent(
   runtime: ScenarioRuntime,
   scenario: ScenarioCandidate['scenario'],
   handle: AgentHandle,
@@ -100,7 +116,7 @@ function evaluateScenarioWithAgent(
       evalTicks,
       simConfig.dtMs
     ),
-    ...runtime.scenarioMaximums(scenario.rocks ?? []),
+    ...runtime.scenarioMaximums(evalTicks),
   }
 
   const config = runtime.DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG
@@ -134,6 +150,7 @@ export async function annotateCandidates(
       console.log(`Annotating ${i + 1}/${candidates.length}`)
     }
 
+    const captureType = candidate.scenario.captureType
     const evaluations = panelHandles.map((handle) =>
       evaluateScenarioWithAgent(
         runtime,
@@ -143,7 +160,9 @@ export async function annotateCandidates(
       )
     )
 
-    const failures = evaluations.filter((entry) => entry.died).length
+    const failures = evaluations.filter((entry) =>
+      isAnnotationFailure(entry, captureType)
+    ).length
     const failureRate =
       evaluations.length > 0 ? failures / evaluations.length : 0
     const avgFitness =
@@ -158,9 +177,10 @@ export async function annotateCandidates(
       options.randomBaselineTrials,
       `${options.seed}:${candidate.id}:baseline`
     )
-    const randomSurvivals = randomBaselineTrials.filter(
-      (trial) => !trial.died
+    const randomFailures = randomBaselineTrials.filter((trial) =>
+      captureType === 'kill' ? trial.rocksDestroyed === 0 : trial.died
     ).length
+    const randomSurvivals = randomBaselineTrials.length - randomFailures
     const likelyUnrecoverable =
       failures === evaluations.length && randomSurvivals === 0
 

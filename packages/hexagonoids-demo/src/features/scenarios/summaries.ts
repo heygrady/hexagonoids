@@ -162,6 +162,9 @@ export function printFinalBankSummary(finalBank: ScenarioCandidate[]): void {
   const sourceKinds = new Map()
   let likelyUnrecoverable = 0
   let totalInterestingness = 0
+  let deathCount = 0
+  let killCount = 0
+  const velocityTiers = { low: 0, mid: 0, high: 0 }
   for (const entry of finalBank) {
     sourceKinds.set(
       entry.source.kind,
@@ -169,8 +172,31 @@ export function printFinalBankSummary(finalBank: ScenarioCandidate[]): void {
     )
     if (entry.annotations?.likelyUnrecoverable) likelyUnrecoverable++
     totalInterestingness += entry.interestingness ?? 0
+
+    if (entry.scenario?.captureType === 'kill') {
+      killCount++
+    } else {
+      deathCount++
+    }
+
+    // Velocity tier
+    const ship = entry.scenario?.ship
+    if (ship != null) {
+      const speed = Math.sqrt(
+        ship.angularVelocityX ** 2 +
+          ship.angularVelocityY ** 2 +
+          ship.angularVelocityZ ** 2
+      )
+      if (speed < 0.1) velocityTiers.low++
+      else if (speed <= 0.25) velocityTiers.mid++
+      else velocityTiers.high++
+    }
   }
 
+  console.log(`  death scenarios: ${deathCount}  kill scenarios: ${killCount}`)
+  console.log(
+    `  velocity tiers: low=${velocityTiers.low} mid=${velocityTiers.mid} high=${velocityTiers.high}`
+  )
   console.log(
     `  likely unrecoverable: ${likelyUnrecoverable}/${finalBank.length}`
   )

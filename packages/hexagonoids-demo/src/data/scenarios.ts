@@ -2,7 +2,10 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import type { ScenarioSnapshot } from '@heygrady/hexagonoids-environment'
+import {
+  decodeScenarioBankDocument,
+  type ScenarioSnapshot,
+} from '@heygrady/hexagonoids-environment'
 
 /** Walk up from current file to find the package root (directory with package.json). */
 function findPackageRoot(): string {
@@ -27,5 +30,5 @@ const PACKAGE_ROOT = findPackageRoot()
 export function loadScenarioBank(): ScenarioSnapshot[] {
   const filePath = resolve(PACKAGE_ROOT, 'src/data/scenarios.json')
   const data = readFileSync(filePath, 'utf-8')
-  return JSON.parse(data) as ScenarioSnapshot[]
+  return decodeScenarioBankDocument(JSON.parse(data))
 }
