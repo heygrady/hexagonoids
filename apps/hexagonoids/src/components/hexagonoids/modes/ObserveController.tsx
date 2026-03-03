@@ -1,10 +1,18 @@
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
+import {
+  SUPPORTED_ALGORITHMS,
+  type SupportedAlgorithm,
+} from '@heygrady/hexagonoids-demo'
 import { MAX_DELTA, restartGame } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import {
   type AgentContext,
-  neatAgent,
+  createNeatAgent,
+  decodeScenarioBankDocument,
+  type EncodingPreset,
+  isEncodingPreset,
   restoreSnapshot,
   type ScenarioSnapshot,
 } from '@heygrady/hexagonoids-environment'
@@ -38,6 +46,7 @@ import { getObserveProfile } from './training/profiles'
  * Training/playback runtime is implemented in later sessions.
  */
 export function ObserveController() {
+  const DEFAULT_OBSERVE_ENCODING_PRESET: EncodingPreset = 'six'
   const scene = useScene()
   const engine = useGameState()
   const inputs = useInputs()
@@ -72,14 +81,82 @@ export function ObserveController() {
   let totalWaitMs = 0
   let waitCount = 0
   let summaryShown = false
+  let latestConsumed = false
+  let replayCounter = 0
 
   const aiContext: AgentContext = {
     rng: createRNG(`${OBSERVE_SEED}:agent`),
     memory: {},
     executor: undefined,
+    spatialQueries: engine,
   }
 
   const adapter = createObserveTrainingAdapter()
+
+  // ── Resolve config: profile defaults → URL param overrides ──
+  const searchParams = new URLSearchParams(window.location.search)
+
+  const profileName = searchParams.get('profile') ?? 'default'
+  const profileConfig: Partial<ObserveTrainingConfig> =
+    getObserveProfile(profileName) ?? {}
+  if (Object.keys(profileConfig).length > 0) {
+    console.log(`[OBSERVE] profile=${profileName}`, profileConfig)
+  } else if (profileName !== 'default') {
+    console.log(`[OBSERVE] profile=${profileName} (not found)`)
+  }
+
+  // Method: profile → URL override
+  let observeMethod: SupportedAlgorithm = profileConfig.method ?? 'HyperNEAT'
+  const requestedMethod = searchParams.get('method')
+  if (
+    requestedMethod != null &&
+    SUPPORTED_ALGORITHMS.includes(requestedMethod as SupportedAlgorithm)
+  ) {
+    observeMethod = requestedMethod as SupportedAlgorithm
+  } else if (requestedMethod != null) {
+    console.warn(
+      `[OBSERVE] Unsupported method "${requestedMethod}", using ${observeMethod}`
+    )
+  }
+
+  // Encoding preset: profile → URL override
+  let observeEncodingPreset: EncodingPreset =
+    profileConfig.encodingPreset ?? DEFAULT_OBSERVE_ENCODING_PRESET
+  const requestedEncodingPreset = searchParams.get('encodingPreset')
+  if (
+    requestedEncodingPreset != null &&
+    isEncodingPreset(requestedEncodingPreset)
+  ) {
+    observeEncodingPreset = requestedEncodingPreset
+  } else if (requestedEncodingPreset != null) {
+    console.log(
+      `[OBSERVE] Unsupported encodingPreset "${requestedEncodingPreset}", using ${observeEncodingPreset}`
+    )
+  }
+  const observeAgent = createNeatAgent(observeEncodingPreset)
+
+  const agentMode = searchParams.get('agent') === 'best' ? 'best' : 'hero'
+  const scenarioPlayback = searchParams.get('scenario') === 'true'
+  const observeMaxGenerations =
+    profileConfig.maxGenerations ?? OBSERVE_MAX_GENERATIONS
+
+  let playbackScenarioBank: ScenarioSnapshot[] | null = null
+  if (scenarioPlayback) {
+    void import('@heygrady/hexagonoids-demo/data/scenarios.json')
+      .then((mod) => {
+        playbackScenarioBank = decodeScenarioBankDocument(mod.default ?? mod)
+        console.log(
+          `[OBSERVE] Loaded ${playbackScenarioBank.length} scenarios for playback`
+        )
+      })
+      .catch(() => {
+        console.warn('[OBSERVE] Failed to load scenarios for playback')
+      })
+  }
+
+  console.log(
+    `[OBSERVE] method=${observeMethod}, encodingPreset=${observeEncodingPreset}, agent=${agentMode}, maxGenerations=${observeMaxGenerations}`
+  )
 
   setObserveTrainingGeneration(1)
   setObserveTrainingElapsedSeconds(0)
@@ -124,13 +201,13 @@ export function ObserveController() {
     const averageWaitMs =
       waitCount > 0 ? Math.round(totalWaitMs / waitCount) : 0
     console.log(
-      `[OBSERVE] completed generations=${OBSERVE_MAX_GENERATIONS} bestGen=${bestGeneration} ` +
+      `[OBSERVE] completed generations=${observeMaxGenerations} bestGen=${bestGeneration} ` +
         `bestFitness=${Number.isFinite(bestFitness) ? bestFitness.toFixed(2) : '0.00'} ` +
         `events=${generationEvents} switches=${generationSwitches} skipped=${skippedGenerations} ` +
         `avgWaitMs=${averageWaitMs}`
     )
     setObserveSummary({
-      generations: OBSERVE_MAX_GENERATIONS,
+      generations: observeMaxGenerations,
       bestGeneration,
       bestFitness: Number.isFinite(bestFitness) ? bestFitness : 0,
     })
@@ -144,7 +221,7 @@ export function ObserveController() {
     if (disposed) return
     let executor: SyncExecutor
     try {
-      executor = organismToExecutor(organism)
+      executor = organismToExecutor(observeMethod, organism)
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to create executor'
@@ -165,6 +242,7 @@ export function ObserveController() {
 
     currentExecutor = executor
     currentGeneration = generation
+    latestConsumed = true
     const now = performance.now()
     currentRunDeadlineAt = now + OBSERVE_WINDOW_MS
     currentRunBoundaryPassed = false
@@ -174,7 +252,8 @@ export function ObserveController() {
 
     aiContext.executor = executor
     aiContext.memory = {}
-    const gameSeed = `${OBSERVE_SEED}:g${generation}`
+    replayCounter++
+    const gameSeed = `${OBSERVE_SEED}:g${generation}:r${replayCounter}`
     aiContext.rng = createRNG(`${gameSeed}:agent`)
 
     engine.reseed(gameSeed, DEFAULT_PLAYER_ID)
@@ -213,7 +292,11 @@ export function ObserveController() {
       player?.shipId != null ? engine.state.ships.get(player.shipId) : undefined
     const cameraOriginNode = scene.getTransformNodeByName('shipCameraOrigin')
     if (ship != null && cameraOriginNode instanceof TransformNode) {
-      const pos = latLngToVector3(ship.lat, ship.lng, RADIUS)
+      const { x, y, z } = ship
+      const pos =
+        typeof x === 'number' && typeof y === 'number' && typeof z === 'number'
+          ? new Vector3(x * RADIUS, y * RADIUS, z * RADIUS)
+          : latLngToVector3(ship.lat, ship.lng, RADIUS)
       const [yaw, pitch] = getYawPitch(pos)
       moveNodeTo(cameraOriginNode, yaw, pitch)
     }
@@ -227,11 +310,17 @@ export function ObserveController() {
 
   const trySwitchToLatest = (reason: 'startup' | 'boundary' | 'gameover') => {
     if (latestAvailable == null) return false
-    if (
-      currentGeneration != null &&
-      latestAvailable.generation <= currentGeneration
-    ) {
-      return false
+    if (agentMode === 'best') {
+      // Best mode: switch only when there's a new unconsumed all-time best
+      if (latestConsumed) return false
+    } else {
+      // Hero mode: only switch to newer generations
+      if (
+        currentGeneration != null &&
+        latestAvailable.generation <= currentGeneration
+      ) {
+        return false
+      }
     }
     console.log(
       `[OBSERVE] switch reason=${reason} latest=${latestAvailable.generation}`
@@ -256,16 +345,31 @@ export function ObserveController() {
       bestFitness = evt.fitness
       bestGeneration = evt.generation
     }
-    if (
-      latestAvailable == null ||
-      evt.generation >= latestAvailable.generation
-    ) {
-      latestAvailable = {
-        generation: evt.generation,
-        fitness: evt.fitness,
-        organism: evt.organism,
+
+    if (agentMode === 'best') {
+      // Best mode: only update when fitness is a new all-time best
+      if (latestAvailable == null || evt.fitness > latestAvailable.fitness) {
+        latestAvailable = {
+          generation: evt.generation,
+          fitness: evt.fitness,
+          organism: evt.organism,
+        }
+        latestConsumed = false
+      }
+    } else {
+      // Hero mode: always take the latest generation's best
+      if (
+        latestAvailable == null ||
+        evt.generation >= latestAvailable.generation
+      ) {
+        latestAvailable = {
+          generation: evt.generation,
+          fitness: evt.fitness,
+          organism: evt.organism,
+        }
       }
     }
+
     if (currentExecutor == null) {
       trySwitchToLatest('startup')
       return
@@ -290,34 +394,10 @@ export function ObserveController() {
 
   startWaiting(1)
 
-  // Read optional query params
-  const searchParams = new URLSearchParams(window.location.search)
-  const scenarioPlayback = searchParams.get('scenario') === 'true'
-  let playbackScenarioBank: ScenarioSnapshot[] | null = null
-  if (scenarioPlayback) {
-    void import('@heygrady/hexagonoids-demo/data/scenarios.json')
-      .then((mod) => {
-        playbackScenarioBank = (mod.default ?? mod) as ScenarioSnapshot[]
-        console.log(
-          `[OBSERVE] Loaded ${playbackScenarioBank.length} scenarios for playback`
-        )
-      })
-      .catch(() => {
-        console.warn('[OBSERVE] Failed to load scenarios for playback')
-      })
-  }
-
-  const profileName = searchParams.get('profile') ?? 'default'
-  const profileConfig: Partial<ObserveTrainingConfig> =
-    getObserveProfile(profileName) ?? {}
-  if (Object.keys(profileConfig).length > 0) {
-    console.log(`[OBSERVE] profile=${profileName}`, profileConfig)
-  } else if (profileName !== 'default') {
-    console.log(`[OBSERVE] profile=${profileName} (not found)`)
-  }
-
   void adapter.start({
-    maxGenerations: OBSERVE_MAX_GENERATIONS,
+    method: observeMethod,
+    encodingPreset: observeEncodingPreset,
+    maxGenerations: observeMaxGenerations,
     populationSize: profileConfig.populationSize ?? 64,
     evaluationSeedsPerOrganism:
       profileConfig.evaluationSeedsPerOrganism ??
@@ -408,7 +488,7 @@ export function ObserveController() {
 
     const dtMs = Math.min(scene.getEngine().getDeltaTime(), MAX_DELTA)
     aiContext.executor = currentExecutor
-    const aiInput = neatAgent(engine.state, DEFAULT_PLAYER_ID, aiContext)
+    const aiInput = observeAgent(engine.state, DEFAULT_PLAYER_ID, aiContext)
     engine.tick({ [DEFAULT_PLAYER_ID]: aiInput }, dtMs)
 
     if (
@@ -423,6 +503,16 @@ export function ObserveController() {
     if (!ended) return
 
     if (trySwitchToLatest('gameover')) return
+
+    // In best mode, replay the current best organism on game over
+    if (agentMode === 'best' && latestAvailable != null) {
+      startGeneration(
+        latestAvailable.generation,
+        latestAvailable.fitness,
+        latestAvailable.organism
+      )
+      return
+    }
 
     if (trainingCompleted) {
       return

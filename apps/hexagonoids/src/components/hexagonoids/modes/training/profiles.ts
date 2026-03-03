@@ -1,3 +1,11 @@
+import {
+  SUPPORTED_ALGORITHMS,
+  type SupportedAlgorithm,
+} from '@heygrady/hexagonoids-demo'
+import {
+  type EncodingPreset,
+  isEncodingPreset,
+} from '@heygrady/hexagonoids-environment'
 import type { ObserveTrainingConfig } from './createObserveTrainingAdapter'
 
 type ProfileJson = Record<string, unknown>
@@ -42,6 +50,19 @@ export function getObserveProfile(
     config.scenarioSeedsPerOrganism = raw.scenarioSeedsPerOrganism
   if (typeof raw.fullGameSeedsPerOrganism === 'number')
     config.fullGameSeedsPerOrganism = raw.fullGameSeedsPerOrganism
+  if (
+    typeof raw.encodingPreset === 'string' &&
+    isEncodingPreset(raw.encodingPreset)
+  ) {
+    config.encodingPreset = raw.encodingPreset as EncodingPreset
+  }
+  if (
+    typeof raw.method === 'string' &&
+    SUPPORTED_ALGORITHMS.includes(raw.method as SupportedAlgorithm)
+  ) {
+    config.method = raw.method as SupportedAlgorithm
+  }
+  if (typeof raw.iterations === 'number') config.maxGenerations = raw.iterations
 
   // Map flat weight keys to structured fitnessWeights
   const weightRocks =

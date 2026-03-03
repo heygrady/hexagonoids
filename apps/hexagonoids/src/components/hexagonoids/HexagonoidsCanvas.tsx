@@ -202,7 +202,13 @@ function EngineGameLoop() {
     if (state.players.size > 0) return
     if (state.now < attractNextWaveAt) return
 
-    const gate = evaluateWaveSpawnGate(state, 0, 0, 0)
+    const gate = evaluateWaveSpawnGate(
+      state,
+      { x: 1, y: 0, z: 0 },
+      0,
+      null,
+      engine
+    )
     if (!gate.canSpawn) {
       attractNextWaveAt = state.now + gate.deferMs
       return

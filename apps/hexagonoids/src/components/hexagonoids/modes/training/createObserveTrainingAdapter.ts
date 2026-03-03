@@ -1,45 +1,35 @@
 import {
+  createPhenotypeForGenome,
+  createPopulationForTraining,
+  createWorkerReproducerFactoryForMethod,
+  getAlgorithmDefinition,
+  MultiSeedGenerationStrategy,
+  type SupportedAlgorithm,
+} from '@heygrady/hexagonoids-demo'
+import {
+  decodeScenarioBankDocument,
+  type EncodingPreset,
+  getInputCountForEncoding,
   type HexagonoidsEnvironmentConfig,
-  INPUT_COUNT,
   mergeConfig,
   type ScenarioSnapshot,
 } from '@heygrady/hexagonoids-environment'
-import { Activation, defaultNEATConfigOptions } from '@neat-evolution/core'
-import type { CPPNGenome } from '@neat-evolution/cppn'
 import type {
   Environment,
   EnvironmentDescription,
 } from '@neat-evolution/environment'
-import type {
-  EvaluationContext,
-  EvaluationStrategy,
-} from '@neat-evolution/evaluation-strategy'
-import {
-  defaultEvolutionOptions,
-  defaultPopulationOptions,
-  evolve,
-} from '@neat-evolution/evolution'
+import { defaultEvolutionOptions, evolve } from '@neat-evolution/evolution'
 import type { Executor, SyncExecutor } from '@neat-evolution/executor'
 import { createExecutor } from '@neat-evolution/executor'
-import type { HyperNEATGenomeOptions } from '@neat-evolution/hyperneat'
-import {
-  createPopulation as createHyperNEATPopulation,
-  createPhenotype,
-  defaultHyperNEATGenomeOptions,
-  HyperNEATAlgorithm,
-  type HyperNEATReproducerFactory,
-} from '@neat-evolution/hyperneat'
 import type { WorkerEvaluatorOptions } from '@neat-evolution/worker-evaluator'
 import { WorkerEvaluator } from '@neat-evolution/worker-evaluator'
 // eslint-disable-next-line import/default
 import workerEvaluatorScriptUrl from '@neat-evolution/worker-evaluator/workerEvaluatorScript?worker&url'
-import {
-  createReproducerFactory,
-  type Terminable,
-} from '@neat-evolution/worker-reproducer'
+import type { Terminable } from '@neat-evolution/worker-reproducer'
 // eslint-disable-next-line import/default
 import workerReproducerScriptUrl from '@neat-evolution/worker-reproducer/workerReproducerScript?worker&url'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
+import { getModulePathnamesForAlgorithm } from './getModulePathnamesForAlgorithm'
 
 export interface ObserveGenerationBestEvent {
   generation: number
@@ -56,6 +46,8 @@ export interface ObserveTrainingStatusEvent {
 }
 
 export interface ObserveTrainingConfig {
+  method?: SupportedAlgorithm
+  encodingPreset?: EncodingPreset
   maxGenerations: number
   populationSize: number
   evaluationSeedsPerOrganism?: number
@@ -93,51 +85,7 @@ export interface ObserveTrainingAdapter {
   onStatus(cb: (evt: ObserveTrainingStatusEvent) => void): () => void
 }
 
-const modules = import.meta.glob('./modules/*.ts')
-
-const extractModulePath = (
-  key: string,
-  importFn: () => Promise<unknown>
-): string => {
-  const fnString = importFn.toString()
-  const importMatch = fnString.match(/import\(["']([^"']+)["']\)/)
-  if (importMatch != null) {
-    return new URL(importMatch[1], import.meta.url).href
-  }
-  return new URL(key, import.meta.url).href
-}
-
-function resolveWorkerModulePathnames() {
-  let algorithmPathname = ''
-  let createEnvironmentPathname = ''
-  let createExecutorPathname = ''
-
-  for (const [key, importFn] of Object.entries(modules)) {
-    if (key.includes('HyperNEATAlgorithmPathname')) {
-      algorithmPathname = extractModulePath(key, importFn)
-    } else if (key.includes('createEnvironmentPathname')) {
-      createEnvironmentPathname = extractModulePath(key, importFn)
-    } else if (key.includes('createExecutorPathname')) {
-      createExecutorPathname = extractModulePath(key, importFn)
-    }
-  }
-
-  if (algorithmPathname.length === 0) {
-    throw new Error('Observe training: missing HyperNEAT algorithm pathname')
-  }
-  if (createEnvironmentPathname.length === 0) {
-    throw new Error('Observe training: missing createEnvironment pathname')
-  }
-  if (createExecutorPathname.length === 0) {
-    throw new Error('Observe training: missing createExecutor pathname')
-  }
-
-  return {
-    algorithmPathname,
-    createEnvironmentPathname,
-    createExecutorPathname,
-  }
-}
+const DEFAULT_OBSERVE_METHOD: SupportedAlgorithm = 'HyperNEAT'
 
 function normalizeThreadCount(value: number | undefined): number {
   if (value != null) return Math.max(1, Math.floor(value))
@@ -151,92 +99,11 @@ function normalizeEvaluationSeedsPerOrganism(
   return Math.max(1, Math.floor(value))
 }
 
-const normalizeSeedComponent = (value: string): string => {
-  return value.trim().replace(/\s+/g, '-')
-}
-
-function generationSeedPack(
-  generation: number,
-  seedsPerOrganism: number,
-  baseSeed: string
-): string[] {
-  const normalizedBaseSeed = normalizeSeedComponent(baseSeed)
-  return Array.from({ length: seedsPerOrganism }, (_, index) => {
-    return `${normalizedBaseSeed}:g${generation}:s${index}`
-  })
-}
-
-type HyperNEATGenome = CPPNGenome<HyperNEATGenomeOptions>
-
-class MultiSeedGenerationStrategy
-  implements EvaluationStrategy<HyperNEATGenome>
-{
-  private generation = 0
-  private readonly seedsPerOrganism: number
-  private readonly baseSeed: string
-
-  constructor(seedsPerOrganism: number, baseSeed: string) {
-    this.seedsPerOrganism = seedsPerOrganism
-    this.baseSeed = baseSeed
-  }
-
-  async *evaluate(
-    context: EvaluationContext<HyperNEATGenome>,
-    genomeEntries: Iterable<[number, number, HyperNEATGenome]>
-  ): AsyncIterable<[number, number, number]> {
-    const generation = this.generation
-    this.generation += 1
-    const seeds = generationSeedPack(
-      generation,
-      this.seedsPerOrganism,
-      this.baseSeed
-    )
-
-    const pending = new Map<
-      number,
-      Promise<{ id: number; result: [number, number, number] }>
-    >()
-    let nextPendingId = 0
-
-    for (const entry of genomeEntries) {
-      const [speciesIndex, organismIndex] = entry
-      const pendingId = nextPendingId
-      nextPendingId += 1
-
-      const p = Promise.all(
-        seeds.map(async (seed) => {
-          const [, , fitness] = await context.evaluateGenomeEntry(entry, seed)
-          return fitness
-        })
-      ).then((scores) => {
-        const meanFitness =
-          scores.reduce((sum, score) => sum + score, 0) / scores.length
-        return {
-          id: pendingId,
-          result: [speciesIndex, organismIndex, meanFitness] as [
-            number,
-            number,
-            number,
-          ],
-        }
-      })
-
-      pending.set(pendingId, p)
-    }
-
-    while (pending.size > 0) {
-      const settled = await Promise.race(pending.values())
-      pending.delete(settled.id)
-      yield settled.result
-    }
-  }
-}
-
 interface BrowserWorkerEnvironmentOptions {
+  encodingPreset?: EncodingPreset
   simulation?: Partial<HexagonoidsEnvironmentConfig['simulation']>
   fitnessWeights?: Partial<HexagonoidsEnvironmentConfig['fitnessWeights']>
   gateConfig?: Partial<HexagonoidsEnvironmentConfig['gateConfig']>
-  profiling?: Partial<HexagonoidsEnvironmentConfig['profiling']>
   scenarioBank?: HexagonoidsEnvironmentConfig['scenarioBank']
   scenarioWeight?: number
   scenarioSeedsPerOrganism?: number
@@ -249,6 +116,7 @@ function createBrowserWorkerEnvironment(
   const defaults = mergeConfig({})
   const config: HexagonoidsEnvironmentConfig = {
     ...defaults,
+    encodingPreset: options.encodingPreset ?? defaults.encodingPreset,
     ...options,
     simulation: {
       ...defaults.simulation,
@@ -262,10 +130,6 @@ function createBrowserWorkerEnvironment(
       ...defaults.gateConfig,
       ...options.gateConfig,
     },
-    profiling: {
-      ...defaults.profiling,
-      ...options.profiling,
-    },
     scenarioWeight: options.scenarioWeight ?? defaults.scenarioWeight,
     scenarioSeedsPerOrganism:
       options.scenarioSeedsPerOrganism ?? defaults.scenarioSeedsPerOrganism,
@@ -273,7 +137,7 @@ function createBrowserWorkerEnvironment(
       options.fullGameSeedsPerOrganism ?? defaults.fullGameSeedsPerOrganism,
   }
   const description: EnvironmentDescription = {
-    inputs: INPUT_COUNT,
+    inputs: getInputCountForEncoding(config.encodingPreset),
     outputs: 4,
   }
 
@@ -294,10 +158,10 @@ function createBrowserWorkerEnvironment(
     },
     toFactoryOptions(): HexagonoidsEnvironmentConfig {
       return {
+        encodingPreset: config.encodingPreset,
         simulation: { ...config.simulation },
         fitnessWeights: { ...config.fitnessWeights },
         gateConfig: { ...config.gateConfig },
-        profiling: { ...config.profiling },
         scenarioWeight: config.scenarioWeight,
         scenarioSeedsPerOrganism: config.scenarioSeedsPerOrganism,
         fullGameSeedsPerOrganism: config.fullGameSeedsPerOrganism,
@@ -360,6 +224,7 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
       generationTarget = 1
       emitStatus('starting')
 
+      const method = config.method ?? DEFAULT_OBSERVE_METHOD
       const threadCount = normalizeThreadCount(config.threadCount)
       const evaluationSeedsPerOrganism = normalizeEvaluationSeedsPerOrganism(
         config.evaluationSeedsPerOrganism
@@ -368,7 +233,7 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
         algorithmPathname,
         createEnvironmentPathname,
         createExecutorPathname,
-      } = resolveWorkerModulePathnames()
+      } = getModulePathnamesForAlgorithm(method)
 
       abortController = new AbortController()
       statusIntervalId = window.setInterval(() => {
@@ -382,7 +247,7 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
           const mod = await import(
             '@heygrady/hexagonoids-demo/data/scenarios.json'
           )
-          scenarioBank = (mod.default ?? mod) as ScenarioSnapshot[]
+          scenarioBank = decodeScenarioBankDocument(mod.default ?? mod)
           console.log(`[OBSERVE] Loaded ${scenarioBank.length} scenarios`)
         } catch (error) {
           console.warn(
@@ -399,10 +264,6 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
           useFastThrust: true,
           scenariosPerOrganism: config.scenariosPerOrganism ?? 20,
           scenarioMaxTicks: config.scenarioMaxTicks ?? 120,
-        },
-        profiling: {
-          enabled: false,
-          sampleEveryNGames: 0,
         },
         ...(scenarioBank != null && { scenarioBank }),
         ...(config.fitnessWeights != null && {
@@ -432,44 +293,29 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
           config.evaluationBaseSeed ?? 'observe-training'
         ),
       }
+      const algorithm = getAlgorithmDefinition(method).createAlgorithm()
       const evaluator = new WorkerEvaluator(
-        HyperNEATAlgorithm,
+        algorithm,
         environment,
         evaluatorOptions
       )
       terminables.add(evaluator)
 
-      const createReproducer = createReproducerFactory<HyperNEATGenome>(
+      const createReproducer = createWorkerReproducerFactoryForMethod(
+        method,
         {
           algorithmPathname,
           threadCount,
           workerScriptUrl: workerReproducerScriptUrl,
         },
         terminables
-      ) as HyperNEATReproducerFactory
+      )
 
-      const neatOptions = {
-        ...defaultNEATConfigOptions,
-        mutateOnlyOneLink: false,
-      }
-
-      const population = createHyperNEATPopulation(
+      const population = createPopulationForTraining(method, {
         createReproducer,
         evaluator,
-        neatOptions,
-        {
-          ...defaultPopulationOptions,
-          populationSize: config.populationSize,
-        },
-        {
-          ...defaultHyperNEATGenomeOptions,
-          inputConfig: 'line',
-          outputConfig: 'line',
-          hiddenActivation: Activation.GELU,
-          outputActivation: Activation.Sigmoid,
-          hiddenLayerSizes: [32, 16],
-        }
-      )
+        populationSize: config.populationSize,
+      })
 
       runPromise = evolve(population, {
         ...defaultEvolutionOptions,
@@ -547,7 +393,10 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
   }
 }
 
-export function organismToExecutor(organism: unknown) {
+export function organismToExecutor(
+  method: SupportedAlgorithm,
+  organism: unknown
+) {
   if (
     organism == null ||
     typeof organism !== 'object' ||
@@ -556,5 +405,5 @@ export function organismToExecutor(organism: unknown) {
     throw new Error('Observe training: organism is missing genome data')
   }
   const genome = (organism as { genome: unknown }).genome
-  return createExecutor(createPhenotype(genome as never) as never)
+  return createExecutor(createPhenotypeForGenome(method, genome) as never)
 }
