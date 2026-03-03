@@ -1,9 +1,12 @@
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
+  DEFAULT_ENCODING_PRESET,
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   doNothingAgent,
+  type EncodingPreset,
   type FitnessWeights,
   type GateConfig,
   type HexagonoidsEnvironmentConfig,
@@ -11,31 +14,9 @@ import {
   randomAgent,
 } from '@heygrady/hexagonoids-environment'
 import { createEnvironment } from '@heygrady/hexagonoids-environment/node'
-import type {
-  CPPNGenome,
-  CPPNGenomeOptions,
-  CPPNReproducerFactory,
-} from '@neat-evolution/cppn'
-import type {
-  DESHyperNEATGenome,
-  DESHyperNEATReproducerFactory,
-} from '@neat-evolution/des-hyperneat'
-import type {
-  ESHyperNEATGenomeOptions,
-  ESHyperNEATReproducerFactory,
-} from '@neat-evolution/es-hyperneat'
-import type { FitnessData } from '@neat-evolution/evaluator'
 import { defaultEvolutionOptions, evolve } from '@neat-evolution/evolution'
-import type {
-  HyperNEATGenomeOptions,
-  HyperNEATReproducerFactory,
-} from '@neat-evolution/hyperneat'
-import type { NEATGenome, NEATReproducerFactory } from '@neat-evolution/neat'
 import { WorkerEvaluator } from '@neat-evolution/worker-evaluator'
-import {
-  createReproducerFactory,
-  type Terminable,
-} from '@neat-evolution/worker-reproducer'
+import type { Terminable } from '@neat-evolution/worker-reproducer'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
 import type { SupportedAlgorithm } from './algorithmRegistry.js'
@@ -45,10 +26,7 @@ import {
 } from './algorithmRegistry.js'
 import { DEMO_DEFAULTS } from './configDefaults.js'
 import { summarizeBaselineAgent } from './evaluation/baselines.js'
-import {
-  evaluateOrganismMultiSeed,
-  type FitnessAggregator,
-} from './evaluation/evaluateOrganism.js'
+import {} from './evaluation/evaluateOrganism.js'
 import { mean, median } from './evaluation/metrics.js'
 import { generationSeedPack } from './evaluation/seedSchedule.js'
 import {
@@ -58,116 +36,16 @@ import {
   saveGenerationGenome,
 } from './persistence/appendGenerationLog.js'
 import { saveGenome } from './persistence/saveGenome.js'
+import {
+  createWorkerReproducerFactoryForMethod,
+  MultiSeedGenerationStrategy,
+} from './workerTraining.js'
 
 const DEFAULT_OUTPUT_DIR = fileURLToPath(new URL('../../', import.meta.url))
 const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
 const DEFAULT_BASE_SEED = 'hexagonoids-phase03'
 const CREATE_ENVIRONMENT_PATHNAME = '@heygrady/hexagonoids-environment/node'
 const CREATE_EXECUTOR_PATHNAME = '@neat-evolution/executor'
-
-class MultiSeedGenerationStrategy {
-  private generation = 0
-  private readonly seedsPerOrganism: number
-  private readonly baseSeed: string
-  private readonly aggregate: FitnessAggregator
-
-  constructor(
-    seedsPerOrganism: number,
-    baseSeed: string,
-    aggregate: FitnessAggregator
-  ) {
-    this.seedsPerOrganism = seedsPerOrganism
-    this.baseSeed = baseSeed
-    this.aggregate = aggregate
-  }
-
-  async *evaluate(
-    context: {
-      evaluateGenomeEntry: (
-        entry: [number, number, unknown],
-        seed?: string
-      ) => Promise<FitnessData>
-    },
-    genomeEntries: Iterable<[number, number, unknown]>
-  ): AsyncIterable<FitnessData> {
-    const generation = this.generation
-    this.generation += 1
-
-    const seeds = generationSeedPack(
-      generation,
-      this.seedsPerOrganism,
-      this.baseSeed
-    )
-    const pending = new Map<
-      number,
-      Promise<{ id: number; result: FitnessData }>
-    >()
-    let nextPendingId = 0
-
-    for (const entry of genomeEntries) {
-      const [speciesIndex, organismIndex] = entry
-      const pendingId = nextPendingId
-      nextPendingId += 1
-
-      const evaluationPromise = evaluateOrganismMultiSeed(
-        seeds,
-        async (seed) => {
-          const [, , fitness] = await context.evaluateGenomeEntry(entry, seed)
-          return fitness
-        },
-        this.aggregate
-      ).then((fitness) => ({
-        id: pendingId,
-        result: [speciesIndex, organismIndex, fitness] as FitnessData,
-      }))
-
-      pending.set(pendingId, evaluationPromise)
-    }
-
-    while (pending.size > 0) {
-      const settled = await Promise.race(pending.values())
-      pending.delete(settled.id)
-      yield settled.result
-    }
-  }
-}
-
-const createReproducerFactoryForMethod = (
-  method: SupportedAlgorithm,
-  baseOptions: { threadCount: number },
-  terminables: Set<Terminable>
-) => {
-  switch (method) {
-    case 'NEAT':
-      return createReproducerFactory<NEATGenome>(
-        baseOptions,
-        terminables
-      ) satisfies NEATReproducerFactory
-    case 'CPPN':
-      return createReproducerFactory<CPPNGenome<CPPNGenomeOptions>>(
-        baseOptions,
-        terminables
-      ) satisfies CPPNReproducerFactory
-    case 'HyperNEAT':
-      return createReproducerFactory<CPPNGenome<HyperNEATGenomeOptions>>(
-        baseOptions,
-        terminables
-      ) satisfies HyperNEATReproducerFactory
-    case 'ES-HyperNEAT':
-      return createReproducerFactory<CPPNGenome<ESHyperNEATGenomeOptions>>(
-        baseOptions,
-        terminables
-      ) satisfies ESHyperNEATReproducerFactory
-    case 'DES-HyperNEAT':
-      return createReproducerFactory<DESHyperNEATGenome>(
-        {
-          ...baseOptions,
-          enableCustomState: true,
-        },
-        terminables
-      ) satisfies DESHyperNEATReproducerFactory
-  }
-}
 
 const toRunConfig = (options: TrainOptions) => {
   return {
@@ -183,15 +61,13 @@ const toRunConfig = (options: TrainOptions) => {
     maxTicks: options.maxTicks ?? DEMO_DEFAULTS.maxTicks,
     dtMs: options.dtMs ?? DEMO_DEFAULTS.dtMs,
     useFastThrust: options.useFastThrust ?? true,
+    encodingPreset: options.encodingPreset ?? DEFAULT_ENCODING_PRESET,
     baseSeed: options.baseSeed ?? DEFAULT_BASE_SEED,
     outputDir: options.outputDir,
     baselineOnly: options.baselineOnly ?? false,
     logInterval: options.logInterval ?? defaultEvolutionOptions.logInterval,
     threadCount:
       options.threadCount ?? Math.max(1, Math.floor(hardwareConcurrency - 1)),
-    perfProfile: options.perfProfile ?? false,
-    perfProfileSampleEveryNGames: options.perfProfileSampleEveryNGames ?? 64,
-    perfProfileOutputPath: options.perfProfileOutputPath,
     signal: options.signal,
     scenarioMode: options.scenarioMode ?? false,
     scenariosPerOrganism:
@@ -214,12 +90,12 @@ export interface TrainOptions {
   maxTicks?: number | undefined
   dtMs?: number | undefined
   useFastThrust?: boolean | undefined
+  encodingPreset?: EncodingPreset | undefined
   outputDir?: string | undefined
   logInterval?: number | undefined
   threadCount?: number | undefined
-  perfProfile?: boolean | undefined
-  perfProfileSampleEveryNGames?: number | undefined
-  perfProfileOutputPath?: string | undefined
+  workerCpuProfiles?: boolean | undefined
+  workerCpuProfileDir?: string | undefined
   signal?: AbortSignal | undefined
   scenarioMode?: boolean | undefined
   scenariosPerOrganism?: number | undefined
@@ -255,6 +131,94 @@ export interface TrainingRunResult {
 }
 
 export type TrainResult = BaselineRunResult | TrainingRunResult
+
+interface ActiveWorkerCpuProfile {
+  kind: string
+  threadId: number
+  stop: () => Promise<unknown>
+}
+
+interface CpuProfileHandleLike {
+  stop: () => Promise<unknown>
+}
+
+interface ProfilableNodeWorkerLike {
+  threadId: number
+  startCpuProfile: () => Promise<CpuProfileHandleLike>
+}
+
+function isObjectLike(value: unknown): value is Record<PropertyKey, unknown> {
+  return value != null && typeof value === 'object'
+}
+
+async function waitForWorkerOwnerReady(owner: unknown): Promise<void> {
+  if (!isObjectLike(owner) || !('initPromise' in owner)) return
+  const initPromise = owner.initPromise
+  if (
+    initPromise != null &&
+    typeof (initPromise as Promise<void>).then === 'function'
+  ) {
+    await (initPromise as Promise<void>)
+  }
+}
+
+function getOwnedNodeWorkers(owner: unknown): ProfilableNodeWorkerLike[] {
+  if (!isObjectLike(owner) || !('pool' in owner)) return []
+  const pool = owner.pool
+  if (!isObjectLike(pool) || typeof pool.getWorkers !== 'function') return []
+  const workers = pool.getWorkers()
+  if (!Array.isArray(workers)) return []
+
+  return workers
+    .map((worker) =>
+      isObjectLike(worker) && 'nodeWorker' in worker
+        ? (worker.nodeWorker as unknown)
+        : null
+    )
+    .filter(
+      (worker): worker is ProfilableNodeWorkerLike =>
+        isObjectLike(worker) && typeof worker.startCpuProfile === 'function'
+    )
+}
+
+async function startWorkerCpuProfilesForOwner(
+  owner: unknown,
+  kind: string
+): Promise<ActiveWorkerCpuProfile[]> {
+  await waitForWorkerOwnerReady(owner)
+  const workers = getOwnedNodeWorkers(owner)
+  return await Promise.all(
+    workers.map(async (worker) => {
+      const handle = await worker.startCpuProfile()
+      return {
+        kind,
+        threadId: worker.threadId,
+        stop: () => handle.stop(),
+      }
+    })
+  )
+}
+
+async function writeWorkerCpuProfiles(
+  profiles: ActiveWorkerCpuProfile[],
+  outputDir: string
+): Promise<void> {
+  if (profiles.length === 0) return
+  mkdirSync(outputDir, { recursive: true })
+
+  const writes = profiles.map(async (profile) => {
+    const cpuProfile = await profile.stop()
+    const pathname = join(
+      outputDir,
+      `${profile.kind}-worker-${profile.threadId}.cpuprofile`
+    )
+    writeFileSync(
+      pathname,
+      typeof cpuProfile === 'string' ? cpuProfile : JSON.stringify(cpuProfile)
+    )
+  })
+  await Promise.all(writes)
+}
 
 export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   const config = toRunConfig(options)
@@ -301,6 +265,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   let bestFitness = Number.NEGATIVE_INFINITY
   let populationFitnessMean: number | null = null
   let populationFitnessMedian: number | null = null
+  let workerProfiles: ActiveWorkerCpuProfile[] = []
 
   const environmentOptions: Partial<HexagonoidsEnvironmentConfig> = {
     simulation: {
@@ -310,11 +275,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
       scenariosPerOrganism: config.scenariosPerOrganism,
       scenarioMaxTicks: config.scenarioMaxTicks,
     },
-    profiling: {
-      enabled: config.perfProfile,
-      sampleEveryNGames: config.perfProfileSampleEveryNGames,
-      outputPath: config.perfProfileOutputPath,
-    },
+    encodingPreset: config.encodingPreset,
     ...(options.fitnessWeights != null && {
       fitnessWeights: options.fitnessWeights,
     }),
@@ -350,7 +311,6 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   }
 
   const environment = createEnvironment(environmentOptions)
-
   const algorithm = getAlgorithmDefinition(method).createAlgorithm()
   const evaluator = new WorkerEvaluator(algorithm, environment, {
     createEnvironmentPathname: CREATE_ENVIRONMENT_PATHNAME,
@@ -365,7 +325,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   })
   terminables.add(evaluator)
 
-  const createReproducer = createReproducerFactoryForMethod(
+  const createReproducer = createWorkerReproducerFactoryForMethod(
     method,
     {
       threadCount: config.threadCount,
@@ -378,6 +338,15 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     evaluator,
     populationSize: config.populationSize,
   })
+
+  if (options.workerCpuProfiles) {
+    const reproducer = isObjectLike(population) ? population.reproducer : null
+    const profiledWorkers = await Promise.all([
+      startWorkerCpuProfilesForOwner(evaluator, 'evaluator'),
+      startWorkerCpuProfilesForOwner(reproducer, 'reproducer'),
+    ])
+    workerProfiles = profiledWorkers.flat()
+  }
 
   const evolutionOptions = {
     ...defaultEvolutionOptions,
@@ -492,6 +461,13 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
       genomesDir: join(config.outputDir ?? DEFAULT_OUTPUT_DIR, 'genomes'),
     }
   } finally {
+    if (workerProfiles.length > 0) {
+      const outputDir =
+        options.workerCpuProfileDir ??
+        join(config.outputDir ?? DEFAULT_OUTPUT_DIR, 'worker-cpu-profiles')
+      await writeWorkerCpuProfiles(workerProfiles, outputDir)
+      workerProfiles = []
+    }
     for (const terminable of terminables) {
       await terminable.terminate()
     }

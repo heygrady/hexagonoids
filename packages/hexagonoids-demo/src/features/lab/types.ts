@@ -1,10 +1,14 @@
-import type { RawMetrics } from '@heygrady/hexagonoids-environment'
+import type {
+  EncodingPreset,
+  RawMetrics,
+} from '@heygrady/hexagonoids-environment'
 
 import type { SupportedAlgorithm } from '../../algorithmRegistry.js'
 
 export interface LabConfig {
   experimentId: string
   method: SupportedAlgorithm
+  encodingPreset: EncodingPreset
   iterations: number
   populationSize: number
   baseSeed: string
@@ -88,6 +92,7 @@ export interface LabOptions {
   name?: string | undefined
   profilePath?: string | undefined
   method?: SupportedAlgorithm | undefined
+  encodingPreset?: EncodingPreset | undefined
   iterations?: number | undefined
   populationSize?: number | undefined
   baseSeed?: string | undefined

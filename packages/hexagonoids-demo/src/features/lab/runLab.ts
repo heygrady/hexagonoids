@@ -3,23 +3,28 @@ import { mkdir, readdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '@heygrady/hexagonoids-environment'
+import {
+  DEFAULT_ENCODING_PRESET,
+  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
+  type EncodingPreset,
+} from '@heygrady/hexagonoids-environment'
 
 const PACKAGE_ROOT = fileURLToPath(new URL('../../../..', import.meta.url))
 
 import type { SupportedAlgorithm } from '../../algorithmRegistry.js'
 import { train } from '../../train.js'
-import { analyzeGenomes } from './analyzeGenomes.js'
 import { generateReport } from './generateReport.js'
 import { loadProfile } from './loadProfile.js'
 import { resolveProfilePath } from './resolveProfilePath.js'
 import type { LabConfig, LabOptions, LabProfile } from './types.js'
+import { createLabWorkerPool } from './workerLabPool.js'
 
 const defaultWeights = DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights
 const defaultGate = DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig
 
 const LAB_DEFAULTS = {
   method: 'HyperNEAT' as SupportedAlgorithm,
+  encodingPreset: DEFAULT_ENCODING_PRESET as EncodingPreset,
   iterations: 30,
   populationSize: 64,
   scenarioMode: true,
@@ -86,6 +91,10 @@ export async function runLab(options: LabOptions = {}): Promise<{
     LAB_DEFAULTS.method
   const iterations =
     options.iterations ?? profile.config?.iterations ?? LAB_DEFAULTS.iterations
+  const encodingPreset =
+    options.encodingPreset ??
+    (profile.config?.encodingPreset as EncodingPreset | undefined) ??
+    LAB_DEFAULTS.encodingPreset
   const populationSize =
     options.populationSize ??
     profile.config?.populationSize ??
@@ -174,6 +183,7 @@ export async function runLab(options: LabOptions = {}): Promise<{
   const config: LabConfig = {
     experimentId,
     method,
+    encodingPreset,
     iterations,
     populationSize,
     baseSeed,
@@ -212,7 +222,7 @@ export async function runLab(options: LabOptions = {}): Promise<{
   console.log(`\nLab experiment: ${experimentId}`)
   console.log(`Output: ${experimentDir}`)
   console.log(
-    `Method: ${method}, Iterations: ${iterations}, Population: ${populationSize}`
+    `Method: ${method}, Encoding: ${encodingPreset}, Iterations: ${iterations}, Population: ${populationSize}`
   )
   console.log('')
 
@@ -221,6 +231,7 @@ export async function runLab(options: LabOptions = {}): Promise<{
   const trainResult = await train({
     method,
     iterations,
+    encodingPreset,
     populationSize,
     baseSeed,
     maxTicks,
@@ -283,9 +294,14 @@ export async function runLab(options: LabOptions = {}): Promise<{
 
   console.log(`Found ${genomeFiles.length} genomes to analyze.`)
 
-  const behaviors = await analyzeGenomes({
+  const labPool = await createLabWorkerPool({
+    threadCount: options.threadCount,
+  })
+
+  const behaviors = await labPool.analyzeGenomesParallel({
     genomePaths: genomeFiles,
     method,
+    encodingPreset,
     seedsPerGenome: analysisSeedsPerGenome,
     maxTicks: analysisMaxTicks,
     dtMs,
@@ -295,6 +311,8 @@ export async function runLab(options: LabOptions = {}): Promise<{
       process.stdout.write(`\r  Analyzing genome ${completed}/${total}...`)
     },
   })
+
+  await labPool.terminate()
   console.log('')
 
   // Phase 3: Report

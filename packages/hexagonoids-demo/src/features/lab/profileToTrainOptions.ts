@@ -18,6 +18,8 @@ export function profileToTrainOptions(
   const options: Partial<TrainOptions> = {}
 
   if (c.method != null) options.method = c.method as SupportedAlgorithm
+  if (c.encodingPreset != null)
+    options.encodingPreset = c.encodingPreset as TrainOptions['encodingPreset']
   if (c.iterations != null) options.iterations = c.iterations as number
   if (c.populationSize != null)
     options.populationSize = c.populationSize as number
