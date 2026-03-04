@@ -84,9 +84,9 @@ export function createCurriculumGameState(
   }
 
   // 2. Get ship's cached XYZ and yaw
-  const sx = ship.x ?? 0
-  const sy = ship.y ?? 1
-  const sz = ship.z ?? 0
+  const sx = ship.x
+  const sy = ship.y
+  const sz = ship.z
   const yaw = ship.yaw
 
   // 3. Compute cone direction relative to ship yaw (engine convention: 0=east, CW positive)

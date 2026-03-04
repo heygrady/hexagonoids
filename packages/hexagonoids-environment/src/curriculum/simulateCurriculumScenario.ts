@@ -41,16 +41,16 @@ export function simulateCurriculumScenario(
   // Create metrics collector (same as simulateScenario)
   const collector = createMetricsCollector(PLAYER_ID)
 
+  const memory: AgentContext['memory'] = {}
   const context: AgentContext = {
     rng,
-    memory: {},
+    memory,
     executor,
     spatialQueries: engine,
   }
 
-  const stepInputs: PlayerInputs = {
-    [PLAYER_ID]: { left: false, right: false, thrust: false, fire: false },
-  }
+  const defaultInput = { left: false, right: false, thrust: false, fire: false }
+  const stepInputs: PlayerInputs = { [PLAYER_ID]: defaultInput }
 
   let distanceTraveled = 0
   let prevX = 0
@@ -68,18 +68,18 @@ export function simulateCurriculumScenario(
 
     // Early stop: all rocks destroyed or player died
     if (state.rocks.size === 0) break
-    const earlyPlayer = state.players.get(PLAYER_ID)
-    if (earlyPlayer != null && !earlyPlayer.alive) break
+    if (trackedPlayer != null && !trackedPlayer.alive) break
 
-    const player = trackedPlayer ?? state.players.get(PLAYER_ID)
     const ship =
-      player?.shipId != null ? state.ships.get(player.shipId) : undefined
+      trackedPlayer?.shipId != null
+        ? state.ships.get(trackedPlayer.shipId)
+        : undefined
 
     // Track ship position for distance + spatial coverage
     if (ship?.alive) {
-      const cx = ship.x ?? 0
-      const cy = ship.y ?? 1
-      const cz = ship.z ?? 0
+      const cx = ship.x
+      const cy = ship.y
+      const cz = ship.z
 
       if (hasPrev) {
         const dx = cx - prevX
@@ -113,13 +113,9 @@ export function simulateCurriculumScenario(
     // Build rock perception
     const rockPerception =
       ship?.alive === true
-        ? buildRockPerceptionPrecompute(
-            { x: ship.x ?? 0, y: ship.y ?? 1, z: ship.z ?? 0 },
-            Math.PI / 2 + ship.yaw,
-            engine
-          )
+        ? buildRockPerceptionPrecompute(ship, Math.PI / 2 + ship.yaw, engine)
         : undefined
-    context.memory[MEMORY_ROCK_PERCEPTION] = rockPerception
+    memory[MEMORY_ROCK_PERCEPTION] = rockPerception
 
     // Get agent inputs
     const inputs = agent(state, PLAYER_ID, context)
@@ -143,11 +139,11 @@ export function simulateCurriculumScenario(
 
     // Update prevDistances before step
     if (ship?.alive) {
-      const prevDistances = context.memory[MEMORY_PREV_DISTANCES] as
+      const prevDistances = memory[MEMORY_PREV_DISTANCES] as
         | Map<string, number>
         | undefined
       if (prevDistances != null) {
-        const prevProjections = context.memory[MEMORY_PREV_PROJECTIONS] as
+        const prevProjections = memory[MEMORY_PREV_PROJECTIONS] as
           | Map<string, [number, number]>
           | undefined
         updatePrevDistances(
@@ -160,7 +156,7 @@ export function simulateCurriculumScenario(
       }
     }
 
-    context.memory[MEMORY_LAST_DT_MS] = dtMs
+    memory[MEMORY_LAST_DT_MS] = dtMs
 
     stepInputs[PLAYER_ID] = inputs
     engine.tick(stepInputs, dtMs, collector.hooks)
@@ -173,18 +169,17 @@ export function simulateCurriculumScenario(
   }
 
   // Final distance update
-  const player = trackedPlayer ?? state.players.get(PLAYER_ID)
   const ship =
-    player?.shipId != null ? state.ships.get(player.shipId) : undefined
+    trackedPlayer?.shipId != null
+      ? state.ships.get(trackedPlayer.shipId)
+      : undefined
   if (ship?.alive && hasPrev) {
-    const fx = ship.x ?? 0
-    const fy = ship.y ?? 1
-    const fz = ship.z ?? 0
-    const dx = fx - prevX
-    const dy = fy - prevY
-    const dz = fz - prevZ
+    const dx = ship.x - prevX
+    const dy = ship.y - prevY
+    const dz = ship.z - prevZ
     distanceTraveled += Math.sqrt(dx * dx + dy * dy + dz * dz) * RADIUS
   }
+  const player = trackedPlayer
 
   collector.setUniqueCellsVisited(visitedBuckets.size)
 

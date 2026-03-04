@@ -79,10 +79,6 @@ export function simulateGame(
   let lastBucketIdx = -1
   const visitedBuckets = new Set<number>()
 
-  const shipPoint = (target: { x: number; y: number; z: number }) => {
-    return [target.x, target.y, target.z] as const
-  }
-
   // 4. Game loop
   for (let tick = 0; tick < maxTicks; tick++) {
     if (state.endedAt != null) break
@@ -92,7 +88,9 @@ export function simulateGame(
     const ship =
       player?.shipId != null ? state.ships.get(player.shipId) : undefined
     if (ship?.alive) {
-      const [cx, cy, cz] = shipPoint(ship)
+      const cx = ship.x
+      const cy = ship.y
+      const cz = ship.z
 
       // Chord distance on unit sphere (accurate for small deltas between ticks)
       if (hasPrev) {
@@ -127,15 +125,7 @@ export function simulateGame(
 
     const rockPerception =
       ship?.alive === true
-        ? buildRockPerceptionPrecompute(
-            {
-              x: ship.x ?? 0,
-              y: ship.y ?? 1,
-              z: ship.z ?? 0,
-            },
-            Math.PI / 2 + ship.yaw,
-            engine
-          )
+        ? buildRockPerceptionPrecompute(ship, Math.PI / 2 + ship.yaw, engine)
         : undefined
     context.memory[MEMORY_ROCK_PERCEPTION] = rockPerception
 
@@ -206,10 +196,9 @@ export function simulateGame(
   const ship =
     player?.shipId != null ? state.ships.get(player.shipId) : undefined
   if (ship?.alive && hasPrev) {
-    const [fx, fy, fz] = shipPoint(ship)
-    const dx = fx - prevX
-    const dy = fy - prevY
-    const dz = fz - prevZ
+    const dx = ship.x - prevX
+    const dy = ship.y - prevY
+    const dz = ship.z - prevZ
     distanceTraveled += Math.sqrt(dx * dx + dy * dy + dz * dz) * RADIUS
   }
 

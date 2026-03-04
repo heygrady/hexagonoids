@@ -16,12 +16,7 @@ import {
 import { yawToBearing } from '../utils/sphericalBearing.js'
 import { MAX_CLOSING_SPEED, SOI_ARC_DISTANCE } from './constants.js'
 import { CONE_COUNT } from './encodingPresets.js'
-import type {
-  ConeHit,
-  ObservationFrame,
-  ShipObservation,
-  TemporalObservation,
-} from './observationTypes.js'
+import type { ConeHit, ObservationFrame } from './observationTypes.js'
 
 const TWO_PI = Math.PI * 2
 const MAX_VISION_ARC = SOI_ARC_DISTANCE
@@ -97,7 +92,7 @@ function buildLocalBasisFromCenter(center: SpatialPoint): {
 
 function headingVelocityComponents(
   ship: ShipState
-): [forward: number, lateral: number] {
+): [forward: number, lateral: number, speed: number] {
   const angularVelocity = ship.angularVelocity
   const speed = Math.sqrt(
     angularVelocity.x * angularVelocity.x +
@@ -105,7 +100,7 @@ function headingVelocityComponents(
       angularVelocity.z * angularVelocity.z
   )
   if (speed < 0.00001) {
-    return [1, 0]
+    return [1, 0, speed]
   }
 
   // Derive basis from quaternion orientation to avoid pole singularities.
@@ -153,7 +148,7 @@ function headingVelocityComponents(
     thrustX * thrustX + thrustY * thrustY + thrustZ * thrustZ
   )
   if (axisLen < 0.00001) {
-    return [1, 0]
+    return [1, 0, 0]
   }
   const invAxisLen = 1 / axisLen
 
@@ -167,7 +162,7 @@ function headingVelocityComponents(
       angularVelocity.y * headingY +
       angularVelocity.z * headingZ) /
     speed
-  return [clamp(forward, -1, 1), clamp(lateral, -1, 1)]
+  return [clamp(forward, -1, 1), clamp(lateral, -1, 1), speed]
 }
 
 function makeEmptyLidar(): ConeHit[] {
@@ -296,6 +291,16 @@ export interface RockPerceptionEntry {
 
 export interface RockPerceptionPrecompute {
   rocks: RockPerceptionEntry[]
+  /** Ship center used for projection */
+  ship: SpatialPoint
+  /** Rotated forward basis (bearing-adjusted) */
+  forwardX: number
+  forwardY: number
+  forwardZ: number
+  /** Rotated right basis (bearing-adjusted) */
+  rightX: number
+  rightY: number
+  rightZ: number
 }
 
 function rockRadiusBySize(size: 0 | 1 | 2): number {
@@ -330,75 +335,62 @@ export function buildRockPerceptionPrecompute(
   const rockCount = candidateRocks.length
   const rocks = new Array<RockPerceptionEntry>(rockCount)
 
-  let index = 0
+  for (let index = 0; index < rockCount; index++) {
+    const entry = candidateRocks[index]!
+    const point = entry.point
+    const entity = entry.entity
 
-  const processRock = (rock: {
-    point: SpatialPoint
-    size: 0 | 1 | 2
-    id: string
-  }) => {
-    const rx = rock.point.x
-    const ry = rock.point.z
-    const rz = rock.point.y
+    const rx = point.x
+    const ry = point.z
+    const rz = point.y
 
     const dot = shipX * rx + shipY * ry + shipZ * rz
 
-    let distance = 0
+    const distance = RADIUS * Math.acos(clamp(dot, -1, 1))
     let localX = 0
     let localY = 0
     let inVisionRange = false
 
-    if (dot >= SOI_DOT_THRESHOLD) {
-      distance = RADIUS * Math.acos(clamp(dot, -1, 1))
-
-      if (distance <= MAX_VISION_ARC) {
-        const depth = dot
-        if (depth > PROJECTION_EPSILON) {
-          localX = (rx * rightX + ry * rightY + rz * rightZ) / depth
-          localY = (rx * forwardX + ry * forwardY + rz * forwardZ) / depth
-          inVisionRange = true
-        }
+    if (dot >= SOI_DOT_THRESHOLD && distance <= MAX_VISION_ARC) {
+      if (dot > PROJECTION_EPSILON) {
+        localX = (rx * rightX + ry * rightY + rz * rightZ) / dot
+        localY = (rx * forwardX + ry * forwardY + rz * forwardZ) / dot
+        inVisionRange = true
       }
-    } else {
-      distance = RADIUS * Math.acos(clamp(dot, -1, 1))
     }
 
     rocks[index] = {
-      id: rock.id,
+      id: entity.id,
       distance,
       localX,
       localY,
       inVisionRange,
-      radius: rockRadiusBySize(rock.size),
-      sizeNorm: rock.size / 2,
+      radius: rockRadiusBySize(entity.size),
+      sizeNorm: entity.size / 2,
     }
-    index += 1
   }
 
-  for (const entry of candidateRocks) {
-    processRock({
-      id: entry.entity.id,
-      size: entry.entity.size,
-      point: entry.point,
-    })
+  return {
+    rocks,
+    ship: shipCenter,
+    forwardX,
+    forwardY,
+    forwardZ,
+    rightX,
+    rightY,
+    rightZ,
   }
-
-  return { rocks }
 }
 
+/**
+ * Populate the ship and temporal sections of the observation frame.
+ * Returns the live ShipState or null if the ship is dead.
+ */
 function collectShipObservation(
   state: GameState,
   playerId: string,
   frame: ObservationFrame
-): {
-  alive: boolean
-  x: number
-  y: number
-  z: number
-  shipBearing: number
-  ship: ShipObservation
-  temporal: TemporalObservation
-} {
+): ShipState | null {
   const player = state.players.get(playerId)
   const ship =
     player?.shipId != null ? state.ships.get(player.shipId) : undefined
@@ -415,19 +407,10 @@ function collectShipObservation(
       0,
       1
     )
-    return {
-      alive: false,
-      x: 0,
-      y: 1,
-      z: 0,
-      shipBearing: 0,
-      ship: frame.ship,
-      temporal: frame.temporal,
-    }
+    return null
   }
 
-  const [forward, lateral] = headingVelocityComponents(ship)
-  const shipSpeed = ship.angularVelocity.length()
+  const [forward, lateral, shipSpeed] = headingVelocityComponents(ship)
   frame.shipAlive = true
   frame.ship.speedNorm = clamp(shipSpeed / MAX_SPEED, 0, 1)
   frame.ship.headingForwardDrift = forward
@@ -444,15 +427,7 @@ function collectShipObservation(
     1
   )
 
-  return {
-    alive: true,
-    x: ship.x ?? 0,
-    y: ship.y ?? 1,
-    z: ship.z ?? 0,
-    shipBearing: yawToBearing(ship.yaw),
-    ship: frame.ship,
-    temporal: frame.temporal,
-  }
+  return ship
 }
 
 function closingSpeedFromPrev(
@@ -511,8 +486,6 @@ function scanMemoryRocks(
   state: GameState,
   seenRocks: Set<string>,
   currentPerception: RockPerceptionPrecompute,
-  shipCenter: { x: number; y: number; z: number },
-  shipBearing: number,
   prevDistances: Map<string, number>,
   invDtSeconds: number,
   lidar: ConeHit[]
@@ -529,19 +502,19 @@ function scanMemoryRocks(
   // Nothing in memory beyond visible rocks — early out
   if (seenRocks.size === visibleIds.size) return
 
-  // Build local basis for projecting memory rocks (same math as buildRockPerceptionPrecompute)
-  const basis = buildLocalBasisFromCenter(shipCenter)
+  // Reuse precomputed basis from buildRockPerceptionPrecompute
+  const {
+    ship: shipCenter,
+    forwardX,
+    forwardY,
+    forwardZ,
+    rightX,
+    rightY,
+    rightZ,
+  } = currentPerception
   const shipX = shipCenter.x
   const shipY = shipCenter.z
   const shipZ = shipCenter.y
-  const sinBearing = Math.sin(shipBearing)
-  const cosBearing = Math.cos(shipBearing)
-  const forwardX = basis.northX * cosBearing + basis.eastX * sinBearing
-  const forwardY = basis.northZ * cosBearing + basis.eastZ * sinBearing
-  const forwardZ = basis.northY * cosBearing + basis.eastY * sinBearing
-  const rightX = basis.eastX * cosBearing - basis.northX * sinBearing
-  const rightY = basis.eastZ * cosBearing - basis.northZ * sinBearing
-  const rightZ = basis.eastY * cosBearing - basis.northY * sinBearing
 
   // Step 2 & 3: Prune and fill
   for (const rockId of seenRocks) {
@@ -633,21 +606,14 @@ export function collectObservations(
     resetLidar(frame.lidar)
   }
   const ship = collectShipObservation(state, playerId, frame)
-  if (!ship.alive) {
+  if (ship == null) {
     return frame
   }
 
+  const shipBearing = yawToBearing(ship.yaw)
   const rockPerception =
     rockPerceptionBuffer ??
-    buildRockPerceptionPrecompute(
-      {
-        x: ship.x,
-        y: ship.y,
-        z: ship.z,
-      },
-      ship.shipBearing,
-      spatialQueries
-    )
+    buildRockPerceptionPrecompute(ship, shipBearing, spatialQueries)
   const invDtSeconds = dtMs > 0 ? 1000 / dtMs : 0
 
   // Step 1: Fill cones from SOI rocks
@@ -665,8 +631,6 @@ export function collectObservations(
       state,
       seenRocks,
       rockPerception,
-      { x: ship.x, y: ship.y, z: ship.z },
-      ship.shipBearing,
       prevDistances,
       invDtSeconds,
       frame.lidar
