@@ -18,6 +18,14 @@ function parseArgs(argv) {
     maxTicks: 400,
     dtMs: 33,
     threadCount: 1,
+    curriculumEnabled: true,
+    curriculumCount: 32,
+    scenarioMode: true,
+    scenariosPerOrganism: 64,
+    scenarioMaxTicks: 32,
+    scenarioWeight: 0.15,
+    fullGameWeight: 0.05,
+    curriculumWeight: 0.8,
     outputDir: '.artifacts/profile-output',
     profileOutput: '.artifacts/cpuprofiles/latest.cpuprofile',
     workerCpuProfiles: false,
@@ -47,7 +55,16 @@ function parseArgs(argv) {
     else if (arg === '--workerCpuProfiles') options.workerCpuProfiles = true
     else if (arg === '--workerCpuProfileDir' && args[i + 1]) {
       options.workerCpuProfileDir = args[++i]
-    }
+    } else if (arg === '--curriculumEnabled') options.curriculumEnabled = true
+    else if (arg === '--no-curriculumEnabled') options.curriculumEnabled = false
+    else if (arg === '--curriculumCount' && args[i + 1])
+      options.curriculumCount = Number(args[++i])
+    else if (arg === '--scenarioMode') options.scenarioMode = true
+    else if (arg === '--no-scenarioMode') options.scenarioMode = false
+    else if (arg === '--scenariosPerOrganism' && args[i + 1])
+      options.scenariosPerOrganism = Number(args[++i])
+    else if (arg === '--scenarioMaxTicks' && args[i + 1])
+      options.scenarioMaxTicks = Number(args[++i])
   }
 
   options.outputDir = resolve(packageRoot, options.outputDir)
