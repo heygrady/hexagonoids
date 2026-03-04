@@ -1,7 +1,7 @@
 import {
   createGame,
   detectCollisions,
-  greatCircleDistance,
+  RADIUS,
   spawnBullet,
   spawnRock,
   startPlayer,
@@ -10,12 +10,31 @@ import {
   collectObservations,
   doNothingAgent,
   encodeGameState,
-  getInputCountForEncoding,
+  INPUT_COUNT,
   simulateGame,
 } from '@heygrady/hexagonoids-environment'
 import { bench, describe } from 'vitest'
 
 const PLAYER_ID = 'player-1'
+
+function latLngToPoint(lat: number, lng: number) {
+  const latRad = (lat * Math.PI) / 180
+  const lngRad = (lng * Math.PI) / 180
+  const cosLat = Math.cos(latRad)
+  return {
+    x: cosLat * Math.cos(lngRad),
+    y: Math.sin(latRad),
+    z: cosLat * Math.sin(lngRad),
+  }
+}
+
+function arcDistanceXYZ(
+  a: { x: number; y: number; z: number },
+  b: { x: number; y: number; z: number }
+) {
+  const dot = Math.max(-1, Math.min(1, a.x * b.x + a.y * b.y + a.z * b.z))
+  return Math.acos(dot) * RADIUS
+}
 
 function createDenseScenario() {
   const engine = createGame({ seed: 'hotpath-bench-v1' })
@@ -34,7 +53,7 @@ function createDenseScenario() {
     const lat = -30 + (i % 12) * 5
     const lng = -150 + Math.floor(i / 12) * 25
     const size = (i % 3) as 0 | 1 | 2
-    spawnRock(state, lat, lng, size, rng)
+    spawnRock(state, latLngToPoint(lat, lng), size, rng)
   }
 
   for (let i = 0; i < 28; i++) {
@@ -46,10 +65,7 @@ function createDenseScenario() {
   const prevDistances = new Map<string, number>()
   for (const rock of state.rocks.values()) {
     prevProjections.set(rock.id, [0, 0])
-    prevDistances.set(
-      rock.id,
-      greatCircleDistance(ship.lat, ship.lng, rock.lat, rock.lng, 5)
-    )
+    prevDistances.set(rock.id, arcDistanceXYZ(ship, rock))
   }
 
   return { engine, state, prevProjections, prevDistances, rng }
@@ -68,15 +84,23 @@ function createInVisionRingScenario() {
     throw new Error('Expected ship to exist')
   }
 
-  ship.lat = 0
-  ship.lng = 0
+  // Place ship at (0,0) in lat/lng space
+  const origin = latLngToPoint(0, 0)
+  ship.x = origin.x
+  ship.y = origin.y
+  ship.z = origin.z
   ship.yaw = 0
 
   for (let ring = 0; ring < 3; ring++) {
     const latOffset = (ring - 1) * 3
     for (let i = 0; i < 16; i++) {
       const lngOffset = -20 + i * 2.5
-      spawnRock(state, latOffset, lngOffset, (i % 3) as 0 | 1 | 2, rng)
+      spawnRock(
+        state,
+        latLngToPoint(latOffset, lngOffset),
+        (i % 3) as 0 | 1 | 2,
+        rng
+      )
     }
   }
 
@@ -84,10 +108,7 @@ function createInVisionRingScenario() {
   const prevDistances = new Map<string, number>()
   for (const rock of state.rocks.values()) {
     prevProjections.set(rock.id, [0, 0])
-    prevDistances.set(
-      rock.id,
-      greatCircleDistance(ship.lat, ship.lng, rock.lat, rock.lng, 5)
-    )
+    prevDistances.set(rock.id, arcDistanceXYZ(ship, rock))
   }
 
   return { engine, state, prevProjections, prevDistances }
@@ -176,7 +197,6 @@ describe('hotpath performance', () => {
           33,
           undefined,
           undefined,
-          'four',
           engine
         )
       }
@@ -203,7 +223,6 @@ describe('hotpath performance', () => {
           33,
           undefined,
           undefined,
-          'four',
           engine
         )
       }
@@ -221,7 +240,7 @@ describe('hotpath performance', () => {
     () => {
       const { engine, state, prevProjections, prevDistances } =
         createDenseScenario()
-      const inputBuffer = new Array<number>(getInputCountForEncoding('four'))
+      const inputBuffer = new Array<number>(INPUT_COUNT)
       for (let i = 0; i < 240; i++) {
         encodeGameState(
           state,
@@ -230,7 +249,6 @@ describe('hotpath performance', () => {
           prevDistances,
           33,
           inputBuffer,
-          undefined,
           undefined,
           undefined,
           engine
@@ -246,11 +264,11 @@ describe('hotpath performance', () => {
   )
 
   bench(
-    'encodeGameState in-vision ring scene (four)',
+    'encodeGameState in-vision ring scene',
     () => {
       const { engine, state, prevProjections, prevDistances } =
         createInVisionRingScenario()
-      const inputBuffer = new Array<number>(getInputCountForEncoding('four'))
+      const inputBuffer = new Array<number>(INPUT_COUNT)
       for (let i = 0; i < 240; i++) {
         encodeGameState(
           state,
@@ -261,34 +279,6 @@ describe('hotpath performance', () => {
           inputBuffer,
           undefined,
           undefined,
-          'four',
-          engine
-        )
-      }
-    },
-    {
-      iterations: BENCH_ITERATIONS,
-      warmupIterations: BENCH_WARMUP,
-      time: 0,
-      warmupTime: 0,
-    }
-  )
-
-  bench(
-    'collectObservations in-vision ring scene (six tangent-plane drift)',
-    () => {
-      const { engine, state, prevProjections, prevDistances } =
-        createInVisionRingScenario()
-      for (let i = 0; i < 240; i++) {
-        collectObservations(
-          state,
-          PLAYER_ID,
-          prevProjections,
-          prevDistances,
-          33,
-          undefined,
-          undefined,
-          'six',
           engine
         )
       }

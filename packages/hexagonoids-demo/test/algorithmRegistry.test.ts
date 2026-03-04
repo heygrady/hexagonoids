@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  createHexagonoidsIO,
   getAlgorithmDefinition,
   getAlgorithmDefinitions,
   HEXAGONOIDS_IO,
@@ -28,10 +27,9 @@ describe('algorithmRegistry', () => {
     }
   })
 
-  it('can derive alternate I/O sizes from encoding presets', () => {
-    expect(HEXAGONOIDS_IO.inputs).toBe(69)
-    expect(createHexagonoidsIO('six').inputs).toBe(101)
-    expect(createHexagonoidsIO('cone8').inputs).toBe(37)
+  it('uses cone8 encoding with 37 inputs and 4 outputs', () => {
+    expect(HEXAGONOIDS_IO.inputs).toBe(37)
+    expect(HEXAGONOIDS_IO.outputs).toBe(4)
   })
 
   it('all definitions expose stable method metadata', () => {
