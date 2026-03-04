@@ -7,15 +7,15 @@
  */
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import { describe, expect, it } from 'vitest'
+import { latLngToQuaternion } from '../../../src/features/engine/physics/latLng.js'
 import type { BulletState } from '../../../src/index.js'
 import {
   BULLET_SPEED,
   headingToAngularVelocity,
-  latLngToQuaternion,
-  latLngToSpatialPoint,
   moveBullet,
   RADIUS,
 } from '../../../src/index.js'
+import { pointFromLatLng } from '../../helpers/points.js'
 
 function arcDistanceFromPoints(
   ax: number,
@@ -33,8 +33,7 @@ function makeBullet(overrides: Partial<BulletState> = {}): BulletState {
   return {
     id: 'test-bullet',
     orientation: Quaternion.Identity(),
-    lat: 0,
-    lng: 0,
+    ...pointFromLatLng(0, 0),
     angularVelocity: Vector3.Zero(),
     firedAt: null,
     ownerId: 'test-ship',
@@ -57,8 +56,8 @@ describe('moveBullet — quantitative distance per frame', () => {
       0,
       BULLET_SPEED
     )
-    const bullet = makeBullet({ orientation, lat: 0, lng: 0, angularVelocity })
-    const start = latLngToSpatialPoint(0, 0)
+    const start = pointFromLatLng(0, 0)
+    const bullet = makeBullet({ orientation, ...start, angularVelocity })
 
     moveBullet(bullet, dtMs, RADIUS)
 
@@ -78,10 +77,10 @@ describe('moveBullet — quantitative distance per frame', () => {
     // If the engine accidentally passed milliseconds where seconds are needed, the
     // bullet would move 1000x too far per frame. This test catches that class of bug.
     const orientation1 = latLngToQuaternion(0, 0)
+    const start = pointFromLatLng(0, 0)
     const bulletSmall = makeBullet({
       orientation: orientation1,
-      lat: 0,
-      lng: 0,
+      ...start,
       angularVelocity: headingToAngularVelocity(orientation1, 0, BULLET_SPEED),
     })
     moveBullet(bulletSmall, 1, RADIUS)
@@ -97,8 +96,7 @@ describe('moveBullet — quantitative distance per frame', () => {
     const orientation2 = latLngToQuaternion(0, 0)
     const bulletBig = makeBullet({
       orientation: orientation2,
-      lat: 0,
-      lng: 0,
+      ...start,
       angularVelocity: headingToAngularVelocity(orientation2, 0, BULLET_SPEED),
     })
     moveBullet(bulletBig, 1000, RADIUS)
@@ -118,11 +116,11 @@ describe('moveBullet — quantitative distance per frame', () => {
 describe('moveBullet — distance scales correctly with dtMs', () => {
   it('distance is proportional to dtMs for small angles', () => {
     const orientation = latLngToQuaternion(0, 0)
+    const start = pointFromLatLng(0, 0)
 
     const bullet16 = makeBullet({
       orientation,
-      lat: 0,
-      lng: 0,
+      ...start,
       angularVelocity: headingToAngularVelocity(orientation, 0, BULLET_SPEED),
     })
     moveBullet(bullet16, 16, RADIUS)
@@ -137,8 +135,7 @@ describe('moveBullet — distance scales correctly with dtMs', () => {
 
     const bullet32 = makeBullet({
       orientation: latLngToQuaternion(0, 0),
-      lat: 0,
-      lng: 0,
+      ...start,
       angularVelocity: headingToAngularVelocity(
         latLngToQuaternion(0, 0),
         0,
@@ -166,13 +163,13 @@ describe('moveBullet — distance scales correctly with dtMs', () => {
     const expectedArcDistance = expectedAngle * RADIUS
 
     const orientation = latLngToQuaternion(lat, lng)
+    const start = pointFromLatLng(lat, lng)
     const angularVelocity = headingToAngularVelocity(
       orientation,
       0,
       BULLET_SPEED
     )
-    const bullet = makeBullet({ orientation, lat, lng, angularVelocity })
-    const start = latLngToSpatialPoint(lat, lng)
+    const bullet = makeBullet({ orientation, ...start, angularVelocity })
 
     moveBullet(bullet, dtMs, RADIUS)
 

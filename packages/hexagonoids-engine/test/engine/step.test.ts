@@ -16,6 +16,7 @@ import {
   step,
 } from '../../src/index.js'
 import { createTestRng } from '../helpers/createTestRng.js'
+import { entityPoint } from '../helpers/points.js'
 
 const NO_INPUT: PlayerInputs = {}
 const IDLE_INPUT = (playerId: string): PlayerInputs => ({
@@ -146,14 +147,13 @@ describe('step function', () => {
       const ship = game.ships.get(player.shipId!)!
 
       // Place a rock right at the ship's position
-      const rock = spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+      const rock = spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
       // Place a bullet at the rock's position
       const bullet = {
         id: 'test-bullet',
         orientation: rock.orientation.clone(),
-        lat: rock.lat,
-        lng: rock.lng,
+        ...entityPoint(rock),
         angularVelocity: ship.angularVelocity.clone(),
         firedAt: game.now,
         ownerId: ship.id,
@@ -178,7 +178,7 @@ describe('step function', () => {
       const ship = game.ships.get(player.shipId!)!
 
       // Place a rock at ship position
-      spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+      spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
       // Advance past grace period so collision is detected
       advanceGameTime(game, SHIP_REGENERATION_GRACE_PERIOD + 100)
@@ -263,7 +263,7 @@ describe('step function', () => {
       const ship = game.ships.get(player.shipId!)!
 
       // Place rock at ship position and advance past grace
-      spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+      spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
       player.regeneratedAt = 0
       advanceGameTime(game, SHIP_REGENERATION_GRACE_PERIOD + 100)
 
@@ -280,14 +280,13 @@ describe('step function', () => {
       const ship = game.ships.get(player.shipId!)!
 
       // Place a rock at ship position
-      const rock = spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+      const rock = spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
       // Place a bullet at the rock's position
       const bullet = {
         id: 'test-bullet',
         orientation: rock.orientation.clone(),
-        lat: rock.lat,
-        lng: rock.lng,
+        ...entityPoint(rock),
         angularVelocity: ship.angularVelocity.clone(),
         firedAt: game.now,
         ownerId: ship.id,

@@ -9,14 +9,14 @@ import {
   RADIUS,
   turnShip,
 } from '../../../src/index.js'
+import { pointFromLatLng } from '../../helpers/points.js'
 
 /** Create a fresh ship state for testing. */
 const makeShip = (overrides: Partial<ShipState> = {}): ShipState => ({
   id: 'test-ship',
   playerId: 'test-player',
   orientation: Quaternion.Identity(),
-  lat: 0,
-  lng: 0,
+  ...pointFromLatLng(0, 0),
   angularVelocity: Vector3.Zero(),
   yaw: 0,
   alive: true,

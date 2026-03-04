@@ -2,13 +2,13 @@ import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import { describe, expect, it } from 'vitest'
 import type { RockState } from '../../../src/index.js'
 import { moveRock, RADIUS, ROCK_LARGE_SIZE } from '../../../src/index.js'
+import { pointFromLatLng } from '../../helpers/points.js'
 
 /** Create a fresh rock state for testing. */
 const makeRock = (overrides: Partial<RockState> = {}): RockState => ({
   id: 'test-rock',
   orientation: Quaternion.Identity(),
-  lat: 0,
-  lng: 0,
+  ...pointFromLatLng(0, 0),
   angularVelocity: Vector3.Zero(),
   size: ROCK_LARGE_SIZE,
   value: 20,

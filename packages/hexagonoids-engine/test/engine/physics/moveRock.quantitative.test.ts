@@ -7,17 +7,17 @@
  */
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import { describe, expect, it } from 'vitest'
+import { latLngToQuaternion } from '../../../src/features/engine/physics/latLng.js'
 import type { RockState } from '../../../src/index.js'
 import {
   headingToAngularVelocity,
-  latLngToQuaternion,
-  latLngToSpatialPoint,
   moveRock,
   RADIUS,
   ROCK_LARGE_SPEED,
   ROCK_MEDIUM_SPEED,
   ROCK_SMALL_SPEED,
 } from '../../../src/index.js'
+import { pointFromLatLng } from '../../helpers/points.js'
 
 function arcDistanceFromPoints(
   ax: number,
@@ -35,8 +35,7 @@ function makeRock(overrides: Partial<RockState> = {}): RockState {
   return {
     id: 'test-rock',
     orientation: Quaternion.Identity(),
-    lat: 0,
-    lng: 0,
+    ...pointFromLatLng(0, 0),
     angularVelocity: Vector3.Zero(),
     size: 2,
     value: 50,
@@ -51,10 +50,10 @@ describe('moveRock — quantitative distance per frame', () => {
     const expectedArcDistance = expectedAngle * RADIUS
 
     const orientation = latLngToQuaternion(0, 0)
+    const start = pointFromLatLng(0, 0)
     const rock = makeRock({
       orientation,
-      lat: 0,
-      lng: 0,
+      ...start,
       angularVelocity: headingToAngularVelocity(
         orientation,
         0,
@@ -62,7 +61,6 @@ describe('moveRock — quantitative distance per frame', () => {
       ),
       size: 2,
     })
-    const start = latLngToSpatialPoint(0, 0)
 
     moveRock(rock, dtMs, RADIUS)
 
@@ -84,10 +82,10 @@ describe('moveRock — quantitative distance per frame', () => {
     const expectedArcDistance = expectedAngle * RADIUS
 
     const orientation = latLngToQuaternion(0, 0)
+    const start = pointFromLatLng(0, 0)
     const rock = makeRock({
       orientation,
-      lat: 0,
-      lng: 0,
+      ...start,
       angularVelocity: headingToAngularVelocity(
         orientation,
         0,
@@ -95,7 +93,6 @@ describe('moveRock — quantitative distance per frame', () => {
       ),
       size: 1,
     })
-    const start = latLngToSpatialPoint(0, 0)
 
     moveRock(rock, dtMs, RADIUS)
 
@@ -117,10 +114,10 @@ describe('moveRock — quantitative distance per frame', () => {
     const expectedArcDistance = expectedAngle * RADIUS
 
     const orientation = latLngToQuaternion(0, 0)
+    const start = pointFromLatLng(0, 0)
     const rock = makeRock({
       orientation,
-      lat: 0,
-      lng: 0,
+      ...start,
       angularVelocity: headingToAngularVelocity(
         orientation,
         0,
@@ -128,7 +125,6 @@ describe('moveRock — quantitative distance per frame', () => {
       ),
       size: 0,
     })
-    const start = latLngToSpatialPoint(0, 0)
 
     moveRock(rock, dtMs, RADIUS)
 
@@ -148,10 +144,10 @@ describe('moveRock — quantitative distance per frame', () => {
     const dtMs = 16
 
     const orientationLarge = latLngToQuaternion(0, 0)
+    const start = pointFromLatLng(0, 0)
     const rockLarge = makeRock({
       orientation: orientationLarge,
-      lat: 0,
-      lng: 0,
+      ...start,
       angularVelocity: headingToAngularVelocity(
         orientationLarge,
         0,
@@ -160,7 +156,6 @@ describe('moveRock — quantitative distance per frame', () => {
       size: 2,
     })
     moveRock(rockLarge, dtMs, RADIUS)
-    const start = latLngToSpatialPoint(0, 0)
     const distLarge = arcDistanceFromPoints(
       start.x,
       start.y,
@@ -173,8 +168,7 @@ describe('moveRock — quantitative distance per frame', () => {
     const orientationSmall = latLngToQuaternion(0, 0)
     const rockSmall = makeRock({
       orientation: orientationSmall,
-      lat: 0,
-      lng: 0,
+      ...start,
       angularVelocity: headingToAngularVelocity(
         orientationSmall,
         0,

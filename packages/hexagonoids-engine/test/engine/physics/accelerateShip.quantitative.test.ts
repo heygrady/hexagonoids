@@ -14,25 +14,25 @@ import {
   getThrustAccelerationFast,
   getThrustAccelerationQuaternion,
 } from '../../../src/features/engine/physics/accelerateShip.js'
+import { latLngToQuaternion } from '../../../src/features/engine/physics/latLng.js'
 import { turnShip } from '../../../src/features/engine/physics/turnShip.js'
 import type { ShipState } from '../../../src/index.js'
 import {
   ACCELERATION_RATE,
   accelerateShip,
   FRICTION_COEFFICIENT,
-  latLngToQuaternion,
   MAX_DURATION,
   MAX_SPEED,
   moveShip,
 } from '../../../src/index.js'
+import { pointFromLatLng } from '../../helpers/points.js'
 
 function makeShip(overrides: Partial<ShipState> = {}): ShipState {
   return {
     id: 'test-ship',
     playerId: 'p1',
     orientation: Quaternion.Identity(),
-    lat: 0,
-    lng: 0,
+    ...pointFromLatLng(0, 0),
     angularVelocity: Vector3.Zero(),
     yaw: 0,
     alive: true,
@@ -177,9 +177,9 @@ describe('accelerateShip — fast thrust parity', () => {
 
     for (const scenario of scenarios) {
       const orientation = latLngToQuaternion(scenario.lat, scenario.lng)
+      const point = pointFromLatLng(scenario.lat, scenario.lng)
       const ship = makeShip({
-        lat: scenario.lat,
-        lng: scenario.lng,
+        ...point,
         yaw: scenario.yaw,
         orientation,
       })
@@ -229,15 +229,14 @@ describe('accelerateShip — dynamic fast/parity across gameplay-like loops', ()
 
     for (const start of starts) {
       const orientation = latLngToQuaternion(start.lat, start.lng)
+      const point = pointFromLatLng(start.lat, start.lng)
       const fast = makeShip({
-        lat: start.lat,
-        lng: start.lng,
+        ...point,
         yaw: start.yaw,
         orientation,
       })
       const slow = makeShip({
-        lat: start.lat,
-        lng: start.lng,
+        ...point,
         yaw: start.yaw,
         orientation: orientation.clone(),
       })
@@ -296,15 +295,14 @@ describe('accelerateShip — dynamic fast/parity across gameplay-like loops', ()
 
     for (const start of starts) {
       const orientation = latLngToQuaternion(start.lat, start.lng)
+      const point = pointFromLatLng(start.lat, start.lng)
       const fast = makeShip({
-        lat: start.lat,
-        lng: start.lng,
+        ...point,
         yaw: start.yaw,
         orientation,
       })
       const slow = makeShip({
-        lat: start.lat,
-        lng: start.lng,
+        ...point,
         yaw: start.yaw,
         orientation: orientation.clone(),
       })

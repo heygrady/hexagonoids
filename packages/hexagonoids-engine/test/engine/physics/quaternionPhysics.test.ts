@@ -1,6 +1,12 @@
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import { describe, expect, it } from 'vitest'
-
+import {
+  latLngToQuaternion,
+  latLngToVector3,
+  quaternionToLatLng,
+  quaternionToLatLngFast,
+  vector3ToLatLng,
+} from '../../../src/features/engine/physics/latLng.js'
 import {
   applyAngularFriction,
   clampAngularVelocity,
@@ -8,11 +14,6 @@ import {
   headingToAngularVelocity,
   integrateAngularVelocity,
   integrateAngularVelocityFast,
-  latLngToQuaternion,
-  latLngToVector3,
-  quaternionToLatLng,
-  quaternionToLatLngFast,
-  vector3ToLatLng,
 } from '../../../src/index.js'
 
 describe('getPositionFromQuaternion', () => {

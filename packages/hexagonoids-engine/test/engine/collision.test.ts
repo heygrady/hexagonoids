@@ -18,6 +18,7 @@ import {
   startPlayer,
 } from '../../src/index.js'
 import { createTestRng } from '../helpers/createTestRng.js'
+import { entityPoint, pointFromLatLng } from '../helpers/points.js'
 
 describe('collision detection', () => {
   let game: GameState
@@ -51,15 +52,14 @@ describe('collision detection', () => {
 
   describe('detectCollisions — bullet-rock', () => {
     it('detects collision when bullet overlaps rock', () => {
-      const ship = spawnShip(game, 'p1', 0, 0, rng)
-      const rock = spawnRock(game, 0, 0, ROCK_LARGE_SIZE, rng)
+      const ship = spawnShip(game, 'p1', pointFromLatLng(0, 0), rng)
+      const rock = spawnRock(game, pointFromLatLng(0, 0), ROCK_LARGE_SIZE, rng)
 
       // Place a bullet at the rock's position
       const bullet = {
         id: 'test-bullet',
         orientation: rock.orientation.clone(),
-        lat: rock.lat,
-        lng: rock.lng,
+        ...entityPoint(rock),
         angularVelocity: ship.angularVelocity.clone(),
         firedAt: game.now,
         ownerId: ship.id,
@@ -74,14 +74,13 @@ describe('collision detection', () => {
     })
 
     it('does not detect collision when far apart', () => {
-      const ship = spawnShip(game, 'p1', 0, 0, rng)
-      spawnRock(game, 45, 90, ROCK_LARGE_SIZE, rng)
+      const ship = spawnShip(game, 'p1', pointFromLatLng(0, 0), rng)
+      spawnRock(game, pointFromLatLng(45, 90), ROCK_LARGE_SIZE, rng)
 
       const bullet = {
         id: 'test-bullet',
         orientation: ship.orientation.clone(),
-        lat: 0,
-        lng: 0,
+        ...pointFromLatLng(0, 0),
         angularVelocity: ship.angularVelocity.clone(),
         firedAt: game.now,
         ownerId: ship.id,
@@ -95,8 +94,8 @@ describe('collision detection', () => {
 
   describe('detectCollisions — ship-rock', () => {
     it('detects collision when overlapping', () => {
-      const ship = spawnShip(game, 'p1', 10, 20, rng)
-      spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+      const ship = spawnShip(game, 'p1', pointFromLatLng(10, 20), rng)
+      spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
       const pairs = detectCollisions(game, RADIUS)
       const shipRock = pairs.filter((p) => p.type === 'ship-rock')
@@ -104,8 +103,8 @@ describe('collision detection', () => {
     })
 
     it('does not detect collision when far apart', () => {
-      spawnShip(game, 'p1', 0, 0, rng)
-      spawnRock(game, 45, 90, ROCK_LARGE_SIZE, rng)
+      spawnShip(game, 'p1', pointFromLatLng(0, 0), rng)
+      spawnRock(game, pointFromLatLng(45, 90), ROCK_LARGE_SIZE, rng)
 
       const pairs = detectCollisions(game, RADIUS)
       expect(pairs.filter((p) => p.type === 'ship-rock').length).toBe(0)
@@ -117,7 +116,7 @@ describe('collision detection', () => {
       player.regeneratedAt = game.now
 
       const ship = game.ships.get(player.shipId!)!
-      spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+      spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
       const pairs = detectCollisions(game, RADIUS)
       expect(pairs.filter((p) => p.type === 'ship-rock').length).toBe(0)
@@ -129,7 +128,7 @@ describe('collision detection', () => {
       player.regeneratedAt = game.now
 
       const ship = game.ships.get(player.shipId!)!
-      spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+      spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
       // Advance past grace period
       advanceGameTime(game, SHIP_REGENERATION_GRACE_PERIOD + 100)
@@ -139,8 +138,8 @@ describe('collision detection', () => {
     })
 
     it('uses exact ship intersection radius when querying rock collisions', () => {
-      const ship = spawnShip(game, 'p1', 10, 20, rng)
-      spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+      const ship = spawnShip(game, 'p1', pointFromLatLng(10, 20), rng)
+      spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
       let queriedRadius: number | null = null
       const spatialIndex = {
@@ -162,13 +161,12 @@ describe('collision detection', () => {
       const player = game.players.get('p1')!
       const ship = game.ships.get(player.shipId!)!
 
-      const rock = spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+      const rock = spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
       const bullet = {
         id: 'test-bullet',
         orientation: rock.orientation.clone(),
-        lat: rock.lat,
-        lng: rock.lng,
+        ...entityPoint(rock),
         angularVelocity: ship.angularVelocity.clone(),
         firedAt: game.now,
         ownerId: ship.id,
@@ -205,7 +203,7 @@ describe('collision detection', () => {
       const player = game.players.get('p1')!
       const ship = game.ships.get(player.shipId!)!
 
-      const rock = spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+      const rock = spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
       const hooks: EngineHooks = {
         onCollision: vi.fn(),
@@ -235,7 +233,7 @@ describe('collision detection', () => {
       player.lives = 0
       const ship = game.ships.get(player.shipId!)!
 
-      const rock = spawnRock(game, ship.lat, ship.lng, ROCK_LARGE_SIZE, rng)
+      const rock = spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
       const hooks: EngineHooks = {
         onCollision: vi.fn(),

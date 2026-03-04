@@ -7,6 +7,7 @@ import {
   useShip,
 } from '../../src/features/solid/index.js'
 import { resetIdCounter, spawnWave, startPlayer } from '../../src/index.js'
+import { pointFromLatLng } from '../helpers/points.js'
 
 const IDLE_INPUT = (playerId: string) => ({
   [playerId]: { left: false, right: false, thrust: false, fire: false },
@@ -50,7 +51,9 @@ describe('useRock', () => {
   it('returns state for a known rock id', () => {
     createRoot((dispose) => {
       const engine = createReactiveEngine({ seed: 'test' })
-      engine.mutate((state) => spawnWave(state, 0, 0, engine.rng))
+      engine.mutate((state) =>
+        spawnWave(state, pointFromLatLng(0, 0), engine.rng)
+      )
 
       const rockId = engine.rockIds()[0]!
       const rock = useRock(engine, rockId)

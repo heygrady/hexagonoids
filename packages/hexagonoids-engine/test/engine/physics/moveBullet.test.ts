@@ -2,13 +2,13 @@ import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import { describe, expect, it } from 'vitest'
 import type { BulletState } from '../../../src/index.js'
 import { moveBullet, RADIUS } from '../../../src/index.js'
+import { pointFromLatLng } from '../../helpers/points.js'
 
 /** Create a fresh bullet state for testing. */
 const makeBullet = (overrides: Partial<BulletState> = {}): BulletState => ({
   id: 'test-bullet',
   orientation: Quaternion.Identity(),
-  lat: 0,
-  lng: 0,
+  ...pointFromLatLng(0, 0),
   angularVelocity: Vector3.Zero(),
   firedAt: null,
   ownerId: 'test-ship',

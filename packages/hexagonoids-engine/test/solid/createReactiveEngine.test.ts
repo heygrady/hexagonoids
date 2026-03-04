@@ -6,12 +6,8 @@ import {
   useGameTime,
   useWave,
 } from '../../src/features/solid/index.js'
-import {
-  latLngToSpatialPoint,
-  resetIdCounter,
-  spawnWave,
-  startPlayer,
-} from '../../src/index.js'
+import { resetIdCounter, spawnWave, startPlayer } from '../../src/index.js'
+import { pointFromLatLng } from '../helpers/points.js'
 
 const IDLE_INPUT = (playerId: string) => ({
   [playerId]: { left: false, right: false, thrust: false, fire: false },
@@ -41,12 +37,14 @@ describe('createReactiveEngine', () => {
       const engine = createReactiveEngine({ seed: 'test' })
       const before = engine.getSpatialIndex()
 
-      engine.mutate((state) => spawnWave(state, 0, 0, engine.rng))
+      engine.mutate((state) =>
+        spawnWave(state, pointFromLatLng(0, 0), engine.rng)
+      )
 
       const after = engine.getSpatialIndex()
       expect(after).not.toBe(before)
       expect(
-        engine.queryRocksNear(latLngToSpatialPoint(0, 0), Math.PI).length
+        engine.queryRocksNear(pointFromLatLng(0, 0), Math.PI).length
       ).toBeGreaterThan(0)
       dispose()
     })
@@ -188,7 +186,9 @@ describe('createReactiveEngine', () => {
 
       expect(engine.rockIds()).toHaveLength(0)
 
-      engine.mutate((state) => spawnWave(state, 0, 0, engine.rng))
+      engine.mutate((state) =>
+        spawnWave(state, pointFromLatLng(0, 0), engine.rng)
+      )
 
       expect(engine.rockIds().length).toBeGreaterThan(0)
       dispose()
@@ -202,7 +202,9 @@ describe('createReactiveEngine', () => {
       // Add entities and advance time
       engine.mutate((state) => startPlayer(state, 'p1', engine.rng))
       engine.tick(IDLE_INPUT('p1'), 16)
-      engine.mutate((state) => spawnWave(state, 0, 0, engine.rng))
+      engine.mutate((state) =>
+        spawnWave(state, pointFromLatLng(0, 0), engine.rng)
+      )
 
       expect(engine.state.now).toBeGreaterThan(0)
       expect(engine.rockIds().length).toBeGreaterThan(0)

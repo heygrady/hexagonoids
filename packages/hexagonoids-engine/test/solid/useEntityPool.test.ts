@@ -5,6 +5,7 @@ import {
   useEntityPool,
 } from '../../src/features/solid/index.js'
 import { resetIdCounter, spawnWave, startPlayer } from '../../src/index.js'
+import { pointFromLatLng } from '../helpers/points.js'
 
 describe('useEntityPool', () => {
   beforeEach(() => {
@@ -33,7 +34,9 @@ describe('useEntityPool', () => {
 
       expect(ids()).toHaveLength(0)
 
-      engine.mutate((state) => spawnWave(state, 0, 0, engine.rng))
+      engine.mutate((state) =>
+        spawnWave(state, pointFromLatLng(0, 0), engine.rng)
+      )
 
       expect(ids().length).toBeGreaterThan(0)
       expect(ids()).toEqual(engine.rockIds())

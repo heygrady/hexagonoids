@@ -7,21 +7,17 @@
  */
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import { describe, expect, it } from 'vitest'
+import { latLngToQuaternion } from '../../../src/features/engine/physics/latLng.js'
 import type { ShipState } from '../../../src/index.js'
-import {
-  latLngToQuaternion,
-  MAX_DURATION,
-  TURN_RATE,
-  turnShip,
-} from '../../../src/index.js'
+import { MAX_DURATION, TURN_RATE, turnShip } from '../../../src/index.js'
+import { pointFromLatLng } from '../../helpers/points.js'
 
 function makeShip(overrides: Partial<ShipState> = {}): ShipState {
   return {
     id: 'test-ship',
     playerId: 'p1',
     orientation: Quaternion.Identity(),
-    lat: 0,
-    lng: 0,
+    ...pointFromLatLng(0, 0),
     angularVelocity: Vector3.Zero(),
     yaw: 0,
     alive: true,
@@ -33,8 +29,7 @@ function makeShip(overrides: Partial<ShipState> = {}): ShipState {
 function makeShipAt(lat: number, lng: number): ShipState {
   return makeShip({
     orientation: latLngToQuaternion(lat, lng),
-    lat,
-    lng,
+    ...pointFromLatLng(lat, lng),
   })
 }
 

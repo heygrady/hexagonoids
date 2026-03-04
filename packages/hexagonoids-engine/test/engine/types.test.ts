@@ -5,9 +5,9 @@ import {
   createGame,
   defaultShipState,
   elapsed,
-  latLngToSpatialPoint,
   spawnWave,
 } from '../../src/index.js'
+import { pointFromLatLng } from '../helpers/points.js'
 
 describe('createGame', () => {
   it('accepts seed option', () => {
@@ -36,13 +36,13 @@ describe('createGame', () => {
     expect(engine.getSpatialIndex()).toBe(before)
 
     engine.mutate((state) => {
-      spawnWave(state, 0, 0, engine.rng)
+      spawnWave(state, pointFromLatLng(0, 0), engine.rng)
     })
 
     const after = engine.getSpatialIndex()
     expect(after).not.toBe(before)
     expect(
-      engine.queryRocksNear(latLngToSpatialPoint(0, 0), Math.PI).length
+      engine.queryRocksNear(pointFromLatLng(0, 0), Math.PI).length
     ).toBeGreaterThan(0)
   })
 })
