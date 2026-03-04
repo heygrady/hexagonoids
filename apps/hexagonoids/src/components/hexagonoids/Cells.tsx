@@ -42,21 +42,21 @@ export const Cells: Component = () => {
       if (!ship.alive) continue
       const entry = registry.get(`ship:${ship.id}`)
       if (entry != null && !entry.originNode.isEnabled()) continue
-      occupiedCells.add(entityToCell(ship.lat, ship.lng))
+      occupiedCells.add(entityToCell(ship.x, ship.y, ship.z))
     }
 
     // Rocks
     for (const rock of state.rocks.values()) {
       const entry = registry.get(`rock:${rock.id}`)
       if (entry != null && !entry.originNode.isEnabled()) continue
-      occupiedCells.add(entityToCell(rock.lat, rock.lng))
+      occupiedCells.add(entityToCell(rock.x, rock.y, rock.z))
     }
 
     // Bullets
     for (const bullet of state.bullets.values()) {
       const entry = registry.get(`bullet:${bullet.id}`)
       if (entry != null && !entry.originNode.isEnabled()) continue
-      occupiedCells.add(entityToCell(bullet.lat, bullet.lng))
+      occupiedCells.add(entityToCell(bullet.x, bullet.y, bullet.z))
     }
 
     for (const h of occupiedCells) {

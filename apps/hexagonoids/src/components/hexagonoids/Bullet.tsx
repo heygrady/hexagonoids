@@ -17,12 +17,11 @@ export const Bullet: Component<BulletProps> = (props) => {
 
   onMount(() => {
     nodes = props.pool.acquire()
-    nodes.bulletNode.isVisible = true
-    nodes.originNode.setEnabled(true)
 
     registry.register(`bullet:${props.bulletId}`, {
       originNode: nodes.originNode,
       visualNode: nodes.bulletNode,
+      needsInit: true,
     })
   })
 

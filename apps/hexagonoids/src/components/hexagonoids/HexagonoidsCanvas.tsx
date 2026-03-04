@@ -2,7 +2,6 @@ import type { AbstractEngineOptions } from '@babylonjs/core/Engines/abstractEngi
 import { Color4 } from '@babylonjs/core/Maths/math.color'
 import { Quaternion } from '@babylonjs/core/Maths/math.vector'
 import type { SceneOptions } from '@babylonjs/core/scene'
-import { vector3ToLatLng } from '@heygrady/h3-babylon'
 import {
   type CollisionType,
   type EntityRef,
@@ -95,8 +94,8 @@ function EngineGameLoop() {
     cameraPosition.computeWorldMatrix(true)
     const pos = cameraPosition.getAbsolutePosition()
     if (pos.lengthSquared() === 0) return undefined
-    const [lat, lng] = vector3ToLatLng(pos)
-    return { lat, lng }
+    const point = pos.normalizeToNew()
+    return { x: point.x, y: point.y, z: point.z }
   }
   hooks.getRegenerationPosition = getRegenerationPosition
 
@@ -215,7 +214,7 @@ function EngineGameLoop() {
     }
 
     engine.mutate((s) => {
-      spawnWave(s, 0, 0, engine.rng)
+      spawnWave(s, { x: 1, y: 0, z: 0 }, engine.rng)
     })
     attractNextWaveAt = state.now + nextWaveDelayMs(0)
   })

@@ -2,7 +2,6 @@ import type { Material } from '@babylonjs/core/Materials/material'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { Node } from '@babylonjs/core/node'
-import { latLngToVector3 } from '@heygrady/h3-babylon'
 import { restartGame } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import { type Component, onCleanup } from 'solid-js'
@@ -166,7 +165,11 @@ export const StartScreen: Component = () => {
     if (player?.shipId != null) {
       const ship = engine.state.ships.get(player.shipId)
       if (ship != null) {
-        const pos = latLngToVector3(ship.lat, ship.lng, RADIUS)
+        const pos = new Vector3(
+          ship.x * RADIUS,
+          ship.y * RADIUS,
+          ship.z * RADIUS
+        )
         const [yaw, pitch] = getYawPitch(pos)
         moveNodeTo(cameraOriginNode, yaw, pitch)
       }

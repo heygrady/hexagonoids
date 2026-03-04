@@ -17,8 +17,6 @@ export const Ship: Component<ShipProps> = (props) => {
 
   onMount(() => {
     nodes = props.pool.acquire()
-    nodes.shipNode.isVisible = true
-    nodes.originNode.setEnabled(true)
 
     registry.register(`ship:${props.shipId}`, {
       originNode: nodes.originNode,
@@ -26,6 +24,7 @@ export const Ship: Component<ShipProps> = (props) => {
       positionNode: nodes.positionNode,
       orientationNode: nodes.orientationNode,
       shipTailNode: nodes.shipTailNode,
+      needsInit: true,
     })
   })
 

@@ -1,18 +1,19 @@
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
-import { latLngToVector3 } from '@heygrady/h3-babylon'
 import {
   SUPPORTED_ALGORITHMS,
   type SupportedAlgorithm,
+  type TrainOptions,
 } from '@heygrady/hexagonoids-demo'
 import { MAX_DELTA, restartGame } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import {
   type AgentContext,
+  buildCurriculumParams,
+  CURRICULUM_SCENARIO_COUNT,
   createNeatAgent,
   decodeScenarioBankDocument,
-  type EncodingPreset,
-  isEncodingPreset,
+  generateCurriculumSnapshot,
   restoreSnapshot,
   type ScenarioSnapshot,
 } from '@heygrady/hexagonoids-environment'
@@ -29,14 +30,11 @@ import { useAppMode } from './AppModeProvider'
 import {
   OBSERVE_EVALUATION_SEEDS_PER_ORGANISM,
   OBSERVE_MAX_GENERATIONS,
-  OBSERVE_SCENARIO_MAX_TICKS,
-  OBSERVE_SCENARIOS_PER_ORGANISM,
   OBSERVE_SEED,
   OBSERVE_WINDOW_MS,
 } from './constants'
 import {
   createObserveTrainingAdapter,
-  type ObserveTrainingConfig,
   organismToExecutor,
 } from './training/createObserveTrainingAdapter'
 import { getObserveProfile } from './training/profiles'
@@ -46,7 +44,6 @@ import { getObserveProfile } from './training/profiles'
  * Training/playback runtime is implemented in later sessions.
  */
 export function ObserveController() {
-  const DEFAULT_OBSERVE_ENCODING_PRESET: EncodingPreset = 'six'
   const scene = useScene()
   const engine = useGameState()
   const inputs = useInputs()
@@ -97,51 +94,61 @@ export function ObserveController() {
   const searchParams = new URLSearchParams(window.location.search)
 
   const profileName = searchParams.get('profile') ?? 'default'
-  const profileConfig: Partial<ObserveTrainingConfig> =
+  const profileOptions: Partial<TrainOptions> =
     getObserveProfile(profileName) ?? {}
-  if (Object.keys(profileConfig).length > 0) {
-    console.log(`[OBSERVE] profile=${profileName}`, profileConfig)
+  if (Object.keys(profileOptions).length > 0) {
+    console.log(`[OBSERVE] profile=${profileName}`, profileOptions)
   } else if (profileName !== 'default') {
     console.log(`[OBSERVE] profile=${profileName} (not found)`)
   }
 
+  // URL param overrides
+  const urlOverrides: Partial<TrainOptions> = {}
+
   // Method: profile → URL override
-  let observeMethod: SupportedAlgorithm = profileConfig.method ?? 'HyperNEAT'
+  let observeMethod: SupportedAlgorithm = profileOptions.method ?? 'HyperNEAT'
   const requestedMethod = searchParams.get('method')
   if (
     requestedMethod != null &&
     SUPPORTED_ALGORITHMS.includes(requestedMethod as SupportedAlgorithm)
   ) {
     observeMethod = requestedMethod as SupportedAlgorithm
+    urlOverrides.method = observeMethod
   } else if (requestedMethod != null) {
     console.warn(
       `[OBSERVE] Unsupported method "${requestedMethod}", using ${observeMethod}`
     )
   }
 
-  // Encoding preset: profile → URL override
-  let observeEncodingPreset: EncodingPreset =
-    profileConfig.encodingPreset ?? DEFAULT_OBSERVE_ENCODING_PRESET
-  const requestedEncodingPreset = searchParams.get('encodingPreset')
-  if (
-    requestedEncodingPreset != null &&
-    isEncodingPreset(requestedEncodingPreset)
-  ) {
-    observeEncodingPreset = requestedEncodingPreset
-  } else if (requestedEncodingPreset != null) {
-    console.log(
-      `[OBSERVE] Unsupported encodingPreset "${requestedEncodingPreset}", using ${observeEncodingPreset}`
-    )
-  }
-  const observeAgent = createNeatAgent(observeEncodingPreset)
+  const observeAgent = createNeatAgent()
 
   const agentMode = searchParams.get('agent') === 'best' ? 'best' : 'hero'
-  const scenarioPlayback = searchParams.get('scenario') === 'true'
+
+  // Parse playback mode with backward compat for ?scenario=true
+  type PlaybackMode = 'full-game' | 'scenario' | 'curriculum'
+  let playbackMode: PlaybackMode = 'full-game'
+  const playbackParam = searchParams.get('playback')
+  if (
+    playbackParam === 'scenario' ||
+    playbackParam === 'curriculum' ||
+    playbackParam === 'full-game'
+  ) {
+    playbackMode = playbackParam
+  } else if (searchParams.get('scenario') === 'true') {
+    playbackMode = 'scenario'
+  }
+
+  // Parse iterations override from URL
+  const iterationsParam = searchParams.get('iterations')
+  const iterationsOverride =
+    iterationsParam != null ? parseInt(iterationsParam, 10) : NaN
   const observeMaxGenerations =
-    profileConfig.maxGenerations ?? OBSERVE_MAX_GENERATIONS
+    !Number.isNaN(iterationsOverride) && iterationsOverride > 0
+      ? iterationsOverride
+      : (profileOptions.iterations ?? OBSERVE_MAX_GENERATIONS)
 
   let playbackScenarioBank: ScenarioSnapshot[] | null = null
-  if (scenarioPlayback) {
+  if (playbackMode === 'scenario') {
     void import('@heygrady/hexagonoids-demo/data/scenarios.json')
       .then((mod) => {
         playbackScenarioBank = decodeScenarioBankDocument(mod.default ?? mod)
@@ -154,8 +161,22 @@ export function ObserveController() {
       })
   }
 
+  // Parse curriculum index override — pin to a single scenario or start cycling from it
+  const curriculumParam = searchParams.get('curriculum')
+  const curriculumParsed =
+    curriculumParam != null ? parseInt(curriculumParam, 10) : NaN
+  const curriculumPinIndex =
+    !Number.isNaN(curriculumParsed) &&
+    curriculumParsed >= 0 &&
+    curriculumParsed < CURRICULUM_SCENARIO_COUNT
+      ? curriculumParsed
+      : null
+  let curriculumIndex = curriculumPinIndex ?? 0
+  let curriculumTicksRemaining = 0
+
   console.log(
-    `[OBSERVE] method=${observeMethod}, encodingPreset=${observeEncodingPreset}, agent=${agentMode}, maxGenerations=${observeMaxGenerations}`
+    `[OBSERVE] method=${observeMethod}, ` +
+      `agent=${agentMode}, playback=${playbackMode}, maxGenerations=${observeMaxGenerations}`
   )
 
   setObserveTrainingGeneration(1)
@@ -256,30 +277,20 @@ export function ObserveController() {
     const gameSeed = `${OBSERVE_SEED}:g${generation}:r${replayCounter}`
     aiContext.rng = createRNG(`${gameSeed}:agent`)
 
-    engine.reseed(gameSeed, DEFAULT_PLAYER_ID)
-
-    // In scenario playback mode, overwrite the fresh game with a random scenario
-    if (
-      scenarioPlayback &&
-      playbackScenarioBank != null &&
-      playbackScenarioBank.length > 0
-    ) {
-      const pickRng = createRNG(`${gameSeed}:scenario-pick`)
-      const idx = Math.floor(pickRng.gen() * playbackScenarioBank.length)
-      const scenario = playbackScenarioBank[idx]
-      const { state: snapState } = restoreSnapshot(scenario, gameSeed)
-
+    const applySnapshotToEngine = (
+      snapshot: ScenarioSnapshot,
+      snapshotSeed: string
+    ) => {
+      const { state: snapState } = restoreSnapshot(snapshot, snapshotSeed)
       engine.mutate((draft) => {
         draft.ships.clear()
         draft.rocks.clear()
         draft.bullets.clear()
         draft.players.clear()
-
         draft.now = snapState.now
         draft.wave = snapState.wave
         draft.startedAt = snapState.startedAt
         draft.endedAt = null
-
         for (const [id, ship] of snapState.ships) draft.ships.set(id, ship)
         for (const [id, rock] of snapState.rocks) draft.rocks.set(id, rock)
         for (const [id, player] of snapState.players)
@@ -287,16 +298,51 @@ export function ObserveController() {
       })
     }
 
+    engine.reseed(gameSeed, DEFAULT_PLAYER_ID)
+
+    switch (playbackMode) {
+      case 'scenario':
+        if (playbackScenarioBank != null && playbackScenarioBank.length > 0) {
+          const pickRng = createRNG(`${gameSeed}:scenario-pick`)
+          const idx = Math.floor(pickRng.gen() * playbackScenarioBank.length)
+          applySnapshotToEngine(playbackScenarioBank[idx], gameSeed)
+        }
+        break
+
+      case 'curriculum': {
+        const params = buildCurriculumParams(curriculumIndex, gameSeed)
+        const { snapshot, maxTicks } = generateCurriculumSnapshot(
+          params,
+          gameSeed,
+          33
+        )
+        const prevIndex = curriculumIndex
+        // When pinned, replay the same index; otherwise cycle
+        if (curriculumPinIndex == null) {
+          curriculumIndex = (curriculumIndex + 1) % CURRICULUM_SCENARIO_COUNT
+        }
+        curriculumTicksRemaining = maxTicks
+        applySnapshotToEngine(snapshot, gameSeed)
+        console.log(
+          `[OBSERVE] curriculum index=${prevIndex} cone=${params.coneIndex} ` +
+            `variant=${params.variant} rockSize=${params.rockSize} maxTicks=${maxTicks}` +
+            (curriculumPinIndex != null ? ' (pinned)' : '')
+        )
+        break
+      }
+
+      case 'full-game':
+      default:
+        // engine.reseed already handled above
+        break
+    }
+
     const player = engine.state.players.get(DEFAULT_PLAYER_ID)
     const ship =
       player?.shipId != null ? engine.state.ships.get(player.shipId) : undefined
     const cameraOriginNode = scene.getTransformNodeByName('shipCameraOrigin')
     if (ship != null && cameraOriginNode instanceof TransformNode) {
-      const { x, y, z } = ship
-      const pos =
-        typeof x === 'number' && typeof y === 'number' && typeof z === 'number'
-          ? new Vector3(x * RADIUS, y * RADIUS, z * RADIUS)
-          : latLngToVector3(ship.lat, ship.lng, RADIUS)
+      const pos = new Vector3(ship.x * RADIUS, ship.y * RADIUS, ship.z * RADIUS)
       const [yaw, pitch] = getYawPitch(pos)
       moveNodeTo(cameraOriginNode, yaw, pitch)
     }
@@ -395,36 +441,14 @@ export function ObserveController() {
   startWaiting(1)
 
   void adapter.start({
-    method: observeMethod,
-    encodingPreset: observeEncodingPreset,
-    maxGenerations: observeMaxGenerations,
-    populationSize: profileConfig.populationSize ?? 64,
+    ...profileOptions,
+    ...urlOverrides,
+    iterations: observeMaxGenerations,
     evaluationSeedsPerOrganism:
-      profileConfig.evaluationSeedsPerOrganism ??
+      profileOptions.evaluationSeedsPerOrganism ??
       OBSERVE_EVALUATION_SEEDS_PER_ORGANISM,
     evaluationBaseSeed: OBSERVE_SEED,
-    maxTicks: profileConfig.maxTicks ?? 1500,
-    dtMs: 33,
     scenarioMode: true,
-    scenariosPerOrganism:
-      profileConfig.scenariosPerOrganism ?? OBSERVE_SCENARIOS_PER_ORGANISM,
-    scenarioMaxTicks:
-      profileConfig.scenarioMaxTicks ?? OBSERVE_SCENARIO_MAX_TICKS,
-    ...(profileConfig.fitnessWeights != null && {
-      fitnessWeights: profileConfig.fitnessWeights,
-    }),
-    ...(profileConfig.gateConfig != null && {
-      gateConfig: profileConfig.gateConfig,
-    }),
-    ...(profileConfig.scenarioWeight != null && {
-      scenarioWeight: profileConfig.scenarioWeight,
-    }),
-    ...(profileConfig.scenarioSeedsPerOrganism != null && {
-      scenarioSeedsPerOrganism: profileConfig.scenarioSeedsPerOrganism,
-    }),
-    ...(profileConfig.fullGameSeedsPerOrganism != null && {
-      fullGameSeedsPerOrganism: profileConfig.fullGameSeedsPerOrganism,
-    }),
   })
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -490,6 +514,18 @@ export function ObserveController() {
     aiContext.executor = currentExecutor
     const aiInput = observeAgent(engine.state, DEFAULT_PLAYER_ID, aiContext)
     engine.tick({ [DEFAULT_PLAYER_ID]: aiInput }, dtMs)
+
+    // Curriculum tick budget: count down and treat expiry like gameover
+    if (playbackMode === 'curriculum') {
+      curriculumTicksRemaining--
+      if (curriculumTicksRemaining <= 0 && engine.state.endedAt == null) {
+        console.log(`[OBSERVE] curriculum tick budget expired, advancing`)
+        // Treat as gameover — fall through to gameover handling below
+        engine.mutate((draft) => {
+          draft.endedAt = draft.now
+        })
+      }
+    }
 
     if (
       !currentRunBoundaryPassed &&

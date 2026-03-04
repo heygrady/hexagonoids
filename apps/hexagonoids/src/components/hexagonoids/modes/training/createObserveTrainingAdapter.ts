@@ -1,16 +1,17 @@
 import {
+  buildEnvironmentOptions,
   createPhenotypeForGenome,
   createPopulationForTraining,
   createWorkerReproducerFactoryForMethod,
   getAlgorithmDefinition,
   MultiSeedGenerationStrategy,
   type SupportedAlgorithm,
+  type TrainOptions,
 } from '@heygrady/hexagonoids-demo'
 import {
   decodeScenarioBankDocument,
-  type EncodingPreset,
-  getInputCountForEncoding,
   type HexagonoidsEnvironmentConfig,
+  INPUT_COUNT,
   mergeConfig,
   type ScenarioSnapshot,
 } from '@heygrady/hexagonoids-environment'
@@ -45,37 +46,8 @@ export interface ObserveTrainingStatusEvent {
   message?: string
 }
 
-export interface ObserveTrainingConfig {
-  method?: SupportedAlgorithm
-  encodingPreset?: EncodingPreset
-  maxGenerations: number
-  populationSize: number
-  evaluationSeedsPerOrganism?: number
+export interface ObserveTrainingConfig extends Partial<TrainOptions> {
   evaluationBaseSeed?: string
-  maxTicks: number
-  dtMs: number
-  threadCount?: number
-  scenarioMode?: boolean
-  scenariosPerOrganism?: number
-  scenarioMaxTicks?: number
-  fitnessWeights?: {
-    rocksDestroyed: number
-    accuracy: number
-    survival: number
-  }
-  gateConfig?: Partial<{
-    floor: number
-    actionLow: number
-    actionHigh: number
-    actionSteepness: number
-    turnFloor: number
-    turnLow: number
-    turnHigh: number
-    turnSteepness: number
-  }>
-  scenarioWeight?: number
-  scenarioSeedsPerOrganism?: number
-  fullGameSeedsPerOrganism?: number
 }
 
 export interface ObserveTrainingAdapter {
@@ -99,48 +71,27 @@ function normalizeEvaluationSeedsPerOrganism(
   return Math.max(1, Math.floor(value))
 }
 
-interface BrowserWorkerEnvironmentOptions {
-  encodingPreset?: EncodingPreset
-  simulation?: Partial<HexagonoidsEnvironmentConfig['simulation']>
-  fitnessWeights?: Partial<HexagonoidsEnvironmentConfig['fitnessWeights']>
-  gateConfig?: Partial<HexagonoidsEnvironmentConfig['gateConfig']>
-  scenarioBank?: HexagonoidsEnvironmentConfig['scenarioBank']
-  scenarioWeight?: number
-  scenarioSeedsPerOrganism?: number
-  fullGameSeedsPerOrganism?: number
+function buildEnvironmentConfig(
+  config: ObserveTrainingConfig,
+  scenarioBank?: ScenarioSnapshot[]
+): {
+  config: HexagonoidsEnvironmentConfig
+  description: EnvironmentDescription
+} {
+  const merged = mergeConfig(buildEnvironmentOptions(config, scenarioBank))
+  return {
+    config: merged,
+    description: {
+      inputs: INPUT_COUNT,
+      outputs: 4,
+    },
+  }
 }
 
 function createBrowserWorkerEnvironment(
-  options: BrowserWorkerEnvironmentOptions
+  envConfig: HexagonoidsEnvironmentConfig,
+  description: EnvironmentDescription
 ): Environment<HexagonoidsEnvironmentConfig> {
-  const defaults = mergeConfig({})
-  const config: HexagonoidsEnvironmentConfig = {
-    ...defaults,
-    encodingPreset: options.encodingPreset ?? defaults.encodingPreset,
-    ...options,
-    simulation: {
-      ...defaults.simulation,
-      ...options.simulation,
-    },
-    fitnessWeights: {
-      ...defaults.fitnessWeights,
-      ...options.fitnessWeights,
-    },
-    gateConfig: {
-      ...defaults.gateConfig,
-      ...options.gateConfig,
-    },
-    scenarioWeight: options.scenarioWeight ?? defaults.scenarioWeight,
-    scenarioSeedsPerOrganism:
-      options.scenarioSeedsPerOrganism ?? defaults.scenarioSeedsPerOrganism,
-    fullGameSeedsPerOrganism:
-      options.fullGameSeedsPerOrganism ?? defaults.fullGameSeedsPerOrganism,
-  }
-  const description: EnvironmentDescription = {
-    inputs: getInputCountForEncoding(config.encodingPreset),
-    outputs: 4,
-  }
-
   return {
     description,
     isAsync: false,
@@ -157,18 +108,7 @@ function createBrowserWorkerEnvironment(
       throw new Error('Browser worker environment should evaluate in workers')
     },
     toFactoryOptions(): HexagonoidsEnvironmentConfig {
-      return {
-        encodingPreset: config.encodingPreset,
-        simulation: { ...config.simulation },
-        fitnessWeights: { ...config.fitnessWeights },
-        gateConfig: { ...config.gateConfig },
-        scenarioWeight: config.scenarioWeight,
-        scenarioSeedsPerOrganism: config.scenarioSeedsPerOrganism,
-        fullGameSeedsPerOrganism: config.fullGameSeedsPerOrganism,
-        ...(config.scenarioBank != null && {
-          scenarioBank: config.scenarioBank,
-        }),
-      }
+      return envConfig
     },
   }
 }
@@ -225,10 +165,12 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
       emitStatus('starting')
 
       const method = config.method ?? DEFAULT_OBSERVE_METHOD
+      const iterations = config.iterations ?? 500
       const threadCount = normalizeThreadCount(config.threadCount)
       const evaluationSeedsPerOrganism = normalizeEvaluationSeedsPerOrganism(
         config.evaluationSeedsPerOrganism
       )
+      const populationSize = config.populationSize ?? 64
       const {
         algorithmPathname,
         createEnvironmentPathname,
@@ -257,35 +199,17 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
         }
       }
 
-      const environment = createBrowserWorkerEnvironment({
-        simulation: {
-          maxTicks: config.maxTicks,
-          dtMs: config.dtMs,
-          useFastThrust: true,
-          scenariosPerOrganism: config.scenariosPerOrganism ?? 20,
-          scenarioMaxTicks: config.scenarioMaxTicks ?? 120,
-        },
-        ...(scenarioBank != null && { scenarioBank }),
-        ...(config.fitnessWeights != null && {
-          fitnessWeights: config.fitnessWeights,
-        }),
-        ...(config.gateConfig != null && { gateConfig: config.gateConfig }),
-        ...(config.scenarioWeight != null && {
-          scenarioWeight: config.scenarioWeight,
-        }),
-        ...(config.scenarioSeedsPerOrganism != null && {
-          scenarioSeedsPerOrganism: config.scenarioSeedsPerOrganism,
-        }),
-        ...(config.fullGameSeedsPerOrganism != null && {
-          fullGameSeedsPerOrganism: config.fullGameSeedsPerOrganism,
-        }),
-      })
+      const { config: envConfig, description } = buildEnvironmentConfig(
+        config,
+        scenarioBank
+      )
+      const environment = createBrowserWorkerEnvironment(envConfig, description)
 
       const evaluatorOptions: WorkerEvaluatorOptions = {
         algorithmPathname,
         createEnvironmentPathname,
         createExecutorPathname,
-        taskCount: config.populationSize,
+        taskCount: populationSize,
         threadCount,
         workerScriptUrl: workerEvaluatorScriptUrl,
         strategy: new MultiSeedGenerationStrategy(
@@ -314,12 +238,12 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
       const population = createPopulationForTraining(method, {
         createReproducer,
         evaluator,
-        populationSize: config.populationSize,
+        populationSize,
       })
 
       runPromise = evolve(population, {
         ...defaultEvolutionOptions,
-        iterations: config.maxGenerations,
+        iterations,
         threadCount,
         signal: abortController.signal,
         afterEvaluateInterval: 1,
@@ -327,7 +251,7 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
           if (disposed) return
           const generation = iteration + 1
           const best = activePopulation.best()
-          generationTarget = Math.min(config.maxGenerations, generation + 1)
+          generationTarget = Math.min(iterations, generation + 1)
           emitStatus('training')
 
           if (best?.fitness == null) return
@@ -341,7 +265,7 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
       })
         .then(() => {
           if (disposed) return
-          generationTarget = config.maxGenerations
+          generationTarget = iterations
           emitStatus('completed')
         })
         .catch((error: unknown) => {

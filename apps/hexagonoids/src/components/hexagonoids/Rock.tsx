@@ -39,12 +39,10 @@ export const Rock: Component<RockProps> = (props) => {
       nodes.rockNode.scaling.setAll(scale)
     }
 
-    nodes.rockNode.isVisible = true
-    nodes.originNode.setEnabled(true)
-
     registry.register(`rock:${props.rockId}`, {
       originNode: nodes.originNode,
       visualNode: nodes.rockNode,
+      needsInit: true,
     })
   })
 

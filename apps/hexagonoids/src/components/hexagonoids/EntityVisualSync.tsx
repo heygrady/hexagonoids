@@ -36,6 +36,12 @@ export const EntityVisualSync: Component = () => {
         )
       }
 
+      // First frame after spawn: enable and show now that orientation is set
+      if (entry.needsInit) {
+        entry.originNode.setEnabled(true)
+        entry.needsInit = false
+      }
+
       let shipVisible = true
       const player = state.players.get(ship.playerId)
       if (player?.regeneratedAt != null) {
@@ -64,6 +70,12 @@ export const EntityVisualSync: Component = () => {
       if (entry == null) continue
       const o = rock.orientation
       entry.originNode.rotationQuaternion?.copyFromFloats(o.x, o.y, o.z, o.w)
+
+      if (entry.needsInit) {
+        entry.originNode.setEnabled(true)
+        entry.visualNode.isVisible = true
+        entry.needsInit = false
+      }
     }
 
     for (const bullet of state.bullets.values()) {
@@ -71,6 +83,12 @@ export const EntityVisualSync: Component = () => {
       if (entry == null) continue
       const o = bullet.orientation
       entry.originNode.rotationQuaternion?.copyFromFloats(o.x, o.y, o.z, o.w)
+
+      if (entry.needsInit) {
+        entry.originNode.setEnabled(true)
+        entry.visualNode.isVisible = true
+        entry.needsInit = false
+      }
     }
   })
 

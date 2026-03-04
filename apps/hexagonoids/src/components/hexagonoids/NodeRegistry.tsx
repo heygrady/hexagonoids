@@ -11,6 +11,12 @@ export interface CullableEntry {
   orientationNode?: TransformNode
   /** Optional ship tail mesh for thrust effects. */
   shipTailNode?: AbstractMesh
+  /**
+   * Set to true when a node is freshly acquired from the pool.
+   * EntityVisualSync clears this after positioning and enabling the node,
+   * preventing a one-frame flash at the origin.
+   */
+  needsInit?: boolean
 }
 
 /**

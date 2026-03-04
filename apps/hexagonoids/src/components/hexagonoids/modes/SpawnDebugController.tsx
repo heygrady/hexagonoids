@@ -1,7 +1,8 @@
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
+import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
-import { latLngToVector3 } from '@heygrady/h3-babylon'
+import { latLngToVector3, vector3ToLatLng } from '@heygrady/h3-babylon'
 import {
   restartGame,
   sampleSpawnBorderPoint,
@@ -83,14 +84,14 @@ export function SpawnDebugController() {
   // Snap camera to player at mode start.
   const cameraOriginNode = scene.getTransformNodeByName('shipCameraOrigin')
   if (cameraOriginNode instanceof TransformNode) {
-    const pos = latLngToVector3(ship.lat, ship.lng, RADIUS)
+    const pos = new Vector3(ship.x * RADIUS, ship.y * RADIUS, ship.z * RADIUS)
     const [yaw, pitch] = getYawPitch(pos)
     moveNodeTo(cameraOriginNode, yaw, pitch)
   }
 
   // Spawn the first wave immediately to inspect the initial spawn result.
   engine.mutate((state) => {
-    spawnWave(state, ship.lat, ship.lng, engine.rng)
+    spawnWave(state, { x: ship.x, y: ship.y, z: ship.z }, engine.rng)
   })
 
   const spawnedRocks = Array.from(engine.state.rocks.values())
@@ -99,27 +100,41 @@ export function SpawnDebugController() {
     return null
   }
 
-  const playerCell = latLngToCell(ship.lat, ship.lng, MARKER_RESOLUTION)
+  const [shipLat, shipLng] = vector3ToLatLng(
+    new Vector3(ship.x, ship.y, ship.z)
+  )
+  const playerCell = latLngToCell(shipLat, shipLng, MARKER_RESOLUTION)
 
   console.log('[SPAWN-DEBUG] Player start marker', {
-    lat: ship.lat,
-    lng: ship.lng,
+    x: ship.x,
+    y: ship.y,
+    z: ship.z,
+    lat: shipLat,
+    lng: shipLng,
     cellRes3: playerCell,
   })
   console.log(
     '[SPAWN-DEBUG] First wave rock spawn markers',
-    spawnedRocks.map((rock) => ({
-      rockId: rock.id,
-      lat: rock.lat,
-      lng: rock.lng,
-      cellRes3: latLngToCell(rock.lat, rock.lng, MARKER_RESOLUTION),
-      direction: {
-        x: rock.angularVelocity.x,
-        y: rock.angularVelocity.y,
-        z: rock.angularVelocity.z,
-        speed: rock.angularVelocity.length(),
-      },
-    }))
+    spawnedRocks.map((rock) => {
+      const [rockLat, rockLng] = vector3ToLatLng(
+        new Vector3(rock.x, rock.y, rock.z)
+      )
+      return {
+        rockId: rock.id,
+        x: rock.x,
+        y: rock.y,
+        z: rock.z,
+        lat: rockLat,
+        lng: rockLng,
+        cellRes3: latLngToCell(rockLat, rockLng, MARKER_RESOLUTION),
+        direction: {
+          x: rock.angularVelocity.x,
+          y: rock.angularVelocity.y,
+          z: rock.angularVelocity.z,
+          speed: rock.angularVelocity.length(),
+        },
+      }
+    })
   )
 
   const globe = scene.getMeshByName('globe')
@@ -132,7 +147,10 @@ export function SpawnDebugController() {
 
   // Marker for every rock in the first spawned wave.
   spawnedRocks.forEach((rock, index) => {
-    const rockCell = latLngToCell(rock.lat, rock.lng, MARKER_RESOLUTION)
+    const [rockLat, rockLng] = vector3ToLatLng(
+      new Vector3(rock.x, rock.y, rock.z)
+    )
+    const rockCell = latLngToCell(rockLat, rockLng, MARKER_RESOLUTION)
     disposables.add(createMarker(globe, rockCell, `spawnDebugRock_${index}`))
   })
 
@@ -140,8 +158,9 @@ export function SpawnDebugController() {
   const borderCells = new Set<string>()
   for (let i = 0; i < BORDER_SAMPLE_POINTS; i++) {
     const t = i / BORDER_SAMPLE_POINTS
-    const p = sampleSpawnBorderPoint(ship.lat, ship.lng, t)
-    borderCells.add(latLngToCell(p.lat, p.lng, MARKER_RESOLUTION))
+    const p = sampleSpawnBorderPoint({ x: ship.x, y: ship.y, z: ship.z }, t)
+    const [lat, lng] = vector3ToLatLng(new Vector3(p.x, p.y, p.z))
+    borderCells.add(latLngToCell(lat, lng, MARKER_RESOLUTION))
   }
   let borderIndex = 0
   borderCells.forEach((h) => {
