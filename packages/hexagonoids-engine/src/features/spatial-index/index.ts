@@ -484,14 +484,11 @@ function buildSpatialEntity(
   entity: ShipState | RockState | BulletState,
   type: EntityType
 ): SpatialIndexEntity {
-  const point =
-    entity.x != null && entity.y != null && entity.z != null
-      ? {
-          x: entity.x,
-          y: entity.y,
-          z: entity.z,
-        }
-      : latLngToUnitPoint(entity.lat, entity.lng)
+  const point = {
+    x: entity.x,
+    y: entity.y,
+    z: entity.z,
+  }
   return {
     id: entity.id,
     type,

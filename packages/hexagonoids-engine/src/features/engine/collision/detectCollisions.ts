@@ -52,26 +52,14 @@ export function greatCircleDistance(
 }
 
 function entityPoint(entity: {
-  x?: number
-  y?: number
-  z?: number
-  lat: number
-  lng: number
+  x: number
+  y: number
+  z: number
 }): SpatialPoint {
-  if (entity.x != null && entity.y != null && entity.z != null) {
-    return {
-      x: entity.x,
-      y: entity.y,
-      z: entity.z,
-    }
-  }
-  const latRad = entity.lat * DEG_TO_RAD
-  const lngRad = entity.lng * DEG_TO_RAD
-  const cosLat = Math.cos(latRad)
   return {
-    x: cosLat * Math.cos(lngRad),
-    y: Math.sin(latRad),
-    z: cosLat * Math.sin(lngRad),
+    x: entity.x,
+    y: entity.y,
+    z: entity.z,
   }
 }
 

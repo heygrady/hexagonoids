@@ -30,16 +30,10 @@ export interface ShipState {
   /** Quaternion encoding the entity's position/orientation on the sphere */
   orientation: Quaternion
 
-  /** Latitude in degrees on the surface of the sphere */
-  lat: number
-
-  /** Longitude in degrees on the surface of the sphere */
-  lng: number
-
   /** Cached unit-sphere position for fast spatial queries. */
-  x?: number
-  y?: number
-  z?: number
+  x: number
+  y: number
+  z: number
 
   /**
    * Angular velocity of the ship as a 3D vector.
@@ -64,16 +58,10 @@ export interface RockState {
   /** Quaternion encoding the entity's position/orientation on the sphere */
   orientation: Quaternion
 
-  /** Latitude in degrees on the surface of the sphere */
-  lat: number
-
-  /** Longitude in degrees on the surface of the sphere */
-  lng: number
-
   /** Cached unit-sphere position for fast spatial queries. */
-  x?: number
-  y?: number
-  z?: number
+  x: number
+  y: number
+  z: number
 
   /**
    * Angular velocity of the rock as a 3D vector.
@@ -95,16 +83,10 @@ export interface BulletState {
   /** Quaternion encoding the entity's position/orientation on the sphere */
   orientation: Quaternion
 
-  /** Latitude in degrees on the surface of the sphere */
-  lat: number
-
-  /** Longitude in degrees on the surface of the sphere */
-  lng: number
-
   /** Cached unit-sphere position for fast spatial queries. */
-  x?: number
-  y?: number
-  z?: number
+  x: number
+  y: number
+  z: number
 
   /**
    * Angular velocity of the bullet as a 3D vector.

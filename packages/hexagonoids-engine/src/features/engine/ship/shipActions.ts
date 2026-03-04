@@ -1,36 +1,33 @@
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import type { RNG } from '@neat-evolution/utils'
+import type { SpatialPoint } from '../../spatial-index/index.js'
 import { spawnBullet } from '../bullet/bulletActions.js'
 import { FIRE_COOLDOWN } from '../constants.js'
 import { defaultShipState } from '../defaults.js'
 import { elapsed } from '../gameTime.js'
 import { generateId } from '../generateId.js'
-import { latLngToQuaternion, latLngToUnitPoint } from '../physics/latLng.js'
+import { unitPointToQuaternion } from '../physics/latLng.js'
 import type { BulletState, GameState, ShipState } from '../types.js'
 
 /**
- * Spawn a new ship for a player at a given lat/lng.
+ * Spawn a new ship for a player at a unit-sphere point.
  */
 export function spawnShip(
   game: GameState,
   playerId: string,
-  lat: number,
-  lng: number,
+  point: SpatialPoint,
   _rng: RNG
 ): ShipState {
   const id = generateId('ship')
-  const orientation = latLngToQuaternion(lat, lng)
-  const [x, y, z] = latLngToUnitPoint(lat, lng)
+  const orientation = unitPointToQuaternion(point.x, point.y, point.z)
   const ship: ShipState = {
     ...defaultShipState,
     id,
     playerId,
     orientation,
-    lat,
-    lng,
-    x,
-    y,
-    z,
+    x: point.x,
+    y: point.y,
+    z: point.z,
     angularVelocity: Vector3.Zero(),
   }
   game.ships.set(id, ship)

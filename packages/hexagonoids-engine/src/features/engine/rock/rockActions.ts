@@ -1,5 +1,6 @@
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import type { RNG } from '@neat-evolution/utils'
+import type { SpatialPoint } from '../../spatial-index/index.js'
 
 import {
   MAX_ROCKS,
@@ -25,11 +26,8 @@ import {
 import { defaultRockState } from '../defaults.js'
 import { generateId } from '../generateId.js'
 import {
-  latLngToQuaternion,
-  latLngToUnitPoint,
-  latLngToVector3,
-  quaternionToLatLng,
-  vector3ToLatLng,
+  quaternionToUnitPointFastInPlace,
+  unitPointToQuaternion,
 } from '../physics/latLng.js'
 import { headingToAngularVelocity } from '../physics/quaternionPhysics.js'
 import type { GameState, RockState } from '../types.js'
@@ -47,19 +45,17 @@ function rockSpeedForSize(size: 0 | 1 | 2): number {
 }
 
 /**
- * Spawn a rock at a position with random velocity.
+ * Spawn a rock at a unit-sphere point with random velocity.
  */
 export function spawnRock(
   game: GameState,
-  lat: number,
-  lng: number,
+  point: SpatialPoint,
   size: 0 | 1 | 2,
   rng: RNG,
   localHeading?: number
 ): RockState {
   const id = generateId('rock')
-  const orientation = latLngToQuaternion(lat, lng)
-  const [x, y, z] = latLngToUnitPoint(lat, lng)
+  const orientation = unitPointToQuaternion(point.x, point.y, point.z)
   const speed = rockSpeedForSize(size)
   const randomHeading = localHeading ?? rng.gen() * Math.PI * 2
   const angularVelocity = headingToAngularVelocity(
@@ -72,11 +68,9 @@ export function spawnRock(
     ...defaultRockState,
     id,
     orientation,
-    lat,
-    lng,
-    x,
-    y,
-    z,
+    x: point.x,
+    y: point.y,
+    z: point.z,
     angularVelocity,
     size,
     value: rockValueForSize(size),
@@ -140,23 +134,19 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
       Math.min(maxSpeed, inherited + jitter)
     )
 
-    const [lat, lng] = quaternionToLatLng(childOrientation)
-    const [x, y, z] = latLngToUnitPoint(lat, lng)
-
     const id = generateId('rock')
     const child: RockState = {
       ...defaultRockState,
       id,
       orientation: childOrientation,
-      lat,
-      lng,
-      x,
-      y,
-      z,
+      x: 0,
+      y: 0,
+      z: 0,
       angularVelocity: normalizedVelocity.scale(clampedSpeed),
       size: newSize,
       value: rockValueForSize(newSize),
     }
+    quaternionToUnitPointFastInPlace(childOrientation, child)
     game.rocks.set(id, child)
   }
 
@@ -175,8 +165,9 @@ export interface SpawnWaveOptions {
 }
 
 export interface SpawnBorderPoint {
-  lat: number
-  lng: number
+  x: number
+  y: number
+  z: number
   borderT: number
 }
 
@@ -231,12 +222,11 @@ export function getSpawnBorderExtents(
 }
 
 /**
- * Sample a point on the rectangular spawn border around a center lat/lng.
+ * Sample a point on the rectangular spawn border around a unit-sphere center.
  * `borderT` wraps at 1 and maps to perimeter length uniformly.
  */
 export function sampleSpawnBorderPoint(
-  centerLat: number,
-  centerLng: number,
+  centerPoint: SpatialPoint,
   borderT: number,
   options?: SpawnWaveOptions
 ): SpawnBorderPoint {
@@ -250,15 +240,22 @@ export function sampleSpawnBorderPoint(
   const distance = Math.hypot(xRad, yRad)
 
   if (distance < 0.00001) {
-    return { lat: centerLat, lng: centerLng, borderT: wrap01(borderT) }
+    return {
+      x: centerPoint.x,
+      y: centerPoint.y,
+      z: centerPoint.z,
+      borderT: wrap01(borderT),
+    }
   }
 
-  const center = latLngToVector3(centerLat, centerLng, 1).normalize()
-  const east = new Vector3(
-    -Math.sin(centerLng * DEG_TO_RAD),
-    0,
-    Math.cos(centerLng * DEG_TO_RAD)
-  ).normalize()
+  const center = new Vector3(centerPoint.x, centerPoint.y, centerPoint.z)
+  if (center.lengthSquared() < 0.0000001) {
+    return { x: 0, y: 1, z: 0, borderT: wrap01(borderT) }
+  }
+  center.normalize()
+
+  const reference = Math.abs(center.y) > 0.95 ? Vector3.Right() : Vector3.Up()
+  const east = Vector3.Cross(reference, center).normalize()
   const north = Vector3.Cross(center, east).normalize()
 
   const tangent = east.scale(xRad).addInPlace(north.scale(yRad))
@@ -267,19 +264,29 @@ export function sampleSpawnBorderPoint(
   const spawn = center.applyRotationQuaternion(
     Quaternion.RotationAxis(rotationAxis, distance)
   )
-  const [lat, lng] = vector3ToLatLng(spawn)
-  return { lat, lng, borderT: wrap01(borderT) }
+  spawn.normalize()
+  return { x: spawn.x, y: spawn.y, z: spawn.z, borderT: wrap01(borderT) }
 }
 
 function headingTowardPoint(
-  spawnLat: number,
-  spawnLng: number,
-  targetLat: number,
-  targetLng: number
+  spawnPoint: SpatialPoint,
+  targetPoint: SpatialPoint
 ): number {
-  const spawnOrientation = latLngToQuaternion(spawnLat, spawnLng)
-  const spawnUp = latLngToVector3(spawnLat, spawnLng, 1).normalize()
-  const target = latLngToVector3(targetLat, targetLng, 1).normalize()
+  const spawnOrientation = unitPointToQuaternion(
+    spawnPoint.x,
+    spawnPoint.y,
+    spawnPoint.z
+  )
+  const spawnUp = new Vector3(spawnPoint.x, spawnPoint.y, spawnPoint.z)
+  const target = new Vector3(targetPoint.x, targetPoint.y, targetPoint.z)
+  if (
+    spawnUp.lengthSquared() < 0.0000001 ||
+    target.lengthSquared() < 0.0000001
+  ) {
+    return 0
+  }
+  spawnUp.normalize()
+  target.normalize()
 
   // Project target direction onto spawn tangent plane.
   const targetOnPlane = target.subtract(
@@ -304,8 +311,7 @@ function headingTowardPoint(
  */
 export function spawnWave(
   game: GameState,
-  centerLat: number,
-  centerLng: number,
+  centerPoint: SpatialPoint,
   rng: RNG,
   options?: SpawnWaveOptions
 ): void {
@@ -319,12 +325,12 @@ export function spawnWave(
   for (let i = 0; i < count && game.rocks.size < MAX_ROCKS; i++) {
     // Stratified sampling avoids clumping all rocks at one side of the border.
     const borderT = (i + rng.gen()) / Math.max(1, count)
-    const point = sampleSpawnBorderPoint(centerLat, centerLng, borderT, options)
+    const point = sampleSpawnBorderPoint(centerPoint, borderT, options)
     const inwardHeading =
-      headingTowardPoint(point.lat, point.lng, centerLat, centerLng) +
+      headingTowardPoint(point, centerPoint) +
       (rng.gen() * 2 - 1) * inwardSpreadRad
 
-    spawnRock(game, point.lat, point.lng, ROCK_LARGE_SIZE, rng, inwardHeading)
+    spawnRock(game, point, ROCK_LARGE_SIZE, rng, inwardHeading)
   }
 
   game.wave++

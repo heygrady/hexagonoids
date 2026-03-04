@@ -14,14 +14,11 @@ import type {
 /**
  * Default ship state. `orientation` and `angularVelocity` are omitted — callers
  * must supply fresh instances to avoid shared mutable references.
- * `lat: 90, lng: 0` matches the north-pole position of `Quaternion.Identity()`.
  */
 export const defaultShipState: Omit<
   ShipState,
   'id' | 'playerId' | 'orientation' | 'angularVelocity'
 > = {
-  lat: 90,
-  lng: 0,
   x: 0,
   y: 1,
   z: 0,
@@ -33,14 +30,11 @@ export const defaultShipState: Omit<
 /**
  * Default rock state. `orientation` and `angularVelocity` are omitted — callers
  * must supply fresh instances to avoid shared mutable references.
- * `lat: 90, lng: 0` matches the north-pole position of `Quaternion.Identity()`.
  */
 export const defaultRockState: Omit<
   RockState,
   'id' | 'orientation' | 'angularVelocity'
 > = {
-  lat: 90,
-  lng: 0,
   x: 0,
   y: 1,
   z: 0,
@@ -51,14 +45,11 @@ export const defaultRockState: Omit<
 /**
  * Default bullet state. `orientation` and `angularVelocity` are omitted — callers
  * must supply fresh instances to avoid shared mutable references.
- * `lat: 90, lng: 0` matches the north-pole position of `Quaternion.Identity()`.
  */
 export const defaultBulletState: Omit<
   BulletState,
   'id' | 'ownerId' | 'orientation' | 'angularVelocity'
 > = {
-  lat: 90,
-  lng: 0,
   x: 0,
   y: 1,
   z: 0,

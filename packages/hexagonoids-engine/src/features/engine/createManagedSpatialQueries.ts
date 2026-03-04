@@ -1,6 +1,5 @@
 import {
   buildSpatialIndex,
-  latLngToSpatialPoint,
   type SpatialIndex,
   type SpatialPoint,
   type SpatialRockEntity,
@@ -14,20 +13,15 @@ import {
 import type { GameState } from './types.js'
 
 function pointFromPosition(position: {
-  x?: number
-  y?: number
-  z?: number
-  lat: number
-  lng: number
+  x: number
+  y: number
+  z: number
 }): SpatialPoint {
-  if (position.x != null && position.y != null && position.z != null) {
-    return {
-      x: position.x,
-      y: position.y,
-      z: position.z,
-    }
+  return {
+    x: position.x,
+    y: position.y,
+    z: position.z,
   }
-  return latLngToSpatialPoint(position.lat, position.lng)
 }
 
 function dot(a: SpatialPoint, b: SpatialPoint): number {
@@ -36,11 +30,9 @@ function dot(a: SpatialPoint, b: SpatialPoint): number {
 
 function matchesRadius(
   position: {
-    x?: number
-    y?: number
-    z?: number
-    lat: number
-    lng: number
+    x: number
+    y: number
+    z: number
   },
   center: SpatialPoint,
   minDot: number

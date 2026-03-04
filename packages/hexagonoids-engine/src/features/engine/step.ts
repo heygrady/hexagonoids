@@ -152,7 +152,7 @@ export function step(
     for (const player of state.players.values()) {
       if (!player.alive && canRegenerate(state, player.id)) {
         const pos = hooks?.getRegenerationPosition?.(player.id)
-        regeneratePlayer(state, player.id, rng, pos?.lat, pos?.lng)
+        regeneratePlayer(state, player.id, rng, pos)
         hooks?.onPlayerRegenerated?.(player.id)
         spatialIndexDirty = true
       }

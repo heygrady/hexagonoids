@@ -7,7 +7,6 @@ import {
   type ManagedSpatialQueries,
 } from '../engine/createManagedSpatialQueries.js'
 import type { EngineHooks } from '../engine/hooks.js'
-import { unitPointToLatLngInPlace } from '../engine/physics/latLng.js'
 import { reseedGame } from '../engine/player/reseedGame.js'
 import { step } from '../engine/step.js'
 import type { EngineOptions, GameState, PlayerInputs } from '../engine/types.js'
@@ -30,24 +29,6 @@ function syncIds(
   const next = Array.from(map.keys())
   if (!idsEqual(getCurrent(), next)) {
     setter(next)
-  }
-}
-
-function syncDerivedLatLng(state: GameState): void {
-  for (const ship of state.ships.values()) {
-    if (ship.x != null && ship.y != null && ship.z != null) {
-      unitPointToLatLngInPlace(ship.x, ship.y, ship.z, ship)
-    }
-  }
-  for (const rock of state.rocks.values()) {
-    if (rock.x != null && rock.y != null && rock.z != null) {
-      unitPointToLatLngInPlace(rock.x, rock.y, rock.z, rock)
-    }
-  }
-  for (const bullet of state.bullets.values()) {
-    if (bullet.x != null && bullet.y != null && bullet.z != null) {
-      unitPointToLatLngInPlace(bullet.x, bullet.y, bullet.z, bullet)
-    }
   }
 }
 
@@ -97,7 +78,6 @@ export function createReactiveEngine(
     setState(
       produce((draft) => {
         step(draft, inputs, dtMs, rng, hooks, spatialQueries)
-        syncDerivedLatLng(draft)
       })
     )
     spatialQueries.invalidateSpatialIndex()
@@ -114,7 +94,6 @@ export function createReactiveEngine(
     setState(
       produce((draft) => {
         fn(draft)
-        syncDerivedLatLng(draft)
       })
     )
     spatialQueries.invalidateSpatialIndex()
@@ -131,7 +110,6 @@ export function createReactiveEngine(
     setState(
       produce((draft) => {
         reseedGame(draft, playerId, rng)
-        syncDerivedLatLng(draft)
       })
     )
     spatialQueries.invalidateSpatialIndex()

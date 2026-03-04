@@ -151,6 +151,37 @@ export const latLngToQuaternion = (lat: number, lng: number): Quaternion => {
   const lngRad = lng * DEG_TO_RAD
   const east = new Vector3(-Math.sin(lngRad), 0, Math.cos(lngRad)).normalize()
 
+  return unitVectorToQuaternion(position, east)
+}
+
+/**
+ * Convert a unit-sphere point to an orientation quaternion.
+ * Aligns local +Y with the point and local +Z with a stable tangent direction.
+ */
+export const unitPointToQuaternion = (
+  x: number,
+  y: number,
+  z: number
+): Quaternion => {
+  const position = new Vector3(x, y, z)
+  if (position.lengthSquared() < 0.0000001) {
+    return Quaternion.Identity()
+  }
+  position.normalize()
+
+  const eastSeed = new Vector3(-position.z, 0, position.x)
+  const east =
+    eastSeed.lengthSquared() < 0.0000001
+      ? new Vector3(0, 0, 1)
+      : eastSeed.normalize()
+
+  return unitVectorToQuaternion(position, east)
+}
+
+function unitVectorToQuaternion(position: Vector3, east: Vector3): Quaternion {
+  const normalizedEast =
+    east.lengthSquared() < 0.0000001 ? new Vector3(0, 0, 1) : east.normalize()
+
   const up = Vector3.Up()
   const axis = Vector3.Cross(up, position)
   const axisLen = axis.length()
@@ -171,9 +202,9 @@ export const latLngToQuaternion = (lat: number, lng: number): Quaternion => {
   const forwardAfterUpAlign = Vector3.Forward()
     .applyRotationQuaternion(upAligned)
     .normalize()
-  const cross = Vector3.Cross(forwardAfterUpAlign, east)
+  const cross = Vector3.Cross(forwardAfterUpAlign, normalizedEast)
   const signedSin = Vector3.Dot(position, cross)
-  const signedCos = Vector3.Dot(forwardAfterUpAlign, east)
+  const signedCos = Vector3.Dot(forwardAfterUpAlign, normalizedEast)
   const twist = Math.atan2(signedSin, signedCos)
 
   const twistQuaternion = Quaternion.RotationAxis(position, twist)

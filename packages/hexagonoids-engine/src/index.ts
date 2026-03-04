@@ -8,8 +8,6 @@ export {
 } from './features/engine/bullet/bulletActions.js'
 export {
   setAngularVelocity as setBulletAngularVelocity,
-  setLat as setBulletLat,
-  setLng as setBulletLng,
   setLocation as setBulletLocation,
 } from './features/engine/bullet/bulletSetters.js'
 export type { CollisionPair } from './features/engine/collision/index.js'
@@ -104,14 +102,7 @@ export { generateId, resetIdCounter } from './features/engine/generateId.js'
 export type { EngineHooks } from './features/engine/hooks.js'
 // Physics — quaternion spherical movement
 export { accelerateShip } from './features/engine/physics/accelerateShip.js'
-export {
-  latLngToQuaternion,
-  latLngToUnitPoint,
-  latLngToVector3,
-  quaternionToLatLng,
-  quaternionToLatLngFast,
-  vector3ToLatLng,
-} from './features/engine/physics/latLng.js'
+export { unitPointToQuaternion } from './features/engine/physics/latLng.js'
 export { moveBullet } from './features/engine/physics/moveBullet.js'
 export { moveRock } from './features/engine/physics/moveRock.js'
 export { moveShip } from './features/engine/physics/moveShip.js'
@@ -159,8 +150,6 @@ export {
 } from './features/engine/rock/rockActions.js'
 export {
   setAngularVelocity as setRockAngularVelocity,
-  setLat as setRockLat,
-  setLng as setRockLng,
   setLocation as setRockLocation,
   setSize as setRockSize,
 } from './features/engine/rock/rockSetters.js'
@@ -173,8 +162,6 @@ export {
 export {
   setAngularVelocity as setShipAngularVelocity,
   setFiredAt as setShipFiredAt,
-  setLat as setShipLat,
-  setLng as setShipLng,
   setLocation as setShipLocation,
   setYaw as setShipYaw,
 } from './features/engine/ship/shipSetters.js'
@@ -212,6 +199,5 @@ export {
   findBucketXYZ,
   getSpatialBucketCount,
   getSpatialBucketCoveringAngle,
-  latLngToSpatialPoint,
   SpatialIndex,
 } from './features/spatial-index/index.js'
