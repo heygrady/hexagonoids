@@ -10,13 +10,10 @@ export interface TemporalObservation {
   livesNorm: number
 }
 
-export interface LidarHit {
+export interface ConeHit {
   distanceNorm: number
   closingSpeed: number
-  rockSizeNorm: number
   bearingOffsetNorm: number
-  centerWeight: number
-  bearingDriftNorm: number
   tangentialSpeed: number
 }
 
@@ -24,5 +21,5 @@ export interface ObservationFrame {
   shipAlive: boolean
   ship: ShipObservation
   temporal: TemporalObservation
-  lidar: LidarHit[]
+  lidar: ConeHit[]
 }

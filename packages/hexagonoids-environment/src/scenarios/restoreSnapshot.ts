@@ -6,9 +6,8 @@ import {
   defaultShipState,
   type EngineInstance,
   generateId,
-  latLngToQuaternion,
-  latLngToUnitPoint,
   resetIdCounter,
+  unitPointToQuaternion,
 } from '@heygrady/hexagonoids-engine'
 
 import type { ScenarioSnapshot } from './types.js'
@@ -38,13 +37,10 @@ export function restoreSnapshot(
   // Reconstruct ship
   const shipId = generateId('ship')
   const playerId = 'player-1'
-  const shipOrientation = latLngToQuaternion(
-    snapshot.ship.lat,
-    snapshot.ship.lng
-  )
-  const [shipX, shipY, shipZ] = latLngToUnitPoint(
-    snapshot.ship.lat,
-    snapshot.ship.lng
+  const shipOrientation = unitPointToQuaternion(
+    snapshot.ship.x,
+    snapshot.ship.y,
+    snapshot.ship.z
   )
 
   state.ships.set(shipId, {
@@ -52,11 +48,9 @@ export function restoreSnapshot(
     id: shipId,
     playerId,
     orientation: shipOrientation,
-    lat: snapshot.ship.lat,
-    lng: snapshot.ship.lng,
-    x: shipX,
-    y: shipY,
-    z: shipZ,
+    x: snapshot.ship.x,
+    y: snapshot.ship.y,
+    z: snapshot.ship.z,
     yaw: snapshot.ship.yaw,
     angularVelocity: new Vector3(
       snapshot.ship.angularVelocityX,
@@ -89,17 +83,18 @@ export function restoreSnapshot(
   // Reconstruct rocks
   for (const rockData of snapshot.rocks) {
     const rockId = generateId('rock')
-    const rockOrientation = latLngToQuaternion(rockData.lat, rockData.lng)
-    const [rockX, rockY, rockZ] = latLngToUnitPoint(rockData.lat, rockData.lng)
+    const rockOrientation = unitPointToQuaternion(
+      rockData.x,
+      rockData.y,
+      rockData.z
+    )
     state.rocks.set(rockId, {
       ...defaultRockState,
       id: rockId,
       orientation: rockOrientation,
-      lat: rockData.lat,
-      lng: rockData.lng,
-      x: rockX,
-      y: rockY,
-      z: rockZ,
+      x: rockData.x,
+      y: rockData.y,
+      z: rockData.z,
       angularVelocity: new Vector3(
         rockData.angularVelocityX,
         rockData.angularVelocityY,

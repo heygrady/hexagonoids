@@ -35,8 +35,9 @@ export function captureSnapshot(
   const rocks: ScenarioRockState[] = []
   for (const rock of state.rocks.values()) {
     rocks.push({
-      lat: rock.lat,
-      lng: rock.lng,
+      x: rock.x,
+      y: rock.y,
+      z: rock.z,
       angularVelocityX: rock.angularVelocity.x,
       angularVelocityY: rock.angularVelocity.y,
       angularVelocityZ: rock.angularVelocity.z,
@@ -48,8 +49,9 @@ export function captureSnapshot(
   const bullets: ScenarioBulletState[] = []
   for (const bullet of state.bullets.values()) {
     bullets.push({
-      lat: bullet.lat,
-      lng: bullet.lng,
+      x: bullet.x,
+      y: bullet.y,
+      z: bullet.z,
       angularVelocityX: bullet.angularVelocity.x,
       angularVelocityY: bullet.angularVelocity.y,
       angularVelocityZ: bullet.angularVelocity.z,
@@ -65,8 +67,9 @@ export function captureSnapshot(
     gameTime: state.now,
     wave: state.wave,
     ship: {
-      lat: ship.lat,
-      lng: ship.lng,
+      x: ship.x,
+      y: ship.y,
+      z: ship.z,
       yaw: ship.yaw,
       angularVelocityX: ship.angularVelocity.x,
       angularVelocityY: ship.angularVelocity.y,

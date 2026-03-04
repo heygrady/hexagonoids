@@ -8,35 +8,25 @@ import type {
 } from './collectObservations.js'
 import { collectObservations } from './collectObservations.js'
 import {
-  DEFAULT_ENCODING_PRESET,
-  INPUT_COUNT as DEFAULT_INPUT_COUNT,
-  type EncodingPreset,
+  CONE_COUNT,
+  FEATURES_PER_CONE,
   GLOBAL_FEATURES,
-  getEncodingFeaturesPerRay,
-  getInputCountForEncoding,
-  getLidarRayCount,
+  INPUT_COUNT,
 } from './encodingPresets.js'
 import type { ObservationFrame } from './observationTypes.js'
 
-/** Total number of input floats produced by the default encoding preset. */
-export const INPUT_COUNT = DEFAULT_INPUT_COUNT
+export { INPUT_COUNT } from './encodingPresets.js'
 
 /**
- * Encode game state into a fixed-size vector.
+ * Encode game state into a fixed-size vector of 37 floats.
  *
- * Layout (`four`: 69, `five`: 85, `six`: 101, `cone8`: 37):
+ * Layout (cone8: 5 global + 8 cones x 4):
  * [0] speed_norm
  * [1] heading_forward_drift
  * [2] heading_lateral_drift
  * [3] angular_velocity_norm
  * [4] cooldown_norm
- * [5..] rays x N:
- *   `four`: 16 rays x 4: proximity, closing_speed, rock_size_norm, bearing_offset_norm
- *   `five`: 16 rays x 5: proximity, closing_speed, rock_size_norm, bearing_offset_norm,
- *           bearing_drift_norm
- *   `six`:  16 rays x 6: proximity, closing_speed, rock_size_norm, bearing_offset_norm,
- *           center_weight, bearing_drift_norm
- *   `cone8`: 8 cones x 4: proximity, lateral_offset, radial_velocity, tangential_velocity
+ * [5..] 8 cones x 4: proximity, lateral_offset, radial_velocity, tangential_velocity
  */
 export function encodeGameState(
   state: GameState,
@@ -47,8 +37,8 @@ export function encodeGameState(
   inputsBuffer?: number[],
   observationsBuffer?: ObservationFrame,
   rockPerceptionBuffer?: RockPerceptionPrecompute,
-  encodingPreset: EncodingPreset = DEFAULT_ENCODING_PRESET,
-  spatialQueries?: Pick<ManagedSpatialQueries, 'queryRocksNear'>
+  spatialQueries?: Pick<ManagedSpatialQueries, 'queryRocksNear'>,
+  seenRocks?: Set<string>
 ): number[] {
   const obs = collectObservations(
     state,
@@ -58,15 +48,13 @@ export function encodeGameState(
     dtMs,
     observationsBuffer,
     rockPerceptionBuffer,
-    encodingPreset,
-    spatialQueries
+    spatialQueries,
+    seenRocks
   )
-  const featuresPerRay = getEncodingFeaturesPerRay(encodingPreset)
-  const inputCount = getInputCountForEncoding(encodingPreset)
   const inputs =
-    inputsBuffer != null && inputsBuffer.length === inputCount
+    inputsBuffer != null && inputsBuffer.length === INPUT_COUNT
       ? inputsBuffer
-      : new Array<number>(inputCount)
+      : new Array<number>(INPUT_COUNT)
 
   inputs[0] = obs.ship.speedNorm
   inputs[1] = obs.ship.headingForwardDrift
@@ -74,29 +62,13 @@ export function encodeGameState(
   inputs[3] = obs.ship.angularVelocityNorm
   inputs[4] = obs.temporal.cooldownNorm
 
-  const rayCount = getLidarRayCount(encodingPreset)
-  for (let i = 0; i < rayCount; i++) {
+  for (let i = 0; i < CONE_COUNT; i++) {
     const hit = obs.lidar[i]!
-    const base = GLOBAL_FEATURES + i * featuresPerRay
-
-    if (encodingPreset === 'cone8') {
-      inputs[base] = 1 - hit.distanceNorm
-      inputs[base + 1] = hit.bearingOffsetNorm
-      inputs[base + 2] = hit.closingSpeed
-      inputs[base + 3] = hit.tangentialSpeed
-    } else {
-      inputs[base] = 1 - hit.distanceNorm
-      inputs[base + 1] = hit.closingSpeed
-      inputs[base + 2] = hit.rockSizeNorm
-      inputs[base + 3] = hit.bearingOffsetNorm
-
-      if (encodingPreset === 'five') {
-        inputs[base + 4] = hit.bearingDriftNorm
-      } else if (encodingPreset === 'six') {
-        inputs[base + 4] = hit.centerWeight
-        inputs[base + 5] = hit.bearingDriftNorm
-      }
-    }
+    const base = GLOBAL_FEATURES + i * FEATURES_PER_CONE
+    inputs[base] = 1 - hit.distanceNorm
+    inputs[base + 1] = hit.bearingOffsetNorm
+    inputs[base + 2] = hit.closingSpeed
+    inputs[base + 3] = hit.tangentialSpeed
   }
 
   return inputs

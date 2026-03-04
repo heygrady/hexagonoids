@@ -1,8 +1,4 @@
-import {
-  type PlayerInputs,
-  RADIUS,
-  ROCK_WAVE_SIZES,
-} from '@heygrady/hexagonoids-engine'
+import { type PlayerInputs, RADIUS } from '@heygrady/hexagonoids-engine'
 
 import type { AgentContext, AgentFn, SyncExecutor } from '../agents/types.js'
 import {
@@ -16,63 +12,44 @@ import { updatePrevDistances } from '../encoding/updatePrevDistances.js'
 import { findBucketXYZ } from '../evaluation/icosahedralBuckets.js'
 import type { RawMetrics } from '../evaluation/RawMetrics.js'
 import { createMetricsCollector } from '../evaluation/RawMetrics.js'
-import {
-  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
-  type SimulationConfig,
-} from '../HexagonoidsEnvironmentConfig.js'
 
-import { restoreSnapshot } from './restoreSnapshot.js'
-import type { ScenarioSnapshot } from './types.js'
+import type { CurriculumScenarioParams } from './generateCurriculumScenario.js'
+import { createCurriculumGameState } from './generateCurriculumScenario.js'
 
 const PLAYER_ID = 'player-1'
+
 /**
- * Run a short headless evaluation starting from a restored scenario snapshot.
- *
- * Mirrors `simulateGame` but initializes from `restoreSnapshot()` instead of
- * `createGame()` + `startPlayer()`. Default maxTicks is 120 (caller passes
- * via config).
+ * Run a single curriculum micro-scenario and collect full metrics.
+ * Uses the same MetricsCollector pattern as simulateScenario for consistent
+ * scoring via weightedFitnessSum.
  */
-export function simulateScenario(
+export function simulateCurriculumScenario(
   agent: AgentFn,
-  scenario: ScenarioSnapshot,
-  config: Partial<SimulationConfig>,
+  params: CurriculumScenarioParams,
   seed: string,
+  dtMs: number,
   executor?: SyncExecutor
 ): RawMetrics {
-  const { maxTicks, dtMs } = {
-    ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation,
-    ...config,
-  }
-
-  // 1. Restore game from snapshot
-  const engine = restoreSnapshot(scenario, seed)
+  const { engine, maxTicks } = createCurriculumGameState(params, seed, dtMs)
   const { state, rng } = engine
 
-  // Capture baselines for delta metrics
+  // Capture baselines
   const baselineGameTime = state.now
-  const baselineScore = scenario.player.score
-  const baselineWave = state.wave
-
-  // 2. Get player reference
   const trackedPlayer = state.players.get(PLAYER_ID)
+  const baselineScore = trackedPlayer?.score ?? 0
 
-  // 3. Create metrics collector
+  // Create metrics collector (same as simulateScenario)
   const collector = createMetricsCollector(PLAYER_ID)
 
-  // Agent context (persists across ticks)
   const context: AgentContext = {
     rng,
     memory: {},
     executor,
     spatialQueries: engine,
   }
+
   const stepInputs: PlayerInputs = {
-    [PLAYER_ID]: {
-      left: false,
-      right: false,
-      thrust: false,
-      fire: false,
-    },
+    [PLAYER_ID]: { left: false, right: false, thrust: false, fire: false },
   }
 
   let distanceTraveled = 0
@@ -86,22 +63,24 @@ export function simulateScenario(
   let lastBucketIdx = -1
   const visitedBuckets = new Set<number>()
 
-  const shipPoint = (target: { x: number; y: number; z: number }) => {
-    return [target.x, target.y, target.z] as const
-  }
-
-  // 4. Game loop
   for (let tick = 0; tick < maxTicks; tick++) {
     if (state.endedAt != null) break
 
-    // Track ship position before step for distance + spatial coverage
+    // Early stop: all rocks destroyed or player died
+    if (state.rocks.size === 0) break
+    const earlyPlayer = state.players.get(PLAYER_ID)
+    if (earlyPlayer != null && !earlyPlayer.alive) break
+
     const player = trackedPlayer ?? state.players.get(PLAYER_ID)
     const ship =
       player?.shipId != null ? state.ships.get(player.shipId) : undefined
-    if (ship?.alive) {
-      const [cx, cy, cz] = shipPoint(ship)
 
-      // Chord distance on unit sphere (accurate for small deltas between ticks)
+    // Track ship position for distance + spatial coverage
+    if (ship?.alive) {
+      const cx = ship.x ?? 0
+      const cy = ship.y ?? 1
+      const cz = ship.z ?? 0
+
       if (hasPrev) {
         const dx = cx - prevX
         const dy = cy - prevY
@@ -113,7 +92,7 @@ export function simulateScenario(
       prevZ = cz
       hasPrev = true
 
-      // Spatial coverage bucket tracking — skip scan when ship hasn't moved far
+      // Spatial coverage bucket tracking
       const bdx = cx - lastBucketX
       const bdy = cy - lastBucketY
       const bdz = cz - lastBucketZ
@@ -125,28 +104,24 @@ export function simulateScenario(
       }
       visitedBuckets.add(lastBucketIdx)
     } else {
-      // Ship dead or missing — reset tracking
       hasPrev = false
     }
 
-    // Track bullet count before step to detect new shots
+    // Track bullet count before step
     const bulletsBefore = state.bullets.size
 
+    // Build rock perception
     const rockPerception =
       ship?.alive === true
         ? buildRockPerceptionPrecompute(
-            {
-              x: ship.x ?? 0,
-              y: ship.y ?? 1,
-              z: ship.z ?? 0,
-            },
+            { x: ship.x ?? 0, y: ship.y ?? 1, z: ship.z ?? 0 },
             Math.PI / 2 + ship.yaw,
             engine
           )
         : undefined
     context.memory[MEMORY_ROCK_PERCEPTION] = rockPerception
 
-    // Get agent inputs (reads prevDistances from previous tick)
+    // Get agent inputs
     const inputs = agent(state, PLAYER_ID, context)
 
     // Track action usage per live frame
@@ -166,7 +141,7 @@ export function simulateScenario(
       }
     }
 
-    // Update prevDistances BEFORE step so closing speed reflects movement.
+    // Update prevDistances before step
     if (ship?.alive) {
       const prevDistances = context.memory[MEMORY_PREV_DISTANCES] as
         | Map<string, number>
@@ -185,21 +160,10 @@ export function simulateScenario(
       }
     }
 
-    // Store dtMs for encoding approach speed calculation
     context.memory[MEMORY_LAST_DT_MS] = dtMs
 
-    // Record wave before step for transition detection
-    const waveBefore = state.wave
-
-    // Step the simulation
     stepInputs[PLAYER_ID] = inputs
     engine.tick(stepInputs, dtMs, collector.hooks)
-
-    // Detect wave transition and track large rocks spawned
-    if (state.wave > waveBefore) {
-      const waveIndex = Math.min(state.wave, ROCK_WAVE_SIZES.length - 1)
-      collector.addLargeRocksSpawned(ROCK_WAVE_SIZES[waveIndex] ?? 4)
-    }
 
     // Track new bullets fired
     const newBullets = state.bullets.size - bulletsBefore
@@ -213,14 +177,15 @@ export function simulateScenario(
   const ship =
     player?.shipId != null ? state.ships.get(player.shipId) : undefined
   if (ship?.alive && hasPrev) {
-    const [fx, fy, fz] = shipPoint(ship)
+    const fx = ship.x ?? 0
+    const fy = ship.y ?? 1
+    const fz = ship.z ?? 0
     const dx = fx - prevX
     const dy = fy - prevY
     const dz = fz - prevZ
     distanceTraveled += Math.sqrt(dx * dx + dy * dy + dz * dz) * RADIUS
   }
 
-  // 7. Return collected metrics
   collector.setUniqueCellsVisited(visitedBuckets.size)
 
   return collector.getMetrics({
@@ -229,6 +194,6 @@ export function simulateScenario(
     livesRemaining: player?.lives ?? 0,
     timeAlive: state.now - baselineGameTime,
     distanceTraveled,
-    wavesSpawned: state.wave - baselineWave,
+    wavesSpawned: 0, // Curriculum scenarios suppress waves
   })
 }

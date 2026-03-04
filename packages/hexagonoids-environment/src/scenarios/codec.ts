@@ -1,11 +1,12 @@
 import type { ScenarioSnapshot } from './types.js'
 
-const SCENARIO_FORMAT = 'compact-v2'
+const SCENARIO_FORMAT = 'compact-v3'
 const SCENARIO_PRECISION = 6
 
 type CompactShipRecord = [
-  lat: number,
-  lng: number,
+  x: number,
+  y: number,
+  z: number,
   yaw: number,
   angularVelocityX: number,
   angularVelocityY: number,
@@ -30,8 +31,9 @@ type CompactPlayerRecord = [
 ]
 
 type CompactRockRecord = [
-  lat: number,
-  lng: number,
+  x: number,
+  y: number,
+  z: number,
   angularVelocityX: number,
   angularVelocityY: number,
   angularVelocityZ: number,
@@ -51,7 +53,7 @@ type CompactScenarioRecord = [
 ]
 
 export interface CompactScenarioBankDocument {
-  version: 2
+  version: 3
   format: typeof SCENARIO_FORMAT
   precision: number
   scenarios: CompactScenarioRecord[]
@@ -81,8 +83,9 @@ function encodeCompactScenario(
     roundNumber(snapshot.gameTime),
     snapshot.wave,
     [
-      roundNumber(snapshot.ship.lat),
-      roundNumber(snapshot.ship.lng),
+      roundNumber(snapshot.ship.x),
+      roundNumber(snapshot.ship.y),
+      roundNumber(snapshot.ship.z),
       roundNumber(snapshot.ship.yaw),
       roundNumber(snapshot.ship.angularVelocityX),
       roundNumber(snapshot.ship.angularVelocityY),
@@ -105,8 +108,9 @@ function encodeCompactScenario(
       snapshot.player.thrustPressedAt,
     ],
     snapshot.rocks.map((rock) => [
-      roundNumber(rock.lat),
-      roundNumber(rock.lng),
+      roundNumber(rock.x),
+      roundNumber(rock.y),
+      roundNumber(rock.z),
       roundNumber(rock.angularVelocityX),
       roundNumber(rock.angularVelocityY),
       roundNumber(rock.angularVelocityZ),
@@ -140,14 +144,15 @@ function decodeCompactScenario(
     gameTime,
     wave,
     ship: {
-      lat: ship[0],
-      lng: ship[1],
-      yaw: ship[2],
-      angularVelocityX: ship[3],
-      angularVelocityY: ship[4],
-      angularVelocityZ: ship[5],
-      alive: ship[6] === 1,
-      firedAt: ship[7],
+      x: ship[0],
+      y: ship[1],
+      z: ship[2],
+      yaw: ship[3],
+      angularVelocityX: ship[4],
+      angularVelocityY: ship[5],
+      angularVelocityZ: ship[6],
+      alive: ship[7] === 1,
+      firedAt: ship[8] ?? null,
     },
     player: {
       score: player[0],
@@ -164,13 +169,14 @@ function decodeCompactScenario(
       thrustPressedAt: player[11],
     },
     rocks: rocks.map((rock) => ({
-      lat: rock[0],
-      lng: rock[1],
-      angularVelocityX: rock[2],
-      angularVelocityY: rock[3],
-      angularVelocityZ: rock[4],
-      size: rock[5],
-      value: deriveRockValue(rock[5]),
+      x: rock[0],
+      y: rock[1],
+      z: rock[2],
+      angularVelocityX: rock[3],
+      angularVelocityY: rock[4],
+      angularVelocityZ: rock[5],
+      size: rock[6],
+      value: deriveRockValue(rock[6]),
     })),
     bullets: [],
   }
@@ -188,12 +194,14 @@ function isCompactScenarioBankDocument(
 ): value is CompactScenarioBankDocument {
   if (value == null || typeof value !== 'object') return false
 
-  const doc = value as Partial<CompactScenarioBankDocument>
-  return (
-    doc.version === 2 &&
-    doc.format === SCENARIO_FORMAT &&
-    Array.isArray(doc.scenarios)
-  )
+  const doc = value as Record<string, unknown>
+  if (!Array.isArray(doc.scenarios)) return false
+
+  // Accept v2 and v3 compact formats (same tuple structure; v3 adds ship.firedAt)
+  if (doc.version === 3 && doc.format === SCENARIO_FORMAT) return true
+  if (doc.version === 2 && doc.format === 'compact-v2') return true
+
+  return false
 }
 
 function isScenarioSnapshot(value: unknown): value is ScenarioSnapshot {
@@ -214,7 +222,7 @@ export function encodeScenarioBankDocument(
   snapshots: ScenarioSnapshot[]
 ): CompactScenarioBankDocument {
   return {
-    version: 2,
+    version: 3,
     format: SCENARIO_FORMAT,
     precision: SCENARIO_PRECISION,
     scenarios: snapshots.map((snapshot) => encodeCompactScenario(snapshot)),

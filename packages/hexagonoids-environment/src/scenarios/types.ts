@@ -4,8 +4,9 @@
  */
 
 export interface ScenarioShipState {
-  lat: number
-  lng: number
+  x: number
+  y: number
+  z: number
   yaw: number
   angularVelocityX: number
   angularVelocityY: number
@@ -30,8 +31,9 @@ export interface ScenarioPlayerState {
 }
 
 export interface ScenarioRockState {
-  lat: number
-  lng: number
+  x: number
+  y: number
+  z: number
   angularVelocityX: number
   angularVelocityY: number
   angularVelocityZ: number
@@ -40,8 +42,9 @@ export interface ScenarioRockState {
 }
 
 export interface ScenarioBulletState {
-  lat: number
-  lng: number
+  x: number
+  y: number
+  z: number
   angularVelocityX: number
   angularVelocityY: number
   angularVelocityZ: number

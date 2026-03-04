@@ -3,10 +3,10 @@ import { PLAYER_STARTING_LIVES } from '@heygrady/hexagonoids-engine'
 import type {
   FitnessWeights,
   GateConfig,
+  GateEasing,
 } from '../HexagonoidsEnvironmentConfig.js'
 import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '../HexagonoidsEnvironmentConfig.js'
 import type { RawMetrics } from './RawMetrics.js'
-import { fullGameMaximums } from './scenarioContext.js'
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
@@ -21,30 +21,92 @@ export function zScore(value: number, mean: number, stdDev: number): number {
   return (value - mean) / stdDev
 }
 
+// ── Easing functions ─────────────────────────────────────────────────
+
+/** easeIn: slow start, accelerating. t in [0,1] → [0,1]. */
+function easeInLinear(t: number): number {
+  return t
+}
+function easeInQuad(t: number): number {
+  return t * t
+}
+function easeInCubic(t: number): number {
+  return t * t * t
+}
+function easeInExp(t: number): number {
+  return t <= 0 ? 0 : 2 ** (10 * t - 10)
+}
+function easeInCircle(t: number): number {
+  return 1 - Math.sqrt(1 - t * t)
+}
+
+/** easeOut: fast start, decelerating. t in [0,1] → [0,1]. */
+function easeOutLinear(t: number): number {
+  return t
+}
+function easeOutQuad(t: number): number {
+  return t * (2 - t)
+}
+function easeOutCubic(t: number): number {
+  const u = 1 - t
+  return 1 - u * u * u
+}
+function easeOutExp(t: number): number {
+  return t >= 1 ? 1 : 1 - 2 ** (-10 * t)
+}
+function easeOutCircle(t: number): number {
+  const u = t - 1
+  return Math.sqrt(1 - u * u)
+}
+
+type EasingFn = (t: number) => number
+
+const EASE_IN: Record<GateEasing, EasingFn> = {
+  linear: easeInLinear,
+  quad: easeInQuad,
+  cubic: easeInCubic,
+  exp: easeInExp,
+  circle: easeInCircle,
+}
+
+const EASE_OUT: Record<GateEasing, EasingFn> = {
+  linear: easeOutLinear,
+  quad: easeOutQuad,
+  cubic: easeOutCubic,
+  exp: easeOutExp,
+  circle: easeOutCircle,
+}
+
 // ── Gate helpers ──────────────────────────────────────────────────────
 
 /**
- * Per-action saturation score.
- * Returns ~1.0 when usage fraction is between low..high,
- * drops toward 0 when saturated (near 100%) or never used (0%).
+ * Per-action saturation score using named easing curves.
+ *
+ * Returns ~1.0 when usage fraction is between low..high.
+ * - **Low side** (fraction 0→low): `easeOut(t)` where `t = fraction/low`
+ * - **High side** (fraction high→1): `1 - easeIn(t)` where `t = (fraction-high)/(1-high)`
  */
 function actionSaturationScore(
   actionFrames: number,
   aliveFrames: number,
   low: number,
   high: number,
-  steepness: number
+  easing: GateEasing
 ): number {
   if (aliveFrames <= 0) return 0
   const fraction = actionFrames / aliveFrames
-  // Penalty for never pressing: smooth ramp from 0 to 1
-  const lowPenalty = 1 - Math.exp(-steepness * (fraction / Math.max(low, 1e-9)))
-  // Penalty for over-pressing: smooth ramp from 1 to 0
-  const highPenalty =
-    fraction <= high
-      ? 1
-      : Math.exp(-steepness * ((fraction - high) / (1 - high + 1e-9)))
-  return lowPenalty * highPenalty
+
+  const easeOut = EASE_OUT[easing]
+  const easeIn = EASE_IN[easing]
+
+  // Low side: ramp from 0 to 1 as fraction goes 0→low
+  const lowScore = fraction >= low ? 1 : easeOut(fraction / Math.max(low, 1e-9))
+
+  // High side: ramp from 1 to 0 as fraction goes high→1
+  const highScore =
+    fraction <= high ? 1 : 1 - easeIn((fraction - high) / (1 - high + 1e-9))
+
+  return lowScore * highScore
 }
 
 /**
@@ -55,7 +117,7 @@ export function actionDiversityGate(
   metrics: RawMetrics,
   gateConfig: GateConfig
 ): number {
-  const { actionLow, actionHigh, actionSteepness, floor } = gateConfig
+  const { actionLow, actionHigh, actionEasing, actionGateFloor } = gateConfig
   const alive = metrics.aliveFrames
 
   const thrust = actionSaturationScore(
@@ -63,32 +125,32 @@ export function actionDiversityGate(
     alive,
     actionLow,
     actionHigh,
-    actionSteepness
+    actionEasing
   )
   const fire = actionSaturationScore(
     metrics.fireFrames,
     alive,
     actionLow,
     actionHigh,
-    actionSteepness
+    actionEasing
   )
   const left = actionSaturationScore(
     metrics.leftFrames,
     alive,
     actionLow,
     actionHigh,
-    actionSteepness
+    actionEasing
   )
   const right = actionSaturationScore(
     metrics.rightFrames,
     alive,
     actionLow,
     actionHigh,
-    actionSteepness
+    actionEasing
   )
 
   const geoMean = (thrust * fire * left * right) ** 0.25
-  return Math.max(geoMean, floor)
+  return Math.max(geoMean, actionGateFloor)
 }
 
 /**
@@ -97,7 +159,7 @@ export function actionDiversityGate(
  * curve as the action gate. Agents that never turn get gated hard.
  */
 export function turnGate(metrics: RawMetrics, gateConfig: GateConfig): number {
-  const { turnLow, turnHigh, turnSteepness, turnFloor } = gateConfig
+  const { turnLow, turnHigh, turnEasing, turnFloor } = gateConfig
   const alive = metrics.aliveFrames
   const turnFrames = metrics.leftFrames + metrics.rightFrames
   const score = actionSaturationScore(
@@ -105,9 +167,33 @@ export function turnGate(metrics: RawMetrics, gateConfig: GateConfig): number {
     alive,
     turnLow,
     turnHigh,
-    turnSteepness
+    turnEasing
   )
   return Math.max(score, turnFloor)
+}
+
+/**
+ * Turn bias gate: penalizes agents that turn predominantly in one direction.
+ * Measures max(left, right) / (left + right). Returns 1.0 when balanced or
+ * below threshold; eases toward floor as bias approaches 1.0.
+ * Returns 1.0 when agent doesn't turn (turnGate handles that case).
+ */
+export function turnBiasGate(
+  metrics: RawMetrics,
+  gateConfig: GateConfig
+): number {
+  const { turnBiasGateFloor, turnBiasMax, turnBiasEasing } = gateConfig
+  const totalTurns = metrics.leftFrames + metrics.rightFrames
+  if (totalTurns <= 0) return 1.0
+
+  const bias = Math.max(metrics.leftFrames, metrics.rightFrames) / totalTurns
+
+  if (bias <= turnBiasMax) return 1.0
+
+  const easeIn = EASE_IN[turnBiasEasing]
+  const t = (bias - turnBiasMax) / (1 - turnBiasMax + 1e-9)
+  const score = 1 - easeIn(clamp(t, 0, 1))
+  return Math.max(score, turnBiasGateFloor)
 }
 
 /**
@@ -120,13 +206,13 @@ export function engagementGate(
   metrics: RawMetrics,
   gateConfig: GateConfig
 ): number {
-  if (metrics.aliveFrames <= 0) return gateConfig.floor
+  if (metrics.aliveFrames <= 0) return gateConfig.actionGateFloor
   const soiFraction = clamp(
     metrics.framesWithRocksInSOI / metrics.aliveFrames,
     0,
     1
   )
-  return Math.max(soiFraction, gateConfig.floor)
+  return Math.max(soiFraction, gateConfig.actionGateFloor)
 }
 
 /**
@@ -135,22 +221,20 @@ export function engagementGate(
 export interface FitnessContext {
   /** Total possible deaths across all scenarios (sum of starting lives). */
   possibleDeaths?: number
-  /** Maximum destroyable rocks for the scenario/game rock composition. */
-  maxRocksDestroyed: number
 }
 
 /**
  * Compute weighted-sum fitness for a single agent.
  *
- * Formula (weighted sum × action gate):
- *   rocksNorm     = clamp(rocksDestroyed / maxRocksDestroyed, 0, 1)
+ * Formula (weighted sum × gates):
+ *   rocksNorm     = clamp(rocksDestroyed / (uniqueRocksSeen × 0.5), 0, 1)
  *   accuracyTerm  = accuracy                          // [0, 1]
- *   survivalTerm  = clamp(1 - deaths / possibleDeaths, 0, 1)
- *   perfScore     = w1 × rocksNorm + w2 × accuracyTerm + w3 × survivalTerm
- *   fitness       = clamp(perfScore × actionDiversityGate × turnGate, 0, 1)
+ *   survivalGate  = clamp(1 - deaths / possibleDeaths, 0, 1)
+ *   perfScore     = w1 × rocksNorm + w2 × accuracyTerm
+ *   fitness       = clamp(perfScore × actionGate × turnGate × turnBiasGate × survivalGate, 0, 1)
  *
- * The weighted sum provides gradient everywhere — an agent with zero kills
- * but nonzero accuracy still receives a fitness signal.
+ * Killing half the rocks you see maxes rocksNorm. Survival is a
+ * multiplicative gate: dying heavily punishes fitness.
  */
 export function weightedFitnessSum(
   metrics: RawMetrics,
@@ -158,31 +242,27 @@ export function weightedFitnessSum(
   gateConfig: GateConfig,
   context: FitnessContext
 ): number {
-  const possibleDeaths = context.possibleDeaths ?? PLAYER_STARTING_LIVES
+  const possibleDeaths = context.possibleDeaths ?? PLAYER_STARTING_LIVES + 1
 
   // Performance components (all in [0, 1])
-  // Effective max = min(rate cap, SOI rocks actually seen by the agent).
-  // This prevents inflated denominators from unreachable rocks.
-  const effectiveMaxRocks = Math.max(
-    1,
-    Math.min(context.maxRocksDestroyed, metrics.uniqueRocksSeen)
-  )
+  // Killing half the rocks seen maxes out the score.
+  const effectiveMaxRocks = Math.max(1, metrics.uniqueRocksSeen * 0.5)
   const rocksNorm = clamp(metrics.rocksDestroyed / effectiveMaxRocks, 0, 1)
   const accuracyTerm = metrics.accuracy
-  const survivalTerm =
+  const survivalRaw =
     possibleDeaths > 0 ? clamp(1 - metrics.deaths / possibleDeaths, 0, 1) : 1
+  const survivalGate = Math.max(survivalRaw, gateConfig.survivalGateFloor)
 
   // Weighted sum of performance components
   const perfScore =
-    weights.rocksDestroyed * rocksNorm +
-    weights.accuracy * accuracyTerm +
-    weights.survival * survivalTerm
+    weights.rocksDestroyed * rocksNorm + weights.accuracy * accuracyTerm
 
-  // Gates
+  // Gates (multiplicative)
   const actionGate = actionDiversityGate(metrics, gateConfig)
   const turn = turnGate(metrics, gateConfig)
+  const turnBias = turnBiasGate(metrics, gateConfig)
 
-  return clamp(perfScore * actionGate * turn, 0, 1)
+  return clamp(perfScore * actionGate * turn * turnBias * survivalGate, 0, 1)
 }
 
 /**
@@ -239,6 +319,6 @@ export function evaluateFullGameFitness(metrics: RawMetrics): number {
     metrics,
     DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
     DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
-    fullGameMaximums(DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.maxTicks)
+    {}
   )
 }

@@ -1,7 +1,6 @@
 import {
   createGame,
   type EngineHooks,
-  greatCircleDistance,
   type PlayerInputs,
   RADIUS,
   startPlayer,
@@ -59,13 +58,11 @@ function captureFromRingBuffer(
   // Compute difficulty: count rocks within SOI of ship position
   let rocksInSOI = 0
   for (const rock of snapshot.rocks) {
-    const dist = greatCircleDistance(
-      snapshot.ship.lat,
-      snapshot.ship.lng,
-      rock.lat,
-      rock.lng,
-      RADIUS
-    )
+    const dot =
+      snapshot.ship.x * rock.x +
+      snapshot.ship.y * rock.y +
+      snapshot.ship.z * rock.z
+    const dist = Math.acos(Math.max(-1, Math.min(1, dot))) * RADIUS
     if (dist <= SOI_ANGULAR_RADIUS * RADIUS) {
       rocksInSOI++
     }

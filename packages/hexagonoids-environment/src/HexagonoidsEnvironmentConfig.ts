@@ -1,7 +1,3 @@
-import {
-  DEFAULT_ENCODING_PRESET,
-  type EncodingPreset,
-} from './encoding/encodingPresets.js'
 import type { ScenarioSnapshot } from './scenarios/types.js'
 
 export interface SimulationConfig {
@@ -10,6 +6,10 @@ export interface SimulationConfig {
   useFastThrust: boolean
   scenariosPerOrganism: number
   scenarioMaxTicks: number
+  /** Whether to run curriculum micro-scenarios during evaluation. */
+  curriculumEnabled: boolean
+  /** Number of curriculum micro-scenarios to run (default 32 = 8 cones x 4 variants). */
+  curriculumCount: number
 }
 
 export interface FitnessWeights {
@@ -17,66 +17,91 @@ export interface FitnessWeights {
   rocksDestroyed: number
   /** Weight for shooting accuracy (w2). */
   accuracy: number
-  /** Weight for survival / death avoidance (w3). */
-  survival: number
 }
 
+/**
+ * Named easing curves for gate penalty falloff.
+ *
+ * The sweet zone between `low` and `high` stays at score=1. Both sides taper:
+ * - **Low side** (fraction 0→low): `easeOut(t)` — fast rise near 0, gradual approach to 1
+ * - **High side** (fraction high→1): `1 - easeIn(t)` — gentle departure from 1, steep drop
+ */
+export type GateEasing = 'linear' | 'quad' | 'cubic' | 'exp' | 'circle'
+
 export interface GateConfig {
-  /** Minimum action gate output (prevents zero-fitness collapse). */
-  floor: number
+  /** Minimum action diversity gate output (prevents zero-fitness collapse). */
+  actionGateFloor: number
   /** Action saturation low threshold (fraction of aliveFrames). */
   actionLow: number
   /** Action saturation high threshold (fraction of aliveFrames). */
   actionHigh: number
-  /** Steepness of the saturation penalty curve. */
-  actionSteepness: number
+  /** Easing curve for action saturation penalty falloff. */
+  actionEasing: GateEasing
   /** Minimum turn gate output. */
   turnFloor: number
   /** Turn saturation low threshold (fraction of aliveFrames). */
   turnLow: number
   /** Turn saturation high threshold (fraction of aliveFrames). */
   turnHigh: number
-  /** Steepness of the turn saturation penalty curve. */
-  turnSteepness: number
+  /** Easing curve for turn saturation penalty falloff. */
+  turnEasing: GateEasing
+  /** Minimum turn bias gate output. */
+  turnBiasGateFloor: number
+  /** Bias threshold (0.5=balanced, 1.0=all one direction) above which penalty kicks in. */
+  turnBiasMax: number
+  /** Easing curve for turn bias penalty. */
+  turnBiasEasing: GateEasing
+  /** Minimum survival gate output. */
+  survivalGateFloor: number
 }
 
 export interface HexagonoidsEnvironmentConfig {
-  encodingPreset: EncodingPreset
   simulation: SimulationConfig
   fitnessWeights: FitnessWeights
   gateConfig: GateConfig
   scenarioBank?: ScenarioSnapshot[] | undefined
+  /** Blending weight for scenario fitness. Normalized with fullGameWeight and curriculumWeight. */
   scenarioWeight: number
+  /** Blending weight for full-game fitness. Normalized with scenarioWeight and curriculumWeight. */
+  fullGameWeight: number
+  /** Blending weight for curriculum fitness. Normalized with scenarioWeight and fullGameWeight. */
+  curriculumWeight: number
   scenarioSeedsPerOrganism: number
   fullGameSeedsPerOrganism: number
 }
 
 export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfig =
   {
-    encodingPreset: DEFAULT_ENCODING_PRESET,
     simulation: {
       maxTicks: 3000,
       dtMs: 33,
       useFastThrust: true,
       scenariosPerOrganism: 20,
       scenarioMaxTicks: 120,
+      curriculumEnabled: false,
+      curriculumCount: 32,
     },
     fitnessWeights: {
-      rocksDestroyed: 0.4,
+      rocksDestroyed: 0.6,
       accuracy: 0.4,
-      survival: 0.2,
     },
     gateConfig: {
-      floor: 0.5,
+      actionGateFloor: 0.5,
       actionLow: 0.1,
       actionHigh: 0.5,
-      actionSteepness: 8,
+      actionEasing: 'exp',
       turnFloor: 0.1,
       turnLow: 0.1,
       turnHigh: 0.65,
-      turnSteepness: 7,
+      turnEasing: 'exp',
+      turnBiasGateFloor: 0.1,
+      turnBiasMax: 0.8,
+      turnBiasEasing: 'cubic',
+      survivalGateFloor: 0,
     },
     scenarioWeight: 1.0,
+    fullGameWeight: 0,
+    curriculumWeight: 0,
     scenarioSeedsPerOrganism: 1,
     fullGameSeedsPerOrganism: 1,
   }
@@ -93,8 +118,9 @@ export function mergeConfig(
       gateConfig: {
         ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
       },
-      encodingPreset: DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.encodingPreset,
       scenarioWeight: DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.scenarioWeight,
+      fullGameWeight: DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fullGameWeight,
+      curriculumWeight: DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.curriculumWeight,
       scenarioSeedsPerOrganism:
         DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.scenarioSeedsPerOrganism,
       fullGameSeedsPerOrganism:
@@ -103,9 +129,6 @@ export function mergeConfig(
   }
 
   return {
-    encodingPreset:
-      partial.encodingPreset ??
-      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.encodingPreset,
     simulation: {
       ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation,
       ...partial.simulation,
@@ -124,6 +147,12 @@ export function mergeConfig(
     scenarioWeight:
       partial.scenarioWeight ??
       DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.scenarioWeight,
+    fullGameWeight:
+      partial.fullGameWeight ??
+      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fullGameWeight,
+    curriculumWeight:
+      partial.curriculumWeight ??
+      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.curriculumWeight,
     scenarioSeedsPerOrganism:
       partial.scenarioSeedsPerOrganism ??
       DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.scenarioSeedsPerOrganism,

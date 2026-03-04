@@ -14,6 +14,7 @@ import {
   MEMORY_ROCK_PERCEPTION,
 } from '../agents/types.js'
 import { buildRockPerceptionPrecompute } from '../encoding/collectObservations.js'
+import { updatePrevDistances } from '../encoding/updatePrevDistances.js'
 import {
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   type SimulationConfig,
@@ -23,7 +24,6 @@ import type { RawMetrics } from './RawMetrics.js'
 import { createMetricsCollector } from './RawMetrics.js'
 
 const PLAYER_ID = 'player-1'
-const PREV_DISTANCE_CLEANUP_INTERVAL = 8
 /**
  * Run a full headless game with any AgentFn and return RawMetrics.
  *
@@ -77,27 +77,10 @@ export function simulateGame(
   let lastBucketY = 0
   let lastBucketZ = 0
   let lastBucketIdx = -1
-  const seenDistanceKeys = new Set<string>()
   const visitedBuckets = new Set<number>()
 
-  const shipPoint = (target: {
-    lat: number
-    lng: number
-    x?: number
-    y?: number
-    z?: number
-  }) => {
-    if (target.x != null && target.y != null && target.z != null) {
-      return [target.x, target.y, target.z] as const
-    }
-    const latRad = (target.lat * Math.PI) / 180
-    const lngRad = (target.lng * Math.PI) / 180
-    const cosLat = Math.cos(latRad)
-    return [
-      cosLat * Math.cos(lngRad),
-      Math.sin(latRad),
-      cosLat * Math.sin(lngRad),
-    ] as const
+  const shipPoint = (target: { x: number; y: number; z: number }) => {
+    return [target.x, target.y, target.z] as const
   }
 
   // 4. Game loop
@@ -177,47 +160,21 @@ export function simulateGame(
     }
 
     // Update prevDistances BEFORE step so closing speed reflects movement.
-    // The agent already read prevDistances above; now we snapshot current
-    // pre-step distances. After step() moves entities, the next tick's
-    // encodeGameState will compute delta between these and new positions.
     if (ship?.alive) {
-      const prevProjections = context.memory[MEMORY_PREV_PROJECTIONS] as
-        | Map<string, [number, number]>
-        | undefined
       const prevDistances = context.memory[MEMORY_PREV_DISTANCES] as
         | Map<string, number>
         | undefined
       if (prevDistances != null) {
-        const shouldCleanup = tick % PREV_DISTANCE_CLEANUP_INTERVAL === 0
-        if (shouldCleanup) {
-          seenDistanceKeys.clear()
-        }
-
-        // Reuse distances already computed by buildRockPerceptionPrecompute
-        if (rockPerception != null) {
-          for (const rock of rockPerception.rocks) {
-            prevDistances.set(rock.id, rock.distance)
-            if (prevProjections != null) {
-              const existing = prevProjections.get(rock.id)
-              if (existing != null) {
-                existing[0] = rock.localX
-                existing[1] = rock.localY
-              } else {
-                prevProjections.set(rock.id, [rock.localX, rock.localY])
-              }
-            }
-            if (shouldCleanup) seenDistanceKeys.add(rock.id)
-          }
-        }
-        // Prune destroyed entities periodically to keep map growth bounded.
-        if (shouldCleanup) {
-          for (const id of prevDistances.keys()) {
-            if (!seenDistanceKeys.has(id)) {
-              prevDistances.delete(id)
-              prevProjections?.delete(id)
-            }
-          }
-        }
+        const prevProjections = context.memory[MEMORY_PREV_PROJECTIONS] as
+          | Map<string, [number, number]>
+          | undefined
+        updatePrevDistances(
+          state,
+          tick,
+          rockPerception,
+          prevDistances,
+          prevProjections
+        )
       }
     }
 

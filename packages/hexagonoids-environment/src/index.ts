@@ -4,20 +4,26 @@ export { createNeatAgent, neatAgent } from './agents/neatAgent.js'
 export { randomAgent } from './agents/randomAgent.js'
 export type { AgentContext, AgentFn } from './agents/types.js'
 export {
-  collectObservations,
-  LIDAR_RAY_COUNT,
-} from './encoding/collectObservations.js'
+  buildCurriculumParams,
+  CURRICULUM_SCENARIO_COUNT,
+  type CurriculumSnapshotResult,
+  generateCurriculumSnapshot,
+} from './curriculum/curriculumSnapshot.js'
+// Curriculum
+export type {
+  ConeIndex,
+  CurriculumScenarioParams,
+  ScenarioVariant,
+} from './curriculum/generateCurriculumScenario.js'
+export { runCurriculum } from './curriculum/runCurriculum.js'
+export { collectObservations } from './encoding/collectObservations.js'
 export { decodeOutputs } from './encoding/decodeOutputs.js'
 export { encodeGameState, INPUT_COUNT } from './encoding/encodeGameState.js'
 // Encoding
 export {
-  DEFAULT_ENCODING_PRESET,
-  type EncodingPreset,
-  type EncodingPreset as HexagonoidsEncodingPreset,
-  getEncodingFeaturesPerRay,
-  getInputCountForEncoding,
-  getLidarRayCount,
-  isEncodingPreset,
+  CONE_COUNT,
+  FEATURES_PER_CONE,
+  GLOBAL_FEATURES,
 } from './encoding/encodingPresets.js'
 export { bearingToSector } from './encoding/sectorUtils.js'
 // Evaluation
@@ -38,18 +44,14 @@ export {
 } from './evaluation/icosahedralBuckets.js'
 export type { MetricsCollector, RawMetrics } from './evaluation/RawMetrics.js'
 export { createMetricsCollector } from './evaluation/RawMetrics.js'
-export {
-  fullGameMaximums,
-  scenarioMaximums,
-  scenarioPossibleDeaths,
-  TICKS_PER_KILL,
-} from './evaluation/scenarioContext.js'
+export { scenarioPossibleDeaths } from './evaluation/scenarioContext.js'
 export { simulateGame } from './evaluation/simulateGame.js'
 // Environment
 export { HexagonoidsEnvironment } from './HexagonoidsEnvironment.js'
 export type {
   FitnessWeights,
   GateConfig,
+  GateEasing,
   HexagonoidsEnvironmentConfig,
   SimulationConfig,
 } from './HexagonoidsEnvironmentConfig.js'
