@@ -1,6 +1,5 @@
 import {
   createGame,
-  latLngToUnitPoint,
   type PlayerInputs,
   resetIdCounter,
   startPlayer,
@@ -93,15 +92,9 @@ describe('restoreSnapshot round-trip', () => {
     const { state: restored } = restoreSnapshot(snapshot)
 
     const restoredShip = restored.ships.values().next().value!
-    const [expectedX, expectedY, expectedZ] = latLngToUnitPoint(
-      snapshot.ship.lat,
-      snapshot.ship.lng
-    )
-    expect(restoredShip.lat).toBeCloseTo(snapshot.ship.lat, 6)
-    expect(restoredShip.lng).toBeCloseTo(snapshot.ship.lng, 6)
-    expect(restoredShip.x).toBeCloseTo(expectedX, 6)
-    expect(restoredShip.y).toBeCloseTo(expectedY, 6)
-    expect(restoredShip.z).toBeCloseTo(expectedZ, 6)
+    expect(restoredShip.x).toBeCloseTo(snapshot.ship.x, 6)
+    expect(restoredShip.y).toBeCloseTo(snapshot.ship.y, 6)
+    expect(restoredShip.z).toBeCloseTo(snapshot.ship.z, 6)
     expect(restoredShip.yaw).toBeCloseTo(snapshot.ship.yaw, 6)
     expect(restoredShip.angularVelocity.x).toBeCloseTo(
       snapshot.ship.angularVelocityX,
@@ -133,8 +126,9 @@ describe('restoreSnapshot round-trip', () => {
       if (actual == null || expected == null) {
         throw new Error(`Missing rock at index ${i}`)
       }
-      expect(actual.lat).toBeCloseTo(expected.lat, 6)
-      expect(actual.lng).toBeCloseTo(expected.lng, 6)
+      expect(actual.x).toBeCloseTo(expected.x, 6)
+      expect(actual.y).toBeCloseTo(expected.y, 6)
+      expect(actual.z).toBeCloseTo(expected.z, 6)
       expect(actual.size).toBe(expected.size)
       expect(actual.value).toBe(expected.value)
     }
@@ -204,8 +198,9 @@ describe('restoreSnapshot round-trip', () => {
 
     const ship1 = s1.ships.values().next().value!
     const ship2 = s2.ships.values().next().value!
-    expect(ship1.lat).toBe(ship2.lat)
-    expect(ship1.lng).toBe(ship2.lng)
+    expect(ship1.x).toBe(ship2.x)
+    expect(ship1.y).toBe(ship2.y)
+    expect(ship1.z).toBe(ship2.z)
     expect(s1.now).toBe(s2.now)
   })
 

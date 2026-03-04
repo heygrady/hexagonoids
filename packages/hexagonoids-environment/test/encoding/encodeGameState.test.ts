@@ -1,21 +1,55 @@
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import {
   createGame,
-  greatCircleDistance,
-  latLngToQuaternion,
   RADIUS,
   ROCK_LARGE_SIZE,
   spawnRock,
   startPlayer,
+  unitPointToQuaternion,
 } from '@heygrady/hexagonoids-engine'
 import { describe, expect, it } from 'vitest'
-import { buildRockPerceptionPrecompute } from '../../src/encoding/collectObservations.js'
 import {
   encodeGameState,
   INPUT_COUNT,
 } from '../../src/encoding/encodeGameState.js'
-import { getInputCountForEncoding } from '../../src/encoding/encodingPresets.js'
 
 const PLAYER_ID = 'player-1'
+
+function pointFromLatLng(lat: number, lng: number) {
+  const latRad = (lat * Math.PI) / 180
+  const lngRad = (lng * Math.PI) / 180
+  const cosLat = Math.cos(latRad)
+  return {
+    x: cosLat * Math.cos(lngRad),
+    y: Math.sin(latRad),
+    z: cosLat * Math.sin(lngRad),
+  }
+}
+
+function offsetPoint(
+  center: { x: number; y: number; z: number },
+  distanceDegrees: number,
+  headingRadians = 0
+) {
+  const up = new Vector3(center.x, center.y, center.z).normalize()
+  const reference = Math.abs(up.y) > 0.95 ? Vector3.Right() : Vector3.Up()
+  const east = Vector3.Cross(reference, up).normalize()
+  const north = Vector3.Cross(up, east).normalize()
+  const tangent = east
+    .scale(Math.cos(headingRadians))
+    .addInPlace(north.scale(Math.sin(headingRadians)))
+    .normalize()
+  const axis = Vector3.Cross(up, tangent).normalize()
+  const rotated = up.applyRotationQuaternion(
+    Quaternion.RotationAxis(axis, (distanceDegrees * Math.PI) / 180)
+  )
+  rotated.normalize()
+  return {
+    x: rotated.x,
+    y: rotated.y,
+    z: rotated.z,
+  }
+}
 
 function setupGame(seed: string, ticks = 0) {
   const engine = createGame({ seed })
@@ -46,11 +80,10 @@ describe('encodeGameState', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
       engine
     )
     expect(result).toHaveLength(INPUT_COUNT)
-    expect(result).toHaveLength(69)
+    expect(result).toHaveLength(37)
   })
 
   it('returns all finite numbers', () => {
@@ -61,7 +94,6 @@ describe('encodeGameState', () => {
       new Map(),
       new Map(),
       33,
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -80,7 +112,6 @@ describe('encodeGameState', () => {
       new Map(),
       new Map(),
       33,
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -112,7 +143,6 @@ describe('encodeGameState', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
       engine
     )
 
@@ -137,7 +167,6 @@ describe('encodeGameState', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
       engine
     )
 
@@ -156,7 +185,7 @@ describe('encodeGameState', () => {
     }
 
     // Force at least one local rock in SOI so closing features are populated.
-    spawnRock(state, ship.lat, ship.lng + 4, ROCK_LARGE_SIZE, {
+    spawnRock(state, offsetPoint(ship, 4, 0.2), ROCK_LARGE_SIZE, {
       gen: () => 0.5,
       genRange: (min: number, _max: number) => min,
       genBool: () => true,
@@ -164,13 +193,11 @@ describe('encodeGameState', () => {
 
     const prevDistances = new Map<string, number>()
     for (const rock of state.rocks.values()) {
-      const dist = greatCircleDistance(
-        ship.lat,
-        ship.lng,
-        rock.lat,
-        rock.lng,
-        RADIUS
+      const dot = Math.max(
+        -1,
+        Math.min(1, ship.x * rock.x + ship.y * rock.y + ship.z * rock.z)
       )
+      const dist = Math.acos(dot) * RADIUS
       prevDistances.set(rock.id, dist + 0.08)
     }
 
@@ -183,28 +210,27 @@ describe('encodeGameState', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
       engine
     )
 
     const closingFeatures: number[] = []
-    for (let ray = 0; ray < 16; ray++) {
-      const base = 5 + ray * 4
+    for (let cone = 0; cone < 8; cone++) {
+      const base = 5 + cone * 4
       closingFeatures.push(result[base + 1] ?? 0)
     }
     expect(closingFeatures.some((v) => Math.abs(v) > 0.0001)).toBe(true)
   })
 
-  it('encodes rock size in the third lidar channel', () => {
+  it('nearby rock produces non-zero proximity in at least one cone', () => {
     const { state, engine } = setupGame('enc-v2-rock-size', 0)
     const player = state.players.get(PLAYER_ID)
     const ship =
       player?.shipId != null ? state.ships.get(player.shipId) : undefined
     if (ship == null || !ship.alive) {
-      throw new Error('Expected alive ship for rock-size test')
+      throw new Error('Expected alive ship for proximity test')
     }
 
-    spawnRock(state, ship.lat, ship.lng + 4, ROCK_LARGE_SIZE, {
+    spawnRock(state, offsetPoint(ship, 4, 0.4), ROCK_LARGE_SIZE, {
       gen: () => 0.5,
       genRange: (min: number, _max: number) => min,
       genBool: () => true,
@@ -219,110 +245,20 @@ describe('encodeGameState', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
       engine
     )
 
-    const sizeFeatures: number[] = []
-    for (let ray = 0; ray < 16; ray++) {
-      const base = 5 + ray * 4
-      sizeFeatures.push(result[base + 2] ?? 0)
+    // base+0 is proximity (1 - distanceNorm), should be non-zero for nearby rock
+    const proximityFeatures: number[] = []
+    for (let cone = 0; cone < 8; cone++) {
+      const base = 5 + cone * 4
+      proximityFeatures.push(result[base] ?? 0)
     }
 
-    expect(sizeFeatures.some((v) => v > 0.99)).toBe(true)
+    expect(proximityFeatures.some((v) => v > 0.001)).toBe(true)
   })
 
-  it('supports the six-value encoding preset', () => {
-    const { state, engine } = setupGame('enc-v2-six-preset', 0)
-    const player = state.players.get(PLAYER_ID)
-    const ship =
-      player?.shipId != null ? state.ships.get(player.shipId) : undefined
-    if (ship == null || !ship.alive) {
-      throw new Error('Expected alive ship for six-preset test')
-    }
-
-    spawnRock(state, ship.lat + 2, ship.lng + 6, ROCK_LARGE_SIZE, {
-      gen: () => 0.5,
-      genRange: (min: number, _max: number) => min,
-      genBool: () => true,
-    })
-    const perception = buildRockPerceptionPrecompute(
-      {
-        x: ship.x ?? 0,
-        y: ship.y ?? 1,
-        z: ship.z ?? 0,
-      },
-      Math.PI / 2 + ship.yaw,
-      engine
-    )
-    const prevProjections = new Map<string, [number, number]>()
-    for (const rock of perception.rocks) {
-      prevProjections.set(rock.id, [rock.localX - 0.08, rock.localY])
-    }
-
-    const result = encodeGameState(
-      state,
-      PLAYER_ID,
-      prevProjections,
-      new Map(),
-      33,
-      [],
-      undefined,
-      undefined,
-      'six',
-      engine
-    )
-
-    expect(result).toHaveLength(getInputCountForEncoding('six'))
-    expect(result).toHaveLength(101)
-
-    const driftFeatures: number[] = []
-    for (let ray = 0; ray < 16; ray++) {
-      const base = 5 + ray * 6
-      driftFeatures.push(result[base + 5] ?? 0)
-    }
-    expect(driftFeatures.some((v) => Math.abs(v) > 0.0001)).toBe(true)
-  })
-
-  it('supports the five-value encoding preset', () => {
-    const { state, engine } = setupGame('enc-v2-five-preset', 0)
-    const result = encodeGameState(
-      state,
-      PLAYER_ID,
-      new Map(),
-      new Map(),
-      33,
-      [],
-      undefined,
-      undefined,
-      'five',
-      engine
-    )
-
-    expect(result).toHaveLength(getInputCountForEncoding('five'))
-    expect(result).toHaveLength(85)
-  })
-
-  it('supports the cone8 encoding preset with 37 inputs', () => {
-    const { state, engine } = setupGame('enc-v2-cone8-preset', 0)
-    const result = encodeGameState(
-      state,
-      PLAYER_ID,
-      new Map(),
-      new Map(),
-      33,
-      [],
-      undefined,
-      undefined,
-      'cone8',
-      engine
-    )
-
-    expect(result).toHaveLength(getInputCountForEncoding('cone8'))
-    expect(result).toHaveLength(37)
-  })
-
-  it('cone8 encodes rock detections into cone slots', () => {
+  it('encodes rock detections into cone slots', () => {
     const { state, engine } = setupGame('enc-v2-cone8-rocks', 0)
     const player = state.players.get(PLAYER_ID)
     const ship =
@@ -331,7 +267,7 @@ describe('encodeGameState', () => {
       throw new Error('Expected alive ship for cone8 test')
     }
 
-    spawnRock(state, ship.lat, ship.lng + 4, ROCK_LARGE_SIZE, {
+    spawnRock(state, offsetPoint(ship, 4, -0.3), ROCK_LARGE_SIZE, {
       gen: () => 0.5,
       genRange: (min: number, _max: number) => min,
       genBool: () => true,
@@ -346,7 +282,6 @@ describe('encodeGameState', () => {
       [],
       undefined,
       undefined,
-      'cone8',
       engine
     )
 
@@ -383,10 +318,12 @@ describe('encodeGameState', () => {
     ]
 
     for (const start of starts) {
-      ship.lat = start.lat
-      ship.lng = start.lng
+      const point = pointFromLatLng(start.lat, start.lng)
+      ship.x = point.x
+      ship.y = point.y
+      ship.z = point.z
       ship.yaw = start.yaw
-      ship.orientation = latLngToQuaternion(start.lat, start.lng)
+      ship.orientation = unitPointToQuaternion(point.x, point.y, point.z)
 
       const result = encodeGameState(
         state,
@@ -394,7 +331,6 @@ describe('encodeGameState', () => {
         new Map(),
         new Map(),
         33,
-        undefined,
         undefined,
         undefined,
         undefined,

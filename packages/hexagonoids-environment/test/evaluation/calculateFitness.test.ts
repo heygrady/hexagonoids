@@ -4,23 +4,18 @@ import {
   calculateFitness,
   engagementGate,
   type FitnessContext,
+  turnBiasGate,
   turnGate,
   weightedFitnessSum,
   zScore,
 } from '../../src/evaluation/calculateFitness.js'
 import type { RawMetrics } from '../../src/evaluation/RawMetrics.js'
-import { fullGameMaximums } from '../../src/evaluation/scenarioContext.js'
 import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '../../src/HexagonoidsEnvironmentConfig.js'
 
 const defaultWeights = DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights
 const defaultGateConfig = DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig
 
-/** Standard full-game context (rate-capped: 3000 ticks / 10 ticks-per-kill = 300). */
-const defaultContext: FitnessContext = {
-  ...fullGameMaximums(
-    DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.maxTicks
-  ),
-}
+const defaultContext: FitnessContext = {}
 
 function makeMetrics(overrides: Partial<RawMetrics> = {}): RawMetrics {
   return {
@@ -77,7 +72,7 @@ describe('actionDiversityGate', () => {
     })
     const result = actionDiversityGate(metrics, defaultGateConfig)
     // Geometric mean includes zero factors → clamped to floor
-    expect(result).toBe(defaultGateConfig.floor)
+    expect(result).toBe(defaultGateConfig.actionGateFloor)
   })
 
   it('returns ~1.0 for healthy diverse usage', () => {
@@ -95,7 +90,7 @@ describe('actionDiversityGate', () => {
   it('returns floor when aliveFrames is 0', () => {
     const metrics = makeMetrics({ aliveFrames: 0 })
     const result = actionDiversityGate(metrics, defaultGateConfig)
-    expect(result).toBe(defaultGateConfig.floor)
+    expect(result).toBe(defaultGateConfig.actionGateFloor)
   })
 })
 
@@ -149,6 +144,74 @@ describe('turnGate', () => {
   })
 })
 
+describe('turnBiasGate', () => {
+  it('returns 1.0 when turns are perfectly balanced', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 1000,
+      leftFrames: 200,
+      rightFrames: 200,
+    })
+    expect(turnBiasGate(metrics, defaultGateConfig)).toBe(1.0)
+  })
+
+  it('returns 1.0 when agent never turns', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 1000,
+      leftFrames: 0,
+      rightFrames: 0,
+    })
+    expect(turnBiasGate(metrics, defaultGateConfig)).toBe(1.0)
+  })
+
+  it('returns 1.0 when bias is below threshold', () => {
+    // 70/30 split = 0.7 bias, below default 0.8 threshold
+    const metrics = makeMetrics({
+      aliveFrames: 1000,
+      leftFrames: 210,
+      rightFrames: 90,
+    })
+    expect(turnBiasGate(metrics, defaultGateConfig)).toBe(1.0)
+  })
+
+  it('penalizes when 90% of turns are in one direction', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 1000,
+      leftFrames: 270,
+      rightFrames: 30,
+    })
+    const result = turnBiasGate(metrics, defaultGateConfig)
+    expect(result).toBeLessThan(1.0)
+    expect(result).toBeGreaterThan(defaultGateConfig.turnBiasGateFloor)
+  })
+
+  it('returns floor when all turns are in one direction', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 1000,
+      leftFrames: 300,
+      rightFrames: 0,
+    })
+    expect(turnBiasGate(metrics, defaultGateConfig)).toBe(
+      defaultGateConfig.turnBiasGateFloor
+    )
+  })
+
+  it('penalizes left-bias same as right-bias', () => {
+    const leftBias = makeMetrics({
+      aliveFrames: 1000,
+      leftFrames: 270,
+      rightFrames: 30,
+    })
+    const rightBias = makeMetrics({
+      aliveFrames: 1000,
+      leftFrames: 30,
+      rightFrames: 270,
+    })
+    expect(turnBiasGate(leftBias, defaultGateConfig)).toBe(
+      turnBiasGate(rightBias, defaultGateConfig)
+    )
+  })
+})
+
 describe('engagementGate', () => {
   it('returns floor when no frames with rocks in SOI', () => {
     const metrics = makeMetrics({
@@ -156,7 +219,7 @@ describe('engagementGate', () => {
       framesWithRocksInSOI: 0,
     })
     const result = engagementGate(metrics, defaultGateConfig)
-    expect(result).toBe(defaultGateConfig.floor)
+    expect(result).toBe(defaultGateConfig.actionGateFloor)
   })
 
   it('returns 1.0 when rocks in SOI every frame', () => {
@@ -180,7 +243,7 @@ describe('engagementGate', () => {
   it('returns floor when aliveFrames is 0', () => {
     const metrics = makeMetrics({ aliveFrames: 0 })
     const result = engagementGate(metrics, defaultGateConfig)
-    expect(result).toBe(defaultGateConfig.floor)
+    expect(result).toBe(defaultGateConfig.actionGateFloor)
   })
 })
 
@@ -229,7 +292,7 @@ describe('weightedFitnessSum', () => {
       defaultGateConfig,
       defaultContext
     )
-    // With weighted sum: 0.4*0 + 0.4*0.3 + 0.2*1.0 = 0.32, × actionGate
+    // perfScore = 0.6*0 + 0.4*0.3 = 0.12, × gates × survivalGate(1.0)
     expect(result).toBeGreaterThan(0)
   })
 
@@ -245,15 +308,14 @@ describe('weightedFitnessSum', () => {
       defaultGateConfig,
       defaultContext
     )
-    // All components zero except survival (deaths=0 → survivalTerm=1)
-    // perfScore = 0.4*0 + 0.4*0 + 0.2*1 = 0.2
-    // actionGate with 0 aliveFrames → floor (0.5)
-    // turnGate with 0 aliveFrames → turnFloor (0.1)
-    // fitness = 0.2 * 0.5 * 0.1 = 0.01
-    expect(result).toBeCloseTo(0.01, 2)
+    // All components zero (rocks=0, accuracy=0)
+    // perfScore = 0.6*0 + 0.4*0 = 0
+    // survivalGate = 1 (no deaths), actionGate = floor, turnGate = turnFloor
+    // fitness = 0 * gates = 0
+    expect(result).toBe(0)
   })
 
-  it('degenerate spin-in-place still gets survival credit', () => {
+  it('degenerate spin-in-place gets zero perfScore', () => {
     const metrics = makeMetrics({
       score: 0,
       aliveFrames: 3000,
@@ -270,12 +332,9 @@ describe('weightedFitnessSum', () => {
       defaultGateConfig,
       defaultContext
     )
-    // rocks=0, accuracy=0, survival=1 → perfScore = 0.2 (0.4*0 + 0.4*0 + 0.2*1)
-    // actionGate = floor (0.5) since left=100%, others=0%
-    // turnGate: turnFrames=3000/3000=100% → over-saturated, penalized
-    // fitness = perfScore * actionGate * turnGate → small
-    expect(result).toBeGreaterThan(0)
-    expect(result).toBeLessThan(0.15)
+    // rocks=0, accuracy=0 → perfScore = 0
+    // survivalGate=1, but perfScore=0 so fitness=0
+    expect(result).toBe(0)
   })
 
   it('competent agent scores well', () => {
@@ -300,12 +359,13 @@ describe('weightedFitnessSum', () => {
       defaultContext
     )
     // effectiveMax = min(300, 28) = 28
-    // rocksNorm = 12/28 ≈ 0.43, accuracy=0.4, survival=1-1/3≈0.67
-    // perfScore = 0.4*0.43 + 0.4*0.4 + 0.2*0.67 ≈ 0.466
-    expect(result).toBeGreaterThan(0.3)
+    // rocksNorm = 12/28 ≈ 0.43, accuracy=0.4
+    // perfScore = 0.6*0.43 + 0.4*0.4 = 0.418
+    // survivalGate = 1 - 1/4 = 0.75 (possibleDeaths defaults to 4)
+    expect(result).toBeGreaterThan(0.2)
   })
 
-  it('uses possibleDeaths from context for survival term', () => {
+  it('uses possibleDeaths from context for survival gate', () => {
     const metrics = makeMetrics({
       score: 1000,
       accuracy: 0.3,
@@ -320,7 +380,7 @@ describe('weightedFitnessSum', () => {
       leftFrames: 600,
       rightFrames: 600,
     })
-    // With possibleDeaths=60, 10 deaths → survival = 0.833
+    // With possibleDeaths=60, 10 deaths → survivalGate = 0.833
     const result60 = weightedFitnessSum(
       metrics,
       defaultWeights,
@@ -330,7 +390,7 @@ describe('weightedFitnessSum', () => {
         possibleDeaths: 60,
       }
     )
-    // With default possibleDeaths=3, 10 deaths → survival clamped to 0
+    // With default possibleDeaths=4, 10 deaths → survivalGate clamped to 0
     const resultDefault = weightedFitnessSum(
       metrics,
       defaultWeights,
@@ -396,11 +456,11 @@ describe('weightedFitnessSum', () => {
       defaultGateConfig,
       defaultContext
     )
-    // rocksNorm = 0/1 = 0, accuracy=0.5, survival=1
-    // perfScore = 0.4*0 + 0.4*0.5 + 0.2*1 = 0.4
-    // Still gets signal from accuracy + survival
+    // rocksNorm = 0/1 = 0, accuracy=0.5
+    // perfScore = 0.6*0 + 0.4*0.5 = 0.2
+    // survivalGate=1, still gets signal from accuracy
     expect(result).toBeGreaterThan(0.02)
-    expect(result).toBeLessThan(0.6)
+    expect(result).toBeLessThan(0.4)
   })
 
   it('weights control component influence', () => {
@@ -418,14 +478,14 @@ describe('weightedFitnessSum', () => {
     // Heavy rocks weight
     const rocksHeavy = weightedFitnessSum(
       metrics,
-      { rocksDestroyed: 0.9, accuracy: 0.05, survival: 0.05 },
+      { rocksDestroyed: 0.9, accuracy: 0.1 },
       defaultGateConfig,
       defaultContext
     )
     // Heavy accuracy weight (but accuracy is 0 here)
     const accHeavy = weightedFitnessSum(
       metrics,
-      { rocksDestroyed: 0.05, accuracy: 0.9, survival: 0.05 },
+      { rocksDestroyed: 0.1, accuracy: 0.9 },
       defaultGateConfig,
       defaultContext
     )
@@ -509,5 +569,82 @@ describe('calculateFitness', () => {
     expect(fitness[0]).toBeGreaterThan(fitness[2]!)
     // Degenerate should score lowest
     expect(fitness[1]).toBeLessThan(fitness[2]!)
+  })
+})
+
+describe('easing curve shape', () => {
+  it('actionDiversityGate produces expected shape with quad easing', () => {
+    const quadGate = {
+      ...defaultGateConfig,
+      actionEasing: 'quad' as const,
+      actionLow: 0.1,
+      actionHigh: 0.6,
+    }
+
+    // In the sweet zone → near 1.0
+    const sweetSpot = actionDiversityGate(
+      makeMetrics({
+        aliveFrames: 1000,
+        thrustFrames: 300,
+        fireFrames: 200,
+        leftFrames: 200,
+        rightFrames: 200,
+      }),
+      quadGate
+    )
+    expect(sweetSpot).toBeGreaterThan(0.8)
+
+    // Just above high → still close to 1 (gentle departure with easeIn)
+    const justAbove = actionDiversityGate(
+      makeMetrics({
+        aliveFrames: 1000,
+        thrustFrames: 650,
+        fireFrames: 200,
+        leftFrames: 200,
+        rightFrames: 200,
+      }),
+      quadGate
+    )
+    expect(justAbove).toBeGreaterThan(0.5)
+
+    // Saturated → heavily penalized
+    const saturated = actionDiversityGate(
+      makeMetrics({
+        aliveFrames: 1000,
+        thrustFrames: 950,
+        fireFrames: 200,
+        leftFrames: 200,
+        rightFrames: 200,
+      }),
+      quadGate
+    )
+    expect(saturated).toBeLessThan(sweetSpot)
+  })
+
+  it('survivalGateFloor prevents zero survival score', () => {
+    const config = {
+      ...defaultGateConfig,
+      survivalGateFloor: 0.25,
+    }
+    // Many deaths → survival would be 0 without floor
+    const metrics = makeMetrics({
+      accuracy: 0.5,
+      rocksDestroyed: 10,
+      uniqueRocksSeen: 20,
+      deaths: 10,
+      aliveFrames: 1000,
+      thrustFrames: 400,
+      fireFrames: 200,
+      leftFrames: 200,
+      rightFrames: 200,
+    })
+    const result = weightedFitnessSum(
+      metrics,
+      defaultWeights,
+      config,
+      defaultContext
+    )
+    // With survivalGateFloor=0.25, result should be > 0 even with many deaths
+    expect(result).toBeGreaterThan(0)
   })
 })

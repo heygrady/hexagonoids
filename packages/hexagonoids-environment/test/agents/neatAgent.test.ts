@@ -40,7 +40,7 @@ function createCapturingExecutor(onExecute: (inputs: number[]) => void) {
 }
 
 describe('neatAgent', () => {
-  it('adds only a small proximity floor to empty lidar rays', () => {
+  it('empty lidar rays are zero (no noise)', () => {
     const { state, engine } = setupGame('neat-agent-empty-noise')
     let capturedInputs: number[] | undefined
     const context: AgentContext = {
@@ -55,9 +55,9 @@ describe('neatAgent', () => {
     neatAgent(state, PLAYER_ID, context)
 
     expect(capturedInputs).toBeDefined()
-    for (let ray = 0; ray < 16; ray++) {
-      const base = 5 + ray * 4
-      expect(capturedInputs?.[base]).toBe(0.015)
+    for (let cone = 0; cone < 8; cone++) {
+      const base = 5 + cone * 4
+      expect(capturedInputs?.[base]).toBe(0)
       expect(capturedInputs?.[base + 1]).toBe(0)
       expect(capturedInputs?.[base + 2]).toBe(0)
       expect(capturedInputs?.[base + 3]).toBe(0)
@@ -73,7 +73,7 @@ describe('neatAgent', () => {
       throw new Error('Expected alive ship for neatAgent test')
     }
 
-    spawnRock(state, ship.lat, ship.lng + 4, 2, createFixedRng())
+    spawnRock(state, { x: ship.x, y: ship.y, z: ship.z }, 2, createFixedRng())
 
     const rawInputs = encodeGameState(
       state,
@@ -81,7 +81,6 @@ describe('neatAgent', () => {
       new Map(),
       new Map(),
       33,
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -100,8 +99,8 @@ describe('neatAgent', () => {
     neatAgent(state, PLAYER_ID, context)
 
     expect(capturedInputs).toBeDefined()
-    for (let ray = 0; ray < 16; ray++) {
-      const base = 5 + ray * 4
+    for (let cone = 0; cone < 8; cone++) {
+      const base = 5 + cone * 4
       const rawProximity = rawInputs[base] ?? 0
       const rawClosing = rawInputs[base + 1] ?? 0
       const rawRockSize = rawInputs[base + 2] ?? 0

@@ -54,6 +54,10 @@ function createRandomExecutor(): SyncExecutor {
 
 describe('HexagonoidsEnvironment', () => {
   const simulationOverrides = {
+    curriculumEnabled:
+      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.curriculumEnabled,
+    curriculumCount:
+      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.curriculumCount,
     scenariosPerOrganism:
       DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.scenariosPerOrganism,
     scenarioMaxTicks:
