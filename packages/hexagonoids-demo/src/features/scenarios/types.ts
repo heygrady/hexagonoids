@@ -1,7 +1,4 @@
-import type {
-  EncodingPreset,
-  ScenarioSnapshot as EnvironmentScenarioSnapshot,
-} from '@heygrady/hexagonoids-environment'
+import type { ScenarioSnapshot as EnvironmentScenarioSnapshot } from '@heygrady/hexagonoids-environment'
 
 import type { SupportedAlgorithm } from '../../algorithmRegistry.js'
 
@@ -45,7 +42,6 @@ export interface SourceGenome {
   kind: SourceKind
   genomePath: string
   method: SupportedAlgorithm | null
-  encodingPreset: EncodingPreset | null
   generation: number | null
   measuredFitness: number | null
   io: GenomeIoShape | null
@@ -205,7 +201,7 @@ export interface ScenarioRuntime {
     captureTypes?: Array<'death' | 'kill'>
     killRatio?: number
   }): ScenarioSnapshot[]
-  createNeatAgent(encodingPreset: EncodingPreset): unknown
+  createNeatAgent(): unknown
   neatAgent: unknown
   randomAgent: unknown
   simulateScenario(
@@ -228,7 +224,6 @@ export interface ScenarioRuntime {
     gateConfig: Record<string, unknown>,
     context: Record<string, unknown>
   ): number
-  scenarioMaximums(maxTicks: number): Record<string, unknown>
   scenarioPossibleDeaths(lives: number, maxTicks: number, dtMs: number): number
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: {
     simulation?: { dtMs?: number }

@@ -1,8 +1,5 @@
 export type { AnalyzeGenomesOptions } from './analyzeGenomes.js'
 export { analyzeGenomes } from './analyzeGenomes.js'
-export { loadProfile } from './loadProfile.js'
-export { profileToTrainOptions } from './profileToTrainOptions.js'
-export { resolveProfilePath } from './resolveProfilePath.js'
 export { runLab } from './runLab.js'
 export type {
   GenomeBehavior,
@@ -10,5 +7,5 @@ export type {
   LabConfig,
   LabOptions,
   LabProfile,
-  ScoringMethod,
+  LabSpecificOptions,
 } from './types.js'

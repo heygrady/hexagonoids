@@ -3,7 +3,7 @@ import {
   encodeScenarioBankDocument,
 } from '@heygrady/hexagonoids-environment'
 
-import { SUPPORTED_IO } from './options.js'
+import { EXPECTED_IO } from './options.js'
 import type {
   InstantDeathFilterReport,
   PanelReport,
@@ -23,7 +23,7 @@ export function makeOutputDocument(
 ) {
   return {
     generatedAt: new Date().toISOString(),
-    expectedIo: SUPPORTED_IO,
+    expectedIo: EXPECTED_IO,
     options: {
       maxLabs: options.maxLabs,
       heroCount: options.heroCount,
@@ -57,7 +57,7 @@ export function makeOutputDocument(
         labId: handle.source.labId,
         kind: handle.source.kind,
         method: handle.source.method,
-        encodingPreset: handle.source.encodingPreset,
+
         generation: handle.source.generation,
         measuredFitness: handle.source.measuredFitness,
       })),
@@ -69,7 +69,7 @@ export function makeOutputDocument(
       kind: source.kind,
       genomePath: source.genomePath,
       method: source.method,
-      encodingPreset: source.encodingPreset,
+
       generation: source.generation,
       measuredFitness: source.measuredFitness,
     })),
@@ -84,7 +84,7 @@ export function makeOutputDocument(
         labId: entry.source.labId,
         kind: entry.source.kind,
         method: entry.source.method,
-        encodingPreset: entry.source.encodingPreset,
+
         generation: entry.source.generation,
         measuredFitness: entry.source.measuredFitness,
       },

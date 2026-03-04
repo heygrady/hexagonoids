@@ -1,4 +1,3 @@
-import type { EncodingPreset } from '@heygrady/hexagonoids-environment'
 import { Dispatcher } from '@neat-evolution/worker-actions'
 import { WorkerPool } from '@neat-evolution/worker-pool'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
@@ -17,7 +16,6 @@ export interface LabWorkerPool {
   analyzeGenomesParallel(options: {
     genomePaths: string[]
     method: SupportedAlgorithm
-    encodingPreset: EncodingPreset
     seedsPerGenome: number
     maxTicks: number
     dtMs: number
@@ -72,7 +70,6 @@ export async function createLabWorkerPool(options?: {
       const {
         genomePaths,
         method,
-        encodingPreset,
         seedsPerGenome,
         maxTicks,
         dtMs,
@@ -103,7 +100,6 @@ export async function createLabWorkerPool(options?: {
             analyzeBatch({
               genomeRefs: chunk,
               method,
-              encodingPreset,
               seedsPerGenome,
               maxTicks,
               dtMs,

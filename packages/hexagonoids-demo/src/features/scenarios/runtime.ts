@@ -26,7 +26,6 @@ export async function loadScenarioRuntime(): Promise<ScenarioRuntime> {
     randomAgent: env.randomAgent,
     simulateScenario: env.simulateScenario,
     weightedFitnessSum: env.weightedFitnessSum,
-    scenarioMaximums: env.scenarioMaximums,
     scenarioPossibleDeaths: env.scenarioPossibleDeaths,
     DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG:
       env.DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
@@ -40,10 +39,6 @@ export async function createAgentHandle(
   if (source.method == null) {
     throw new Error(`Source "${source.id}" is missing a training method`)
   }
-  if (source.encodingPreset == null) {
-    throw new Error(`Source "${source.id}" is missing an encoding preset`)
-  }
-
   const manager = runtime.createNodeEvolutionManager({ method: source.method })
   const serialized = runtime.loadGenome(source.genomePath)
   const organism = manager.createOrganism(source.method, serialized)
@@ -53,7 +48,7 @@ export async function createAgentHandle(
     id: source.id,
     label: `${source.kind}:${source.labId}:${basename(source.genomePath)}`,
     source,
-    agent: runtime.createNeatAgent(source.encodingPreset),
+    agent: runtime.createNeatAgent(),
     executor,
   }
 }
@@ -114,7 +109,6 @@ export function loadExistingScenarioCandidates(options: ScenarioOptions): {
     kind: 'existing-bank',
     genomePath: options.existing,
     method: null,
-    encodingPreset: null,
     generation: null,
     measuredFitness: null,
     io: null,

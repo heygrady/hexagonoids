@@ -31,13 +31,15 @@ export async function generateReport(
   const summaryPath = join(experimentDir, 'summary.txt')
   const lines: string[] = []
 
+  const t = analysis.config.trainOptions
+
   lines.push('Lab Analysis Summary')
   lines.push('====================')
   lines.push('')
   lines.push(`Experiment: ${analysis.config.experimentId}`)
-  lines.push(`Method: ${analysis.config.method}`)
-  lines.push(`Iterations: ${analysis.config.iterations}`)
-  lines.push(`Population: ${analysis.config.populationSize}`)
+  lines.push(`Method: ${t.method ?? 'HyperNEAT'}`)
+  lines.push(`Iterations: ${t.iterations ?? '?'}`)
+  lines.push(`Population: ${t.populationSize ?? '?'}`)
   lines.push(`Analysis seeds/genome: ${analysis.config.analysisSeedsPerGenome}`)
   lines.push(`Analysis max ticks: ${analysis.config.analysisMaxTicks}`)
   lines.push('')

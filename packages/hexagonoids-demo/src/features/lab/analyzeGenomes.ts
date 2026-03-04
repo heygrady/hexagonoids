@@ -1,8 +1,6 @@
 import {
   aggregateMetrics,
   createNeatAgent,
-  DEFAULT_ENCODING_PRESET,
-  type EncodingPreset,
   evaluateFullGameFitness,
   type RawMetrics,
   simulateGame,
@@ -11,8 +9,8 @@ import { createExecutor } from '@neat-evolution/executor'
 
 import {
   createGenomeFromSerialized,
-  createHexagonoidsIO,
   createPhenotypeForGenome,
+  HEXAGONOIDS_IO,
   type SerializedGenome,
   type SupportedAlgorithm,
 } from '../../algorithmRegistry.js'
@@ -40,14 +38,13 @@ function shannonEntropy(fractions: number[]): number {
 
 function hydrateGenome(
   method: SupportedAlgorithm,
-  serialized: SerializedOrganism,
-  encodingPreset: EncodingPreset
+  serialized: SerializedOrganism
 ): unknown {
   const genomeData = serialized.genome
   const genomeOptions = genomeData.genomeOptions
   const initConfig = isRecord(genomeOptions?.initConfig)
     ? genomeOptions.initConfig
-    : createHexagonoidsIO(encodingPreset)
+    : HEXAGONOIDS_IO
 
   return createGenomeFromSerialized(
     method,
@@ -64,7 +61,6 @@ function createExecutorForGenome(method: SupportedAlgorithm, genome: unknown) {
 export interface AnalyzeGenomesOptions {
   genomePaths: string[]
   method: SupportedAlgorithm
-  encodingPreset?: EncodingPreset | undefined
   seedsPerGenome: number
   maxTicks: number
   dtMs: number
@@ -79,7 +75,6 @@ export async function analyzeGenomes(
   const {
     genomePaths,
     method,
-    encodingPreset = DEFAULT_ENCODING_PRESET,
     seedsPerGenome,
     maxTicks,
     dtMs,
@@ -90,7 +85,7 @@ export async function analyzeGenomes(
 
   const simConfig = { maxTicks, dtMs, useFastThrust: true }
   const behaviors: GenomeBehavior[] = []
-  const agent = createNeatAgent(encodingPreset)
+  const agent = createNeatAgent()
 
   for (const [i, genomePath] of genomePaths.entries()) {
     const serialized = loadGenome(genomePath)
@@ -99,7 +94,7 @@ export async function analyzeGenomes(
       throw new Error(`Invalid genome at ${genomePath}`)
     }
 
-    const genome = hydrateGenome(method, serialized, encodingPreset)
+    const genome = hydrateGenome(method, serialized)
     const executor = createExecutorForGenome(method, genome)
 
     const seeds = generationSeedPack(i, seedsPerGenome, `${baseSeed}:analysis`)

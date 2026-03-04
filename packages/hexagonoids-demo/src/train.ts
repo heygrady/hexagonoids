@@ -3,13 +3,9 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
-  DEFAULT_ENCODING_PRESET,
-  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   doNothingAgent,
-  type EncodingPreset,
   type FitnessWeights,
   type GateConfig,
-  type HexagonoidsEnvironmentConfig,
   type RawMetrics,
   randomAgent,
 } from '@heygrady/hexagonoids-environment'
@@ -24,7 +20,7 @@ import {
   createPopulationForTraining,
   getAlgorithmDefinition,
 } from './algorithmRegistry.js'
-import { DEMO_DEFAULTS } from './configDefaults.js'
+import { buildEnvironmentOptions } from './buildEnvironmentOptions.js'
 import { summarizeBaselineAgent } from './evaluation/baselines.js'
 import {} from './evaluation/evaluateOrganism.js'
 import { mean, median } from './evaluation/metrics.js'
@@ -50,18 +46,14 @@ const CREATE_EXECUTOR_PATHNAME = '@neat-evolution/executor'
 const toRunConfig = (options: TrainOptions) => {
   return {
     method: options.method ?? DEFAULT_METHOD,
-    populationSize: options.populationSize ?? DEMO_DEFAULTS.populationSize,
-    iterations: options.iterations ?? DEMO_DEFAULTS.iterations,
-    secondsLimit: options.secondsLimit ?? DEMO_DEFAULTS.secondsLimit,
-    earlyStopPatience:
-      options.earlyStopPatience ?? DEMO_DEFAULTS.earlyStopPatience,
-    evaluationSeedsPerOrganism:
-      options.evaluationSeedsPerOrganism ??
-      DEMO_DEFAULTS.evaluationSeedsPerOrganism,
-    maxTicks: options.maxTicks ?? DEMO_DEFAULTS.maxTicks,
-    dtMs: options.dtMs ?? DEMO_DEFAULTS.dtMs,
+    populationSize: options.populationSize ?? 100,
+    iterations: options.iterations ?? 50,
+    secondsLimit: options.secondsLimit ?? 900,
+    earlyStopPatience: options.earlyStopPatience ?? 18,
+    evaluationSeedsPerOrganism: options.evaluationSeedsPerOrganism ?? 1,
+    maxTicks: options.maxTicks ?? 1024,
+    dtMs: options.dtMs ?? 33,
     useFastThrust: options.useFastThrust ?? true,
-    encodingPreset: options.encodingPreset ?? DEFAULT_ENCODING_PRESET,
     baseSeed: options.baseSeed ?? DEFAULT_BASE_SEED,
     outputDir: options.outputDir,
     baselineOnly: options.baselineOnly ?? false,
@@ -70,10 +62,8 @@ const toRunConfig = (options: TrainOptions) => {
       options.threadCount ?? Math.max(1, Math.floor(hardwareConcurrency - 1)),
     signal: options.signal,
     scenarioMode: options.scenarioMode ?? false,
-    scenariosPerOrganism:
-      options.scenariosPerOrganism ?? DEMO_DEFAULTS.scenariosPerOrganism,
-    scenarioMaxTicks:
-      options.scenarioMaxTicks ?? DEMO_DEFAULTS.scenarioMaxTicks,
+    scenariosPerOrganism: options.scenariosPerOrganism ?? 64,
+    scenarioMaxTicks: options.scenarioMaxTicks ?? 32,
   }
 }
 
@@ -90,7 +80,6 @@ export interface TrainOptions {
   maxTicks?: number | undefined
   dtMs?: number | undefined
   useFastThrust?: boolean | undefined
-  encodingPreset?: EncodingPreset | undefined
   outputDir?: string | undefined
   logInterval?: number | undefined
   threadCount?: number | undefined
@@ -100,9 +89,13 @@ export interface TrainOptions {
   scenarioMode?: boolean | undefined
   scenariosPerOrganism?: number | undefined
   scenarioMaxTicks?: number | undefined
+  curriculumEnabled?: boolean | undefined
+  curriculumCount?: number | undefined
+  curriculumWeight?: number | undefined
   fitnessWeights?: FitnessWeights | undefined
   gateConfig?: Partial<GateConfig> | undefined
   scenarioWeight?: number | undefined
+  fullGameWeight?: number | undefined
   scenarioSeedsPerOrganism?: number | undefined
   fullGameSeedsPerOrganism?: number | undefined
 }
@@ -267,50 +260,25 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   let populationFitnessMedian: number | null = null
   let workerProfiles: ActiveWorkerCpuProfile[] = []
 
-  const environmentOptions: Partial<HexagonoidsEnvironmentConfig> = {
-    simulation: {
-      maxTicks: config.maxTicks,
-      dtMs: config.dtMs,
-      useFastThrust: config.useFastThrust,
-      scenariosPerOrganism: config.scenariosPerOrganism,
-      scenarioMaxTicks: config.scenarioMaxTicks,
-    },
-    encodingPreset: config.encodingPreset,
-    ...(options.fitnessWeights != null && {
-      fitnessWeights: options.fitnessWeights,
-    }),
-    ...(options.gateConfig != null && {
-      gateConfig: {
-        ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
-        ...options.gateConfig,
-      },
-    }),
-    ...(options.scenarioWeight != null && {
-      scenarioWeight: options.scenarioWeight,
-    }),
-    ...(options.scenarioSeedsPerOrganism != null && {
-      scenarioSeedsPerOrganism: options.scenarioSeedsPerOrganism,
-    }),
-    ...(options.fullGameSeedsPerOrganism != null && {
-      fullGameSeedsPerOrganism: options.fullGameSeedsPerOrganism,
-    }),
-  }
-
+  let scenarioBank:
+    | import('@heygrady/hexagonoids-environment').ScenarioSnapshot[]
+    | undefined
   if (config.scenarioMode) {
     const { loadScenarioBank } = await import('./data/scenarios.js')
-    const scenarioBank = loadScenarioBank()
+    scenarioBank = loadScenarioBank()
     if (scenarioBank.length === 0) {
       throw new Error(
         'Scenario mode enabled but no scenarios found. Run: yarn workspace @heygrady/hexagonoids-demo demo scenarios'
       )
     }
-    environmentOptions.scenarioBank = scenarioBank
     console.log(
       `Scenario mode: ${scenarioBank.length} scenarios loaded, ${config.scenariosPerOrganism} per organism, ${config.scenarioMaxTicks} max ticks each`
     )
   }
 
-  const environment = createEnvironment(environmentOptions)
+  const environment = createEnvironment(
+    buildEnvironmentOptions({ ...options, ...config }, scenarioBank)
+  )
   const algorithm = getAlgorithmDefinition(method).createAlgorithm()
   const evaluator = new WorkerEvaluator(algorithm, environment, {
     createEnvironmentPathname: CREATE_ENVIRONMENT_PATHNAME,

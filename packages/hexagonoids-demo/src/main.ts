@@ -1,22 +1,27 @@
-import { existsSync } from 'node:fs'
 import { argv, exitCode } from 'node:process'
 import { pathToFileURL } from 'node:url'
+
+import type { GateEasing } from '@heygrady/hexagonoids-environment'
 
 import {
   SUPPORTED_ALGORITHMS,
   type SupportedAlgorithm,
 } from './algorithmRegistry.js'
 import { runCli as runReplayCli } from './cli.js'
-import { loadProfile } from './features/lab/loadProfile.js'
-import { profileToTrainOptions } from './features/lab/profileToTrainOptions.js'
-import { resolveProfilePath } from './features/lab/resolveProfilePath.js'
 import { runLab } from './features/lab/runLab.js'
 import type { LabOptions } from './features/lab/types.js'
+import { defaultProfile } from './features/profiles/index.js'
+import { loadProfile } from './features/profiles/loadProfile.js'
 import { runGenerateScenariosCommand } from './features/scenarios/runGenerateScenarios.js'
 import { type TrainOptions, train } from './train.js'
 
 const isSupportedAlgorithm = (value: string): value is SupportedAlgorithm => {
   return SUPPORTED_ALGORITHMS.includes(value as SupportedAlgorithm)
+}
+
+const GATE_EASINGS: GateEasing[] = ['linear', 'quad', 'cubic', 'exp', 'circle']
+const isGateEasing = (value: string): value is GateEasing => {
+  return GATE_EASINGS.includes(value as GateEasing)
 }
 
 const usage = () => {
@@ -65,19 +70,19 @@ const usage = () => {
     '  replay --path <best-genome.json> [--method <name>] [--seed <seed>]',
     '',
     'Fitness weight options:',
-    '  --weightRocks <float>                    Rock destruction weight (default: 0.5)',
-    '  --weightAccuracy <float>                 Shooting accuracy weight (default: 0.3)',
-    '  --weightSurvival <float>                 Survival weight (default: 0.2)',
+    '  --weightRocks <float>                    Rock destruction weight (default: 0.6)',
+    '  --weightAccuracy <float>                 Shooting accuracy weight (default: 0.4)',
     '',
     'Gate config options:',
-    '  --gateFloor <float>                      Min action gate output (default: 0.5)',
+    '  --actionGateFloor <float>                Min action gate output (default: 0.5)',
     '  --actionLow <float>                      Action saturation low threshold (default: 0.1)',
     '  --actionHigh <float>                     Action saturation high threshold (default: 0.5)',
-    '  --actionSteepness <float>                Saturation penalty steepness (default: 8)',
+    `  --actionEasing <name>                    Action penalty easing (${GATE_EASINGS.join('|')}, default: exp)`,
     '  --turnGateFloor <float>                  Min turn gate output (default: 0.1)',
     '  --turnLow <float>                        Turn saturation low threshold (default: 0.1)',
     '  --turnHigh <float>                       Turn saturation high threshold (default: 0.65)',
-    '  --turnSteepness <float>                  Turn saturation steepness (default: 7)',
+    `  --turnEasing <name>                      Turn penalty easing (${GATE_EASINGS.join('|')}, default: exp)`,
+    '  --survivalGateFloor <float>              Min survival gate output (default: 0)',
     '',
     'Lab options (also accepts common + training options):',
     `  <method>                                 ${SUPPORTED_ALGORITHMS.join(' | ')}`,
@@ -129,6 +134,236 @@ const readFloat = (
   return parsed
 }
 
+/**
+ * Parse a single shared CLI option token. Returns the number of extra args
+ * consumed (0 for flags, 1 for key-value pairs), or null if the token is
+ * not a recognized shared option.
+ */
+const parseSharedOption = (
+  token: string,
+  next: string | undefined,
+  options: Partial<TrainOptions>
+): number | null => {
+  if (token === '--method') {
+    if (next == null || !isSupportedAlgorithm(next)) {
+      throw new Error(`Invalid or missing --method value.\n\n${usage()}`)
+    }
+    options.method = next
+    return 1
+  }
+
+  if (token === '--baseSeed') {
+    if (next == null || next.startsWith('-')) {
+      throw new Error(`Missing value for --baseSeed.\n\n${usage()}`)
+    }
+    options.baseSeed = next
+    return 1
+  }
+
+  if (token === '--evaluationSeedsPerOrganism') {
+    options.evaluationSeedsPerOrganism = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--maxTicks') {
+    options.maxTicks = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--dtMs') {
+    options.dtMs = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--thrustMath') {
+    if (next !== 'fast' && next !== 'quaternion') {
+      throw new Error(
+        `Invalid value for --thrustMath. Expected "fast" or "quaternion".\n\n${usage()}`
+      )
+    }
+    options.useFastThrust = next === 'fast'
+    return 1
+  }
+
+  if (token === '--populationSize') {
+    options.populationSize = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--iterations') {
+    options.iterations = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--secondsLimit') {
+    options.secondsLimit = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--earlyStopPatience') {
+    options.earlyStopPatience = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--outputDir') {
+    if (next == null || next.startsWith('-')) {
+      throw new Error(`Missing value for --outputDir.\n\n${usage()}`)
+    }
+    options.outputDir = next
+    return 1
+  }
+
+  if (token === '--logInterval') {
+    options.logInterval = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--threadCount') {
+    options.threadCount = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--profile') {
+    if (next == null || next.startsWith('-')) {
+      throw new Error(`Missing value for --profile.\n\n${usage()}`)
+    }
+    options.profilePath = next
+    return 1
+  }
+
+  if (token === '--scenarios') {
+    options.scenarioMode = true
+    return 0
+  }
+
+  if (token === '--scenariosPerOrganism') {
+    options.scenariosPerOrganism = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--scenarioMaxTicks') {
+    options.scenarioMaxTicks = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--scenarioWeight') {
+    options.scenarioWeight = readFloat(token, next)
+    return 1
+  }
+
+  if (token === '--scenarioSeedsPerOrganism') {
+    options.scenarioSeedsPerOrganism = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--fullGameSeedsPerOrganism') {
+    options.fullGameSeedsPerOrganism = readInt(token, next)
+    return 1
+  }
+
+  if (token === '--weightRocks') {
+    options.fitnessWeights = {
+      ...{ rocksDestroyed: 0.6, accuracy: 0.4 },
+      ...options.fitnessWeights,
+      rocksDestroyed: readFloat(token, next),
+    }
+    return 1
+  }
+
+  if (token === '--weightAccuracy') {
+    options.fitnessWeights = {
+      ...{ rocksDestroyed: 0.6, accuracy: 0.4 },
+      ...options.fitnessWeights,
+      accuracy: readFloat(token, next),
+    }
+    return 1
+  }
+
+  if (token === '--actionGateFloor') {
+    options.gateConfig = {
+      ...options.gateConfig,
+      actionGateFloor: readFloat(token, next),
+    }
+    return 1
+  }
+
+  if (token === '--actionLow') {
+    options.gateConfig = {
+      ...options.gateConfig,
+      actionLow: readFloat(token, next),
+    }
+    return 1
+  }
+
+  if (token === '--actionHigh') {
+    options.gateConfig = {
+      ...options.gateConfig,
+      actionHigh: readFloat(token, next),
+    }
+    return 1
+  }
+
+  if (token === '--actionEasing') {
+    if (next == null || !isGateEasing(next)) {
+      throw new Error(
+        `Invalid value for --actionEasing. Expected one of: ${GATE_EASINGS.join(', ')}.\n\n${usage()}`
+      )
+    }
+    options.gateConfig = {
+      ...options.gateConfig,
+      actionEasing: next,
+    }
+    return 1
+  }
+
+  if (token === '--turnGateFloor') {
+    options.gateConfig = {
+      ...options.gateConfig,
+      turnFloor: readFloat(token, next),
+    }
+    return 1
+  }
+
+  if (token === '--turnLow') {
+    options.gateConfig = {
+      ...options.gateConfig,
+      turnLow: readFloat(token, next),
+    }
+    return 1
+  }
+
+  if (token === '--turnHigh') {
+    options.gateConfig = {
+      ...options.gateConfig,
+      turnHigh: readFloat(token, next),
+    }
+    return 1
+  }
+
+  if (token === '--turnEasing') {
+    if (next == null || !isGateEasing(next)) {
+      throw new Error(
+        `Invalid value for --turnEasing. Expected one of: ${GATE_EASINGS.join(', ')}.\n\n${usage()}`
+      )
+    }
+    options.gateConfig = {
+      ...options.gateConfig,
+      turnEasing: next,
+    }
+    return 1
+  }
+
+  if (token === '--survivalGateFloor') {
+    options.gateConfig = {
+      ...options.gateConfig,
+      survivalGateFloor: readFloat(token, next),
+    }
+    return 1
+  }
+
+  return null
+}
+
 const parseTrainLikeOptions = (
   args: string[],
   mode: 'baseline' | 'train'
@@ -144,241 +379,9 @@ const parseTrainLikeOptions = (
       throw new Error(usage())
     }
 
-    if (token === '--method') {
-      if (next == null || !isSupportedAlgorithm(next)) {
-        throw new Error(`Invalid or missing --method value.\n\n${usage()}`)
-      }
-      options.method = next
-      index += 1
-      continue
-    }
-
-    if (token === '--baseSeed') {
-      if (next == null || next.startsWith('-')) {
-        throw new Error(`Missing value for --baseSeed.\n\n${usage()}`)
-      }
-      options.baseSeed = next
-      index += 1
-      continue
-    }
-
-    if (token === '--evaluationSeedsPerOrganism') {
-      options.evaluationSeedsPerOrganism = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--maxTicks') {
-      options.maxTicks = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--dtMs') {
-      options.dtMs = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--thrustMath') {
-      if (next !== 'fast' && next !== 'quaternion') {
-        throw new Error(
-          `Invalid value for --thrustMath. Expected "fast" or "quaternion".\n\n${usage()}`
-        )
-      }
-      options.useFastThrust = next === 'fast'
-      index += 1
-      continue
-    }
-
-    if (token === '--populationSize') {
-      options.populationSize = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--iterations') {
-      options.iterations = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--secondsLimit') {
-      options.secondsLimit = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--earlyStopPatience') {
-      options.earlyStopPatience = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--outputDir') {
-      if (next == null || next.startsWith('-')) {
-        throw new Error(`Missing value for --outputDir.\n\n${usage()}`)
-      }
-      options.outputDir = next
-      index += 1
-      continue
-    }
-
-    if (token === '--logInterval') {
-      options.logInterval = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--threadCount') {
-      options.threadCount = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--profile') {
-      if (next == null || next.startsWith('-')) {
-        throw new Error(`Missing value for --profile.\n\n${usage()}`)
-      }
-      options.profilePath = next
-      index += 1
-      continue
-    }
-
-    if (token === '--scenarios') {
-      options.scenarioMode = true
-      continue
-    }
-
-    if (token === '--scenariosPerOrganism') {
-      options.scenariosPerOrganism = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--scenarioMaxTicks') {
-      options.scenarioMaxTicks = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--scenarioWeight') {
-      options.scenarioWeight = readFloat(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--scenarioSeedsPerOrganism') {
-      options.scenarioSeedsPerOrganism = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--fullGameSeedsPerOrganism') {
-      options.fullGameSeedsPerOrganism = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--weightRocks') {
-      options.fitnessWeights = {
-        ...{ rocksDestroyed: 0.5, accuracy: 0.3, survival: 0.2 },
-        ...options.fitnessWeights,
-        rocksDestroyed: readFloat(token, next),
-      }
-      index += 1
-      continue
-    }
-
-    if (token === '--weightAccuracy') {
-      options.fitnessWeights = {
-        ...{ rocksDestroyed: 0.5, accuracy: 0.3, survival: 0.2 },
-        ...options.fitnessWeights,
-        accuracy: readFloat(token, next),
-      }
-      index += 1
-      continue
-    }
-
-    if (token === '--weightSurvival') {
-      options.fitnessWeights = {
-        ...{ rocksDestroyed: 0.5, accuracy: 0.3, survival: 0.2 },
-        ...options.fitnessWeights,
-        survival: readFloat(token, next),
-      }
-      index += 1
-      continue
-    }
-
-    if (token === '--gateFloor') {
-      options.gateConfig = {
-        ...options.gateConfig,
-        floor: readFloat(token, next),
-      }
-      index += 1
-      continue
-    }
-
-    if (token === '--actionLow') {
-      options.gateConfig = {
-        ...options.gateConfig,
-        actionLow: readFloat(token, next),
-      }
-      index += 1
-      continue
-    }
-
-    if (token === '--actionHigh') {
-      options.gateConfig = {
-        ...options.gateConfig,
-        actionHigh: readFloat(token, next),
-      }
-      index += 1
-      continue
-    }
-
-    if (token === '--actionSteepness') {
-      options.gateConfig = {
-        ...options.gateConfig,
-        actionSteepness: readFloat(token, next, 0, 100),
-      }
-      index += 1
-      continue
-    }
-
-    if (token === '--turnGateFloor') {
-      options.gateConfig = {
-        ...options.gateConfig,
-        turnFloor: readFloat(token, next),
-      }
-      index += 1
-      continue
-    }
-
-    if (token === '--turnLow') {
-      options.gateConfig = {
-        ...options.gateConfig,
-        turnLow: readFloat(token, next),
-      }
-      index += 1
-      continue
-    }
-
-    if (token === '--turnHigh') {
-      options.gateConfig = {
-        ...options.gateConfig,
-        turnHigh: readFloat(token, next),
-      }
-      index += 1
-      continue
-    }
-
-    if (token === '--turnSteepness') {
-      options.gateConfig = {
-        ...options.gateConfig,
-        turnSteepness: readFloat(token, next, 0, 100),
-      }
-      index += 1
+    const skip = parseSharedOption(token, next, options)
+    if (skip != null) {
+      index += skip
       continue
     }
 
@@ -400,15 +403,7 @@ const parseLabOptions = (args: string[]): LabOptions => {
       throw new Error(usage())
     }
 
-    if (token === '--profile') {
-      if (next == null || next.startsWith('-')) {
-        throw new Error(`Missing value for --profile.\n\n${usage()}`)
-      }
-      options.profilePath = next
-      index += 1
-      continue
-    }
-
+    // Lab-specific options
     if (token === '--name') {
       if (next == null || next.startsWith('-')) {
         throw new Error(`Missing value for --name.\n\n${usage()}`)
@@ -430,181 +425,16 @@ const parseLabOptions = (args: string[]): LabOptions => {
       continue
     }
 
-    if (token === '--method') {
-      if (next == null || !isSupportedAlgorithm(next)) {
-        throw new Error(`Invalid or missing --method value.\n\n${usage()}`)
-      }
-      options.method = next
-      index += 1
-      continue
-    }
-
-    if (token === '--baseSeed') {
-      if (next == null || next.startsWith('-')) {
-        throw new Error(`Missing value for --baseSeed.\n\n${usage()}`)
-      }
-      options.baseSeed = next
-      index += 1
-      continue
-    }
-
-    if (token === '--evaluationSeedsPerOrganism') {
-      options.evaluationSeedsPerOrganism = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--maxTicks') {
-      options.maxTicks = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--dtMs') {
-      options.dtMs = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--populationSize') {
-      options.populationSize = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--iterations') {
-      options.iterations = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--secondsLimit') {
-      options.secondsLimit = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--earlyStopPatience') {
-      options.earlyStopPatience = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--logInterval') {
-      options.logInterval = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--threadCount') {
-      options.threadCount = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--scenarios') {
-      options.scenarioMode = true
-      continue
-    }
-
-    if (token === '--scenariosPerOrganism') {
-      options.scenariosPerOrganism = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--scenarioMaxTicks') {
-      options.scenarioMaxTicks = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--scenarioWeight') {
-      options.scenarioWeight = readFloat(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--scenarioSeedsPerOrganism') {
-      options.scenarioSeedsPerOrganism = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--fullGameSeedsPerOrganism') {
-      options.fullGameSeedsPerOrganism = readInt(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--weightRocks') {
-      options.weightRocks = readFloat(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--weightAccuracy') {
-      options.weightAccuracy = readFloat(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--weightSurvival') {
-      options.weightSurvival = readFloat(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--gateFloor') {
-      options.gateFloor = readFloat(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--actionLow') {
-      options.actionLow = readFloat(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--actionHigh') {
-      options.actionHigh = readFloat(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--actionSteepness') {
-      options.actionSteepness = readFloat(token, next, 0, 100)
-      index += 1
-      continue
-    }
-
-    if (token === '--turnGateFloor') {
-      options.turnGateFloor = readFloat(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--turnLow') {
-      options.turnLow = readFloat(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--turnHigh') {
-      options.turnHigh = readFloat(token, next)
-      index += 1
-      continue
-    }
-
-    if (token === '--turnSteepness') {
-      options.turnSteepness = readFloat(token, next, 0, 100)
-      index += 1
-      continue
-    }
-
+    // Positional algorithm name
     if (isSupportedAlgorithm(token) && options.method == null) {
       options.method = token
+      continue
+    }
+
+    // Shared options
+    const skip = parseSharedOption(token, next, options)
+    if (skip != null) {
+      index += skip
       continue
     }
 
@@ -627,11 +457,13 @@ const runScenariosCommand = async (args: string[]): Promise<number> => {
 const formatNumber = (value: number): string => value.toFixed(4)
 
 const runBaseline = async (args: string[]): Promise<number> => {
-  const options = parseTrainLikeOptions(args, 'baseline')
-  const result = await train({
-    ...options,
+  const cliOptions = parseTrainLikeOptions(args, 'baseline')
+  const options: TrainOptions = {
+    ...(defaultProfile.config ?? {}),
+    ...cliOptions,
     baselineOnly: true,
-  })
+  }
+  const result = await train(options)
   if (result.mode !== 'baseline') {
     throw new Error('Expected baseline mode result.')
   }
@@ -650,27 +482,23 @@ const runBaseline = async (args: string[]): Promise<number> => {
 const runTraining = async (args: string[]): Promise<number> => {
   const cliOptions = parseTrainLikeOptions(args, 'train')
 
-  let options: TrainOptions = { ...cliOptions, baselineOnly: false }
-
-  // Determine profile path: explicit --profile flag, or auto-detect default.json
-  let profilePath = cliOptions.profilePath
-  if (profilePath == null) {
-    const defaultPath = resolveProfilePath('default')
-    if (existsSync(defaultPath)) {
-      profilePath = 'default'
-      console.log(`Auto-loading default profile from ${defaultPath}...`)
-    }
+  // Load profile: explicit --profile flag, or built-in default
+  let profileConfig: Partial<TrainOptions> = {}
+  if (cliOptions.profilePath != null) {
+    const profile = await loadProfile(cliOptions.profilePath)
+    profileConfig = profile.config ?? {}
+    console.log(`Loading profile from ${cliOptions.profilePath}...`)
+  } else {
+    profileConfig = defaultProfile.config ?? {}
+    console.log('Using default profile')
   }
 
-  if (profilePath != null) {
-    const resolvedPath = resolveProfilePath(profilePath)
-    if (cliOptions.profilePath != null) {
-      console.log(`Loading profile from ${resolvedPath}...`)
-    }
-    const profile = await loadProfile(resolvedPath)
-    const profileDefaults = profileToTrainOptions(profile)
-    // CLI options override profile defaults
-    options = { ...profileDefaults, ...cliOptions, baselineOnly: false }
+  // CLI options override profile defaults, default profile as base
+  const options: TrainOptions = {
+    ...(defaultProfile.config ?? {}),
+    ...profileConfig,
+    ...cliOptions,
+    baselineOnly: false,
   }
 
   const result = await train(options)

@@ -62,7 +62,6 @@ async function main() {
     neatAgent,
     simulateScenario,
     weightedFitnessSum,
-    scenarioMaximums,
     scenarioPossibleDeaths,
     DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   } = await import('@heygrady/hexagonoids-environment')
@@ -108,7 +107,6 @@ async function main() {
         options.maxTicks,
         simulation.dtMs
       ),
-      ...scenarioMaximums(options.maxTicks),
     }
 
     const fitness = weightedFitnessSum(
@@ -126,7 +124,7 @@ async function main() {
       rockCount: scenario.rocks.length,
       fitness,
       rocksDestroyed: metrics.rocksDestroyed,
-      maxRocksDestroyed: context.maxRocksDestroyed,
+      uniqueRocksSeen: metrics.uniqueRocksSeen,
       deaths: metrics.deaths,
       accuracy: metrics.accuracy,
       shotsFired: metrics.shotsFired,

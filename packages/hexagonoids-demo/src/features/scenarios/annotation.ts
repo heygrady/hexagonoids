@@ -116,7 +116,6 @@ export function evaluateScenarioWithAgent(
       evalTicks,
       simConfig.dtMs
     ),
-    ...runtime.scenarioMaximums(evalTicks),
   }
 
   const config = runtime.DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG

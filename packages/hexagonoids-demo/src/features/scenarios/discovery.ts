@@ -1,16 +1,11 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 
-import {
-  DEFAULT_ENCODING_PRESET,
-  type EncodingPreset,
-  getInputCountForEncoding,
-  isEncodingPreset,
-} from '@heygrady/hexagonoids-environment'
+import { INPUT_COUNT } from '@heygrady/hexagonoids-environment'
 import { z } from 'zod'
 
 import type { SupportedAlgorithm } from '../../algorithmRegistry.js'
-import { EXPECTED_OUTPUTS, SUPPORTED_IO } from './options.js'
+import { EXPECTED_OUTPUTS } from './options.js'
 import type {
   GenomeIoShape,
   RejectedSource,
@@ -38,12 +33,25 @@ function readJsonLines(pathname: string): unknown[] {
   return lines.map((line) => JSON.parse(line))
 }
 
+const algorithmEnum = z.enum([
+  'CPPN',
+  'NEAT',
+  'HyperNEAT',
+  'ES-HyperNEAT',
+  'DES-HyperNEAT',
+])
+
 const labConfigSchema = z
   .object({
-    method: z
-      .enum(['CPPN', 'NEAT', 'HyperNEAT', 'ES-HyperNEAT', 'DES-HyperNEAT'])
+    // Old flat layout
+    method: algorithmEnum.optional(),
+    // New nested layout
+    trainOptions: z
+      .object({
+        method: algorithmEnum.optional(),
+      })
+      .passthrough()
       .optional(),
-    encodingPreset: z.enum(['four', 'five', 'six']).optional(),
   })
   .passthrough()
 
@@ -63,20 +71,11 @@ function genomeIoShape(serialized: unknown): GenomeIoShape | null {
   return { inputs, outputs }
 }
 
-function inferEncodingPreset(inputs: number): EncodingPreset | null {
-  if (inputs === getInputCountForEncoding('four')) return 'four'
-  if (inputs === getInputCountForEncoding('five')) return 'five'
-  if (inputs === getInputCountForEncoding('six')) return 'six'
-  return null
-}
-
 function readLabConfig(pathname: string): {
   method: SupportedAlgorithm
-  encodingPreset: EncodingPreset
 } {
   const fallback = {
     method: 'HyperNEAT' as SupportedAlgorithm,
-    encodingPreset: DEFAULT_ENCODING_PRESET,
   }
   const configPath = join(pathname, 'config.json')
   if (!existsSync(configPath)) return fallback
@@ -90,14 +89,11 @@ function readLabConfig(pathname: string): {
   const result = labConfigSchema.safeParse(parsed)
   if (!result.success) return fallback
 
-  return {
-    method: result.data.method ?? fallback.method,
-    encodingPreset:
-      (result.data.encodingPreset != null &&
-      isEncodingPreset(result.data.encodingPreset)
-        ? result.data.encodingPreset
-        : null) ?? fallback.encodingPreset,
-  }
+  // Support both old flat layout and new nested trainOptions layout
+  const t = result.data.trainOptions
+  const method = t?.method ?? result.data.method ?? fallback.method
+
+  return { method }
 }
 
 function isCompatibleGenome(serialized: unknown): boolean {
@@ -105,7 +101,7 @@ function isCompatibleGenome(serialized: unknown): boolean {
   return (
     shape != null &&
     shape.outputs === EXPECTED_OUTPUTS &&
-    SUPPORTED_IO.some((candidate) => candidate.inputs === shape.inputs)
+    shape.inputs === INPUT_COUNT
   )
 }
 
@@ -311,8 +307,6 @@ export function discoverSourceGenomes(options: ScenarioOptions): SourceReport {
       }
 
       const io = genomeIoShape(serialized)
-      const inferredEncodingPreset =
-        io != null ? inferEncodingPreset(io.inputs) : null
       if (!isCompatibleGenome(serialized)) {
         rejected.push({
           pathname: source.pathname,
@@ -340,7 +334,6 @@ export function discoverSourceGenomes(options: ScenarioOptions): SourceReport {
         kind: source.kind,
         genomePath: source.pathname,
         method: labConfig.method,
-        encodingPreset: inferredEncodingPreset ?? labConfig.encodingPreset,
         generation,
         measuredFitness,
         io,

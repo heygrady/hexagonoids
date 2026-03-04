@@ -2,10 +2,7 @@ import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import {
-  getInputCountForEncoding,
-  isEncodingPreset,
-} from '@heygrady/hexagonoids-environment'
+import { INPUT_COUNT } from '@heygrady/hexagonoids-environment'
 
 import type { ExpectedIoShape, ScenarioOptions } from './types.js'
 
@@ -20,15 +17,10 @@ function findPackageRoot() {
 
 export const packageRoot = findPackageRoot()
 export const EXPECTED_OUTPUTS = 4
-export const SUPPORTED_ENCODING_PRESETS = ['four', 'five', 'six'].filter(
-  isEncodingPreset
-)
-export const SUPPORTED_IO: ExpectedIoShape[] = SUPPORTED_ENCODING_PRESETS.map(
-  (preset) => ({
-    inputs: getInputCountForEncoding(preset),
-    outputs: EXPECTED_OUTPUTS,
-  })
-)
+export const EXPECTED_IO: ExpectedIoShape = {
+  inputs: INPUT_COUNT,
+  outputs: EXPECTED_OUTPUTS,
+}
 
 export function parseScenarioArgs(argv: string[]): ScenarioOptions {
   const options: ScenarioOptions = {

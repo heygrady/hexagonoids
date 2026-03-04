@@ -19,6 +19,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const packageRoot = resolve(__dirname, '..')
 const profilesDir = resolve(packageRoot, '.artifacts/profiles')
 const defaultProfilePath = resolve(profilesDir, 'default.json')
+// NOTE: The canonical default profile is now src/profiles/default.ts.
+// This script reads/writes .artifacts/profiles/default.json as a scratch
+// workspace for hyperparameter search results. Merge winners into
+// src/profiles/default.ts manually.
 
 // ---------------------------------------------------------------------------
 // parseArgs
@@ -41,21 +45,24 @@ function parseArgs(argv) {
 // ---------------------------------------------------------------------------
 // Search space — all tunable params
 // ---------------------------------------------------------------------------
+const GATE_EASINGS = ['linear', 'quad', 'cubic', 'exp', 'circle']
+
 const SEARCH_SPACE = [
   // Fitness weights (renormalized to sum=1 after sampling)
   { key: 'weightRocks', min: 0.05, max: 0.9, scale: 'linear' },
   { key: 'weightAccuracy', min: 0.05, max: 0.9, scale: 'linear' },
-  { key: 'weightSurvival', min: 0.01, max: 0.9, scale: 'linear' },
   // Action gate
-  { key: 'gateFloor', min: 0.1, max: 0.8, scale: 'linear' },
+  { key: 'actionGateFloor', min: 0.1, max: 0.8, scale: 'linear' },
   { key: 'actionLow', min: 0.01, max: 0.3, scale: 'linear' },
   { key: 'actionHigh', min: 0.2, max: 0.9, scale: 'linear' },
-  { key: 'actionSteepness', min: 1.0, max: 25.0, scale: 'linear' },
+  { key: 'actionEasing', categorical: GATE_EASINGS },
   // Turn gate
   { key: 'turnGateFloor', min: 0.01, max: 0.5, scale: 'linear' },
   { key: 'turnLow', min: 0.01, max: 0.3, scale: 'linear' },
   { key: 'turnHigh', min: 0.3, max: 1.0, scale: 'linear' },
-  { key: 'turnSteepness', min: 1.0, max: 25.0, scale: 'linear' },
+  { key: 'turnEasing', categorical: GATE_EASINGS },
+  // Survival gate
+  { key: 'survivalGateFloor', min: 0.0, max: 0.5, scale: 'linear' },
   // Scenario weighting
   { key: 'scenarioWeight', min: 0.0, max: 1.0, scale: 'linear' },
 ]
@@ -70,15 +77,15 @@ function loadBaseline(envDefaults) {
   const defaults = {
     weightRocks: envDefaults.fitnessWeights.rocksDestroyed,
     weightAccuracy: envDefaults.fitnessWeights.accuracy,
-    weightSurvival: envDefaults.fitnessWeights.survival,
-    gateFloor: envDefaults.gateConfig.floor,
+    actionGateFloor: envDefaults.gateConfig.actionGateFloor,
     actionLow: envDefaults.gateConfig.actionLow,
     actionHigh: envDefaults.gateConfig.actionHigh,
-    actionSteepness: envDefaults.gateConfig.actionSteepness,
+    actionEasing: envDefaults.gateConfig.actionEasing,
     turnGateFloor: envDefaults.gateConfig.turnFloor,
     turnLow: envDefaults.gateConfig.turnLow,
     turnHigh: envDefaults.gateConfig.turnHigh,
-    turnSteepness: envDefaults.gateConfig.turnSteepness,
+    turnEasing: envDefaults.gateConfig.turnEasing,
+    survivalGateFloor: envDefaults.gateConfig.survivalGateFloor,
     scenarioWeight: envDefaults.scenarioWeight,
   }
 
@@ -88,15 +95,15 @@ function loadBaseline(envDefaults) {
       return {
         weightRocks: raw.weightRocks ?? defaults.weightRocks,
         weightAccuracy: raw.weightAccuracy ?? defaults.weightAccuracy,
-        weightSurvival: raw.weightSurvival ?? defaults.weightSurvival,
-        gateFloor: raw.gateFloor ?? raw.actionGateFloor ?? defaults.gateFloor,
+        actionGateFloor: raw.actionGateFloor ?? defaults.actionGateFloor,
         actionLow: raw.actionLow ?? defaults.actionLow,
         actionHigh: raw.actionHigh ?? defaults.actionHigh,
-        actionSteepness: raw.actionSteepness ?? defaults.actionSteepness,
+        actionEasing: raw.actionEasing ?? defaults.actionEasing,
         turnGateFloor: raw.turnGateFloor ?? defaults.turnGateFloor,
         turnLow: raw.turnLow ?? defaults.turnLow,
         turnHigh: raw.turnHigh ?? defaults.turnHigh,
-        turnSteepness: raw.turnSteepness ?? defaults.turnSteepness,
+        turnEasing: raw.turnEasing ?? defaults.turnEasing,
+        survivalGateFloor: raw.survivalGateFloor ?? defaults.survivalGateFloor,
         scenarioWeight: raw.scenarioWeight ?? defaults.scenarioWeight,
       }
     } catch {
@@ -126,12 +133,20 @@ function generateCandidatesLHS(baseline, count) {
 
   // For each param, create n strata and sample one point per stratum
   // Then shuffle the assignment across candidates (Fisher-Yates)
-  const paramSamples = SEARCH_SPACE.map(({ min, max }) => {
+  const paramSamples = SEARCH_SPACE.map((spec) => {
     const samples = []
-    for (let i = 0; i < n; i++) {
-      // Sample uniformly within stratum [i/n, (i+1)/n]
-      const u = (i + Math.random()) / n
-      samples.push(min + u * (max - min))
+    if (spec.categorical) {
+      // Categorical: cycle through options, then shuffle
+      for (let i = 0; i < n; i++) {
+        samples.push(spec.categorical[i % spec.categorical.length])
+      }
+    } else {
+      const { min, max } = spec
+      for (let i = 0; i < n; i++) {
+        // Sample uniformly within stratum [i/n, (i+1)/n]
+        const u = (i + Math.random()) / n
+        samples.push(min + u * (max - min))
+      }
     }
     // Shuffle (Fisher-Yates)
     for (let i = samples.length - 1; i > 0; i--) {
@@ -148,14 +163,10 @@ function generateCandidatesLHS(baseline, count) {
     }
 
     // Renormalize fitness weights to sum to 1.0
-    const weightSum =
-      candidate.weightRocks +
-      candidate.weightAccuracy +
-      candidate.weightSurvival
+    const weightSum = candidate.weightRocks + candidate.weightAccuracy
     if (weightSum > 0) {
       candidate.weightRocks /= weightSum
       candidate.weightAccuracy /= weightSum
-      candidate.weightSurvival /= weightSum
     }
 
     candidates.push(candidate)
@@ -167,18 +178,6 @@ function generateCandidatesLHS(baseline, count) {
 // ---------------------------------------------------------------------------
 // evaluateCandidate — train (fast) + analyzeGenomes (gauntlet) → productionFitness
 // ---------------------------------------------------------------------------
-function buildGateConfig(candidate) {
-  return {
-    floor: candidate.gateFloor,
-    actionLow: candidate.actionLow,
-    actionHigh: candidate.actionHigh,
-    actionSteepness: candidate.actionSteepness,
-    turnFloor: candidate.turnGateFloor,
-    turnLow: candidate.turnLow,
-    turnHigh: candidate.turnHigh,
-    turnSteepness: candidate.turnSteepness,
-  }
-}
 
 async function evaluateCandidate(
   candidate,
@@ -226,12 +225,21 @@ async function evaluateCandidate(
       fitnessWeights: {
         rocksDestroyed: candidate.weightRocks,
         accuracy: candidate.weightAccuracy,
-        survival: candidate.weightSurvival,
       },
-      gateConfig: buildGateConfig(candidate),
+      gateConfig: {
+        actionGateFloor: candidate.actionGateFloor,
+        actionLow: candidate.actionLow,
+        actionHigh: candidate.actionHigh,
+        actionEasing: candidate.actionEasing,
+        turnFloor: candidate.turnGateFloor,
+        turnLow: candidate.turnLow,
+        turnHigh: candidate.turnHigh,
+        turnEasing: candidate.turnEasing,
+        survivalGateFloor: candidate.survivalGateFloor,
+      },
       scenarioWeight: candidate.scenarioWeight,
       baselineOnly: false,
-      seed: trialSeed,
+      baseSeed: trialSeed,
     })
 
     if (trainResult.mode !== 'training') {
@@ -374,9 +382,18 @@ async function evaluateBudgetCandidate(
     fitnessWeights: {
       rocksDestroyed: baseline.weightRocks,
       accuracy: baseline.weightAccuracy,
-      survival: baseline.weightSurvival,
     },
-    gateConfig: buildGateConfig(baseline),
+    gateConfig: {
+      actionGateFloor: baseline.actionGateFloor,
+      actionLow: baseline.actionLow,
+      actionHigh: baseline.actionHigh,
+      actionEasing: baseline.actionEasing,
+      turnFloor: baseline.turnGateFloor,
+      turnLow: baseline.turnLow,
+      turnHigh: baseline.turnHigh,
+      turnEasing: baseline.turnEasing,
+      survivalGateFloor: baseline.survivalGateFloor,
+    },
     scenarioWeight: baseline.scenarioWeight,
     baselineOnly: false,
   })
@@ -535,9 +552,10 @@ function printComparisonTable(results, baseline) {
     const paramValues = paramCols
       .map((c) => {
         const val = r.candidate[c.key]
-        return val != null
+        if (val == null) return ''.padStart(c.width)
+        return typeof val === 'number'
           ? val.toFixed(3).padStart(c.width)
-          : ''.padStart(c.width)
+          : String(val).padStart(c.width)
       })
       .join(' | ')
 

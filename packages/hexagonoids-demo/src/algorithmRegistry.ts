@@ -1,8 +1,4 @@
-import {
-  DEFAULT_ENCODING_PRESET,
-  type EncodingPreset,
-  getInputCountForEncoding,
-} from '@heygrady/hexagonoids-environment'
+import { INPUT_COUNT } from '@heygrady/hexagonoids-environment'
 import {
   Activation,
   defaultNEATConfigOptions,
@@ -124,17 +120,8 @@ export interface SerializedGenome {
 }
 
 export const HEXAGONOIDS_IO: AlgorithmIO = {
-  inputs: getInputCountForEncoding(DEFAULT_ENCODING_PRESET),
+  inputs: INPUT_COUNT,
   outputs: 4,
-}
-
-export const createHexagonoidsIO = (
-  encodingPreset: EncodingPreset = DEFAULT_ENCODING_PRESET
-): AlgorithmIO => {
-  return {
-    inputs: getInputCountForEncoding(encodingPreset),
-    outputs: 4,
-  }
 }
 
 const cloneDefaultOptions = <T>(defaults: T): T => structuredClone(defaults)

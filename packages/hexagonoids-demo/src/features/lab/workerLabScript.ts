@@ -12,7 +12,7 @@ interface LabRuntime {
   isSerializedOrganism: typeof import('../../serialization/serializedOrganism.js').isSerializedOrganism
   createGenomeFromSerialized: typeof import('../../algorithmRegistry.js').createGenomeFromSerialized
   createPhenotypeForGenome: typeof import('../../algorithmRegistry.js').createPhenotypeForGenome
-  createHexagonoidsIO: typeof import('../../algorithmRegistry.js').createHexagonoidsIO
+  HEXAGONOIDS_IO: typeof import('../../algorithmRegistry.js').HEXAGONOIDS_IO
   createExecutor: typeof import('@neat-evolution/executor').createExecutor
   createNeatAgent: typeof import('@heygrady/hexagonoids-environment').createNeatAgent
   simulateGame: typeof import('@heygrady/hexagonoids-environment').simulateGame
@@ -49,7 +49,7 @@ handler.register(ActionType.INIT, async () => {
   const {
     createGenomeFromSerialized,
     createPhenotypeForGenome,
-    createHexagonoidsIO,
+    HEXAGONOIDS_IO,
   } = await import('../../algorithmRegistry.js')
   const { generationSeedPack } = await import(
     '../../evaluation/seedSchedule.js'
@@ -60,7 +60,7 @@ handler.register(ActionType.INIT, async () => {
     isSerializedOrganism,
     createGenomeFromSerialized,
     createPhenotypeForGenome,
-    createHexagonoidsIO,
+    HEXAGONOIDS_IO,
     createExecutor,
     createNeatAgent: env.createNeatAgent,
     simulateGame: env.simulateGame,
@@ -80,7 +80,6 @@ handler.register(
     const {
       genomeRefs,
       method,
-      encodingPreset,
       seedsPerGenome,
       maxTicks,
       dtMs,
@@ -89,7 +88,7 @@ handler.register(
     } = payload
 
     const simConfig = { maxTicks, dtMs, useFastThrust: true }
-    const agent = runtime.createNeatAgent(encodingPreset)
+    const agent = runtime.createNeatAgent()
     const entries: AnalyzeBatchResultEntry[] = []
 
     for (const ref of genomeRefs) {
@@ -104,7 +103,7 @@ handler.register(
       const genomeOptions = genomeData.genomeOptions
       const initConfig = isRecord(genomeOptions?.initConfig)
         ? genomeOptions.initConfig
-        : runtime.createHexagonoidsIO(encodingPreset)
+        : runtime.HEXAGONOIDS_IO
 
       const genome = runtime.createGenomeFromSerialized(
         method,

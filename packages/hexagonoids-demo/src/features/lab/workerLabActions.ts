@@ -1,4 +1,3 @@
-import type { EncodingPreset } from '@heygrady/hexagonoids-environment'
 import { createMessage } from '@neat-evolution/worker-actions'
 
 import type { SupportedAlgorithm } from '../../algorithmRegistry.js'
@@ -22,7 +21,6 @@ export interface GenomeRef {
 export interface AnalyzeBatchPayload {
   genomeRefs: GenomeRef[]
   method: SupportedAlgorithm
-  encodingPreset: EncodingPreset
   seedsPerGenome: number
   maxTicks: number
   dtMs: number

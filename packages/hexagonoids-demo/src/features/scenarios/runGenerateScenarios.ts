@@ -5,7 +5,7 @@ import {
   trimFinalBank,
 } from './dedupe.js'
 import { discoverSourceGenomes } from './discovery.js'
-import { EXPECTED_OUTPUTS, parseScenarioArgs, SUPPORTED_IO } from './options.js'
+import { EXPECTED_IO, EXPECTED_OUTPUTS, parseScenarioArgs } from './options.js'
 import { makeOutputDocument, makeScenarioBank } from './output.js'
 import {
   selectReviewPanel,
@@ -42,15 +42,11 @@ function applyBaseInterestingness(
 
 export async function runGenerateScenarios(args: string[] = []) {
   const options = parseScenarioArgs(args)
-  const compatibleInputs = [
-    ...new Set(SUPPORTED_IO.map((io) => io.inputs)),
-  ].sort((a, b) => a - b)
-
   console.log(
     `\n=== Robust Scenario Mining: labs=${options.maxLabs} heroes=${options.heroCount} perSource=${options.countPerSource} rewind=${options.rewind} killRatio=${options.killRatio} ===`
   )
   console.log(
-    `Compatible genome filter: inputs=${compatibleInputs.join('/')} outputs=${EXPECTED_OUTPUTS}`
+    `Compatible genome filter: inputs=${EXPECTED_IO.inputs} outputs=${EXPECTED_OUTPUTS}`
   )
 
   const sourceReport = discoverSourceGenomes(options)
