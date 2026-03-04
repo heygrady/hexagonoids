@@ -314,8 +314,11 @@ export class SpatialIndex {
     }
   }
 
-  queryCells(options: QueryCellsOptions): readonly number[] {
-    const { center, radius, resolution } = options
+  queryCells(
+    center: SpatialPoint,
+    radius: number,
+    resolution: SpatialIndexResolution
+  ): readonly number[] {
     const system = BUCKET_SYSTEMS[resolution]
     const angularRadius = radius / this.sphereRadius
     const sourceBucketId = findBucketIndex(center, resolution)
@@ -353,23 +356,27 @@ export class SpatialIndex {
     return matches
   }
 
-  queryEntities(options: QueryEntitiesOptions): SpatialIndexEntity[] {
-    const { type, types } = options
+  queryEntities(
+    center: SpatialPoint,
+    radius: number,
+    type?: EntityType,
+    types?: EntityType[]
+  ): SpatialIndexEntity[] {
     if (type != null) {
-      return this.queryTypedEntitiesNear(options, type)
+      return this.queryTypedEntitiesNear(center, radius, type)
     }
     if (types != null && types.length === 1) {
-      return this.queryTypedEntitiesNear(options, types[0]!)
+      return this.queryTypedEntitiesNear(center, radius, types[0]!)
     }
 
-    const minDot = Math.cos(options.radius / this.sphereRadius)
+    const minDot = Math.cos(radius / this.sphereRadius)
     const results: SpatialIndexEntity[] = []
     const allowedTypes = normalizeTypes(type, types)
 
     if (allowedTypes == null || allowedTypes.has('ship')) {
       this.scanTypedEntitiesNear(
         this.entitiesByType.ship,
-        options.center,
+        center,
         minDot,
         results
       )
@@ -377,7 +384,7 @@ export class SpatialIndex {
     if (allowedTypes == null || allowedTypes.has('rock')) {
       this.scanTypedEntitiesNear(
         this.entitiesByType.rock,
-        options.center,
+        center,
         minDot,
         results
       )
@@ -385,7 +392,7 @@ export class SpatialIndex {
     if (allowedTypes == null || allowedTypes.has('bullet')) {
       this.scanTypedEntitiesNear(
         this.entitiesByType.bullet,
-        options.center,
+        center,
         minDot,
         results
       )
@@ -394,31 +401,23 @@ export class SpatialIndex {
     return results
   }
 
-  queryShipsNear(
-    options: Omit<QueryEntitiesOptions, 'type' | 'types'>
-  ): SpatialShipEntity[] {
-    return this.queryTypedEntitiesNear(options, 'ship')
+  queryShipsNear(center: SpatialPoint, radius: number): SpatialShipEntity[] {
+    return this.queryTypedEntitiesNear(center, radius, 'ship')
   }
 
-  queryRocksNear(
-    options: Omit<QueryEntitiesOptions, 'type' | 'types'>
-  ): SpatialRockEntity[] {
-    return this.queryTypedEntitiesNear(options, 'rock')
+  queryRocksNear(center: SpatialPoint, radius: number): SpatialRockEntity[] {
+    return this.queryTypedEntitiesNear(center, radius, 'rock')
   }
 
-  queryRocksIntersect(options: {
-    center: SpatialPoint
+  queryRocksIntersect(
+    center: SpatialPoint,
     radius: number
-  }): SpatialRockEntity[] {
-    const smallDot = Math.cos(
-      (options.radius + ROCK_SMALL_RADIUS) / this.sphereRadius
-    )
+  ): SpatialRockEntity[] {
+    const smallDot = Math.cos((radius + ROCK_SMALL_RADIUS) / this.sphereRadius)
     const mediumDot = Math.cos(
-      (options.radius + ROCK_MEDIUM_RADIUS) / this.sphereRadius
+      (radius + ROCK_MEDIUM_RADIUS) / this.sphereRadius
     )
-    const largeDot = Math.cos(
-      (options.radius + ROCK_LARGE_RADIUS) / this.sphereRadius
-    )
+    const largeDot = Math.cos((radius + ROCK_LARGE_RADIUS) / this.sphereRadius)
     const results: SpatialRockEntity[] = []
 
     for (const rock of this.entitiesByType.rock) {
@@ -428,7 +427,7 @@ export class SpatialIndex {
           : rock.entity.size === 1
             ? mediumDot
             : smallDot
-      if (dot(rock.point, options.center) >= thresholdDot) {
+      if (dot(rock.point, center) >= thresholdDot) {
         results.push(rock)
       }
     }
@@ -436,21 +435,47 @@ export class SpatialIndex {
     return results
   }
 
+  findFirstRockIntersect(
+    center: SpatialPoint,
+    radius: number
+  ): SpatialRockEntity | undefined {
+    const smallDot = Math.cos((radius + ROCK_SMALL_RADIUS) / this.sphereRadius)
+    const mediumDot = Math.cos(
+      (radius + ROCK_MEDIUM_RADIUS) / this.sphereRadius
+    )
+    const largeDot = Math.cos((radius + ROCK_LARGE_RADIUS) / this.sphereRadius)
+
+    for (const rock of this.entitiesByType.rock) {
+      const thresholdDot =
+        rock.entity.size === 2
+          ? largeDot
+          : rock.entity.size === 1
+            ? mediumDot
+            : smallDot
+      if (dot(rock.point, center) >= thresholdDot) {
+        return rock
+      }
+    }
+    return undefined
+  }
+
   queryBulletsNear(
-    options: Omit<QueryEntitiesOptions, 'type' | 'types'>
+    center: SpatialPoint,
+    radius: number
   ): SpatialBulletEntity[] {
-    return this.queryTypedEntitiesNear(options, 'bullet')
+    return this.queryTypedEntitiesNear(center, radius, 'bullet')
   }
 
   private queryTypedEntitiesNear<T extends EntityType>(
-    options: Omit<QueryEntitiesOptions, 'type' | 'types'>,
+    center: SpatialPoint,
+    radius: number,
     type: T
   ): Extract<SpatialIndexEntity, { type: T }>[] {
-    const minDot = Math.cos(options.radius / this.sphereRadius)
+    const minDot = Math.cos(radius / this.sphereRadius)
     const results: Extract<SpatialIndexEntity, { type: T }>[] = []
     this.scanTypedEntitiesNear(
       this.entitiesByType[type] as Extract<SpatialIndexEntity, { type: T }>[],
-      options.center,
+      center,
       minDot,
       results
     )
@@ -484,15 +509,10 @@ function buildSpatialEntity(
   entity: ShipState | RockState | BulletState,
   type: EntityType
 ): SpatialIndexEntity {
-  const point = {
-    x: entity.x,
-    y: entity.y,
-    z: entity.z,
-  }
   return {
     id: entity.id,
     type,
-    point,
+    point: entity,
     entity,
   }
 }

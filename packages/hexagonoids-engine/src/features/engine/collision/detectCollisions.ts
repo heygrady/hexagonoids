@@ -51,18 +51,6 @@ export function greatCircleDistance(
   return radius * c
 }
 
-function entityPoint(entity: {
-  x: number
-  y: number
-  z: number
-}): SpatialPoint {
-  return {
-    x: entity.x,
-    y: entity.y,
-    z: entity.z,
-  }
-}
-
 function dotProduct(a: SpatialPoint, b: SpatialPoint): number {
   return a.x * b.x + a.y * b.y + a.z * b.z
 }
@@ -81,13 +69,12 @@ function checkBulletRockCollisions(
 ): void {
   if (bullets.size === 0) return
   for (const bullet of bullets.values()) {
-    const bulletPoint = entityPoint(bullet)
     const rockCandidate = spatialQueries.findFirstRockIntersect(
-      bulletPoint,
+      bullet,
       BULLET_RADIUS
     )
     if (rockCandidate != null) {
-      const dot = dotProduct(bulletPoint, rockCandidate.point)
+      const dot = dotProduct(bullet, rockCandidate.point)
       pairs.push({
         a: { id: bullet.id, type: 'bullet' },
         b: { id: rockCandidate.entity.id, type: 'rock' },
@@ -115,13 +102,12 @@ function checkShipRockCollisions(
         continue
     }
 
-    const shipPoint = entityPoint(ship)
     const rockCandidate = spatialQueries.findFirstRockIntersect(
-      shipPoint,
+      ship,
       SHIP_RADIUS
     )
     if (rockCandidate != null) {
-      const dot = dotProduct(shipPoint, rockCandidate.point)
+      const dot = dotProduct(ship, rockCandidate.point)
       pairs.push({
         a: { id: ship.id, type: 'ship' },
         b: { id: rockCandidate.entity.id, type: 'rock' },
@@ -151,12 +137,7 @@ export function detectCollisions(
         center,
         queryRadius
       ): SpatialRockEntity | undefined {
-        return fallbackIndex!
-          .queryRocksIntersect({
-            center,
-            radius: queryRadius,
-          })
-          .at(0)
+        return fallbackIndex!.queryRocksIntersect(center, queryRadius).at(0)
       },
     } satisfies Pick<ManagedSpatialQueries, 'findFirstRockIntersect'>)
   checkBulletRockCollisions(state.bullets, radius, queries, pairs)

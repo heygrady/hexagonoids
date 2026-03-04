@@ -33,18 +33,6 @@ import type { GameState } from '../types.js'
 
 import { decrementLives, incrementScore } from './playerSetters.js'
 
-function pointFromPosition(position: {
-  x: number
-  y: number
-  z: number
-}): SpatialPoint {
-  return {
-    x: position.x,
-    y: position.y,
-    z: position.z,
-  }
-}
-
 function randomUnitPoint(rng: RNG): SpatialPoint {
   const y = rng.gen() * 2 - 1
   const theta = rng.gen() * Math.PI * 2
@@ -347,11 +335,7 @@ export function checkWaveSpawn(
 
   const ship = player.shipId != null ? game.ships.get(player.shipId) : undefined
   if (ship == null) return
-  const shipPoint = pointFromPosition(ship)
-
-  if (
-    spatialQueries.hasRocksNear(shipPoint, ROCK_ENCOUNTER_DISTANCE * RADIUS)
-  ) {
+  if (spatialQueries.hasRocksNear(ship, ROCK_ENCOUNTER_DISTANCE * RADIUS)) {
     player.lastRockEncounterAt = game.now
     player.nextWaveCheckAt = game.now + ROCK_WAVE_RETRY_DEFER_PERIOD
     return
@@ -359,7 +343,7 @@ export function checkWaveSpawn(
 
   const gate = evaluateWaveSpawnGate(
     game,
-    shipPoint,
+    ship,
     player.score,
     player.lastRockEncounterAt,
     spatialQueries
@@ -369,7 +353,7 @@ export function checkWaveSpawn(
     return
   }
 
-  spawnWave(game, shipPoint, rng)
+  spawnWave(game, ship, rng)
   player.waveSpawnedAt = game.now
   player.nextWaveCheckAt = game.now + nextWaveDelayMs(player.score)
 }
