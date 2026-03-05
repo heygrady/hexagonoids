@@ -1,17 +1,14 @@
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import {
   createGame,
-  RADIUS,
   ROCK_LARGE_SIZE,
   spawnRock,
   startPlayer,
   unitPointToQuaternion,
 } from '@heygrady/hexagonoids-engine'
 import { describe, expect, it } from 'vitest'
-import {
-  encodeGameState,
-  INPUT_COUNT,
-} from '../../src/encoding/encodeGameState.js'
+import { encodeGameState } from '../../src/encoding/encodeGameState.js'
+import { INPUT_COUNT } from '../../src/encoding/encodingPresets.js'
 
 const PLAYER_ID = 'player-1'
 
@@ -74,16 +71,13 @@ describe('encodeGameState', () => {
     const result = encodeGameState(
       state,
       PLAYER_ID,
-      new Map(),
-      new Map(),
-      33,
       undefined,
       undefined,
       undefined,
       engine
     )
     expect(result).toHaveLength(INPUT_COUNT)
-    expect(result).toHaveLength(37)
+    expect(result).toHaveLength(34)
   })
 
   it('returns all finite numbers', () => {
@@ -91,9 +85,6 @@ describe('encodeGameState', () => {
     const result = encodeGameState(
       state,
       PLAYER_ID,
-      new Map(),
-      new Map(),
-      33,
       undefined,
       undefined,
       undefined,
@@ -104,32 +95,24 @@ describe('encodeGameState', () => {
     }
   })
 
-  it('global features are normalized to expected ranges', () => {
+  it('ship velocity features are normalized to expected ranges', () => {
     const { state, engine } = setupGame('enc-v2-ranges', 20)
     const result = encodeGameState(
       state,
       PLAYER_ID,
-      new Map(),
-      new Map(),
-      33,
       undefined,
       undefined,
       undefined,
       engine
     )
 
-    expect(result[0]).toBeGreaterThanOrEqual(0)
+    // velocityX [-1,1]
+    expect(result[0]).toBeGreaterThanOrEqual(-1)
     expect(result[0]).toBeLessThanOrEqual(1)
 
+    // velocityY [-1,1]
     expect(result[1]).toBeGreaterThanOrEqual(-1)
     expect(result[1]).toBeLessThanOrEqual(1)
-    expect(result[2]).toBeGreaterThanOrEqual(-1)
-    expect(result[2]).toBeLessThanOrEqual(1)
-
-    expect(result[3]).toBeGreaterThanOrEqual(0)
-    expect(result[3]).toBeLessThanOrEqual(1)
-    expect(result[4]).toBeGreaterThanOrEqual(0)
-    expect(result[4]).toBeLessThanOrEqual(1)
   })
 
   it('when no rocks are nearby, lidar slots remain zeroed', () => {
@@ -137,16 +120,13 @@ describe('encodeGameState', () => {
     const result = encodeGameState(
       state,
       PLAYER_ID,
-      new Map(),
-      new Map(),
-      33,
       undefined,
       undefined,
       undefined,
       engine
     )
 
-    for (let i = 5; i < result.length; i++) {
+    for (let i = 2; i < result.length; i++) {
       expect(result[i]).toBe(0)
     }
   })
@@ -161,9 +141,6 @@ describe('encodeGameState', () => {
     const result = encodeGameState(
       state,
       PLAYER_ID,
-      new Map(),
-      new Map(),
-      33,
       undefined,
       undefined,
       undefined,
@@ -172,53 +149,7 @@ describe('encodeGameState', () => {
 
     expect(result).toHaveLength(INPUT_COUNT)
     expect(result[0]).toBe(0)
-    expect(result[3]).toBe(0)
-  })
-
-  it('uses previous distances to produce non-zero closing features', () => {
-    const { state, engine } = setupGame('enc-v2-closing', 5)
-    const player = state.players.get(PLAYER_ID)
-    const ship =
-      player?.shipId != null ? state.ships.get(player.shipId) : undefined
-    if (ship == null || !ship.alive) {
-      throw new Error('Expected alive ship for closing-speed test')
-    }
-
-    // Force at least one local rock in SOI so closing features are populated.
-    spawnRock(state, offsetPoint(ship, 4, 0.2), ROCK_LARGE_SIZE, {
-      gen: () => 0.5,
-      genRange: (min: number, _max: number) => min,
-      genBool: () => true,
-    })
-
-    const prevDistances = new Map<string, number>()
-    for (const rock of state.rocks.values()) {
-      const dot = Math.max(
-        -1,
-        Math.min(1, ship.x * rock.x + ship.y * rock.y + ship.z * rock.z)
-      )
-      const dist = Math.acos(dot) * RADIUS
-      prevDistances.set(rock.id, dist + 0.08)
-    }
-
-    const result = encodeGameState(
-      state,
-      PLAYER_ID,
-      new Map(),
-      prevDistances,
-      33,
-      undefined,
-      undefined,
-      undefined,
-      engine
-    )
-
-    const closingFeatures: number[] = []
-    for (let cone = 0; cone < 8; cone++) {
-      const base = 5 + cone * 4
-      closingFeatures.push(result[base + 1] ?? 0)
-    }
-    expect(closingFeatures.some((v) => Math.abs(v) > 0.0001)).toBe(true)
+    expect(result[1]).toBe(0)
   })
 
   it('nearby rock produces non-zero proximity in at least one cone', () => {
@@ -239,19 +170,16 @@ describe('encodeGameState', () => {
     const result = encodeGameState(
       state,
       PLAYER_ID,
-      new Map(),
-      new Map(),
-      33,
       undefined,
       undefined,
       undefined,
       engine
     )
 
-    // base+0 is proximity (1 - distanceNorm), should be non-zero for nearby rock
+    // base+0 is proximity, should be non-zero for nearby rock
     const proximityFeatures: number[] = []
     for (let cone = 0; cone < 8; cone++) {
-      const base = 5 + cone * 4
+      const base = 2 + cone * 4
       proximityFeatures.push(result[base] ?? 0)
     }
 
@@ -276,21 +204,18 @@ describe('encodeGameState', () => {
     const result = encodeGameState(
       state,
       PLAYER_ID,
-      new Map(),
-      new Map(),
-      33,
       [],
       undefined,
       undefined,
       engine
     )
 
-    expect(result).toHaveLength(37)
+    expect(result).toHaveLength(34)
 
-    // At least one cone should have a non-zero proximity (inverse distance)
+    // At least one cone should have a non-zero proximity
     const proximityFeatures: number[] = []
     for (let cone = 0; cone < 8; cone++) {
-      const base = 5 + cone * 4
+      const base = 2 + cone * 4
       proximityFeatures.push(result[base] ?? 0)
     }
     expect(proximityFeatures.some((v) => v > 0.001)).toBe(true)
@@ -328,9 +253,6 @@ describe('encodeGameState', () => {
       const result = encodeGameState(
         state,
         PLAYER_ID,
-        new Map(),
-        new Map(),
-        33,
         undefined,
         undefined,
         undefined,
@@ -339,10 +261,11 @@ describe('encodeGameState', () => {
       for (const value of result) {
         expect(Number.isFinite(value)).toBe(true)
       }
+      // Ship velocity should be bounded
+      expect(result[0]).toBeGreaterThanOrEqual(-1)
+      expect(result[0]).toBeLessThanOrEqual(1)
       expect(result[1]).toBeGreaterThanOrEqual(-1)
       expect(result[1]).toBeLessThanOrEqual(1)
-      expect(result[2]).toBeGreaterThanOrEqual(-1)
-      expect(result[2]).toBeLessThanOrEqual(1)
     }
   })
 })

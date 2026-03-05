@@ -58,6 +58,8 @@ describe('simulateCurriculumScenario', () => {
     expect(typeof metrics.aliveFrames).toBe('number')
     expect(typeof metrics.shotsFired).toBe('number')
     expect(typeof metrics.uniqueRocksSeen).toBe('number')
+    expect(typeof metrics.elapsedTicks).toBe('number')
+    expect(metrics.elapsedTicks).toBeGreaterThan(0)
   })
 
   it('runs without error for all variants', () => {

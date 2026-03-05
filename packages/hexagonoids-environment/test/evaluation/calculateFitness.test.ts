@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   actionDiversityGate,
+  applyBehavioralGates,
   calculateFitness,
   engagementGate,
+  evaluateFullGameFitness,
   type FitnessContext,
   turnBiasGate,
   turnGate,
@@ -19,7 +21,6 @@ const defaultContext: FitnessContext = {}
 
 function makeMetrics(overrides: Partial<RawMetrics> = {}): RawMetrics {
   return {
-    episodeReward: 0,
     score: 0,
     livesRemaining: 3,
     timeAlive: 10000,
@@ -39,6 +40,7 @@ function makeMetrics(overrides: Partial<RawMetrics> = {}): RawMetrics {
     uniqueRocksSeen: 0,
     framesWithRocksInSOI: 0,
     uniqueCellsVisited: 0,
+    elapsedTicks: 0,
     ...overrides,
   }
 }
@@ -173,11 +175,11 @@ describe('turnBiasGate', () => {
     expect(turnBiasGate(metrics, defaultGateConfig)).toBe(1.0)
   })
 
-  it('penalizes when 90% of turns are in one direction', () => {
+  it('penalizes when turns are nearly all in one direction', () => {
     const metrics = makeMetrics({
       aliveFrames: 1000,
-      leftFrames: 270,
-      rightFrames: 30,
+      leftFrames: 299,
+      rightFrames: 1,
     })
     const result = turnBiasGate(metrics, defaultGateConfig)
     expect(result).toBeLessThan(1.0)
@@ -198,13 +200,13 @@ describe('turnBiasGate', () => {
   it('penalizes left-bias same as right-bias', () => {
     const leftBias = makeMetrics({
       aliveFrames: 1000,
-      leftFrames: 270,
-      rightFrames: 30,
+      leftFrames: 299,
+      rightFrames: 1,
     })
     const rightBias = makeMetrics({
       aliveFrames: 1000,
-      leftFrames: 30,
-      rightFrames: 270,
+      leftFrames: 1,
+      rightFrames: 299,
     })
     expect(turnBiasGate(leftBias, defaultGateConfig)).toBe(
       turnBiasGate(rightBias, defaultGateConfig)
@@ -292,7 +294,8 @@ describe('weightedFitnessSum', () => {
       defaultGateConfig,
       defaultContext
     )
-    // perfScore = 0.6*0 + 0.4*0.3 = 0.12, × gates × survivalGate(1.0)
+    // perfScore = 0.7*0 + 0.3*1.0 = 0.3, × survivalGate(1.0)
+    // Behavioral gates no longer applied per-episode
     expect(result).toBeGreaterThan(0)
   })
 
@@ -310,8 +313,8 @@ describe('weightedFitnessSum', () => {
     )
     // All components zero (rocks=0, accuracy=0)
     // perfScore = 0.6*0 + 0.4*0 = 0
-    // survivalGate = 1 (no deaths), actionGate = floor, turnGate = turnFloor
-    // fitness = 0 * gates = 0
+    // survivalGate = 1 (no deaths)
+    // fitness = 0 * survivalGate = 0
     expect(result).toBe(0)
   })
 
@@ -358,10 +361,10 @@ describe('weightedFitnessSum', () => {
       defaultGateConfig,
       defaultContext
     )
-    // effectiveMax = min(300, 28) = 28
     // rocksNorm = 12/28 ≈ 0.43, accuracy=0.4
-    // perfScore = 0.6*0.43 + 0.4*0.4 = 0.418
+    // perfScore = 0.7*0.43 + 0.3*(0.4/0.3 capped 1.0) ≈ 0.6
     // survivalGate = 1 - 1/4 = 0.75 (possibleDeaths defaults to 4)
+    // No behavioral gates per-episode
     expect(result).toBeGreaterThan(0.2)
   })
 
@@ -400,12 +403,16 @@ describe('weightedFitnessSum', () => {
     expect(result60).toBeGreaterThan(resultDefault)
   })
 
-  it('SOI-capped rocksNorm gives stronger signal for fewer visible rocks', () => {
+  it('fire-rate-based possibleKills caps at uniqueRocksSeen', () => {
+    // With enough ticks, the rate cap exceeds rocks seen, so uniqueRocksSeen is the limit
+    // 500 ticks, dtMs=33 → ticksPerShot=ceil(150/33)=5 → 500/5*0.3=30 rate cap
+    // With 3 rocks seen → possibleKills = min(30, 3) = 3 → rocksNorm = 1/3
     const metrics = makeMetrics({
       score: 200,
       accuracy: 0.5,
       rocksDestroyed: 1,
       uniqueRocksSeen: 3,
+      elapsedTicks: 500,
       shotsFired: 2,
       shotsHit: 1,
       aliveFrames: 1000,
@@ -414,33 +421,30 @@ describe('weightedFitnessSum', () => {
       leftFrames: 200,
       rightFrames: 200,
     })
-    // effectiveMax = min(rateCap, 3) = 3
-    // rocksNorm = 1/3 ≈ 0.33
+    const ctx: FitnessContext = { dtMs: 33 }
     const withFewRocks = weightedFitnessSum(
       metrics,
       defaultWeights,
       defaultGateConfig,
-      defaultContext
+      ctx
     )
-    // Same kills but many more rocks seen → weaker signal
+    // With 50 rocks seen → possibleKills = min(30, 50) = 30 → rocksNorm = 1/30
     const metricsMany = makeMetrics({
       ...metrics,
       uniqueRocksSeen: 50,
     })
-    // effectiveMax = min(rateCap, 50) = 50
-    // rocksNorm = 1/50 = 0.02
     const withManyRocks = weightedFitnessSum(
       metricsMany,
       defaultWeights,
       defaultGateConfig,
-      defaultContext
+      ctx
     )
     expect(withFewRocks).toBeGreaterThan(withManyRocks)
   })
 
   it('rocksNorm floors at 0 when no rocks seen and none destroyed', () => {
     const metrics = makeMetrics({
-      accuracy: 0.5,
+      accuracy: 0.1,
       deaths: 0,
       aliveFrames: 1000,
       thrustFrames: 400,
@@ -456,9 +460,10 @@ describe('weightedFitnessSum', () => {
       defaultGateConfig,
       defaultContext
     )
-    // rocksNorm = 0/1 = 0, accuracy=0.5
-    // perfScore = 0.6*0 + 0.4*0.5 = 0.2
-    // survivalGate=1, still gets signal from accuracy
+    // rocksNorm = 0/1 = 0, accuracy=0.1, targetAccuracy=0.3
+    // accuracyTerm = min(0.1/0.3, 1) ≈ 0.333
+    // perfScore = 0.7*0 + 0.3*0.333 ≈ 0.1
+    // survivalGate=1, no behavioral gates per-episode
     expect(result).toBeGreaterThan(0.02)
     expect(result).toBeLessThan(0.4)
   })
@@ -499,16 +504,15 @@ describe('calculateFitness', () => {
     expect(calculateFitness([], defaultContext)).toEqual([])
   })
 
-  it('returns all zeros when all agents are identical', () => {
+  it('returns identical values when all agents are identical', () => {
     const agents = [
       makeMetrics({ score: 100, timeAlive: 30000 }),
       makeMetrics({ score: 100, timeAlive: 30000 }),
       makeMetrics({ score: 100, timeAlive: 30000 }),
     ]
     const fitness = calculateFitness(agents, defaultContext)
-    for (const f of fitness) {
-      expect(f).toBe(0)
-    }
+    expect(fitness[0]).toBe(fitness[1])
+    expect(fitness[1]).toBe(fitness[2])
   })
 
   it('differentiates agents with different competence levels', () => {
@@ -525,7 +529,7 @@ describe('calculateFitness', () => {
       leftFrames: 600,
       rightFrames: 600,
       largeRocksSpawned: 10,
-      uniqueRocksSeen: 8,
+      uniqueRocksSeen: 20,
       framesWithRocksInSOI: 1200,
       uniqueCellsVisited: 30,
     })
@@ -546,7 +550,7 @@ describe('calculateFitness', () => {
       score: 500,
       rocksDestroyed: 5,
       timeAlive: 80000,
-      accuracy: 0.3,
+      accuracy: 0.15,
       shotsFired: 10,
       shotsHit: 3,
       aliveFrames: 2400,
@@ -555,7 +559,7 @@ describe('calculateFitness', () => {
       leftFrames: 500,
       rightFrames: 500,
       largeRocksSpawned: 8,
-      uniqueRocksSeen: 5,
+      uniqueRocksSeen: 20,
       framesWithRocksInSOI: 600,
       uniqueCellsVisited: 15,
     })
@@ -569,6 +573,155 @@ describe('calculateFitness', () => {
     expect(fitness[0]).toBeGreaterThan(fitness[2]!)
     // Degenerate should score lowest
     expect(fitness[1]).toBeLessThan(fitness[2]!)
+  })
+})
+
+describe('evaluateFullGameFitness', () => {
+  it('returns non-zero for typical agent with 4 deaths', () => {
+    const metrics = makeMetrics({
+      score: 800,
+      accuracy: 0.3,
+      rocksDestroyed: 20,
+      uniqueRocksSeen: 40,
+      shotsFired: 60,
+      shotsHit: 18,
+      deaths: 4,
+      aliveFrames: 2400,
+      thrustFrames: 800,
+      fireFrames: 300,
+      leftFrames: 600,
+      rightFrames: 600,
+      framesWithRocksInSOI: 1200,
+      uniqueCellsVisited: 20,
+      elapsedTicks: 3000,
+    })
+    const result = evaluateFullGameFitness(metrics)
+    // With time-based possibleDeaths (~33 for 3000 ticks), 4 deaths → survivalGate ≈ 0.88
+    expect(result).toBeGreaterThan(0.1)
+  })
+
+  it('uses elapsedTicks for possibleDeaths computation', () => {
+    const metricsLong = makeMetrics({
+      score: 500,
+      accuracy: 0.2,
+      rocksDestroyed: 10,
+      uniqueRocksSeen: 20,
+      deaths: 3,
+      aliveFrames: 800,
+      thrustFrames: 300,
+      fireFrames: 100,
+      leftFrames: 200,
+      rightFrames: 200,
+      elapsedTicks: 3000,
+    })
+    const metricsShort = makeMetrics({
+      score: 500,
+      accuracy: 0.2,
+      rocksDestroyed: 10,
+      uniqueRocksSeen: 20,
+      deaths: 3,
+      aliveFrames: 800,
+      thrustFrames: 300,
+      fireFrames: 100,
+      leftFrames: 200,
+      rightFrames: 200,
+      elapsedTicks: 400,
+    })
+    const longResult = evaluateFullGameFitness(metricsLong)
+    const shortResult = evaluateFullGameFitness(metricsShort)
+    // Fewer elapsed ticks → fewer possibleDeaths → lower survivalGate for same deaths
+    expect(shortResult).toBeLessThan(longResult)
+  })
+})
+
+describe('applyBehavioralGates', () => {
+  it('returns fitness unmodified when actions are diverse', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 10000,
+      thrustFrames: 4000,
+      fireFrames: 2000,
+      leftFrames: 3000,
+      rightFrames: 3000,
+    })
+    const result = applyBehavioralGates(0.5, metrics, defaultGateConfig)
+    // Diverse actions → gates near 1.0, fitness mostly preserved
+    expect(result).toBeGreaterThan(0.3)
+    expect(result).toBeLessThanOrEqual(0.5)
+  })
+
+  it('penalizes 0% thrust degenerate agent', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 10000,
+      thrustFrames: 0,
+      fireFrames: 10000,
+      leftFrames: 5000,
+      rightFrames: 5000,
+    })
+    const result = applyBehavioralGates(0.5, metrics, defaultGateConfig)
+    // 0% thrust → actionDiversityGate geometric mean includes zero → floor
+    expect(result).toBeLessThan(0.1)
+  })
+
+  it('penalizes all-buttons-held degenerate agent', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 10000,
+      thrustFrames: 10000,
+      fireFrames: 10000,
+      leftFrames: 10000,
+      rightFrames: 10000,
+    })
+    const result = applyBehavioralGates(0.5, metrics, defaultGateConfig)
+    // 100% on all actions → high side penalty → gate near 0
+    expect(result).toBeLessThan(0.1)
+  })
+
+  it('penalizes no-turn agent', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 10000,
+      thrustFrames: 4000,
+      fireFrames: 2000,
+      leftFrames: 0,
+      rightFrames: 0,
+    })
+    const result = applyBehavioralGates(0.5, metrics, defaultGateConfig)
+    // turnGate → floor for 0 turn frames
+    expect(result).toBeLessThan(0.2)
+  })
+
+  it('penalizes all-left spinner', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 10000,
+      thrustFrames: 4000,
+      fireFrames: 2000,
+      leftFrames: 5000,
+      rightFrames: 0,
+    })
+    const result = applyBehavioralGates(0.5, metrics, defaultGateConfig)
+    // turnBiasGate penalizes 100% left bias
+    expect(result).toBeLessThan(0.3)
+  })
+
+  it('returns 0 when fitness is 0', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 10000,
+      thrustFrames: 4000,
+      fireFrames: 2000,
+      leftFrames: 3000,
+      rightFrames: 3000,
+    })
+    expect(applyBehavioralGates(0, metrics, defaultGateConfig)).toBe(0)
+  })
+
+  it('clamps result to [0, 1]', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 10000,
+      thrustFrames: 4000,
+      fireFrames: 2000,
+      leftFrames: 3000,
+      rightFrames: 3000,
+    })
+    const result = applyBehavioralGates(1.5, metrics, defaultGateConfig)
+    expect(result).toBeLessThanOrEqual(1)
   })
 })
 

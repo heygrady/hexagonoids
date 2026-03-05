@@ -7,7 +7,7 @@ import type {
 } from '@neat-evolution/executor'
 import { describe, expect, it } from 'vitest'
 import { createEnvironment } from '../src/createEnvironment.js'
-import { INPUT_COUNT } from '../src/encoding/encodeGameState.js'
+import { INPUT_COUNT } from '../src/encoding/encodingPresets.js'
 import { HexagonoidsEnvironment } from '../src/HexagonoidsEnvironment.js'
 import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '../src/HexagonoidsEnvironmentConfig.js'
 

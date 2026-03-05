@@ -24,14 +24,27 @@ function createScenario(seed: string, ticks = 50) {
   const stepInputs: PlayerInputs = {
     [PLAYER_ID]: { left: false, right: false, thrust: false, fire: false },
   }
+  // Capture the last valid snapshot before the ship dies or disappears
+  let lastSnapshot = captureSnapshot(state, PLAYER_ID, {
+    id: `test-scenario-${seed}`,
+  })
   for (let i = 0; i < ticks; i++) {
     if (state.endedAt != null) break
     const inputs = randomAgent(state, PLAYER_ID, context)
     stepInputs[PLAYER_ID] = inputs
     step(state, stepInputs, 33, rng)
+
+    const player = state.players.get(PLAYER_ID)
+    const ship =
+      player?.shipId != null ? state.ships.get(player.shipId) : undefined
+    if (ship != null && ship.alive) {
+      lastSnapshot = captureSnapshot(state, PLAYER_ID, {
+        id: `test-scenario-${seed}`,
+      })
+    }
   }
 
-  return captureSnapshot(state, PLAYER_ID, { id: `test-scenario-${seed}` })
+  return lastSnapshot
 }
 
 describe('simulateScenario', () => {
@@ -64,6 +77,9 @@ describe('simulateScenario', () => {
     expect(typeof metrics.uniqueRocksSeen).toBe('number')
     expect(typeof metrics.framesWithRocksInSOI).toBe('number')
     expect(typeof metrics.uniqueCellsVisited).toBe('number')
+    expect(typeof metrics.elapsedTicks).toBe('number')
+    expect(metrics.elapsedTicks).toBeGreaterThan(0)
+    expect(metrics.elapsedTicks).toBeLessThanOrEqual(120)
   })
 
   it('randomAgent produces different metrics than doNothingAgent', () => {

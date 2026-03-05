@@ -73,6 +73,25 @@ describe('simulateGame', () => {
     expect(metrics.deaths).toBeGreaterThan(0)
   })
 
+  it('populates elapsedTicks', () => {
+    const metrics = simulateGame(doNothingAgent, { maxTicks: 500 }, 'ticks-1')
+    expect(typeof metrics.elapsedTicks).toBe('number')
+    expect(metrics.elapsedTicks).toBeGreaterThan(0)
+    expect(metrics.elapsedTicks).toBeLessThanOrEqual(500)
+  })
+
+  it('elapsedTicks is less than maxTicks on early stop', () => {
+    // doNothingAgent will die from rock collisions and game ends early
+    const metrics = simulateGame(
+      doNothingAgent,
+      { maxTicks: 3000 },
+      'early-stop-1'
+    )
+    if (metrics.deaths > 0 && metrics.livesRemaining === 0) {
+      expect(metrics.elapsedTicks).toBeLessThan(3000)
+    }
+  })
+
   it('tracks waves', () => {
     const metrics = simulateGame(doNothingAgent, { maxTicks: 1000 }, 'wave-1')
 

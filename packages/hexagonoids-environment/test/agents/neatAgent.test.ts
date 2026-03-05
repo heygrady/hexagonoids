@@ -56,7 +56,7 @@ describe('neatAgent', () => {
 
     expect(capturedInputs).toBeDefined()
     for (let cone = 0; cone < 8; cone++) {
-      const base = 5 + cone * 4
+      const base = 2 + cone * 4
       expect(capturedInputs?.[base]).toBe(0)
       expect(capturedInputs?.[base + 1]).toBe(0)
       expect(capturedInputs?.[base + 2]).toBe(0)
@@ -78,9 +78,6 @@ describe('neatAgent', () => {
     const rawInputs = encodeGameState(
       state,
       PLAYER_ID,
-      new Map(),
-      new Map(),
-      33,
       undefined,
       undefined,
       undefined,
@@ -100,17 +97,17 @@ describe('neatAgent', () => {
 
     expect(capturedInputs).toBeDefined()
     for (let cone = 0; cone < 8; cone++) {
-      const base = 5 + cone * 4
+      const base = 2 + cone * 4
       const rawProximity = rawInputs[base] ?? 0
-      const rawClosing = rawInputs[base + 1] ?? 0
-      const rawRockSize = rawInputs[base + 2] ?? 0
-      const rawBearingOffset = rawInputs[base + 3] ?? 0
+      const rawBearing = rawInputs[base + 1] ?? 0
+      const rawVelX = rawInputs[base + 2] ?? 0
+      const rawVelY = rawInputs[base + 3] ?? 0
 
-      if (rawProximity > 0 || rawRockSize > 0 || rawBearingOffset !== 0) {
+      if (rawProximity > 0 || rawBearing !== 0) {
         expect(capturedInputs?.[base]).toBe(rawProximity)
-        expect(capturedInputs?.[base + 1]).toBe(rawClosing)
-        expect(capturedInputs?.[base + 2]).toBe(rawRockSize)
-        expect(capturedInputs?.[base + 3]).toBe(rawBearingOffset)
+        expect(capturedInputs?.[base + 1]).toBe(rawBearing)
+        expect(capturedInputs?.[base + 2]).toBe(rawVelX)
+        expect(capturedInputs?.[base + 3]).toBe(rawVelY)
       }
     }
   })
