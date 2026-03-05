@@ -104,6 +104,12 @@ export interface CandidateCluster {
   behaviorSignature: string
 }
 
+export interface ConeMetadata {
+  mask: number // Raw 8-bit cone occupancy (0-255)
+  necklace: number // Canonical necklace representative
+  popcount: number // Number of filled cones (0-8)
+}
+
 export interface ScenarioCandidate {
   id: string
   source: SourceGenome
@@ -113,6 +119,7 @@ export interface ScenarioCandidate {
   annotations?: CandidateAnnotations
   cluster?: CandidateCluster
   interestingness?: number
+  cone?: ConeMetadata
 }
 
 export interface AgentHandle {

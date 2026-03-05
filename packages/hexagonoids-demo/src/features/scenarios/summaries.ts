@@ -1,3 +1,4 @@
+import type { StratifiedCoverage } from './stratification.js'
 import type {
   DedupeReport,
   PanelReport,
@@ -156,7 +157,10 @@ export function printDedupeSummary(
   }
 }
 
-export function printFinalBankSummary(finalBank: ScenarioCandidate[]): void {
+export function printFinalBankSummary(
+  finalBank: ScenarioCandidate[],
+  coverage?: StratifiedCoverage
+): void {
   console.log('\n── Final Bank ──')
 
   const sourceKinds = new Map()
@@ -239,5 +243,52 @@ export function printFinalBankSummary(finalBank: ScenarioCandidate[]): void {
     console.log(
       `    score=${candidateScore(entry).toFixed(3)} sig=${entry.cluster?.behaviorSignature ?? 'none'} beh=${entry.cluster?.behaviorSize ?? 1} source=${entry.source.kind}`
     )
+  }
+
+  if (coverage != null) {
+    console.log('\n── Necklace Coverage ──')
+    console.log(
+      `  classes filled: ${coverage.necklacesFilled}/36  slots filled: ${coverage.totalSlotsFilled}`
+    )
+
+    // Distribution by cone popcount
+    const popcountDist = new Map<number, number>()
+    for (const entry of finalBank) {
+      if (entry.cone != null) {
+        const pc = entry.cone.popcount
+        popcountDist.set(pc, (popcountDist.get(pc) ?? 0) + 1)
+      }
+    }
+    const popcountParts = [...popcountDist.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([pc, count]) => `${pc}=${count}`)
+    console.log(`  by cone popcount: ${popcountParts.join(' ')}`)
+
+    // Rock-count bucket distribution
+    const bucketLabels = [
+      '1-3',
+      '4-6',
+      '7-9',
+      '10-12',
+      '13-16',
+      '17-20',
+      '21-25',
+      '26+',
+    ]
+    const rockParts = coverage.rockBucketDistribution.map(
+      (count, i) => `${bucketLabels[i]}=${count}`
+    )
+    console.log(`  rock-count buckets: ${rockParts.join(' ')}`)
+
+    // Unfilled necklace classes
+    const unfilled: number[] = []
+    for (const [n, count] of coverage.perClassCounts) {
+      if (count === 0) unfilled.push(n)
+    }
+    if (unfilled.length > 0) {
+      console.log(
+        `  unfilled necklaces (${unfilled.length}): ${unfilled.map((n) => `0b${n.toString(2).padStart(8, '0')}`).join(', ')}`
+      )
+    }
   }
 }

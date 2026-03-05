@@ -4,6 +4,7 @@ import {
 } from '@heygrady/hexagonoids-environment'
 
 import { EXPECTED_IO } from './options.js'
+import type { StratifiedCoverage } from './stratification.js'
 import type {
   InstantDeathFilterReport,
   PanelReport,
@@ -19,7 +20,8 @@ export function makeOutputDocument(
   panelReport: PanelReport,
   instantDeathFilter: InstantDeathFilterReport,
   finalBank: ScenarioCandidate[],
-  counts: ScenarioRunCounts
+  counts: ScenarioRunCounts,
+  coverage?: StratifiedCoverage
 ) {
   return {
     generatedAt: new Date().toISOString(),
@@ -77,6 +79,16 @@ export function makeOutputDocument(
       instantDeath: instantDeathFilter.removed,
     },
     rejectedSources: sourceReport.rejected,
+    ...(coverage != null && {
+      stratification: {
+        necklacesFilled: coverage.necklacesFilled,
+        totalSlotsFilled: coverage.totalSlotsFilled,
+        perClassCounts: Object.fromEntries(coverage.perClassCounts),
+        perClassKills: Object.fromEntries(coverage.perClassKills),
+        perClassCrashes: Object.fromEntries(coverage.perClassCrashes),
+        rockBucketDistribution: coverage.rockBucketDistribution,
+      },
+    }),
     scenarios: finalBank.map((entry) => ({
       id: entry.id,
       source: {
@@ -92,6 +104,7 @@ export function makeOutputDocument(
       cluster: entry.cluster,
       interestingness: entry.interestingness,
       annotations: entry.annotations,
+      cone: entry.cone,
       scenario: entry.scenario,
     })),
   }
@@ -105,6 +118,8 @@ export function makeScenarioBank(
     ...(entry.cluster?.behaviorSignature != null && {
       failureSignature: entry.cluster.behaviorSignature,
     }),
+    ...(entry.cone != null && { necklace: entry.cone.necklace }),
+    rockCount: entry.scenario.rocks.length,
   }))
   return encodeScenarioBankDocument(snapshots)
 }

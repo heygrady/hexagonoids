@@ -53,7 +53,10 @@ export function filterInstantDeathCandidates(
 ): InstantDeathFilterReport {
   const kept: ScenarioCandidate[] = []
   const removed: InstantDeathFilterReport['removed'] = []
-  const instantDeathTicks = Math.min(Math.ceil(options.rewind * 1.5), 30)
+  const instantDeathTicks = Math.max(
+    options.rewind + 30,
+    Math.ceil(options.rewind * 1.5)
+  )
 
   for (const candidate of candidates) {
     // Kill candidates skip instant-death filter

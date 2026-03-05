@@ -139,9 +139,9 @@ export async function createScenarioWorkerPool(options?: {
       candidates: ScenarioCandidate[],
       scenarioOptions: ScenarioOptions
     ): Promise<InstantDeathFilterReport> {
-      const instantDeathTicks = Math.min(
-        Math.ceil(scenarioOptions.rewind * 1.5),
-        30
+      const instantDeathTicks = Math.max(
+        scenarioOptions.rewind + 30,
+        Math.ceil(scenarioOptions.rewind * 1.5)
       )
 
       // Kill candidates skip instant-death filter entirely
