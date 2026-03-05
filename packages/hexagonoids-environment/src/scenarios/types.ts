@@ -67,4 +67,8 @@ export interface ScenarioSnapshot {
   failureSignature?: string
   /** How this snapshot was captured. Optional — absent means 'death'. */
   captureType?: 'death' | 'kill'
+  /** Canonical cone occupancy necklace class (0-255). Computed at scenario generation. */
+  necklace?: number
+  /** Total rock count in the snapshot. */
+  rockCount?: number
 }
