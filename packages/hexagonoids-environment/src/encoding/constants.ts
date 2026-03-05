@@ -3,7 +3,6 @@
 // from utils/constants.ts — this file is the encoding-internal import alias.
 export {
   MAX_CLOSING_SPEED,
-  SECTOR_COUNT,
   SOI_ANGULAR_RADIUS,
   SOI_ARC_DISTANCE,
 } from '../utils/constants.js'
