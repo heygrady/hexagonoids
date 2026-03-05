@@ -5,7 +5,9 @@ import type {
 import type { RockPerceptionPrecompute } from './collectObservations.js'
 import { collectObservations } from './collectObservations.js'
 import {
+  BULLET_SLOTS,
   CONE_COUNT,
+  FEATURES_PER_BULLET,
   FEATURES_PER_CONE,
   GLOBAL_FEATURES,
   INPUT_COUNT,
@@ -13,11 +15,12 @@ import {
 import type { ObservationFrame } from './observationTypes.js'
 
 /**
- * Encode game state into a fixed-size vector of 34 floats.
+ * Encode game state into a fixed-size vector of 58 floats.
  *
  * Layout:
  * [0] ship.velocityX    [1] ship.velocityY
- * [2..33] 8 cones × 4: proximity, bearing, velocityX, velocityY
+ * [2..33]  8 cones × 4: proximity, bearing, velocityX, velocityY
+ * [34..57] 6 bullet slots × 4: proximity, bearing, velocityX, velocityY
  */
 export function encodeGameState(
   state: GameState,
@@ -51,6 +54,16 @@ export function encodeGameState(
     inputs[base + 1] = hit.bearing
     inputs[base + 2] = hit.velocityX
     inputs[base + 3] = hit.velocityY
+  }
+
+  const bulletBase = GLOBAL_FEATURES + CONE_COUNT * FEATURES_PER_CONE
+  for (let i = 0; i < BULLET_SLOTS; i++) {
+    const bHit = obs.bullets[i]!
+    const base = bulletBase + i * FEATURES_PER_BULLET
+    inputs[base] = bHit.proximity
+    inputs[base + 1] = bHit.bearing
+    inputs[base + 2] = bHit.velocityX
+    inputs[base + 3] = bHit.velocityY
   }
 
   return inputs

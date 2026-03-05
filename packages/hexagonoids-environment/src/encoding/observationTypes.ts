@@ -10,8 +10,16 @@ export interface ConeHit {
   velocityY: number // [-1,1] relative velocity forward / MAX_CLOSING_SPEED
 }
 
+export interface BulletHit {
+  proximity: number // [-1,1] collision-adjusted distance
+  bearing: number // [-1,1] half-turns from nose
+  velocityX: number // [-1,1] relative velocity right / MAX_CLOSING_SPEED
+  velocityY: number // [-1,1] relative velocity forward / MAX_CLOSING_SPEED
+}
+
 export interface ObservationFrame {
   shipAlive: boolean
   ship: ShipObservation
   lidar: ConeHit[]
+  bullets: BulletHit[]
 }

@@ -6,6 +6,7 @@ import type {
   SpatialPoint,
 } from '@heygrady/hexagonoids-engine'
 import {
+  BULLET_RADIUS,
   BULLET_TRAVEL_DISTANCE,
   MAX_SPEED,
   RADIUS,
@@ -20,8 +21,16 @@ import {
   SOI_ANGULAR_RADIUS,
   SOI_ARC_DISTANCE,
 } from './constants.js'
-import { BULLET_RANGE_MULTIPLIER, CONE_COUNT } from './encodingPresets.js'
-import type { ConeHit, ObservationFrame } from './observationTypes.js'
+import {
+  BULLET_RANGE_MULTIPLIER,
+  BULLET_SLOTS,
+  CONE_COUNT,
+} from './encodingPresets.js'
+import type {
+  BulletHit,
+  ConeHit,
+  ObservationFrame,
+} from './observationTypes.js'
 
 const TWO_PI = Math.PI * 2
 // Orthographic distance at bullet range (zero-crossing)
@@ -36,6 +45,7 @@ const UNIT_SHIP_RADIUS = SHIP_RADIUS / RADIUS
 const UNIT_ROCK_LARGE_RADIUS = ROCK_LARGE_RADIUS / RADIUS
 const UNIT_ROCK_MEDIUM_RADIUS = ROCK_MEDIUM_RADIUS / RADIUS
 const UNIT_ROCK_SMALL_RADIUS = ROCK_SMALL_RADIUS / RADIUS
+const UNIT_BULLET_RADIUS = BULLET_RADIUS / RADIUS
 // Precomputed dot-product threshold for SOI culling.
 // cos(SOI_ANGULAR_RADIUS) — rocks with dot product below this are outside SOI.
 const SOI_DOT_THRESHOLD = Math.cos(SOI_ANGULAR_RADIUS)
@@ -125,6 +135,41 @@ function resetLidar(lidar: ConeHit[]): void {
   }
 }
 
+function makeEmptyBullets(): BulletHit[] {
+  const bullets = new Array<BulletHit>(BULLET_SLOTS)
+  for (let i = 0; i < BULLET_SLOTS; i++) {
+    bullets[i] = {
+      proximity: 0,
+      bearing: 0,
+      velocityX: 0,
+      velocityY: 0,
+    }
+  }
+  return bullets
+}
+
+function resetBullets(bullets: BulletHit[]): void {
+  for (let i = 0; i < BULLET_SLOTS; i++) {
+    const hit = bullets[i]
+    if (hit == null) {
+      bullets[i] = {
+        proximity: 0,
+        bearing: 0,
+        velocityX: 0,
+        velocityY: 0,
+      }
+      continue
+    }
+    hit.proximity = 0
+    hit.bearing = 0
+    hit.velocityX = 0
+    hit.velocityY = 0
+  }
+  if (bullets.length !== BULLET_SLOTS) {
+    bullets.length = BULLET_SLOTS
+  }
+}
+
 export function createObservationFrameBuffer(): ObservationFrame {
   return {
     shipAlive: false,
@@ -133,6 +178,7 @@ export function createObservationFrameBuffer(): ObservationFrame {
       velocityY: 0,
     },
     lidar: makeEmptyLidar(),
+    bullets: makeEmptyBullets(),
   }
 }
 
@@ -485,6 +531,102 @@ function scanMemoryRocks(
   }
 }
 
+function scanBullets(
+  state: GameState,
+  playerId: string,
+  rockPerception: RockPerceptionPrecompute,
+  shipAV: { x: number; y: number; z: number },
+  bullets: BulletHit[]
+): void {
+  const player = state.players.get(playerId)
+  if (player?.shipId == null) return
+  const shipId = player.shipId
+
+  const {
+    ship: shipCenter,
+    forwardX,
+    forwardY,
+    forwardZ,
+    rightX,
+    rightY,
+    rightZ,
+  } = rockPerception
+  const shipX = shipCenter.x
+  const shipY = shipCenter.z
+  const shipZ = shipCenter.y
+
+  // Collect own bullets and sort by firedAt ascending (oldest first)
+  const ownBullets: {
+    x: number
+    y: number
+    z: number
+    avx: number
+    avy: number
+    avz: number
+    firedAt: number
+  }[] = []
+  for (const bullet of state.bullets.values()) {
+    if (bullet.ownerId !== shipId) continue
+    ownBullets.push({
+      x: bullet.x,
+      y: bullet.z, // remap y↔z (engine y-up → projection z-up)
+      z: bullet.y,
+      avx: bullet.angularVelocity.x,
+      avy: bullet.angularVelocity.z, // remap y↔z
+      avz: bullet.angularVelocity.y,
+      firedAt: bullet.firedAt ?? 0,
+    })
+  }
+  ownBullets.sort((a, b) => a.firedAt - b.firedAt)
+
+  const count = Math.min(ownBullets.length, BULLET_SLOTS)
+  for (let i = 0; i < count; i++) {
+    const b = ownBullets[i]!
+    const slot = bullets[i]!
+
+    // Dot product for hemisphere check
+    const dot = shipX * b.x + shipY * b.y + shipZ * b.z
+    if (dot <= 0) continue
+
+    // Orthographic projection onto ship's tangent plane
+    const localX = b.x * rightX + b.y * rightY + b.z * rightZ
+    const localY = b.x * forwardX + b.y * forwardY + b.z * forwardZ
+
+    // Orthographic distance on tangent plane
+    const orthoDist = Math.sqrt(localX * localX + localY * localY)
+    const effectiveDist = Math.max(
+      0,
+      orthoDist - UNIT_SHIP_RADIUS - UNIT_BULLET_RADIUS
+    )
+    const proximity =
+      effectiveDist <= BULLET_RANGE_ORTHO
+        ? 1 - effectiveDist / BULLET_RANGE_ORTHO
+        : -clamp(
+            (effectiveDist - BULLET_RANGE_ORTHO) /
+              (MAX_HEMISPHERE_ORTHO - BULLET_RANGE_ORTHO),
+            0,
+            1
+          )
+
+    if (proximity <= -1) continue
+
+    // Bearing: angle from nose in half-turns
+    const bearing = Math.atan2(localX, localY) / Math.PI
+
+    // Relative velocity: bullet - ship, projected onto tangent plane
+    const dvx = b.avx - shipAV.x
+    const dvy = b.avy - shipAV.y
+    const dvz = b.avz - shipAV.z
+    const relVelRight = dvx * rightX + dvy * rightY + dvz * rightZ
+    const relVelForward = dvx * forwardX + dvy * forwardY + dvz * forwardZ
+
+    slot.proximity = proximity
+    slot.bearing = clamp(bearing, -1, 1)
+    slot.velocityX = clamp(relVelRight / MAX_CLOSING_SPEED, -1, 1)
+    slot.velocityY = clamp(relVelForward / MAX_CLOSING_SPEED, -1, 1)
+  }
+}
+
 export function collectObservations(
   state: GameState,
   playerId: string,
@@ -496,6 +638,7 @@ export function collectObservations(
   const frame = frameBuffer ?? createObservationFrameBuffer()
   if (frameBuffer != null) {
     resetLidar(frame.lidar)
+    resetBullets(frame.bullets)
   }
   const ship = collectShipObservation(state, playerId, frame)
   if (ship == null) {
@@ -533,6 +676,9 @@ export function collectObservations(
   if (seenRocks != null) {
     scanMemoryRocks(state, seenRocks, rockPerception, shipAV, frame.lidar)
   }
+
+  // Step 3: Fill bullet slots (oldest first)
+  scanBullets(state, playerId, rockPerception, shipAV, frame.bullets)
 
   return frame
 }
