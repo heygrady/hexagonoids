@@ -1,9 +1,6 @@
 import { writeFileSync } from 'node:fs'
-import {
-  dedupeCandidates,
-  scoreInterestingness,
-  trimFinalBank,
-} from './dedupe.js'
+import { gzipSync } from 'node:zlib'
+import { dedupeCandidates, scoreInterestingness } from './dedupe.js'
 import { discoverSourceGenomes } from './discovery.js'
 import { EXPECTED_IO, EXPECTED_OUTPUTS, parseScenarioArgs } from './options.js'
 import { makeOutputDocument, makeScenarioBank } from './output.js'
@@ -17,6 +14,10 @@ import {
   loadExistingScenarioCandidates,
   loadScenarioRuntime,
 } from './runtime.js'
+import {
+  attachConeMetadata,
+  stratifiedSelectFinalBank,
+} from './stratification.js'
 import {
   printDedupeSummary,
   printFinalBankSummary,
@@ -146,16 +147,19 @@ export async function runGenerateScenarios(args: string[] = []) {
     const deduped = dedupeReport.finalCandidates
     console.log(`Deduped to ${deduped.length} candidates`)
 
-    const finalBank = trimFinalBank(
-      deduped,
+    const withCone = attachConeMetadata(deduped)
+    const { selected: finalBank, coverage } = stratifiedSelectFinalBank(
+      withCone,
       options.finalCount,
       options.killRatio
     )
-    console.log(`Trimmed final bank to ${finalBank.length} scenarios`)
+    console.log(
+      `Stratified final bank to ${finalBank.length} scenarios (${coverage.necklacesFilled}/36 necklace classes)`
+    )
 
     printPanelPerformanceSummary(annotated, panelReport)
     printDedupeSummary(annotated, dedupeReport, finalBank)
-    printFinalBankSummary(finalBank)
+    printFinalBankSummary(finalBank, coverage)
 
     const scenarioBank = makeScenarioBank(finalBank)
     const counts: ScenarioRunCounts = {
@@ -177,10 +181,23 @@ export async function runGenerateScenarios(args: string[] = []) {
       panelReport,
       instantDeathFilter,
       finalBank,
-      counts
+      counts,
+      coverage
     )
 
-    writeFileSync(options.output, JSON.stringify(scenarioBank, null, 2))
+    const json = JSON.stringify(scenarioBank)
+    const gzipped = gzipSync(new TextEncoder().encode(json))
+    const compressed = Buffer.from(
+      gzipped.buffer,
+      gzipped.byteOffset,
+      gzipped.byteLength
+    ).toString('base64')
+    const header =
+      '// @generated -- do not edit. Regenerate with: yarn workspace @heygrady/hexagonoids-demo demo scenarios\n'
+    writeFileSync(
+      options.output,
+      header + 'export default "' + compressed + '"\n'
+    )
     console.log(`\nWritten ${finalBank.length} scenarios to: ${options.output}`)
 
     if (options.report != null) {

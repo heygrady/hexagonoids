@@ -10,20 +10,31 @@
  *
  * Options:
  *   --genome <path>      Path to a trained genome JSON (required)
- *   --scenarios <path>   Path to scenarios JSON (default: src/data/scenarios.json)
+ *   --scenarios <path>   Path to scenario bank file (default: src/data/scenarioBank.js)
  *   --max-ticks <n>      Max ticks per scenario (default: 120)
  */
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gunzipSync } from 'node:zlib'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const packageRoot = resolve(__dirname, '..')
 
+function readScenarioBank(pathname) {
+  const text = readFileSync(pathname, 'utf-8')
+  if (pathname.endsWith('.js')) {
+    const match = text.match(/export default "([^"]+)"/)
+    if (match?.[1])
+      return JSON.parse(gunzipSync(Buffer.from(match[1], 'base64')).toString())
+  }
+  return JSON.parse(text)
+}
+
 function parseArgs(argv) {
   const options = {
     genome: undefined,
-    scenarios: resolve(packageRoot, 'src/data/scenarios.json'),
+    scenarios: resolve(packageRoot, 'src/data/scenarioBank.js'),
     maxTicks: 120,
   }
   for (let i = 0; i < argv.length; i++) {
@@ -67,9 +78,7 @@ async function main() {
   } = await import('@heygrady/hexagonoids-environment')
 
   // Load scenarios
-  const scenarios = decodeScenarioBankDocument(
-    JSON.parse(readFileSync(scenariosPath, 'utf-8'))
-  )
+  const scenarios = decodeScenarioBankDocument(readScenarioBank(scenariosPath))
   console.log(`Loaded ${scenarios.length} scenarios`)
 
   const manager = createNodeEvolutionManager({ method: 'HyperNEAT' })

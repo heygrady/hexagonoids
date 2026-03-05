@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { basename } from 'node:path'
+import { gunzipSync } from 'node:zlib'
 
 import { decodeScenarioBankDocument } from '@heygrady/hexagonoids-environment'
 
@@ -85,8 +86,17 @@ export async function collectCandidateScenarios(
   return candidates
 }
 
-function readJson(pathname: string): unknown {
-  return JSON.parse(readFileSync(pathname, 'utf8'))
+function readScenarioBankFile(pathname: string): unknown {
+  const text = readFileSync(pathname, 'utf8')
+  if (pathname.endsWith('.js')) {
+    const match = text.match(/export default "([^"]+)"/)
+    if (match?.[1]) {
+      const buf = Buffer.from(match[1], 'base64')
+      const bytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+      return JSON.parse(new TextDecoder().decode(gunzipSync(bytes)))
+    }
+  }
+  return JSON.parse(text)
 }
 
 export function loadExistingScenarioCandidates(options: ScenarioOptions): {
@@ -101,7 +111,9 @@ export function loadExistingScenarioCandidates(options: ScenarioOptions): {
     return { candidates: [], source: null }
   }
 
-  const scenarios = decodeScenarioBankDocument(readJson(options.existing))
+  const scenarios = decodeScenarioBankDocument(
+    readScenarioBankFile(options.existing)
+  )
 
   const source: SourceGenome = {
     id: `existing-bank:${basename(options.existing)}`,

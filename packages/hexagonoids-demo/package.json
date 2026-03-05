@@ -27,7 +27,12 @@
       "import": "./dist/esm/node/index.js",
       "require": "./dist/cjs/node/index.js"
     },
-    "./data/scenarios.json": "./src/data/scenarios.json"
+    "./data/scenarioBank": "./src/data/scenarioBank.js",
+    "./data/scenarios": {
+      "types": "./dist/types/data/scenarios.d.ts",
+      "import": "./dist/esm/data/scenarios.js",
+      "require": "./dist/cjs/data/scenarios.js"
+    }
   },
   "files": [
     "dist/**/*",

@@ -265,7 +265,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     | undefined
   if (config.scenarioMode) {
     const { loadScenarioBank } = await import('./data/scenarios.js')
-    scenarioBank = loadScenarioBank()
+    scenarioBank = await loadScenarioBank()
     if (scenarioBank.length === 0) {
       throw new Error(
         'Scenario mode enabled but no scenarios found. Run: yarn workspace @heygrady/hexagonoids-demo demo scenarios'

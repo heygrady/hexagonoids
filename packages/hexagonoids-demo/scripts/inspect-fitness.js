@@ -12,9 +12,20 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gunzipSync } from 'node:zlib'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const packageRoot = resolve(__dirname, '..')
+
+function readScenarioBank(pathname) {
+  const text = readFileSync(pathname, 'utf-8')
+  if (pathname.endsWith('.js')) {
+    const match = text.match(/export default "([^"]+)"/)
+    if (match?.[1])
+      return JSON.parse(gunzipSync(Buffer.from(match[1], 'base64')).toString())
+  }
+  return JSON.parse(text)
+}
 
 function parseArgs(argv, profileConfig, envDefaults) {
   const pc = profileConfig ?? {}
@@ -203,9 +214,9 @@ async function main() {
     },
   })
 
-  const scenariosPath = resolve(packageRoot, 'src/data/scenarios.json')
+  const scenariosPath = resolve(packageRoot, 'src/data/scenarioBank.js')
   const scenarioBank = decodeScenarioBankDocument(
-    JSON.parse(readFileSync(scenariosPath, 'utf-8'))
+    readScenarioBank(scenariosPath)
   )
 
   const { scenariosPerOrganism, scenarioMaxTicks } = config.simulation
