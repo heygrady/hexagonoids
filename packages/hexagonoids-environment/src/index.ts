@@ -24,11 +24,20 @@ export {
   buildRockPerceptionPrecompute,
   collectObservations,
 } from './encoding/collectObservations.js'
+export {
+  allNecklaceClasses,
+  canonicalNecklace,
+  coneOccupancyMask,
+  hammingDistance,
+  popcount8,
+} from './encoding/coneOccupancy.js'
 export { decodeOutputs } from './encoding/decodeOutputs.js'
 export { encodeGameState } from './encoding/encodeGameState.js'
 // Encoding
 export {
+  BULLET_SLOTS,
   CONE_COUNT,
+  FEATURES_PER_BULLET,
   FEATURES_PER_CONE,
   GLOBAL_FEATURES,
   INPUT_COUNT,
@@ -80,7 +89,11 @@ export {
 } from './scenarios/codec.js'
 export { restoreSnapshot } from './scenarios/restoreSnapshot.js'
 export { simulateScenario } from './scenarios/simulateScenario.js'
-export { stratifiedSample } from './scenarios/stratifiedSample.js'
+export type { StratifiedIndex } from './scenarios/stratifiedSample.js'
+export {
+  buildStratifiedIndex,
+  stratifiedSample,
+} from './scenarios/stratifiedSample.js'
 export type {
   ScenarioBulletState,
   ScenarioPlayerState,

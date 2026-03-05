@@ -2,9 +2,34 @@ import type { RNG } from '@neat-evolution/utils'
 
 import type { ScenarioSnapshot } from './types.js'
 
-/**
- * Fisher-Yates partial shuffle: select `count` items uniformly at random.
- */
+// ── Types ───────────────────────────────────────────────────────────────────
+
+export interface StratifiedIndex {
+  byNecklace: Map<number, ScenarioSnapshot[]>
+  necklaceOrder: number[]
+}
+
+// ── Index builder ───────────────────────────────────────────────────────────
+
+export function buildStratifiedIndex(
+  bank: ScenarioSnapshot[]
+): StratifiedIndex {
+  const byNecklace = new Map<number, ScenarioSnapshot[]>()
+  for (const s of bank) {
+    const key = s.necklace ?? -1
+    let group = byNecklace.get(key)
+    if (group == null) {
+      group = []
+      byNecklace.set(key, group)
+    }
+    group.push(s)
+  }
+  const necklaceOrder = [...byNecklace.keys()].sort((a, b) => a - b)
+  return { byNecklace, necklaceOrder }
+}
+
+// ── Fisher-Yates partial shuffle ────────────────────────────────────────────
+
 function fisherYatesSample<T>(items: T[], count: number, rng: RNG): T[] {
   const arr = items.slice()
   const n = Math.min(count, arr.length)
@@ -17,70 +42,120 @@ function fisherYatesSample<T>(items: T[], count: number, rng: RNG): T[] {
   return arr.slice(0, n)
 }
 
+// ── Signature diversity sort ────────────────────────────────────────────────
+
 /**
- * Stratified sampling by `failureSignature`.
+ * Sort candidates so under-represented failure signatures appear first.
+ * Scores each candidate as 1/(1 + globalCount[sig]) — lower global count = higher priority.
+ */
+function sortBySignatureDiversity(
+  candidates: ScenarioSnapshot[],
+  globalSignatureCounts: Map<string, number>
+): ScenarioSnapshot[] {
+  return candidates.slice().sort((a, b) => {
+    const sigA = a.failureSignature ?? 'none'
+    const sigB = b.failureSignature ?? 'none'
+    const scoreA = 1 / (1 + (globalSignatureCounts.get(sigA) ?? 0))
+    const scoreB = 1 / (1 + (globalSignatureCounts.get(sigB) ?? 0))
+    return scoreB - scoreA // Higher score (rarer signature) first
+  })
+}
+
+// ── Multi-dimensional stratified sample ─────────────────────────────────────
+
+/**
+ * Stratified sampling by necklace class (primary) with failure-signature
+ * diversity within each class.
  *
- * Groups scenarios by their failure signature, then round-robins across
- * shuffled groups so every signature type gets roughly equal representation.
- * Falls back to uniform Fisher-Yates when there is only one group or no
- * signatures are present.
+ * Accepts either a pre-built `StratifiedIndex` (hot path) or a raw bank
+ * array (backward compatible — builds index on the fly).
  */
 export function stratifiedSample(
-  bank: ScenarioSnapshot[],
+  bankOrIndex: ScenarioSnapshot[] | StratifiedIndex,
   count: number,
   rng: RNG
 ): ScenarioSnapshot[] {
-  if (count >= bank.length) {
-    return bank.slice()
-  }
-
-  // Group by failureSignature
-  const groupMap = new Map<string, ScenarioSnapshot[]>()
-  for (const scenario of bank) {
-    const key = scenario.failureSignature ?? 'none'
-    let group = groupMap.get(key)
-    if (group == null) {
-      group = []
-      groupMap.set(key, group)
+  // Resolve index
+  let index: StratifiedIndex
+  let bankLength: number
+  if (Array.isArray(bankOrIndex)) {
+    if (count >= bankOrIndex.length) return bankOrIndex.slice()
+    index = buildStratifiedIndex(bankOrIndex)
+    bankLength = bankOrIndex.length
+  } else {
+    index = bankOrIndex
+    bankLength = 0
+    for (const group of index.byNecklace.values()) {
+      bankLength += group.length
     }
-    group.push(scenario)
+    if (count >= bankLength) {
+      const all: ScenarioSnapshot[] = []
+      for (const group of index.byNecklace.values()) {
+        for (const s of group) all.push(s)
+      }
+      return all
+    }
   }
 
-  // Fall back to uniform sampling if only one group
-  if (groupMap.size <= 1) {
-    return fisherYatesSample(bank, count, rng)
+  const { byNecklace, necklaceOrder } = index
+  const filledClassCount = necklaceOrder.length
+
+  // Single class — fall back to shuffle + signature diversity
+  if (filledClassCount <= 1) {
+    const group = byNecklace.get(necklaceOrder[0] ?? -1) ?? []
+    return fisherYatesSample(group, count, rng)
   }
 
-  // Shuffle the order of groups
-  const groupKeys = fisherYatesSample(
-    Array.from(groupMap.keys()),
-    groupMap.size,
+  // Build global signature counts for diversity scoring
+  const globalSignatureCounts = new Map<string, number>()
+  for (const group of byNecklace.values()) {
+    for (const s of group) {
+      const sig = s.failureSignature ?? 'none'
+      globalSignatureCounts.set(sig, (globalSignatureCounts.get(sig) ?? 0) + 1)
+    }
+  }
+
+  // Per-necklace quotas
+  const base = Math.floor(count / filledClassCount)
+  let remainder = count - base * filledClassCount
+
+  const result: ScenarioSnapshot[] = []
+  const unused: ScenarioSnapshot[] = []
+
+  // Shuffle necklace order for fair remainder distribution
+  const shuffledOrder = fisherYatesSample(
+    necklaceOrder,
+    necklaceOrder.length,
     rng
   )
 
-  // Shuffle scenarios within each group
-  const shuffledGroups = groupKeys.map((key) =>
-    fisherYatesSample(groupMap.get(key)!, groupMap.get(key)!.length, rng)
-  )
+  for (const necklaceKey of shuffledOrder) {
+    const group = byNecklace.get(necklaceKey)!
+    const quota = base + (remainder > 0 ? 1 : 0)
+    if (remainder > 0) remainder--
 
-  // Round-robin across groups until we have enough
-  const result: ScenarioSnapshot[] = []
-  const groupIndices = new Array<number>(shuffledGroups.length).fill(0)
+    // Shuffle within class
+    const shuffled = fisherYatesSample(group, group.length, rng)
 
-  while (result.length < count) {
-    let added = false
-    for (let g = 0; g < shuffledGroups.length; g++) {
-      if (result.length >= count) break
-      const group = shuffledGroups[g]!
-      const idx = groupIndices[g]!
-      if (idx < group.length) {
-        result.push(group[idx]!)
-        groupIndices[g] = idx + 1
-        added = true
-      }
+    // Sort by signature diversity (rarest signatures first)
+    const sorted = sortBySignatureDiversity(shuffled, globalSignatureCounts)
+
+    const take = Math.min(quota, sorted.length)
+    for (let i = 0; i < take; i++) {
+      result.push(sorted[i]!)
     }
-    // All groups exhausted (shouldn't happen since count < bank.length)
-    if (!added) break
+    // Collect unused for backfill
+    for (let i = take; i < sorted.length; i++) {
+      unused.push(sorted[i]!)
+    }
+  }
+
+  // Backfill if some classes had fewer than quota
+  if (result.length < count && unused.length > 0) {
+    const backfill = fisherYatesSample(unused, count - result.length, rng)
+    for (const s of backfill) {
+      result.push(s)
+    }
   }
 
   return result

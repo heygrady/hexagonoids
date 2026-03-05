@@ -4,6 +4,8 @@ import {
   ROCK_WAVE_SIZES,
 } from '@heygrady/hexagonoids-engine'
 
+import { createRNG } from '@neat-evolution/utils'
+
 import type { AgentContext, AgentFn, SyncExecutor } from '../agents/types.js'
 import { MEMORY_ROCK_PERCEPTION, MEMORY_SEEN_ROCKS } from '../agents/types.js'
 import { buildRockPerceptionPrecompute } from '../encoding/collectObservations.js'
@@ -43,6 +45,24 @@ export function simulateScenario(
   const engine = restoreSnapshot(scenario, seed)
   const { state, rng } = engine
 
+  // Apply ship jitter if configured
+  const jitterYaw = config.scenarioJitterYaw ?? 0
+  const jitterSpeed = config.scenarioJitterSpeed ?? 0
+
+  if (jitterYaw > 0 || jitterSpeed > 0) {
+    const jitterRng = createRNG(`${seed}:jitter:${scenario.id}`)
+    const jitterShip = state.ships.values().next().value
+    if (jitterShip != null) {
+      if (jitterYaw > 0) {
+        jitterShip.yaw += (jitterRng.gen() * 2 - 1) * jitterYaw
+      }
+      if (jitterSpeed > 0) {
+        const factor = 1 + (jitterRng.gen() * 2 - 1) * jitterSpeed
+        jitterShip.angularVelocity.scaleInPlace(factor)
+      }
+    }
+  }
+
   // Capture baselines for delta metrics
   const baselineGameTime = state.now
   const baselineScore = scenario.player.score
@@ -51,8 +71,8 @@ export function simulateScenario(
   // 2. Get player reference
   const trackedPlayer = state.players.get(PLAYER_ID)
 
-  // 3. Create metrics collector
-  const collector = createMetricsCollector(PLAYER_ID)
+  // 3. Create metrics collector with bullet cutoff at scenario start time
+  const collector = createMetricsCollector(PLAYER_ID, state, state.now)
 
   // Agent context (persists across ticks)
   const context: AgentContext = {
@@ -202,7 +222,8 @@ export function simulateScenario(
   collector.setUniqueCellsVisited(visitedBuckets.size)
 
   return collector.getMetrics({
-    score: (player?.score ?? 0) - baselineScore,
+    score:
+      (player?.score ?? 0) - baselineScore - collector.getPreScenarioScore(),
     livesRemaining: player?.lives ?? 0,
     timeAlive: state.now - baselineGameTime,
     distanceTraveled,

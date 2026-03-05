@@ -1,6 +1,7 @@
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import {
   createGame,
+  defaultBulletState,
   defaultPlayerState,
   defaultRockState,
   defaultShipState,
@@ -105,8 +106,30 @@ export function restoreSnapshot(
     })
   }
 
-  // Skip restoring bullets — pre-existing bullets inflate metrics by
-  // crediting the agent with hits it didn't earn.
+  // Reconstruct bullets
+  for (const bulletData of snapshot.bullets) {
+    const bulletId = generateId('bullet')
+    const bulletOrientation = unitPointToQuaternion(
+      bulletData.x,
+      bulletData.y,
+      bulletData.z
+    )
+    state.bullets.set(bulletId, {
+      ...defaultBulletState,
+      id: bulletId,
+      ownerId: shipId,
+      orientation: bulletOrientation,
+      x: bulletData.x,
+      y: bulletData.y,
+      z: bulletData.z,
+      angularVelocity: new Vector3(
+        bulletData.angularVelocityX,
+        bulletData.angularVelocityY,
+        bulletData.angularVelocityZ
+      ),
+      firedAt: bulletData.firedAt,
+    })
+  }
 
   return engine
 }

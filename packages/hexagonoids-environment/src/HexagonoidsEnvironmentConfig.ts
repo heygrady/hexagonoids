@@ -10,6 +10,10 @@ export interface SimulationConfig {
   curriculumEnabled: boolean
   /** Number of curriculum micro-scenarios to run (default 32 = 8 cones x 4 variants). */
   curriculumCount: number
+  /** Max yaw offset in radians for scenario ship jitter (default: 0 = disabled). */
+  scenarioJitterYaw?: number
+  /** Max speed scale fraction for scenario ship jitter (default: 0 = disabled). */
+  scenarioJitterSpeed?: number
 }
 
 export interface FitnessWeights {

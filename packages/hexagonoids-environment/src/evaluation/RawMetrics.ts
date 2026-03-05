@@ -1,4 +1,4 @@
-import type { EngineHooks } from '@heygrady/hexagonoids-engine'
+import type { EngineHooks, GameState } from '@heygrady/hexagonoids-engine'
 
 export interface RawMetrics {
   score: number
@@ -41,6 +41,8 @@ export interface MetricsCollector {
   addFrameWithRocksInSOI: () => void
   /** Set unique cells visited from external bucket tracking. */
   setUniqueCellsVisited: (count: number) => void
+  /** Score earned by pre-scenario bullets (to subtract from score delta). */
+  getPreScenarioScore: () => number
   /** Finalize and return metrics. */
   getMetrics: (final: {
     score: number
@@ -62,12 +64,23 @@ export interface MetricsCollector {
  * Tracked by simulation loop:
  * - shotsFired: via addShotsFired (bullet count delta each tick)
  * - score, livesRemaining, timeAlive, distanceTraveled, wavesSpawned
+ *
+ * @param playerId - The player whose metrics to track.
+ * @param state - Optional game state for looking up bullet/rock data.
+ * @param bulletFiredCutoff - If set, bullet-rock collisions where the bullet's
+ *   firedAt < cutoff are excluded from shotsHit/rocksDestroyed and their score
+ *   is tracked separately via getPreScenarioScore().
  */
-export function createMetricsCollector(playerId: string): MetricsCollector {
+export function createMetricsCollector(
+  playerId: string,
+  state?: GameState,
+  bulletFiredCutoff?: number
+): MetricsCollector {
   let shotsHit = 0
   let rocksDestroyed = 0
   let deaths = 0
   let shotsFired = 0
+  let preScenarioScore = 0
 
   // Phase 05 tracking state
   let thrustFrames = 0
@@ -81,11 +94,24 @@ export function createMetricsCollector(playerId: string): MetricsCollector {
   const uniqueRocksSeen = new Set<string>()
 
   const hooks: EngineHooks = {
-    onCollision: (_a, _b, type) => {
+    onCollision: (a, b, type) => {
       if (type === 'bullet-rock') {
-        // shotsHit and rocksDestroyed are always equal in Phase 02a: one bullet
-        // destroys exactly one rock per collision. Child rocks from splits are
-        // not counted here. Split into separate trackers in Phase 02b if needed.
+        // Check if this bullet was fired before the scenario started
+        if (bulletFiredCutoff != null && state != null) {
+          const bullet = state.bullets.get(a.id)
+          if (
+            bullet != null &&
+            bullet.firedAt != null &&
+            bullet.firedAt < bulletFiredCutoff
+          ) {
+            // Pre-scenario bullet — track score but don't count in metrics
+            const rock = state.rocks.get(b.id)
+            if (rock != null) {
+              preScenarioScore += rock.value
+            }
+            return
+          }
+        }
         shotsHit++
         rocksDestroyed++
       }
@@ -124,6 +150,7 @@ export function createMetricsCollector(playerId: string): MetricsCollector {
     setUniqueCellsVisited: (count: number) => {
       uniqueCellsVisited = count
     },
+    getPreScenarioScore: () => preScenarioScore,
     getMetrics: (final) => ({
       score: final.score,
       livesRemaining: final.livesRemaining,

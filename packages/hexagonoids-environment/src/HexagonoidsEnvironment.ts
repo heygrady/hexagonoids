@@ -20,7 +20,11 @@ import { simulateGame } from './evaluation/simulateGame.js'
 import type { HexagonoidsEnvironmentConfig } from './HexagonoidsEnvironmentConfig.js'
 import { mergeConfig } from './HexagonoidsEnvironmentConfig.js'
 import { simulateScenario } from './scenarios/simulateScenario.js'
-import { stratifiedSample } from './scenarios/stratifiedSample.js'
+import {
+  buildStratifiedIndex,
+  type StratifiedIndex,
+  stratifiedSample,
+} from './scenarios/stratifiedSample.js'
 import type { ScenarioSnapshot } from './scenarios/types.js'
 
 const OUTPUT_COUNT = 4
@@ -32,6 +36,7 @@ export class HexagonoidsEnvironment
   public readonly isAsync = false
   private readonly config: HexagonoidsEnvironmentConfig
   private readonly agent: ReturnType<typeof createNeatAgent>
+  private readonly scenarioIndex?: StratifiedIndex
 
   constructor(config?: Partial<HexagonoidsEnvironmentConfig>) {
     this.config = mergeConfig(config)
@@ -40,6 +45,12 @@ export class HexagonoidsEnvironment
       outputs: OUTPUT_COUNT,
     }
     this.agent = createNeatAgent()
+    if (
+      this.config.scenarioBank != null &&
+      this.config.scenarioBank.length > 0
+    ) {
+      this.scenarioIndex = buildStratifiedIndex(this.config.scenarioBank)
+    }
   }
 
   evaluate(executor: SyncExecutor, rng?: RNG): number {
@@ -235,10 +246,14 @@ export class HexagonoidsEnvironment
   ): number {
     const { scenariosPerOrganism, scenarioMaxTicks } = this.config.simulation
 
-    // Select scenarios using stratified sampling by failure signature
+    // Select scenarios using multi-dimensional stratified sampling
     const selectionRng = createRNG(seed)
     const count = Math.min(scenariosPerOrganism, bank.length)
-    const selected = stratifiedSample(bank, count, selectionRng)
+    const selected = stratifiedSample(
+      this.scenarioIndex ?? bank,
+      count,
+      selectionRng
+    )
 
     // Score each scenario individually, then average
     const scenarioConfig = {
