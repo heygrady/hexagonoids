@@ -153,13 +153,11 @@ export const ROCK_WAVE_SIZES = [4, 6, 8, 10, 11]
 export const ROCK_SPAWN_MIN_DISTANCE = 0
 
 /**
- * Maximum spawn distance from player in degrees.
- * Tune to bullet-range scale so new rocks begin within a playable radius.
+ * Half-height of the rectangular spawn border in degrees.
+ * Tuned to bullet-range scale so new rocks begin within a playable radius.
  */
-export const ROCK_SPAWN_MAX_DISTANCE = (BULLET_TRAVEL_DISTANCE * 180) / Math.PI
-
-/** Half-height of the rectangular spawn border in degrees. */
-export const ROCK_SPAWN_BORDER_HALF_HEIGHT = ROCK_SPAWN_MAX_DISTANCE
+export const ROCK_SPAWN_BORDER_HALF_HEIGHT =
+  (BULLET_TRAVEL_DISTANCE * 180) / Math.PI
 
 /**
  * Half-width of the rectangular spawn border in degrees.
@@ -171,5 +169,6 @@ export const ROCK_SPAWN_BORDER_HALF_WIDTH =
 /** Random heading spread around inward direction (degrees). */
 export const ROCK_SPAWN_INWARD_SPREAD_DEGREES = 60
 
-/** Push release border outward so new large rocks start off-screen. */
-export const ROCK_SPAWN_RELEASE_PADDING = (ROCK_LARGE_RADIUS * 180) / Math.PI
+/** Push release border outward so new large rocks start off-screen (degrees). */
+export const ROCK_SPAWN_RELEASE_PADDING =
+  ((ROCK_LARGE_RADIUS / RADIUS) * 180) / Math.PI
