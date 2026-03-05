@@ -1,9 +1,13 @@
 import {
   aggregateMetrics,
+  computePossibleDeaths,
   createNeatAgent,
   evaluateFullGameFitness,
+  type FitnessWeights,
+  type GateConfig,
   type RawMetrics,
   simulateGame,
+  weightedFitnessSum,
 } from '@heygrady/hexagonoids-environment'
 import { createExecutor } from '@neat-evolution/executor'
 
@@ -66,6 +70,8 @@ export interface AnalyzeGenomesOptions {
   dtMs: number
   baseSeed: string
   scoringMethods?: Record<string, ScoringMethod> | undefined
+  fitnessWeights?: FitnessWeights | undefined
+  gateConfig?: GateConfig | undefined
   onProgress?: (completed: number, total: number) => void
 }
 
@@ -80,6 +86,8 @@ export async function analyzeGenomes(
     dtMs,
     baseSeed,
     scoringMethods,
+    fitnessWeights,
+    gateConfig,
     onProgress,
   } = options
 
@@ -110,7 +118,17 @@ export async function analyzeGenomes(
     const perSeedFitness: number[] = []
     const perSeedAltScores: Record<string, number[]> = {}
     for (const m of allMetrics) {
-      perSeedFitness.push(evaluateFullGameFitness(m))
+      const possibleDeaths = computePossibleDeaths(m.elapsedTicks, dtMs)
+      if (fitnessWeights != null && gateConfig != null) {
+        perSeedFitness.push(
+          weightedFitnessSum(m, fitnessWeights, gateConfig, {
+            possibleDeaths,
+            dtMs,
+          })
+        )
+      } else {
+        perSeedFitness.push(evaluateFullGameFitness(m, dtMs))
+      }
       if (scoringMethods != null) {
         for (const [name, fn] of Object.entries(scoringMethods)) {
           let arr = perSeedAltScores[name]

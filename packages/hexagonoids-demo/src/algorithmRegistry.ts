@@ -132,8 +132,8 @@ export const HEXAGONOIDS_HYPERNEAT_HIDDEN_LAYER_SIZES = [4, 4] as const
 
 export const defaultHexagonoidsNEATConfigOptions: NEATConfigOptions = {
   ...defaultNEATConfigOptions,
-  mutateOnlyOneLink: true, // default: true
-  addNodeProbability: 0.03, // default: 0.03
+  mutateOnlyOneLink: false, // default: true
+  addNodeProbability: 0.09, // default: 0.03
   addLinkProbability: 0.2,
 }
 

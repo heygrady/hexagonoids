@@ -21,7 +21,9 @@ export const summarizeBaselineAgent = (
   simulation: Pick<SimulationConfig, 'maxTicks' | 'dtMs' | 'useFastThrust'>
 ): BaselineScore => {
   const metrics = seeds.map((seed) => simulateGame(agent, simulation, seed))
-  const fitnessBySeed = metrics.map(evaluateFullGameFitness)
+  const fitnessBySeed = metrics.map((m) =>
+    evaluateFullGameFitness(m, simulation.dtMs)
+  )
 
   return {
     name,

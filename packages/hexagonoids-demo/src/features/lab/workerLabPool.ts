@@ -1,3 +1,7 @@
+import type {
+  FitnessWeights,
+  GateConfig,
+} from '@heygrady/hexagonoids-environment'
 import { Dispatcher } from '@neat-evolution/worker-actions'
 import { WorkerPool } from '@neat-evolution/worker-pool'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
@@ -21,6 +25,8 @@ export interface LabWorkerPool {
     dtMs: number
     baseSeed: string
     scoringMethods?: Record<string, ScoringMethod> | undefined
+    fitnessWeights?: FitnessWeights | undefined
+    gateConfig?: GateConfig | undefined
     onProgress?: (completed: number, total: number) => void
   }): Promise<GenomeBehavior[]>
 
@@ -75,6 +81,8 @@ export async function createLabWorkerPool(options?: {
         dtMs,
         baseSeed,
         scoringMethods,
+        fitnessWeights,
+        gateConfig,
         onProgress,
       } = analyzeOptions
 
@@ -105,6 +113,8 @@ export async function createLabWorkerPool(options?: {
               dtMs,
               baseSeed,
               includePerSeedMetrics,
+              fitnessWeights,
+              gateConfig,
             })
           )
           .then((result) => {

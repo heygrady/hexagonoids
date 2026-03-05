@@ -2,7 +2,11 @@ import { mkdir, readdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '@heygrady/hexagonoids-environment'
+import {
+  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
+  type FitnessWeights,
+  type GateConfig,
+} from '@heygrady/hexagonoids-environment'
 
 const PACKAGE_ROOT = fileURLToPath(new URL('../../../..', import.meta.url))
 
@@ -139,6 +143,8 @@ export async function runLab(options: LabOptions = {}): Promise<{
     dtMs: trainOptions.dtMs ?? 33,
     baseSeed: trainOptions.baseSeed ?? 'hexagonoids-phase03',
     scoringMethods: profile.scoringMethods,
+    fitnessWeights: trainOptions.fitnessWeights as FitnessWeights | undefined,
+    gateConfig: trainOptions.gateConfig as GateConfig | undefined,
     onProgress: (completed, total) => {
       process.stdout.write(`\r  Analyzing genome ${completed}/${total}...`)
     },

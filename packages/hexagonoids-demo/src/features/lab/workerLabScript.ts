@@ -18,6 +18,8 @@ interface LabRuntime {
   simulateGame: typeof import('@heygrady/hexagonoids-environment').simulateGame
   aggregateMetrics: typeof import('@heygrady/hexagonoids-environment').aggregateMetrics
   evaluateFullGameFitness: typeof import('@heygrady/hexagonoids-environment').evaluateFullGameFitness
+  computePossibleDeaths: typeof import('@heygrady/hexagonoids-environment').computePossibleDeaths
+  weightedFitnessSum: typeof import('@heygrady/hexagonoids-environment').weightedFitnessSum
   generationSeedPack: typeof import('../../evaluation/seedSchedule.js').generationSeedPack
 }
 
@@ -66,6 +68,8 @@ handler.register(ActionType.INIT, async () => {
     simulateGame: env.simulateGame,
     aggregateMetrics: env.aggregateMetrics,
     evaluateFullGameFitness: env.evaluateFullGameFitness,
+    computePossibleDeaths: env.computePossibleDeaths,
+    weightedFitnessSum: env.weightedFitnessSum,
     generationSeedPack,
   }
 
@@ -85,6 +89,8 @@ handler.register(
       dtMs,
       baseSeed,
       includePerSeedMetrics,
+      fitnessWeights,
+      gateConfig,
     } = payload
 
     const simConfig = { maxTicks, dtMs, useFastThrust: true }
@@ -130,7 +136,20 @@ handler.register(
       // Compute per-seed fitness
       const perSeedFitness: number[] = []
       for (const m of allMetrics) {
-        perSeedFitness.push(runtime.evaluateFullGameFitness(m))
+        const possibleDeaths = runtime.computePossibleDeaths(
+          m.elapsedTicks,
+          dtMs
+        )
+        if (fitnessWeights != null && gateConfig != null) {
+          perSeedFitness.push(
+            runtime.weightedFitnessSum(m, fitnessWeights, gateConfig, {
+              possibleDeaths,
+              dtMs,
+            })
+          )
+        } else {
+          perSeedFitness.push(runtime.evaluateFullGameFitness(m, dtMs))
+        }
       }
 
       const n = allMetrics.length

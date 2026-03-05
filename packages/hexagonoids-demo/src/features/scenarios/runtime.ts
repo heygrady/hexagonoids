@@ -26,7 +26,7 @@ export async function loadScenarioRuntime(): Promise<ScenarioRuntime> {
     randomAgent: env.randomAgent,
     simulateScenario: env.simulateScenario,
     weightedFitnessSum: env.weightedFitnessSum,
-    scenarioPossibleDeaths: env.scenarioPossibleDeaths,
+    computePossibleDeaths: env.computePossibleDeaths,
     DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG:
       env.DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   } as unknown as ScenarioRuntime

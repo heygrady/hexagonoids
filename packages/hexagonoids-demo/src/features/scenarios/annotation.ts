@@ -111,11 +111,11 @@ export function evaluateScenarioWithAgent(
   )
 
   const context = {
-    possibleDeaths: runtime.scenarioPossibleDeaths(
-      scenario.player?.lives ?? 1,
-      evalTicks,
+    possibleDeaths: runtime.computePossibleDeaths(
+      metrics.elapsedTicks,
       simConfig.dtMs
     ),
+    dtMs: simConfig.dtMs,
   }
 
   const config = runtime.DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG

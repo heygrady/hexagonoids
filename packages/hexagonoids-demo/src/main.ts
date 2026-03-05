@@ -263,7 +263,7 @@ const parseSharedOption = (
 
   if (token === '--weightRocks') {
     options.fitnessWeights = {
-      ...{ rocksDestroyed: 0.6, accuracy: 0.4 },
+      ...{ rocksDestroyed: 0.6, accuracy: 0.4, targetAccuracy: 0.2 },
       ...options.fitnessWeights,
       rocksDestroyed: readFloat(token, next),
     }
@@ -272,7 +272,7 @@ const parseSharedOption = (
 
   if (token === '--weightAccuracy') {
     options.fitnessWeights = {
-      ...{ rocksDestroyed: 0.6, accuracy: 0.4 },
+      ...{ rocksDestroyed: 0.6, accuracy: 0.4, targetAccuracy: 0.2 },
       ...options.fitnessWeights,
       accuracy: readFloat(token, next),
     }

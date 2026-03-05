@@ -217,6 +217,7 @@ export interface ScenarioRuntime {
     shotsHit: number
     accuracy?: number
     aliveFrames?: number
+    elapsedTicks: number
   }
   weightedFitnessSum(
     metrics: Record<string, unknown>,
@@ -224,7 +225,7 @@ export interface ScenarioRuntime {
     gateConfig: Record<string, unknown>,
     context: Record<string, unknown>
   ): number
-  scenarioPossibleDeaths(lives: number, maxTicks: number, dtMs: number): number
+  computePossibleDeaths(elapsedTicks: number, dtMs: number): number
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: {
     simulation?: { dtMs?: number }
     fitnessWeights: Record<string, unknown>

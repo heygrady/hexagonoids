@@ -27,6 +27,10 @@ export interface AnalyzeBatchPayload {
   baseSeed: string
   /** When true, worker includes per-seed raw metrics for main-thread scoring */
   includePerSeedMetrics: boolean
+  /** Optional fitness weights from the training profile for production fitness scoring */
+  fitnessWeights?: import('@heygrady/hexagonoids-environment').FitnessWeights
+  /** Optional gate config from the training profile for production fitness scoring */
+  gateConfig?: import('@heygrady/hexagonoids-environment').GateConfig
 }
 
 export interface AnalyzeBatchResultEntry {
