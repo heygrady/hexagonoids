@@ -81,7 +81,7 @@ describe('restoreSnapshot round-trip', () => {
     expect(restored.ships.size).toBe(1)
     expect(restored.players.size).toBe(1)
     expect(restored.rocks.size).toBe(snapshot.rocks.length)
-    expect(restored.bullets.size).toBe(0) // bullets intentionally not restored
+    expect(restored.bullets.size).toBe(snapshot.bullets.length)
   })
 
   it('preserves ship position within 1e-6', () => {

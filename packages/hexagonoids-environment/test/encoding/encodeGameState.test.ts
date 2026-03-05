@@ -8,7 +8,14 @@ import {
 } from '@heygrady/hexagonoids-engine'
 import { describe, expect, it } from 'vitest'
 import { encodeGameState } from '../../src/encoding/encodeGameState.js'
-import { INPUT_COUNT } from '../../src/encoding/encodingPresets.js'
+import {
+  BULLET_SLOTS,
+  CONE_COUNT,
+  FEATURES_PER_BULLET,
+  FEATURES_PER_CONE,
+  GLOBAL_FEATURES,
+  INPUT_COUNT,
+} from '../../src/encoding/encodingPresets.js'
 
 const PLAYER_ID = 'player-1'
 
@@ -77,7 +84,7 @@ describe('encodeGameState', () => {
       engine
     )
     expect(result).toHaveLength(INPUT_COUNT)
-    expect(result).toHaveLength(34)
+    expect(result).toHaveLength(58)
   })
 
   it('returns all finite numbers', () => {
@@ -210,7 +217,7 @@ describe('encodeGameState', () => {
       engine
     )
 
-    expect(result).toHaveLength(34)
+    expect(result).toHaveLength(58)
 
     // At least one cone should have a non-zero proximity
     const proximityFeatures: number[] = []
@@ -267,5 +274,113 @@ describe('encodeGameState', () => {
       expect(result[1]).toBeGreaterThanOrEqual(-1)
       expect(result[1]).toBeLessThanOrEqual(1)
     }
+  })
+
+  it('bullet slots are zero when no bullets exist', () => {
+    const { state, engine } = setupGame('enc-bullets-empty', 0)
+    const result = encodeGameState(
+      state,
+      PLAYER_ID,
+      undefined,
+      undefined,
+      undefined,
+      engine
+    )
+
+    const bulletBase = GLOBAL_FEATURES + CONE_COUNT * FEATURES_PER_CONE
+    for (let i = 0; i < BULLET_SLOTS * FEATURES_PER_BULLET; i++) {
+      expect(result[bulletBase + i]).toBe(0)
+    }
+  })
+
+  it('bullet slots encode fired bullets', () => {
+    const { state, engine } = setupGame('enc-bullets-fire', 5)
+
+    // Fire a bullet by ticking with fire=true
+    engine.tick(
+      { [PLAYER_ID]: { thrust: false, fire: true, left: false, right: false } },
+      33
+    )
+    // Advance one more tick so the bullet has moved
+    engine.tick(
+      {
+        [PLAYER_ID]: { thrust: false, fire: false, left: false, right: false },
+      },
+      33
+    )
+
+    expect(state.bullets.size).toBeGreaterThan(0)
+
+    const result = encodeGameState(
+      state,
+      PLAYER_ID,
+      undefined,
+      undefined,
+      undefined,
+      engine
+    )
+
+    // Slot 0 should have non-zero proximity (bullet is near ship)
+    const bulletBase = GLOBAL_FEATURES + CONE_COUNT * FEATURES_PER_CONE
+    const proximity0 = result[bulletBase]!
+    expect(proximity0).not.toBe(0)
+    // All bullet values should be finite
+    for (let i = 0; i < BULLET_SLOTS * FEATURES_PER_BULLET; i++) {
+      expect(Number.isFinite(result[bulletBase + i])).toBe(true)
+    }
+  })
+
+  it('bullets ordered oldest first', () => {
+    const { state, engine } = setupGame('enc-bullets-order', 5)
+
+    // Fire first bullet
+    engine.tick(
+      { [PLAYER_ID]: { thrust: false, fire: true, left: false, right: false } },
+      33
+    )
+
+    // Advance past cooldown (150ms = ~5 ticks at 33ms)
+    for (let i = 0; i < 6; i++) {
+      engine.tick(
+        {
+          [PLAYER_ID]: {
+            thrust: false,
+            fire: false,
+            left: false,
+            right: false,
+          },
+        },
+        33
+      )
+    }
+
+    // Fire second bullet
+    engine.tick(
+      { [PLAYER_ID]: { thrust: false, fire: true, left: false, right: false } },
+      33
+    )
+
+    expect(state.bullets.size).toBeGreaterThanOrEqual(2)
+
+    const result = encodeGameState(
+      state,
+      PLAYER_ID,
+      undefined,
+      undefined,
+      undefined,
+      engine
+    )
+
+    const bulletBase = GLOBAL_FEATURES + CONE_COUNT * FEATURES_PER_CONE
+    const proximity0 = result[bulletBase]!
+    const proximity1 = result[bulletBase + FEATURES_PER_BULLET]!
+
+    // Both slots should have non-zero values
+    expect(proximity0).not.toBe(0)
+    expect(proximity1).not.toBe(0)
+
+    // Slot 0 is the older bullet (farther away = lower proximity)
+    // Slot 1 is the newer bullet (closer = higher proximity)
+    expect(proximity0).toBeLessThan(proximity1)
   })
 })

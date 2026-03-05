@@ -168,4 +168,50 @@ describe('simulateScenario', () => {
 
     expect(metrics.aliveFrames).toBeGreaterThan(0)
   })
+
+  it('pre-scenario bullets do not inflate metrics', () => {
+    // Create a game and fire bullets so the snapshot has them
+    resetIdCounter()
+    const { state, rng } = createGame({
+      seed: 'pre-bullet-test',
+      useFastThrust: true,
+    })
+    startPlayer(state, PLAYER_ID, rng)
+
+    // Fire for several ticks to create bullets in flight
+    const stepInputs: PlayerInputs = {
+      [PLAYER_ID]: { left: false, right: false, thrust: true, fire: true },
+    }
+    for (let i = 0; i < 30; i++) {
+      if (state.endedAt != null) break
+      step(state, stepInputs, 33, rng)
+    }
+
+    const snapshot = captureSnapshot(state, PLAYER_ID, {
+      id: 'pre-bullet-scenario',
+    })
+
+    // Ensure we captured bullets
+    expect(snapshot.bullets.length).toBeGreaterThan(0)
+
+    // Simulate with doNothingAgent — any hits from pre-existing bullets
+    // should not count toward rocksDestroyed or shotsHit
+    const doNothingMetrics = simulateScenario(
+      doNothingAgent,
+      snapshot,
+      { maxTicks: 120 },
+      'pre-bullet-eval'
+    )
+
+    // doNothingAgent fires no shots, so shotsFired should be 0
+    expect(doNothingMetrics.shotsFired).toBe(0)
+    // shotsHit should also be 0 since pre-scenario bullets are excluded
+    expect(doNothingMetrics.shotsHit).toBe(0)
+    // rocksDestroyed should be 0 for the same reason
+    expect(doNothingMetrics.rocksDestroyed).toBe(0)
+    // accuracy should be 0 (no shots fired)
+    expect(doNothingMetrics.accuracy).toBe(0)
+    // score should be 0 or negative (pre-scenario bullet hits subtracted)
+    expect(doNothingMetrics.score).toBeLessThanOrEqual(0)
+  })
 })
