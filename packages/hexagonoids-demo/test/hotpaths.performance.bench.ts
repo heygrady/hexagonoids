@@ -1,7 +1,6 @@
 import {
   createGame,
   detectCollisions,
-  RADIUS,
   spawnBullet,
   spawnRock,
   startPlayer,
@@ -26,14 +25,6 @@ function latLngToPoint(lat: number, lng: number) {
     y: Math.sin(latRad),
     z: cosLat * Math.sin(lngRad),
   }
-}
-
-function arcDistanceXYZ(
-  a: { x: number; y: number; z: number },
-  b: { x: number; y: number; z: number }
-) {
-  const dot = Math.max(-1, Math.min(1, a.x * b.x + a.y * b.y + a.z * b.z))
-  return Math.acos(dot) * RADIUS
 }
 
 function createDenseScenario() {
@@ -61,14 +52,7 @@ function createDenseScenario() {
     spawnBullet(state, ship, rng)
   }
 
-  const prevProjections = new Map<string, [number, number]>()
-  const prevDistances = new Map<string, number>()
-  for (const rock of state.rocks.values()) {
-    prevProjections.set(rock.id, [0, 0])
-    prevDistances.set(rock.id, arcDistanceXYZ(ship, rock))
-  }
-
-  return { engine, state, prevProjections, prevDistances, rng }
+  return { engine, state, rng }
 }
 
 function createInVisionRingScenario() {
@@ -104,14 +88,7 @@ function createInVisionRingScenario() {
     }
   }
 
-  const prevProjections = new Map<string, [number, number]>()
-  const prevDistances = new Map<string, number>()
-  for (const rock of state.rocks.values()) {
-    prevProjections.set(rock.id, [0, 0])
-    prevDistances.set(rock.id, arcDistanceXYZ(ship, rock))
-  }
-
-  return { engine, state, prevProjections, prevDistances }
+  return { engine, state }
 }
 
 function createBulletCollisionScenario() {
@@ -186,19 +163,9 @@ describe('hotpath performance', () => {
   bench(
     'collectObservations dense scene',
     () => {
-      const { engine, state, prevProjections, prevDistances } =
-        createDenseScenario()
+      const { engine, state } = createDenseScenario()
       for (let i = 0; i < 240; i++) {
-        collectObservations(
-          state,
-          PLAYER_ID,
-          prevProjections,
-          prevDistances,
-          33,
-          undefined,
-          undefined,
-          engine
-        )
+        collectObservations(state, PLAYER_ID, undefined, undefined, engine)
       }
     },
     {
@@ -212,19 +179,9 @@ describe('hotpath performance', () => {
   bench(
     'collectObservations in-vision ring scene (bearingOffset hot path)',
     () => {
-      const { engine, state, prevProjections, prevDistances } =
-        createInVisionRingScenario()
+      const { engine, state } = createInVisionRingScenario()
       for (let i = 0; i < 240; i++) {
-        collectObservations(
-          state,
-          PLAYER_ID,
-          prevProjections,
-          prevDistances,
-          33,
-          undefined,
-          undefined,
-          engine
-        )
+        collectObservations(state, PLAYER_ID, undefined, undefined, engine)
       }
     },
     {
@@ -238,16 +195,12 @@ describe('hotpath performance', () => {
   bench(
     'encodeGameState dense scene',
     () => {
-      const { engine, state, prevProjections, prevDistances } =
-        createDenseScenario()
+      const { engine, state } = createDenseScenario()
       const inputBuffer = new Array<number>(INPUT_COUNT)
       for (let i = 0; i < 240; i++) {
         encodeGameState(
           state,
           PLAYER_ID,
-          prevProjections,
-          prevDistances,
-          33,
           inputBuffer,
           undefined,
           undefined,
@@ -266,16 +219,12 @@ describe('hotpath performance', () => {
   bench(
     'encodeGameState in-vision ring scene',
     () => {
-      const { engine, state, prevProjections, prevDistances } =
-        createInVisionRingScenario()
+      const { engine, state } = createInVisionRingScenario()
       const inputBuffer = new Array<number>(INPUT_COUNT)
       for (let i = 0; i < 240; i++) {
         encodeGameState(
           state,
           PLAYER_ID,
-          prevProjections,
-          prevDistances,
-          33,
           inputBuffer,
           undefined,
           undefined,

@@ -27,8 +27,8 @@ describe('algorithmRegistry', () => {
     }
   })
 
-  it('uses cone8 encoding with 37 inputs and 4 outputs', () => {
-    expect(HEXAGONOIDS_IO.inputs).toBe(37)
+  it('uses cone8 encoding with 34 inputs and 4 outputs', () => {
+    expect(HEXAGONOIDS_IO.inputs).toBe(34)
     expect(HEXAGONOIDS_IO.outputs).toBe(4)
   })
 
