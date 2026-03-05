@@ -12,7 +12,6 @@ import {
   buildCurriculumParams,
   CURRICULUM_SCENARIO_COUNT,
   createNeatAgent,
-  decodeScenarioBankDocument,
   generateCurriculumSnapshot,
   restoreSnapshot,
   type ScenarioSnapshot,
@@ -149,9 +148,10 @@ export function ObserveController() {
 
   let playbackScenarioBank: ScenarioSnapshot[] | null = null
   if (playbackMode === 'scenario') {
-    void import('@heygrady/hexagonoids-demo/data/scenarios.json')
-      .then((mod) => {
-        playbackScenarioBank = decodeScenarioBankDocument(mod.default ?? mod)
+    void import('@heygrady/hexagonoids-demo/data/scenarios')
+      .then(({ loadScenarioBank }) => loadScenarioBank())
+      .then((bank) => {
+        playbackScenarioBank = bank
         console.log(
           `[OBSERVE] Loaded ${playbackScenarioBank.length} scenarios for playback`
         )

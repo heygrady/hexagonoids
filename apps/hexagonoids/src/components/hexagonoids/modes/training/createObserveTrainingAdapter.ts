@@ -9,7 +9,6 @@ import {
   type TrainOptions,
 } from '@heygrady/hexagonoids-demo'
 import {
-  decodeScenarioBankDocument,
   type HexagonoidsEnvironmentConfig,
   INPUT_COUNT,
   mergeConfig,
@@ -186,10 +185,10 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
       let scenarioBank: ScenarioSnapshot[] | undefined
       if (config.scenarioMode !== false) {
         try {
-          const mod = await import(
-            '@heygrady/hexagonoids-demo/data/scenarios.json'
+          const { loadScenarioBank } = await import(
+            '@heygrady/hexagonoids-demo/data/scenarios'
           )
-          scenarioBank = decodeScenarioBankDocument(mod.default ?? mod)
+          scenarioBank = await loadScenarioBank()
           console.log(`[OBSERVE] Loaded ${scenarioBank.length} scenarios`)
         } catch (error) {
           console.warn(
