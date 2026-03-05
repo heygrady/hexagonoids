@@ -5,14 +5,8 @@ import {
 } from '@heygrady/hexagonoids-engine'
 
 import type { AgentContext, AgentFn, SyncExecutor } from '../agents/types.js'
-import {
-  MEMORY_LAST_DT_MS,
-  MEMORY_PREV_DISTANCES,
-  MEMORY_PREV_PROJECTIONS,
-  MEMORY_ROCK_PERCEPTION,
-} from '../agents/types.js'
+import { MEMORY_ROCK_PERCEPTION, MEMORY_SEEN_ROCKS } from '../agents/types.js'
 import { buildRockPerceptionPrecompute } from '../encoding/collectObservations.js'
-import { updatePrevDistances } from '../encoding/updatePrevDistances.js'
 import { findBucketXYZ } from '../evaluation/icosahedralBuckets.js'
 import type { RawMetrics } from '../evaluation/RawMetrics.js'
 import { createMetricsCollector } from '../evaluation/RawMetrics.js'
@@ -20,6 +14,7 @@ import {
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   type SimulationConfig,
 } from '../HexagonoidsEnvironmentConfig.js'
+import { yawToBearing } from '../utils/sphericalBearing.js'
 
 import { restoreSnapshot } from './restoreSnapshot.js'
 import type { ScenarioSnapshot } from './types.js'
@@ -75,6 +70,7 @@ export function simulateScenario(
     },
   }
 
+  let hasSeenRock = false
   let distanceTraveled = 0
   let prevX = 0
   let prevY = 0
@@ -87,7 +83,8 @@ export function simulateScenario(
   const visitedBuckets = new Set<number>()
 
   // 4. Game loop
-  for (let tick = 0; tick < maxTicks; tick++) {
+  let tick = 0
+  for (; tick < maxTicks; tick++) {
     if (state.endedAt != null) break
 
     // Track ship position before step for distance + spatial coverage
@@ -132,11 +129,11 @@ export function simulateScenario(
 
     const rockPerception =
       ship?.alive === true
-        ? buildRockPerceptionPrecompute(ship, Math.PI / 2 + ship.yaw, engine)
+        ? buildRockPerceptionPrecompute(ship, yawToBearing(ship.yaw), engine)
         : undefined
     context.memory[MEMORY_ROCK_PERCEPTION] = rockPerception
 
-    // Get agent inputs (reads prevDistances from previous tick)
+    // Get agent inputs
     const inputs = agent(state, PLAYER_ID, context)
 
     // Track action usage per live frame
@@ -151,32 +148,24 @@ export function simulateScenario(
         }
       }
       if (visibleIds.length > 0) {
+        hasSeenRock = true
         collector.addRocksSeen(visibleIds)
         collector.addFrameWithRocksInSOI()
       }
     }
 
-    // Update prevDistances BEFORE step so closing speed reflects movement.
-    if (ship?.alive) {
-      const prevDistances = context.memory[MEMORY_PREV_DISTANCES] as
-        | Map<string, number>
-        | undefined
-      if (prevDistances != null) {
-        const prevProjections = context.memory[MEMORY_PREV_PROJECTIONS] as
-          | Map<string, [number, number]>
+    // Early stop: agent previously saw rocks but now has zero known rocks
+    if (hasSeenRock && ship?.alive) {
+      const hasVisibleRocks =
+        rockPerception != null &&
+        rockPerception.rocks.some((r) => r.inVisionRange)
+      if (!hasVisibleRocks) {
+        const seenRocks = context.memory[MEMORY_SEEN_ROCKS] as
+          | Set<string>
           | undefined
-        updatePrevDistances(
-          state,
-          tick,
-          rockPerception,
-          prevDistances,
-          prevProjections
-        )
+        if (seenRocks == null || seenRocks.size === 0) break
       }
     }
-
-    // Store dtMs for encoding approach speed calculation
-    context.memory[MEMORY_LAST_DT_MS] = dtMs
 
     // Record wave before step for transition detection
     const waveBefore = state.wave
@@ -213,11 +202,11 @@ export function simulateScenario(
   collector.setUniqueCellsVisited(visitedBuckets.size)
 
   return collector.getMetrics({
-    episodeReward: 0,
     score: (player?.score ?? 0) - baselineScore,
     livesRemaining: player?.lives ?? 0,
     timeAlive: state.now - baselineGameTime,
     distanceTraveled,
     wavesSpawned: state.wave - baselineWave,
+    elapsedTicks: tick,
   })
 }

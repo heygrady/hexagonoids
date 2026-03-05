@@ -4,6 +4,10 @@ export { createNeatAgent, neatAgent } from './agents/neatAgent.js'
 export { randomAgent } from './agents/randomAgent.js'
 export type { AgentContext, AgentFn } from './agents/types.js'
 export {
+  MEMORY_ROCK_PERCEPTION,
+  MEMORY_SEEN_ROCKS,
+} from './agents/types.js'
+export {
   buildCurriculumParams,
   CURRICULUM_SCENARIO_COUNT,
   type CurriculumSnapshotResult,
@@ -16,24 +20,32 @@ export type {
   ScenarioVariant,
 } from './curriculum/generateCurriculumScenario.js'
 export { runCurriculum } from './curriculum/runCurriculum.js'
-export { collectObservations } from './encoding/collectObservations.js'
+export {
+  buildRockPerceptionPrecompute,
+  collectObservations,
+} from './encoding/collectObservations.js'
 export { decodeOutputs } from './encoding/decodeOutputs.js'
-export { encodeGameState, INPUT_COUNT } from './encoding/encodeGameState.js'
+export { encodeGameState } from './encoding/encodeGameState.js'
 // Encoding
 export {
   CONE_COUNT,
   FEATURES_PER_CONE,
   GLOBAL_FEATURES,
+  INPUT_COUNT,
 } from './encoding/encodingPresets.js'
-export { bearingToSector } from './encoding/sectorUtils.js'
 // Evaluation
 export { aggregateMetrics } from './evaluation/aggregateMetrics.js'
 export {
+  type ActionFrames,
   actionDiversityGate,
+  applyBehavioralGates,
   calculateFitness,
+  computeKillCycleTicks,
+  computePossibleKills,
   engagementGate,
   evaluateFullGameFitness,
   type FitnessContext,
+  turnBiasGate,
   turnGate,
   weightedFitnessSum,
   zScore,
@@ -44,7 +56,7 @@ export {
 } from './evaluation/icosahedralBuckets.js'
 export type { MetricsCollector, RawMetrics } from './evaluation/RawMetrics.js'
 export { createMetricsCollector } from './evaluation/RawMetrics.js'
-export { scenarioPossibleDeaths } from './evaluation/scenarioContext.js'
+export { computePossibleDeaths } from './evaluation/scenarioContext.js'
 export { simulateGame } from './evaluation/simulateGame.js'
 // Environment
 export { HexagonoidsEnvironment } from './HexagonoidsEnvironment.js'
@@ -79,8 +91,7 @@ export type {
 // Utils
 export {
   MAX_CLOSING_SPEED,
-  SECTOR_COUNT,
   SOI_ANGULAR_RADIUS,
   SOI_ARC_DISTANCE,
 } from './utils/constants.js'
-export { relativeBearing, sphericalBearing } from './utils/sphericalBearing.js'
+export { yawToBearing } from './utils/sphericalBearing.js'

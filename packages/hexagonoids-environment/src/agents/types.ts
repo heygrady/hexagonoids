@@ -29,8 +29,7 @@ export interface AgentContext {
  * Memory keys shared between neatAgent and simulateGame.
  * Using named constants prevents silent breakage from string drift.
  */
-export const MEMORY_PREV_DISTANCES = 'prevDistances'
-export const MEMORY_PREV_PROJECTIONS = 'prevProjections'
-export const MEMORY_LAST_DT_MS = 'lastDtMs'
 export const MEMORY_ROCK_PERCEPTION = 'rockPerception'
 export const MEMORY_SEEN_ROCKS = 'seenRocks'
+export const MEMORY_INPUT_BUFFER = 'inputBuffer'
+export const MEMORY_OBSERVATION_BUFFER = 'observationBuffer'

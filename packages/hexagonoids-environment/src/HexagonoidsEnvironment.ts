@@ -10,10 +10,12 @@ import { createNeatAgent } from './agents/neatAgent.js'
 import { runCurriculum } from './curriculum/runCurriculum.js'
 import { INPUT_COUNT } from './encoding/encodingPresets.js'
 import {
+  type ActionFrames,
+  applyBehavioralGates,
   type FitnessContext,
   weightedFitnessSum,
 } from './evaluation/calculateFitness.js'
-import { scenarioPossibleDeaths } from './evaluation/scenarioContext.js'
+import { computePossibleDeaths } from './evaluation/scenarioContext.js'
 import { simulateGame } from './evaluation/simulateGame.js'
 import type { HexagonoidsEnvironmentConfig } from './HexagonoidsEnvironmentConfig.js'
 import { mergeConfig } from './HexagonoidsEnvironmentConfig.js'
@@ -52,10 +54,20 @@ export class HexagonoidsEnvironment
     let fw = this.config.fullGameWeight
     let cw = hasCurriculum ? this.config.curriculumWeight : 0
 
+    // Accumulate frame counts across all episodes for aggregated behavioral gates
+    const frames: ActionFrames = {
+      thrustFrames: 0,
+      fireFrames: 0,
+      leftFrames: 0,
+      rightFrames: 0,
+      aliveFrames: 0,
+    }
+
     // If all weights are zero, fall back to full games
     const total = sw + fw + cw
     if (total <= 0) {
-      return this.evaluateFullGameMultiSeed(executor, seed)
+      const fitness = this.evaluateFullGameMultiSeed(executor, seed, frames)
+      return applyBehavioralGates(fitness, frames, this.config.gateConfig)
     }
 
     // Normalize weights
@@ -66,16 +78,18 @@ export class HexagonoidsEnvironment
     let fitness = 0
 
     if (sw > 0 && hasBank) {
-      fitness += sw * this.evaluateScenariosMultiSeed(bank, executor, seed)
+      fitness +=
+        sw * this.evaluateScenariosMultiSeed(bank, executor, seed, frames)
     }
     if (fw > 0) {
-      fitness += fw * this.evaluateFullGameMultiSeed(executor, seed)
+      fitness += fw * this.evaluateFullGameMultiSeed(executor, seed, frames)
     }
     if (cw > 0) {
-      fitness += cw * this.evaluateCurriculum(executor, seed)
+      fitness += cw * this.evaluateCurriculum(executor, seed, frames)
     }
 
-    return fitness
+    // Apply behavioral gates on aggregated frame counts
+    return applyBehavioralGates(fitness, frames, this.config.gateConfig)
   }
 
   evaluateBatch(executors: SyncExecutor[], rng?: RNG): number[] {
@@ -101,7 +115,11 @@ export class HexagonoidsEnvironment
    * the same way as regular scenarios — providing rich gradient signal
    * for accuracy, action diversity, turning, and rock destruction.
    */
-  private evaluateCurriculum(executor: SyncExecutor, seed: string): number {
+  private evaluateCurriculum(
+    executor: SyncExecutor,
+    seed: string,
+    frames: ActionFrames
+  ): number {
     const { curriculumCount } = this.config.simulation
     const dtMs = this.config.simulation.dtMs
 
@@ -117,8 +135,15 @@ export class HexagonoidsEnvironment
 
     let fitnessSum = 0
     for (const metrics of metricsArray) {
+      frames.thrustFrames += metrics.thrustFrames
+      frames.fireFrames += metrics.fireFrames
+      frames.leftFrames += metrics.leftFrames
+      frames.rightFrames += metrics.rightFrames
+      frames.aliveFrames += metrics.aliveFrames
+
       const context: FitnessContext = {
-        possibleDeaths: 1,
+        possibleDeaths: computePossibleDeaths(metrics.elapsedTicks, dtMs),
+        dtMs,
       }
       fitnessSum += weightedFitnessSum(
         metrics,
@@ -134,42 +159,66 @@ export class HexagonoidsEnvironment
   private evaluateScenariosMultiSeed(
     bank: ScenarioSnapshot[],
     executor: SyncExecutor,
-    seed: string
+    seed: string,
+    frames: ActionFrames
   ): number {
     const count = this.config.scenarioSeedsPerOrganism
     if (count <= 1) {
-      return this.evaluateScenarios(bank, executor, seed)
+      return this.evaluateScenarios(bank, executor, seed, frames)
     }
     let sum = 0
     for (let i = 0; i < count; i++) {
-      sum += this.evaluateScenarios(bank, executor, `${seed}:scenario:${i}`)
+      sum += this.evaluateScenarios(
+        bank,
+        executor,
+        `${seed}:scenario:${i}`,
+        frames
+      )
     }
     return sum / count
   }
 
   private evaluateFullGameMultiSeed(
     executor: SyncExecutor,
-    seed: string
+    seed: string,
+    frames: ActionFrames
   ): number {
     const count = this.config.fullGameSeedsPerOrganism
     if (count <= 1) {
-      return this.evaluateFullGame(executor, seed)
+      return this.evaluateFullGame(executor, seed, frames)
     }
     let sum = 0
     for (let i = 0; i < count; i++) {
-      sum += this.evaluateFullGame(executor, `${seed}:fullgame:${i}`)
+      sum += this.evaluateFullGame(executor, `${seed}:fullgame:${i}`, frames)
     }
     return sum / count
   }
 
-  private evaluateFullGame(executor: SyncExecutor, seed: string): number {
+  private evaluateFullGame(
+    executor: SyncExecutor,
+    seed: string,
+    frames: ActionFrames
+  ): number {
     const metrics = simulateGame(
       this.agent,
       this.config.simulation,
       seed,
       executor
     )
-    const context: FitnessContext = {}
+
+    frames.thrustFrames += metrics.thrustFrames
+    frames.fireFrames += metrics.fireFrames
+    frames.leftFrames += metrics.leftFrames
+    frames.rightFrames += metrics.rightFrames
+    frames.aliveFrames += metrics.aliveFrames
+
+    const context: FitnessContext = {
+      possibleDeaths: computePossibleDeaths(
+        metrics.elapsedTicks,
+        this.config.simulation.dtMs
+      ),
+      dtMs: this.config.simulation.dtMs,
+    }
     return weightedFitnessSum(
       metrics,
       this.config.fitnessWeights,
@@ -181,7 +230,8 @@ export class HexagonoidsEnvironment
   private evaluateScenarios(
     bank: ScenarioSnapshot[],
     executor: SyncExecutor,
-    seed: string
+    seed: string,
+    frames: ActionFrames
   ): number {
     const { scenariosPerOrganism, scenarioMaxTicks } = this.config.simulation
 
@@ -204,10 +254,16 @@ export class HexagonoidsEnvironment
         seed,
         executor
       )
+
+      frames.thrustFrames += metrics.thrustFrames
+      frames.fireFrames += metrics.fireFrames
+      frames.leftFrames += metrics.leftFrames
+      frames.rightFrames += metrics.rightFrames
+      frames.aliveFrames += metrics.aliveFrames
+
       const context: FitnessContext = {
-        possibleDeaths: scenarioPossibleDeaths(
-          scenario.player.lives,
-          scenarioMaxTicks,
+        possibleDeaths: computePossibleDeaths(
+          metrics.elapsedTicks,
           this.config.simulation.dtMs
         ),
       }

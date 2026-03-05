@@ -2,7 +2,6 @@ import {
   createGame,
   type EngineHooks,
   type PlayerInputs,
-  RADIUS,
   startPlayer,
 } from '@heygrady/hexagonoids-engine'
 
@@ -62,8 +61,8 @@ function captureFromRingBuffer(
       snapshot.ship.x * rock.x +
       snapshot.ship.y * rock.y +
       snapshot.ship.z * rock.z
-    const dist = Math.acos(Math.max(-1, Math.min(1, dot))) * RADIUS
-    if (dist <= SOI_ANGULAR_RADIUS * RADIUS) {
+    const dist = Math.acos(Math.max(-1, Math.min(1, dot)))
+    if (dist <= SOI_ANGULAR_RADIUS) {
       rocksInSOI++
     }
   }

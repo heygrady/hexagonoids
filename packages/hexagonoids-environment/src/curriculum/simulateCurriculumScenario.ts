@@ -1,17 +1,12 @@
 import { type PlayerInputs, RADIUS } from '@heygrady/hexagonoids-engine'
 
 import type { AgentContext, AgentFn, SyncExecutor } from '../agents/types.js'
-import {
-  MEMORY_LAST_DT_MS,
-  MEMORY_PREV_DISTANCES,
-  MEMORY_PREV_PROJECTIONS,
-  MEMORY_ROCK_PERCEPTION,
-} from '../agents/types.js'
+import { MEMORY_ROCK_PERCEPTION, MEMORY_SEEN_ROCKS } from '../agents/types.js'
 import { buildRockPerceptionPrecompute } from '../encoding/collectObservations.js'
-import { updatePrevDistances } from '../encoding/updatePrevDistances.js'
 import { findBucketXYZ } from '../evaluation/icosahedralBuckets.js'
 import type { RawMetrics } from '../evaluation/RawMetrics.js'
 import { createMetricsCollector } from '../evaluation/RawMetrics.js'
+import { yawToBearing } from '../utils/sphericalBearing.js'
 
 import type { CurriculumScenarioParams } from './generateCurriculumScenario.js'
 import { createCurriculumGameState } from './generateCurriculumScenario.js'
@@ -52,6 +47,7 @@ export function simulateCurriculumScenario(
   const defaultInput = { left: false, right: false, thrust: false, fire: false }
   const stepInputs: PlayerInputs = { [PLAYER_ID]: defaultInput }
 
+  let hasSeenRock = false
   let distanceTraveled = 0
   let prevX = 0
   let prevY = 0
@@ -63,7 +59,8 @@ export function simulateCurriculumScenario(
   let lastBucketIdx = -1
   const visitedBuckets = new Set<number>()
 
-  for (let tick = 0; tick < maxTicks; tick++) {
+  let tick = 0
+  for (; tick < maxTicks; tick++) {
     if (state.endedAt != null) break
 
     // Early stop: all rocks destroyed or player died
@@ -113,7 +110,7 @@ export function simulateCurriculumScenario(
     // Build rock perception
     const rockPerception =
       ship?.alive === true
-        ? buildRockPerceptionPrecompute(ship, Math.PI / 2 + ship.yaw, engine)
+        ? buildRockPerceptionPrecompute(ship, yawToBearing(ship.yaw), engine)
         : undefined
     memory[MEMORY_ROCK_PERCEPTION] = rockPerception
 
@@ -132,31 +129,24 @@ export function simulateCurriculumScenario(
         }
       }
       if (visibleIds.length > 0) {
+        hasSeenRock = true
         collector.addRocksSeen(visibleIds)
         collector.addFrameWithRocksInSOI()
       }
     }
 
-    // Update prevDistances before step
-    if (ship?.alive) {
-      const prevDistances = memory[MEMORY_PREV_DISTANCES] as
-        | Map<string, number>
-        | undefined
-      if (prevDistances != null) {
-        const prevProjections = memory[MEMORY_PREV_PROJECTIONS] as
-          | Map<string, [number, number]>
+    // Early stop: agent previously saw rocks but now has zero known rocks
+    if (hasSeenRock && ship?.alive) {
+      const hasVisibleRocks =
+        rockPerception != null &&
+        rockPerception.rocks.some((r) => r.inVisionRange)
+      if (!hasVisibleRocks) {
+        const seenRocks = context.memory[MEMORY_SEEN_ROCKS] as
+          | Set<string>
           | undefined
-        updatePrevDistances(
-          state,
-          tick,
-          rockPerception,
-          prevDistances,
-          prevProjections
-        )
+        if (seenRocks == null || seenRocks.size === 0) break
       }
     }
-
-    memory[MEMORY_LAST_DT_MS] = dtMs
 
     stepInputs[PLAYER_ID] = inputs
     engine.tick(stepInputs, dtMs, collector.hooks)
@@ -179,16 +169,14 @@ export function simulateCurriculumScenario(
     const dz = ship.z - prevZ
     distanceTraveled += Math.sqrt(dx * dx + dy * dy + dz * dz) * RADIUS
   }
-  const player = trackedPlayer
-
   collector.setUniqueCellsVisited(visitedBuckets.size)
 
   return collector.getMetrics({
-    episodeReward: 0,
-    score: (player?.score ?? 0) - baselineScore,
-    livesRemaining: player?.lives ?? 0,
+    score: (trackedPlayer?.score ?? 0) - baselineScore,
+    livesRemaining: trackedPlayer?.lives ?? 0,
     timeAlive: state.now - baselineGameTime,
     distanceTraveled,
     wavesSpawned: 0, // Curriculum scenarios suppress waves
+    elapsedTicks: tick,
   })
 }

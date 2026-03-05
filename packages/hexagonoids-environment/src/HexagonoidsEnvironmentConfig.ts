@@ -17,6 +17,8 @@ export interface FitnessWeights {
   rocksDestroyed: number
   /** Weight for shooting accuracy (w2). */
   accuracy: number
+  /** Accuracy threshold at which the accuracy term saturates to 1.0 (default 0.2 = 1-in-5 hit rate). */
+  targetAccuracy: number
 }
 
 /**
@@ -82,20 +84,21 @@ export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfi
       curriculumCount: 32,
     },
     fitnessWeights: {
-      rocksDestroyed: 0.6,
-      accuracy: 0.4,
+      rocksDestroyed: 0.7,
+      accuracy: 0.3,
+      targetAccuracy: 0.3,
     },
     gateConfig: {
-      actionGateFloor: 0.5,
-      actionLow: 0.1,
-      actionHigh: 0.5,
+      actionGateFloor: 0.2,
+      actionLow: 0.005,
+      actionHigh: 0.65,
       actionEasing: 'exp',
-      turnFloor: 0.1,
-      turnLow: 0.1,
-      turnHigh: 0.65,
+      turnFloor: 0.01,
+      turnLow: 0.01,
+      turnHigh: 0.95,
       turnEasing: 'exp',
-      turnBiasGateFloor: 0.1,
-      turnBiasMax: 0.8,
+      turnBiasGateFloor: 0.01,
+      turnBiasMax: 0.99,
       turnBiasEasing: 'cubic',
       survivalGateFloor: 0,
     },
