@@ -62,7 +62,7 @@ async function main() {
     neatAgent,
     simulateScenario,
     weightedFitnessSum,
-    scenarioPossibleDeaths,
+    computePossibleDeaths,
     DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   } = await import('@heygrady/hexagonoids-environment')
 
@@ -102,11 +102,11 @@ async function main() {
     )
 
     const context = {
-      possibleDeaths: scenarioPossibleDeaths(
-        scenario.player.lives,
-        options.maxTicks,
+      possibleDeaths: computePossibleDeaths(
+        metrics.elapsedTicks,
         simulation.dtMs
       ),
+      dtMs: simulation.dtMs,
     }
 
     const fitness = weightedFitnessSum(

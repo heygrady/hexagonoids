@@ -1,21 +1,29 @@
 /**
- * Diagnostic script: inspect NEAT agent inputs across scenario gauntlet.
+ * Diagnostic script: inspect the new 34-input encoding system.
  *
- * Compares multiple configurations (ray counts, vision ranges) side by side,
- * running 100 scenarios per config with a parameterized inline lidar encoder.
+ * Uses the production `encodeGameState` (orthographic projection, stateless
+ * relative velocities, collision-adjusted proximity, bearing in half-turns)
+ * to analyze input distributions across scenario gauntlet runs.
+ *
+ * Layout (34 inputs):
+ *   [0]      ship.velocityX  — tangent-plane right / MAX_SPEED  [-1,1]
+ *   [1]      ship.velocityY  — tangent-plane forward / MAX_SPEED [-1,1]
+ *   [2..33]  8 cones × 4:
+ *     [base+0] proximity   — collision-adjusted [-1,1] (1=touching, 0=bullet range, -1=hemisphere edge)
+ *     [base+1] bearing     — half-turns from nose [-1,1] (0=ahead, ±1=behind)
+ *     [base+2] velocityX   — relative velocity right / MAX_CLOSING_SPEED [-1,1]
+ *     [base+3] velocityY   — relative velocity forward / MAX_CLOSING_SPEED [-1,1]
  *
  * Usage:
  *   node packages/hexagonoids-demo/scripts/inspect-inputs.js [options]
  *
  * Options:
- *   --rayCount <8|16|32|all>     default: 'all' (tests 8, 16, 32)
- *   --visionMode <short|long|both>  default: 'both'
- *   --scenariosPerRun <n>        default: 100
- *   --scenarioMaxTicks <n>       default: 60
- *   --seed <seed>                default: 'inspect-inputs-001'
- *   --agent <random|doNothing>   default: 'random'
- *   --dtMs <n>                   default: 33
- *   --verbose                    print per-ray details and sample frames
+ *   --scenariosPerRun <n>     default: 100
+ *   --scenarioMaxTicks <n>    default: 60
+ *   --seed <seed>             default: 'inspect-inputs-002'
+ *   --agent <random|doNothing>  default: 'random'
+ *   --dtMs <n>                default: 33
+ *   --verbose                 print per-cone details and sample frames
  */
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -24,38 +32,20 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const packageRoot = resolve(__dirname, '..')
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max)
-}
-
-function wrapAngle(value) {
-  let a = value
-  while (a > Math.PI) a -= Math.PI * 2
-  while (a < -Math.PI) a += Math.PI * 2
-  return a
-}
-
 // ── CLI argument parsing ────────────────────────────────────────────────────
 
 function parseArgs(argv) {
   const options = {
-    rayCount: 'all',
-    visionMode: 'both',
     scenariosPerRun: 100,
     scenarioMaxTicks: 60,
-    seed: 'inspect-inputs-001',
+    seed: 'inspect-inputs-002',
     agent: 'random',
     dtMs: 33,
     verbose: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
-    if (arg === '--rayCount' && argv[i + 1]) options.rayCount = argv[++i]
-    else if (arg === '--visionMode' && argv[i + 1])
-      options.visionMode = argv[++i]
-    else if (arg === '--scenariosPerRun' && argv[i + 1])
+    if (arg === '--scenariosPerRun' && argv[i + 1])
       options.scenariosPerRun = Number(argv[++i])
     else if (arg === '--scenarioMaxTicks' && argv[i + 1])
       options.scenarioMaxTicks = Number(argv[++i])
@@ -65,221 +55,6 @@ function parseArgs(argv) {
     else if (arg === '--verbose') options.verbose = true
   }
   return options
-}
-
-// ── Inline parameterized lidar encoder ──────────────────────────────────────
-
-const DEG_TO_RAD = Math.PI / 180
-const TWO_PI = Math.PI * 2
-const CLOSING_EPSILON = 1e-9
-
-/**
- * Encode game state into a fixed-size vector with parameterized ray count
- * and vision arc. Reuses ship global features from the built package encoder
- * but reimplements the lidar scan with configurable parameters.
- */
-function encodeWithConfig(
-  state,
-  playerId,
-  prevDistances,
-  dtMs,
-  rayCount,
-  maxVisionArc,
-  engine
-) {
-  const GLOBAL_FEATURES = 5
-  const FEATURES_PER_RAY = 4
-  const inputCount = GLOBAL_FEATURES + rayCount * FEATURES_PER_RAY
-
-  const player = state.players.get(playerId)
-  const ship =
-    player?.shipId != null ? state.ships.get(player.shipId) : undefined
-
-  const inputs = new Array(inputCount).fill(0)
-
-  if (ship == null || !ship.alive) {
-    return inputs
-  }
-
-  // Ship global features (same as production encoder)
-  const angVel = ship.angularVelocity
-  const speed = Math.sqrt(
-    angVel.x * angVel.x + angVel.y * angVel.y + angVel.z * angVel.z
-  )
-  const MAX_SPEED = engine.MAX_SPEED
-  const TURN_RATE = engine.TURN_RATE
-  const FIRE_COOLDOWN = engine.FIRE_COOLDOWN
-  const RADIUS = engine.RADIUS
-  const PLAYER_STARTING_LIVES = engine.PLAYER_STARTING_LIVES
-  const MAX_CLOSING_SPEED = MAX_SPEED + engine.ROCK_LARGE_SPEED
-
-  inputs[0] = clamp(speed / MAX_SPEED, 0, 1)
-  // Simplified heading drift — use 1/0 for forward/lateral since we don't
-  // have the full quaternion math here. Ship global features are just context;
-  // the important thing for this diagnostic is LIDAR channel coverage.
-  inputs[1] = speed > 0.00001 ? 1 : 0 // forward drift placeholder
-  inputs[2] = 0 // lateral drift placeholder
-  inputs[3] = clamp(speed / TURN_RATE, 0, 1)
-  inputs[4] = clamp(engine.elapsed(state, ship.firedAt) / FIRE_COOLDOWN, 0, 1)
-
-  // ── Lidar scan ──────────────────────────────────────────────────────
-
-  const rayStep = TWO_PI / rayCount
-  const rayAngles = new Array(rayCount)
-  for (let i = 0; i < rayCount; i++) {
-    rayAngles[i] = (i / rayCount) * TWO_PI - Math.PI
-  }
-
-  // Ship geo context
-  const shipLatRad = ship.lat * DEG_TO_RAD
-  const shipLngRad = ship.lng * DEG_TO_RAD
-  const shipSinLat = Math.sin(shipLatRad)
-  const shipCosLat = Math.cos(shipLatRad)
-  const shipBearing = yawToBearing(ship.yaw)
-  const maxVisionAngle = maxVisionArc / RADIUS
-  const cosLatSafe = Math.max(Math.abs(shipCosLat), 0.12)
-  const maxLngDelta = Math.min(Math.PI, maxVisionAngle / cosLatSafe + 0.05)
-
-  const invDtSeconds = dtMs > 0 ? 1000 / dtMs : 0
-
-  // Initialize lidar (distanceNorm=1 means "nothing detected")
-  const lidar = new Array(rayCount)
-  for (let i = 0; i < rayCount; i++) {
-    lidar[i] = { distanceNorm: 1, closingSpeed: 0, isRock: 0, isBullet: 0 }
-  }
-
-  function rayIndexFromRelativeBearing(relative) {
-    const normalized = (relative + Math.PI) / TWO_PI
-    return Math.floor(normalized * rayCount) % rayCount
-  }
-
-  function wrapRelative(angle) {
-    let rel = angle
-    while (rel > Math.PI) rel -= TWO_PI
-    while (rel < -Math.PI) rel += TWO_PI
-    return rel
-  }
-
-  function updateRayHit(
-    relBearing,
-    arcDist,
-    entityRadius,
-    closingSpeed,
-    isRock
-  ) {
-    if (arcDist > maxVisionArc) return
-
-    const centerRayIndex = rayIndexFromRelativeBearing(relBearing)
-    const centerRayAngle = rayAngles[centerRayIndex] ?? 0
-    const baseDelta = wrapAngle(relBearing - centerRayAngle)
-    const distanceNorm = clamp(arcDist / maxVisionArc, 0, 1)
-    const closingSpeedNorm = clamp(closingSpeed / MAX_CLOSING_SPEED, -1, 1)
-    const radiusArc = clamp(entityRadius / RADIUS, 0.001, 0.35)
-
-    for (let offset = -2; offset <= 2; offset++) {
-      const delta = Math.abs(baseDelta - offset * rayStep)
-      if (delta > radiusArc) continue
-
-      const idx = (centerRayIndex + offset + rayCount) % rayCount
-      const current = lidar[idx]
-      if (current == null) continue
-      if (distanceNorm >= current.distanceNorm) continue
-
-      current.distanceNorm = distanceNorm
-      current.closingSpeed = closingSpeedNorm
-      current.isRock = isRock ? 1 : 0
-      current.isBullet = isRock ? 0 : 1
-    }
-  }
-
-  function rockRadiusBySize(size) {
-    return size === 2 ? 0.26 : size === 1 ? 0.13 : 0.07
-  }
-
-  // Scan rocks
-  for (const rock of state.rocks.values()) {
-    const phi = rock.lat * DEG_TO_RAD
-    const lambda = rock.lng * DEG_TO_RAD
-    const cosPhi = Math.cos(phi)
-
-    const dLat = phi - shipLatRad
-    const dLng = wrapAngle(lambda - shipLngRad)
-    const sinHalfLat = Math.sin(dLat * 0.5)
-    const sinHalfLng = Math.sin(dLng * 0.5)
-    const a =
-      sinHalfLat * sinHalfLat + shipCosLat * cosPhi * sinHalfLng * sinHalfLng
-    const dist = RADIUS * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
-    if (dist > maxVisionArc) continue
-
-    const y = Math.sin(dLng) * cosPhi
-    const x = shipCosLat * Math.sin(phi) - shipSinLat * cosPhi * Math.cos(dLng)
-    const relativeBearing = wrapRelative(Math.atan2(y, x) - shipBearing)
-
-    const key = `rock:${rock.id}`
-    const prev = prevDistances.get(key)
-    const closing =
-      prev != null && invDtSeconds > CLOSING_EPSILON
-        ? (prev - dist) * invDtSeconds
-        : 0
-
-    updateRayHit(
-      relativeBearing,
-      dist,
-      rockRadiusBySize(rock.size),
-      closing,
-      true
-    )
-  }
-
-  // Scan bullets
-  for (const bullet of state.bullets.values()) {
-    const dLatDeg = Math.abs((bullet.lat - ship.lat) * DEG_TO_RAD)
-    if (dLatDeg > maxVisionAngle) continue
-    const dLngDeg = Math.abs(wrapAngle((bullet.lng - ship.lng) * DEG_TO_RAD))
-    if (dLngDeg > maxLngDelta) continue
-
-    const phi2 = bullet.lat * DEG_TO_RAD
-    const cosPhi2 = Math.cos(phi2)
-    const dLat = phi2 - shipLatRad
-    const dLng = (bullet.lng - ship.lng) * DEG_TO_RAD
-
-    const sinHalfLat = Math.sin(dLat * 0.5)
-    const sinHalfLng = Math.sin(dLng * 0.5)
-    const a =
-      sinHalfLat * sinHalfLat + shipCosLat * cosPhi2 * sinHalfLng * sinHalfLng
-    const dist = RADIUS * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
-    if (dist > maxVisionArc) continue
-
-    const y = Math.sin(dLng) * cosPhi2
-    const x =
-      shipCosLat * Math.sin(phi2) - shipSinLat * cosPhi2 * Math.cos(dLng)
-    const relativeBearing = wrapRelative(Math.atan2(y, x) - shipBearing)
-
-    const key = `bullet:${bullet.id}`
-    const prev = prevDistances.get(key)
-    const closing =
-      prev != null && invDtSeconds > CLOSING_EPSILON
-        ? (prev - dist) * invDtSeconds
-        : 0
-
-    updateRayHit(relativeBearing, dist, 0.03, closing, false)
-  }
-
-  // Encode lidar into flat vector
-  for (let i = 0; i < rayCount; i++) {
-    const hit = lidar[i]
-    const base = GLOBAL_FEATURES + i * FEATURES_PER_RAY
-    inputs[base] = 1 - hit.distanceNorm
-    inputs[base + 1] = hit.closingSpeed
-    inputs[base + 2] = hit.isRock
-    inputs[base + 3] = hit.isBullet
-  }
-
-  return inputs
-}
-
-function yawToBearing(yaw) {
-  return -yaw
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -297,50 +72,14 @@ async function main() {
     restoreSnapshot,
     doNothingAgent,
     randomAgent,
+    encodeGameState,
+    INPUT_COUNT,
+    GLOBAL_FEATURES,
+    FEATURES_PER_CONE,
+    CONE_COUNT,
   } = env
-  const {
-    step,
-    greatCircleDistance,
-    RADIUS,
-    ROCK_SPAWN_BORDER_HALF_HEIGHT,
-    ROCK_SPAWN_BORDER_HALF_WIDTH,
-  } = engine
 
   const PLAYER_ID = 'player-1'
-  const GLOBAL_FEATURES = 5
-  const FEATURES_PER_RAY = 4
-
-  // ── Build configuration matrix ──────────────────────────────────────
-
-  const shortSideArc = ROCK_SPAWN_BORDER_HALF_HEIGHT * DEG_TO_RAD * RADIUS
-  const longSideArc = ROCK_SPAWN_BORDER_HALF_WIDTH * DEG_TO_RAD * RADIUS
-
-  const visionModes = []
-  if (options.visionMode === 'short' || options.visionMode === 'both') {
-    visionModes.push({ name: 'short', arc: shortSideArc })
-  }
-  if (options.visionMode === 'long' || options.visionMode === 'both') {
-    visionModes.push({ name: 'long', arc: longSideArc })
-  }
-
-  const rayCounts = []
-  if (options.rayCount === 'all') {
-    rayCounts.push(8, 16, 32)
-  } else {
-    rayCounts.push(Number(options.rayCount))
-  }
-
-  const configs = []
-  for (const rc of rayCounts) {
-    for (const vm of visionModes) {
-      configs.push({
-        label: `${rc}r-${vm.name}`,
-        rayCount: rc,
-        visionArc: vm.arc,
-        inputCount: GLOBAL_FEATURES + rc * FEATURES_PER_RAY,
-      })
-    }
-  }
 
   // ── Load scenarios ──────────────────────────────────────────────────
 
@@ -366,286 +105,350 @@ async function main() {
   }
 
   console.log(
-    `\n=== Input Inspection ===\n` +
+    `\n=== Input Inspection (v2 — 34-input encoding) ===\n` +
       `seed="${options.seed}" agent=${options.agent} ` +
       `scenarios=${selected.length}/${scenarioBank.length} ` +
       `maxTicks=${options.scenarioMaxTicks} dtMs=${options.dtMs}\n` +
-      `shortSideArc=${shortSideArc.toFixed(4)} longSideArc=${longSideArc.toFixed(4)}\n` +
-      `Configs: ${configs.map((c) => c.label).join(', ')}\n`
+      `INPUT_COUNT=${INPUT_COUNT} GLOBAL_FEATURES=${GLOBAL_FEATURES} ` +
+      `CONE_COUNT=${CONE_COUNT} FEATURES_PER_CONE=${FEATURES_PER_CONE}\n`
   )
 
   // Select agent
   const baseAgent = options.agent === 'doNothing' ? doNothingAgent : randomAgent
 
-  // ── Run scenario gauntlet per config ────────────────────────────────
+  // ── Run scenario gauntlet ─────────────────────────────────────────
 
-  const configResults = []
+  const allInputs = [] // all frames across all scenarios
+  let totalFrames = 0
 
-  for (const config of configs) {
-    const { rayCount, visionArc, inputCount, label } = config
-    const allInputs = [] // all frames across all scenarios
-    let totalFrames = 0
-
-    for (const scenario of selected) {
-      const { state, rng } = restoreSnapshot(scenario, options.seed)
-      const context = { rng, memory: {}, executor: undefined }
-      const prevDistances = new Map()
-
-      for (let tick = 0; tick < options.scenarioMaxTicks; tick++) {
-        if (state.endedAt != null) break
-
-        const player = state.players.get(PLAYER_ID)
-        const ship =
-          player?.shipId != null ? state.ships.get(player.shipId) : undefined
-
-        // Encode with parameterized config
-        const inputs = encodeWithConfig(
-          state,
-          PLAYER_ID,
-          prevDistances,
-          options.dtMs,
-          rayCount,
-          visionArc,
-          engine
-        )
-        allInputs.push(inputs)
-        totalFrames++
-
-        // Get agent action
-        const action = baseAgent(state, PLAYER_ID, context)
-
-        // Update prevDistances
-        if (ship?.alive) {
-          for (const rock of state.rocks.values()) {
-            prevDistances.set(
-              `rock:${rock.id}`,
-              greatCircleDistance(
-                ship.lat,
-                ship.lng,
-                rock.lat,
-                rock.lng,
-                RADIUS
-              )
-            )
-          }
-          for (const bullet of state.bullets.values()) {
-            prevDistances.set(
-              `bullet:${bullet.id}`,
-              greatCircleDistance(
-                ship.lat,
-                ship.lng,
-                bullet.lat,
-                bullet.lng,
-                RADIUS
-              )
-            )
-          }
-        }
-
-        // Step
-        const stepInputs = { [PLAYER_ID]: action }
-        step(state, stepInputs, options.dtMs, rng)
-      }
+  for (const scenario of selected) {
+    const gameEngine = restoreSnapshot(scenario, options.seed)
+    const { state, rng } = gameEngine
+    const context = {
+      rng,
+      memory: {},
+      executor: undefined,
+      spatialQueries: gameEngine,
     }
 
-    // ── Per-channel statistics ─────────────────────────────────────
+    const seenRocks = new Set()
 
-    const stats = new Array(inputCount)
-    for (let c = 0; c < inputCount; c++) {
-      let min = Infinity
-      let max = -Infinity
-      let sum = 0
-      let nonzero = 0
-      for (let f = 0; f < totalFrames; f++) {
-        const v = allInputs[f][c]
-        if (v < min) min = v
-        if (v > max) max = v
-        sum += v
-        if (Math.abs(v) > 1e-9) nonzero++
-      }
-      stats[c] = { min, max, mean: sum / totalFrames, nonzero }
+    for (let tick = 0; tick < options.scenarioMaxTicks; tick++) {
+      if (state.endedAt != null) break
+
+      // Encode with production encoder (pass seenRocks for memory rock tracking)
+      const inputs = encodeGameState(
+        state,
+        PLAYER_ID,
+        undefined,
+        undefined,
+        undefined,
+        gameEngine,
+        seenRocks
+      )
+      allInputs.push(inputs)
+      totalFrames++
+
+      // Get agent action and step
+      const action = baseAgent(state, PLAYER_ID, context)
+      gameEngine.tick({ [PLAYER_ID]: action }, options.dtMs)
     }
+  }
 
-    // LIDAR aggregate by feature type
-    const lidarAgg = []
-    const lidarFeatureNames = [
-      'proximity',
-      'closingSpeed',
-      'isRock',
-      'isBullet',
-    ]
-    for (let feat = 0; feat < FEATURES_PER_RAY; feat++) {
-      let gMin = Infinity
-      let gMax = -Infinity
-      let gSum = 0
-      let gNonzero = 0
-      let totalSamples = 0
-      for (let r = 0; r < rayCount; r++) {
-        const idx = GLOBAL_FEATURES + r * FEATURES_PER_RAY + feat
-        const s = stats[idx]
-        if (s.min < gMin) gMin = s.min
-        if (s.max > gMax) gMax = s.max
-        gSum += s.mean * totalFrames
-        gNonzero += s.nonzero
-        totalSamples += totalFrames
-      }
-      lidarAgg.push({
-        name: lidarFeatureNames[feat],
-        min: gMin,
-        max: gMax,
-        mean: gSum / totalSamples,
-        nonzeroPct: (gNonzero / totalSamples) * 100,
-      })
-    }
+  // ── Per-channel statistics ────────────────────────────────────────
 
-    // All-zero LIDAR frame analysis
-    let allZeroLidarFrames = 0
-    let allZeroStreakMax = 0
-    let currentStreak = 0
-
-    // Per-ray activation
-    const rayActivations = new Array(rayCount).fill(0)
-
+  const stats = new Array(INPUT_COUNT)
+  for (let c = 0; c < INPUT_COUNT; c++) {
+    let min = Infinity
+    let max = -Infinity
+    let sum = 0
+    let sumSq = 0
+    let nonzero = 0
     for (let f = 0; f < totalFrames; f++) {
-      const inputs = allInputs[f]
-      let allZero = true
-      for (let r = 0; r < rayCount; r++) {
-        const base = GLOBAL_FEATURES + r * FEATURES_PER_RAY
-        if (inputs[base] > 1e-9) {
-          allZero = false
-          rayActivations[r]++
-        }
-      }
-      if (allZero) {
-        allZeroLidarFrames++
-        currentStreak++
-      } else {
-        if (currentStreak > allZeroStreakMax) allZeroStreakMax = currentStreak
-        currentStreak = 0
-      }
+      const v = allInputs[f][c]
+      if (v < min) min = v
+      if (v > max) max = v
+      sum += v
+      sumSq += v * v
+      if (Math.abs(v) > 1e-9) nonzero++
     }
-    if (currentStreak > allZeroStreakMax) allZeroStreakMax = currentStreak
+    const mean = sum / totalFrames
+    const variance = sumSq / totalFrames - mean * mean
+    const stddev = Math.sqrt(Math.max(0, variance))
+    stats[c] = { min, max, mean, stddev, nonzero }
+  }
 
-    const zeroLidarPct = (allZeroLidarFrames / totalFrames) * 100
-    const meanActiveRays =
-      rayActivations.reduce((s, v) => s + v, 0) / totalFrames
-    const coveragePct = (meanActiveRays / rayCount) * 100
-    const saturationPct = 100 - zeroLidarPct
+  // ── Ship global feature analysis ─────────────────────────────────
 
-    configResults.push({
-      label,
-      inputCount,
-      rayCount,
-      totalFrames,
-      zeroLidarPct,
-      meanActiveRays,
-      coveragePct,
-      saturationPct,
-      allZeroStreakMax,
-      stats,
-      lidarAgg,
-      rayActivations,
-      allInputs: options.verbose ? allInputs : null,
+  const shipFeatureNames = ['velocityX', 'velocityY']
+
+  console.log('── Ship Features ──')
+  console.log(
+    'Feature'.padEnd(16) +
+      'Min'.padStart(10) +
+      'Max'.padStart(10) +
+      'Mean'.padStart(10) +
+      'StdDev'.padStart(10) +
+      'Nonzero%'.padStart(10)
+  )
+  for (let i = 0; i < GLOBAL_FEATURES; i++) {
+    const s = stats[i]
+    const pct = ((s.nonzero / totalFrames) * 100).toFixed(1)
+    console.log(
+      shipFeatureNames[i].padEnd(16) +
+        s.min.toFixed(4).padStart(10) +
+        s.max.toFixed(4).padStart(10) +
+        s.mean.toFixed(4).padStart(10) +
+        s.stddev.toFixed(4).padStart(10) +
+        `${pct}%`.padStart(10)
+    )
+  }
+
+  // ── LIDAR aggregate by feature type ──────────────────────────────
+
+  const lidarFeatureNames = ['proximity', 'bearing', 'velocityX', 'velocityY']
+  const lidarAgg = []
+  for (let feat = 0; feat < FEATURES_PER_CONE; feat++) {
+    let gMin = Infinity
+    let gMax = -Infinity
+    let gSum = 0
+    let gSumSq = 0
+    let gNonzero = 0
+    let totalSamples = 0
+    for (let cone = 0; cone < CONE_COUNT; cone++) {
+      const idx = GLOBAL_FEATURES + cone * FEATURES_PER_CONE + feat
+      const s = stats[idx]
+      if (s.min < gMin) gMin = s.min
+      if (s.max > gMax) gMax = s.max
+      gSum += s.mean * totalFrames
+      gSumSq += (s.stddev * s.stddev + s.mean * s.mean) * totalFrames
+      gNonzero += s.nonzero
+      totalSamples += totalFrames
+    }
+    const mean = gSum / totalSamples
+    const variance = gSumSq / totalSamples - mean * mean
+    const stddev = Math.sqrt(Math.max(0, variance))
+    lidarAgg.push({
+      name: lidarFeatureNames[feat],
+      min: gMin,
+      max: gMax,
+      mean,
+      stddev,
+      nonzeroPct: (gNonzero / totalSamples) * 100,
     })
   }
 
-  // ── Comparison table ────────────────────────────────────────────────
-
-  console.log('── Comparison ──')
+  console.log('\n── LIDAR Aggregate (across all cones) ──')
   console.log(
-    'Config'.padEnd(18) +
-      'Inputs'.padStart(8) +
-      'ZeroLidar%'.padStart(12) +
-      'MeanActive'.padStart(12) +
-      'Coverage%'.padStart(11) +
-      'Saturation%'.padStart(13) +
-      'MaxStreak'.padStart(11)
+    'Feature'.padEnd(16) +
+      'Min'.padStart(10) +
+      'Max'.padStart(10) +
+      'Mean'.padStart(10) +
+      'StdDev'.padStart(10) +
+      'Nonzero%'.padStart(10)
   )
-  for (const r of configResults) {
+  for (const agg of lidarAgg) {
     console.log(
-      r.label.padEnd(18) +
-        String(r.inputCount).padStart(8) +
-        `${r.zeroLidarPct.toFixed(1)}%`.padStart(12) +
-        r.meanActiveRays.toFixed(1).padStart(12) +
-        `${r.coveragePct.toFixed(1)}%`.padStart(11) +
-        `${r.saturationPct.toFixed(1)}%`.padStart(13) +
-        String(r.allZeroStreakMax).padStart(11)
+      agg.name.padEnd(16) +
+        agg.min.toFixed(4).padStart(10) +
+        agg.max.toFixed(4).padStart(10) +
+        agg.mean.toFixed(4).padStart(10) +
+        agg.stddev.toFixed(4).padStart(10) +
+        `${agg.nonzeroPct.toFixed(1)}%`.padStart(10)
     )
   }
 
-  // ── Per-config details ──────────────────────────────────────────────
+  // ── Zero-frame and cone activation analysis ──────────────────────
 
-  for (const r of configResults) {
-    console.log(
-      `\n══ ${r.label} (${r.inputCount} inputs, ${r.totalFrames} frames) ══`
-    )
+  let allZeroLidarFrames = 0
+  let allZeroStreakMax = 0
+  let currentStreak = 0
+  const coneActivations = new Array(CONE_COUNT).fill(0)
 
-    // LIDAR aggregate
-    console.log('  LIDAR Aggregate:')
-    for (const agg of r.lidarAgg) {
+  for (let f = 0; f < totalFrames; f++) {
+    const inputs = allInputs[f]
+    let allZero = true
+    for (let cone = 0; cone < CONE_COUNT; cone++) {
+      const base = GLOBAL_FEATURES + cone * FEATURES_PER_CONE
+      if (Math.abs(inputs[base]) > 1e-9) {
+        // non-zero proximity means this cone detected something
+        allZero = false
+        coneActivations[cone]++
+      }
+    }
+    if (allZero) {
+      allZeroLidarFrames++
+      currentStreak++
+    } else {
+      if (currentStreak > allZeroStreakMax) allZeroStreakMax = currentStreak
+      currentStreak = 0
+    }
+  }
+  if (currentStreak > allZeroStreakMax) allZeroStreakMax = currentStreak
+
+  const zeroLidarPct = (allZeroLidarFrames / totalFrames) * 100
+  const meanActiveCones =
+    coneActivations.reduce((s, v) => s + v, 0) / totalFrames
+  const coveragePct = (meanActiveCones / CONE_COUNT) * 100
+  const saturationPct = 100 - zeroLidarPct
+
+  console.log('\n── LIDAR Coverage ──')
+  console.log(
+    `  Total frames:      ${totalFrames}\n` +
+      `  Zero-LIDAR frames: ${allZeroLidarFrames} (${zeroLidarPct.toFixed(1)}%)\n` +
+      `  Mean active cones: ${meanActiveCones.toFixed(2)} / ${CONE_COUNT}\n` +
+      `  Coverage:          ${coveragePct.toFixed(1)}%\n` +
+      `  Saturation:        ${saturationPct.toFixed(1)}%\n` +
+      `  Max zero streak:   ${allZeroStreakMax}`
+  )
+
+  // ── Per-cone activation bar chart ────────────────────────────────
+
+  if (options.verbose) {
+    console.log('\n── Per-Cone Activation ──')
+    for (let cone = 0; cone < CONE_COUNT; cone++) {
+      const pct = (coneActivations[cone] / totalFrames) * 100
+      const bar = '#'.repeat(Math.round(pct / 2))
+      const angleDeg = ((cone / CONE_COUNT) * 360 - 180).toFixed(0)
       console.log(
-        `    ${agg.name.padEnd(16)}` +
-          `min=${agg.min.toFixed(4).padStart(8)} ` +
-          `max=${agg.max.toFixed(4).padStart(8)} ` +
-          `mean=${agg.mean.toFixed(4).padStart(8)} ` +
-          `nonzero=${agg.nonzeroPct.toFixed(1)}%`
+        `  cone${String(cone).padStart(2)} (${angleDeg.padStart(4)}°): ${pct.toFixed(1).padStart(5)}% ${bar}`
       )
     }
 
-    // Per-ray activation bar chart (always shown, compact)
-    if (options.verbose) {
-      console.log('  Per-Ray Activation:')
-      for (let ray = 0; ray < r.rayCount; ray++) {
-        const pct = (r.rayActivations[ray] / r.totalFrames) * 100
-        const bar = '#'.repeat(Math.round(pct / 2))
-        const angleDeg = ((ray / r.rayCount) * 360 - 180).toFixed(0)
+    // ── Per-cone per-feature stats ──────────────────────────────────
+
+    console.log('\n── Per-Cone Feature Stats ──')
+    for (let cone = 0; cone < CONE_COUNT; cone++) {
+      const angleDeg = ((cone / CONE_COUNT) * 360 - 180).toFixed(0)
+      console.log(`  cone${cone} (${angleDeg}°):`)
+      for (let feat = 0; feat < FEATURES_PER_CONE; feat++) {
+        const idx = GLOBAL_FEATURES + cone * FEATURES_PER_CONE + feat
+        const s = stats[idx]
+        const pct = ((s.nonzero / totalFrames) * 100).toFixed(1)
         console.log(
-          `    ray${String(ray).padStart(2)} (${angleDeg.padStart(4)}°): ${pct.toFixed(1).padStart(5)}% ${bar}`
+          `    ${lidarFeatureNames[feat].padEnd(14)}` +
+            `min=${s.min.toFixed(4).padStart(8)} ` +
+            `max=${s.max.toFixed(4).padStart(8)} ` +
+            `mean=${s.mean.toFixed(4).padStart(8)} ` +
+            `std=${s.stddev.toFixed(4).padStart(8)} ` +
+            `nz=${pct}%`
         )
       }
     }
 
-    // Sample frames (verbose only)
-    if (options.verbose && r.allInputs != null) {
-      console.log('  Sample Frames (first 5 with LIDAR activity):')
-      let shown = 0
-      for (let f = 0; f < r.totalFrames && shown < 5; f++) {
-        const inputs = r.allInputs[f]
-        let hasActivity = false
-        for (let c = GLOBAL_FEATURES; c < r.inputCount; c++) {
-          if (Math.abs(inputs[c]) > 1e-9) {
-            hasActivity = true
-            break
-          }
-        }
-        if (!hasActivity) continue
-        shown++
+    // ── Sample frames with LIDAR activity ───────────────────────────
 
-        console.log(`    Frame ${f}:`)
-        console.log(
-          `      globals: speed=${inputs[0].toFixed(3)} fwdDrift=${inputs[1].toFixed(3)} latDrift=${inputs[2].toFixed(3)} angVel=${inputs[3].toFixed(3)} cooldown=${inputs[4].toFixed(3)}`
-        )
-        const activeRays = []
-        for (let ray = 0; ray < r.rayCount; ray++) {
-          const base = GLOBAL_FEATURES + ray * FEATURES_PER_RAY
-          if (inputs[base] > 1e-9) {
-            activeRays.push({
-              ray,
-              proximity: inputs[base].toFixed(3),
-              closingSpeed: inputs[base + 1].toFixed(3),
-              isRock: inputs[base + 2],
-              isBullet: inputs[base + 3],
-            })
-          }
-        }
-        console.log(`      active rays (${activeRays.length}/${r.rayCount}):`)
-        for (const ar of activeRays) {
-          console.log(
-            `        ray${ar.ray}: prox=${ar.proximity} closing=${ar.closingSpeed} rock=${ar.isRock} bullet=${ar.isBullet}`
-          )
+    console.log('\n── Sample Frames (first 5 with LIDAR activity) ──')
+    let shown = 0
+    for (let f = 0; f < totalFrames && shown < 5; f++) {
+      const inputs = allInputs[f]
+      let hasActivity = false
+      for (let cone = 0; cone < CONE_COUNT; cone++) {
+        const base = GLOBAL_FEATURES + cone * FEATURES_PER_CONE
+        if (Math.abs(inputs[base]) > 1e-9) {
+          hasActivity = true
+          break
         }
       }
+      if (!hasActivity) continue
+      shown++
+
+      console.log(`  Frame ${f}:`)
+      console.log(
+        `    ship: velocityX=${inputs[0].toFixed(4)} velocityY=${inputs[1].toFixed(4)}`
+      )
+      const activeCones = []
+      for (let cone = 0; cone < CONE_COUNT; cone++) {
+        const base = GLOBAL_FEATURES + cone * FEATURES_PER_CONE
+        if (Math.abs(inputs[base]) > 1e-9) {
+          activeCones.push({
+            cone,
+            proximity: inputs[base].toFixed(4),
+            bearing: inputs[base + 1].toFixed(4),
+            velocityX: inputs[base + 2].toFixed(4),
+            velocityY: inputs[base + 3].toFixed(4),
+          })
+        }
+      }
+      console.log(`    active cones (${activeCones.length}/${CONE_COUNT}):`)
+      for (const ac of activeCones) {
+        console.log(
+          `      cone${ac.cone}: prox=${ac.proximity} bear=${ac.bearing} velX=${ac.velocityX} velY=${ac.velocityY}`
+        )
+      }
     }
+  }
+
+  // ── Distribution histogram for proximity ─────────────────────────
+
+  console.log('\n── Proximity Distribution [-1, 1] ──')
+  const buckets = 20
+  const histogram = new Array(buckets).fill(0)
+  let totalProxSamples = 0
+  for (let f = 0; f < totalFrames; f++) {
+    for (let cone = 0; cone < CONE_COUNT; cone++) {
+      const base = GLOBAL_FEATURES + cone * FEATURES_PER_CONE
+      const prox = allInputs[f][base]
+      if (Math.abs(prox) > 1e-9) {
+        // Map [-1, 1] → [0, buckets)
+        const bucket = Math.min(
+          buckets - 1,
+          Math.max(0, Math.floor(((prox + 1) / 2) * buckets))
+        )
+        histogram[bucket]++
+        totalProxSamples++
+      }
+    }
+  }
+  for (let b = 0; b < buckets; b++) {
+    const lo = ((b / buckets) * 2 - 1).toFixed(1)
+    const hi = (((b + 1) / buckets) * 2 - 1).toFixed(1)
+    const pct =
+      totalProxSamples > 0
+        ? ((histogram[b] / totalProxSamples) * 100).toFixed(1)
+        : '0.0'
+    const bar = '#'.repeat(
+      Math.round(
+        totalProxSamples > 0 ? (histogram[b] / totalProxSamples) * 50 : 0
+      )
+    )
+    console.log(`  [${lo},${hi}): ${pct.padStart(5)}% ${bar}`)
+  }
+
+  // ── Bearing distribution ─────────────────────────────────────────
+
+  console.log('\n── Bearing Distribution (detections only) ──')
+  const bearingBuckets = 8
+  const bearingHist = new Array(bearingBuckets).fill(0)
+  let totalBearSamples = 0
+  for (let f = 0; f < totalFrames; f++) {
+    for (let cone = 0; cone < CONE_COUNT; cone++) {
+      const base = GLOBAL_FEATURES + cone * FEATURES_PER_CONE
+      const prox = allInputs[f][base]
+      if (Math.abs(prox) > 1e-9) {
+        const bearing = allInputs[f][base + 1] // [-1, 1]
+        const bucket = Math.min(
+          bearingBuckets - 1,
+          Math.floor(((bearing + 1) / 2) * bearingBuckets)
+        )
+        bearingHist[bucket]++
+        totalBearSamples++
+      }
+    }
+  }
+  for (let b = 0; b < bearingBuckets; b++) {
+    const lo = ((b / bearingBuckets) * 2 - 1).toFixed(2)
+    const hi = (((b + 1) / bearingBuckets) * 2 - 1).toFixed(2)
+    const pct =
+      totalBearSamples > 0
+        ? ((bearingHist[b] / totalBearSamples) * 100).toFixed(1)
+        : '0.0'
+    const bar = '#'.repeat(
+      Math.round(
+        totalBearSamples > 0 ? (bearingHist[b] / totalBearSamples) * 50 : 0
+      )
+    )
+    console.log(`  [${lo},${hi}): ${pct.padStart(5)}% ${bar}`)
   }
 
   console.log('\n=== Done ===\n')
