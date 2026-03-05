@@ -1,7 +1,6 @@
 import type { RawMetrics } from './RawMetrics.js'
 
 export function aggregateMetrics(allMetrics: RawMetrics[]): RawMetrics {
-  let episodeReward = 0
   let score = 0
   let rocksDestroyed = 0
   let shotsFired = 0
@@ -19,10 +18,10 @@ export function aggregateMetrics(allMetrics: RawMetrics[]): RawMetrics {
   let uniqueCellsVisited = 0
   let wavesSpawned = 0
   let timeAlive = 0
+  let elapsedTicks = 0
   let livesRemaining = Infinity
 
   for (const m of allMetrics) {
-    episodeReward += m.episodeReward
     score += m.score
     rocksDestroyed += m.rocksDestroyed
     shotsFired += m.shotsFired
@@ -40,6 +39,7 @@ export function aggregateMetrics(allMetrics: RawMetrics[]): RawMetrics {
     uniqueCellsVisited += m.uniqueCellsVisited
     wavesSpawned += m.wavesSpawned
     timeAlive += m.timeAlive
+    elapsedTicks += m.elapsedTicks
     if (m.livesRemaining < livesRemaining) {
       livesRemaining = m.livesRemaining
     }
@@ -51,7 +51,6 @@ export function aggregateMetrics(allMetrics: RawMetrics[]): RawMetrics {
   }
 
   return {
-    episodeReward,
     score,
     livesRemaining,
     timeAlive,
@@ -71,5 +70,6 @@ export function aggregateMetrics(allMetrics: RawMetrics[]): RawMetrics {
     uniqueRocksSeen,
     framesWithRocksInSOI,
     uniqueCellsVisited,
+    elapsedTicks,
   }
 }

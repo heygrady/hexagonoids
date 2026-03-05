@@ -4,27 +4,25 @@ import {
 } from '@heygrady/hexagonoids-engine'
 
 /**
- * Compute the maximum number of deaths physically possible in a scenario,
- * accounting for the death cycle (wait period + invulnerability grace period).
+ * Compute the maximum number of deaths physically possible in a given number
+ * of ticks, accounting for the death cycle (wait period + invulnerability
+ * grace period).
  *
  * After dying, the player waits SHIP_REGENERATION_WAIT_PERIOD (1000ms) then
  * respawns with SHIP_REGENERATION_GRACE_PERIOD (2000ms) of invulnerability.
  * The first death can happen immediately, but each subsequent death requires
  * a full 3000ms cycle (~91 ticks at 33ms).
  *
- * `lives` is "extra lives remaining" — with 0 lives the player is still alive
- * and can die once (game over). Total survivable deaths = lives + 1.
+ * Uses actual elapsed ticks (not configured maxTicks) so that games ending
+ * early produce accurate survival gates.
  */
-export function scenarioPossibleDeaths(
-  lives: number,
-  maxTicks: number,
+export function computePossibleDeaths(
+  elapsedTicks: number,
   dtMs: number
 ): number {
-  if (lives < 0 || maxTicks <= 0) return 0
+  if (elapsedTicks <= 0) return 0
   const deathCycleTicks = Math.ceil(
     (SHIP_REGENERATION_WAIT_PERIOD + SHIP_REGENERATION_GRACE_PERIOD) / dtMs
   )
-  // First death at tick 0, each subsequent requires a full cycle
-  const maxDeaths = 1 + Math.floor(Math.max(maxTicks - 1, 0) / deathCycleTicks)
-  return Math.min(maxDeaths, lives + 1)
+  return 1 + Math.floor(Math.max(elapsedTicks - 1, 0) / deathCycleTicks)
 }

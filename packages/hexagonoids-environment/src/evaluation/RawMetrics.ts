@@ -1,7 +1,6 @@
 import type { EngineHooks } from '@heygrady/hexagonoids-engine'
 
 export interface RawMetrics {
-  episodeReward: number
   score: number
   livesRemaining: number
   timeAlive: number
@@ -22,6 +21,7 @@ export interface RawMetrics {
   uniqueRocksSeen: number
   framesWithRocksInSOI: number
   uniqueCellsVisited: number
+  elapsedTicks: number
 }
 
 export interface MetricsCollector {
@@ -41,19 +41,14 @@ export interface MetricsCollector {
   addFrameWithRocksInSOI: () => void
   /** Set unique cells visited from external bucket tracking. */
   setUniqueCellsVisited: (count: number) => void
-  /** Consume per-frame event deltas since previous call. */
-  consumeFrameEvents: () => {
-    rocksDestroyed: number
-    deaths: number
-  }
   /** Finalize and return metrics. */
   getMetrics: (final: {
-    episodeReward: number
     score: number
     livesRemaining: number
     timeAlive: number
     distanceTraveled: number
     wavesSpawned: number
+    elapsedTicks: number
   }) => RawMetrics
 }
 
@@ -73,8 +68,6 @@ export function createMetricsCollector(playerId: string): MetricsCollector {
   let rocksDestroyed = 0
   let deaths = 0
   let shotsFired = 0
-  let frameRocksDestroyed = 0
-  let frameDeaths = 0
 
   // Phase 05 tracking state
   let thrustFrames = 0
@@ -95,13 +88,11 @@ export function createMetricsCollector(playerId: string): MetricsCollector {
         // not counted here. Split into separate trackers in Phase 02b if needed.
         shotsHit++
         rocksDestroyed++
-        frameRocksDestroyed++
       }
     },
     onPlayerDied: (diedPlayerId) => {
       if (diedPlayerId === playerId) {
         deaths++
-        frameDeaths++
       }
     },
   }
@@ -133,17 +124,7 @@ export function createMetricsCollector(playerId: string): MetricsCollector {
     setUniqueCellsVisited: (count: number) => {
       uniqueCellsVisited = count
     },
-    consumeFrameEvents: () => {
-      const events = {
-        rocksDestroyed: frameRocksDestroyed,
-        deaths: frameDeaths,
-      }
-      frameRocksDestroyed = 0
-      frameDeaths = 0
-      return events
-    },
     getMetrics: (final) => ({
-      episodeReward: final.episodeReward,
       score: final.score,
       livesRemaining: final.livesRemaining,
       timeAlive: final.timeAlive,
@@ -163,6 +144,7 @@ export function createMetricsCollector(playerId: string): MetricsCollector {
       uniqueRocksSeen: uniqueRocksSeen.size,
       framesWithRocksInSOI,
       uniqueCellsVisited,
+      elapsedTicks: final.elapsedTicks,
     }),
   }
 }
