@@ -39,8 +39,10 @@ export {
   CONE_COUNT,
   FEATURES_PER_BULLET,
   FEATURES_PER_CONE,
+  FEATURES_PER_ROCK,
   GLOBAL_FEATURES,
   INPUT_COUNT,
+  ROCKS_PER_CONE,
 } from './encoding/encodingPresets.js'
 // Evaluation
 export { aggregateMetrics } from './evaluation/aggregateMetrics.js'

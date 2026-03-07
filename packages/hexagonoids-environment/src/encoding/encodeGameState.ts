@@ -9,18 +9,20 @@ import {
   CONE_COUNT,
   FEATURES_PER_BULLET,
   FEATURES_PER_CONE,
+  FEATURES_PER_ROCK,
   GLOBAL_FEATURES,
   INPUT_COUNT,
+  ROCKS_PER_CONE,
 } from './encodingPresets.js'
 import type { ObservationFrame } from './observationTypes.js'
 
 /**
- * Encode game state into a fixed-size vector of 58 floats.
+ * Encode game state into a fixed-size vector.
  *
  * Layout:
  * [0] ship.velocityX    [1] ship.velocityY
- * [2..33]  8 cones × 4: proximity, bearing, velocityX, velocityY
- * [34..57] 6 bullet slots × 4: proximity, bearing, velocityX, velocityY
+ * [2..65]  8 cones × 2 rocks × 4: proximity, bearing, velocityX, velocityY
+ * [66..89] 6 bullet slots × 4: proximity, bearing, velocityX, velocityY
  */
 export function encodeGameState(
   state: GameState,
@@ -48,12 +50,16 @@ export function encodeGameState(
   inputs[1] = obs.ship.velocityY
 
   for (let i = 0; i < CONE_COUNT; i++) {
-    const hit = obs.lidar[i]!
-    const base = GLOBAL_FEATURES + i * FEATURES_PER_CONE
-    inputs[base] = hit.proximity
-    inputs[base + 1] = hit.bearing
-    inputs[base + 2] = hit.velocityX
-    inputs[base + 3] = hit.velocityY
+    for (let j = 0; j < ROCKS_PER_CONE; j++) {
+      const hitIndex = i * ROCKS_PER_CONE + j
+      const hit = obs.lidar[hitIndex]!
+      const base =
+        GLOBAL_FEATURES + i * FEATURES_PER_CONE + j * FEATURES_PER_ROCK
+      inputs[base] = hit.proximity
+      inputs[base + 1] = hit.bearing
+      inputs[base + 2] = hit.velocityX
+      inputs[base + 3] = hit.velocityY
+    }
   }
 
   const bulletBase = GLOBAL_FEATURES + CONE_COUNT * FEATURES_PER_CONE

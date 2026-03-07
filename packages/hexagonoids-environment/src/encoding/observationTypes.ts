@@ -20,6 +20,7 @@ export interface BulletHit {
 export interface ObservationFrame {
   shipAlive: boolean
   ship: ShipObservation
+  // Flat array of cone hits ordered by cone, then rank within cone (nearest first).
   lidar: ConeHit[]
   bullets: BulletHit[]
 }

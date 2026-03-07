@@ -25,6 +25,7 @@ import {
   BULLET_RANGE_MULTIPLIER,
   BULLET_SLOTS,
   CONE_COUNT,
+  ROCKS_PER_CONE,
 } from './encodingPresets.js'
 import type {
   BulletHit,
@@ -49,6 +50,7 @@ const UNIT_BULLET_RADIUS = BULLET_RADIUS / RADIUS
 // Precomputed dot-product threshold for SOI culling.
 // cos(SOI_ANGULAR_RADIUS) — rocks with dot product below this are outside SOI.
 const SOI_DOT_THRESHOLD = Math.cos(SOI_ANGULAR_RADIUS)
+const LIDAR_SLOT_COUNT = CONE_COUNT * ROCKS_PER_CONE
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
@@ -101,8 +103,8 @@ function buildLocalBasisFromCenter(center: SpatialPoint): {
 }
 
 function makeEmptyLidar(): ConeHit[] {
-  const lidar = new Array<ConeHit>(CONE_COUNT)
-  for (let i = 0; i < CONE_COUNT; i++) {
+  const lidar = new Array<ConeHit>(LIDAR_SLOT_COUNT)
+  for (let i = 0; i < LIDAR_SLOT_COUNT; i++) {
     lidar[i] = {
       proximity: 0,
       bearing: 0,
@@ -114,7 +116,7 @@ function makeEmptyLidar(): ConeHit[] {
 }
 
 function resetLidar(lidar: ConeHit[]): void {
-  for (let i = 0; i < CONE_COUNT; i++) {
+  for (let i = 0; i < LIDAR_SLOT_COUNT; i++) {
     const hit = lidar[i]
     if (hit == null) {
       lidar[i] = {
@@ -130,8 +132,8 @@ function resetLidar(lidar: ConeHit[]): void {
     hit.velocityX = 0
     hit.velocityY = 0
   }
-  if (lidar.length !== CONE_COUNT) {
-    lidar.length = CONE_COUNT
+  if (lidar.length !== LIDAR_SLOT_COUNT) {
+    lidar.length = LIDAR_SLOT_COUNT
   }
 }
 
@@ -197,6 +199,76 @@ function rockRadiusBySize(size: 0 | 1 | 2): number {
       : UNIT_ROCK_SMALL_RADIUS
 }
 
+function writeConeHit(
+  slot: ConeHit,
+  proximity: number,
+  bearing: number,
+  relVelRight: number,
+  relVelForward: number
+): void {
+  slot.proximity = proximity
+  slot.bearing = clamp(bearing, -1, 1)
+  slot.velocityX = clamp(relVelRight / MAX_CLOSING_SPEED, -1, 1)
+  slot.velocityY = clamp(relVelForward / MAX_CLOSING_SPEED, -1, 1)
+}
+
+function hasEmptyConeSlot(lidar: ConeHit[], coneIndex: number): boolean {
+  const base = coneIndex * ROCKS_PER_CONE
+  for (let i = 0; i < ROCKS_PER_CONE; i++) {
+    if ((lidar[base + i]?.proximity ?? 0) === 0) return true
+  }
+  return false
+}
+
+function insertConeHit(
+  lidar: ConeHit[],
+  coneIndex: number,
+  proximity: number,
+  bearing: number,
+  relVelRight: number,
+  relVelForward: number
+): boolean {
+  const base = coneIndex * ROCKS_PER_CONE
+  const first = lidar[base]
+  if (first == null) return false
+
+  if (proximity > first.proximity) {
+    if (ROCKS_PER_CONE > 1) {
+      for (let i = ROCKS_PER_CONE - 1; i > 0; i--) {
+        const from = lidar[base + i - 1]
+        const to = lidar[base + i]
+        if (from == null || to == null) continue
+        to.proximity = from.proximity
+        to.bearing = from.bearing
+        to.velocityX = from.velocityX
+        to.velocityY = from.velocityY
+      }
+    }
+    writeConeHit(first, proximity, bearing, relVelRight, relVelForward)
+    return true
+  }
+
+  for (let i = 1; i < ROCKS_PER_CONE; i++) {
+    const slot = lidar[base + i]
+    if (slot == null) return false
+    if (proximity > slot.proximity) {
+      for (let j = ROCKS_PER_CONE - 1; j > i; j--) {
+        const from = lidar[base + j - 1]
+        const to = lidar[base + j]
+        if (from == null || to == null) continue
+        to.proximity = from.proximity
+        to.bearing = from.bearing
+        to.velocityX = from.velocityX
+        to.velocityY = from.velocityY
+      }
+      writeConeHit(slot, proximity, bearing, relVelRight, relVelForward)
+      return true
+    }
+  }
+
+  return false
+}
+
 function updateConeHit(
   lidar: ConeHit[],
   localX: number,
@@ -223,17 +295,15 @@ function updateConeHit(
   if (proximity <= -1) return
 
   const coneIndex = findConeIndex(localX, localY)
-  const current = lidar[coneIndex]
-  if (current == null) return
-  if (proximity <= current.proximity) return
-
-  // Bearing: angle from nose in half-turns
   const bearing = Math.atan2(localX, localY) / Math.PI
-
-  current.proximity = proximity
-  current.bearing = clamp(bearing, -1, 1)
-  current.velocityX = clamp(relVelRight / MAX_CLOSING_SPEED, -1, 1)
-  current.velocityY = clamp(relVelForward / MAX_CLOSING_SPEED, -1, 1)
+  insertConeHit(
+    lidar,
+    coneIndex,
+    proximity,
+    bearing,
+    relVelRight,
+    relVelForward
+  )
 }
 
 export interface RockPerceptionEntry {
@@ -490,12 +560,10 @@ function scanMemoryRocks(
     const localX = rx * rightX + ry * rightY + rz * rightZ
     const localY = rx * forwardX + ry * forwardY + rz * forwardZ
 
-    // Find which cone this rock falls in
-    const slotIndex = findConeIndex(localX, localY)
-
-    // Only fill empty slots
-    const current = lidar[slotIndex]
-    if (current == null || current.proximity > 0) continue
+    // Find which cone this rock falls in and only use memory for cones that
+    // still have at least one unfilled lidar slot.
+    const coneIndex = findConeIndex(localX, localY)
+    if (!hasEmptyConeSlot(lidar, coneIndex)) continue
 
     // Compute relative velocity (remap rock AV y↔z to match projection space)
     const av = rock.angularVelocity
@@ -524,10 +592,14 @@ function scanMemoryRocks(
 
     const bearing = Math.atan2(localX, localY) / Math.PI
 
-    current.proximity = proximity
-    current.bearing = clamp(bearing, -1, 1)
-    current.velocityX = clamp(relVelRight / MAX_CLOSING_SPEED, -1, 1)
-    current.velocityY = clamp(relVelForward / MAX_CLOSING_SPEED, -1, 1)
+    insertConeHit(
+      lidar,
+      coneIndex,
+      proximity,
+      bearing,
+      relVelRight,
+      relVelForward
+    )
   }
 }
 

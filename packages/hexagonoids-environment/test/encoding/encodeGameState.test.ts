@@ -13,6 +13,7 @@ import {
   CONE_COUNT,
   FEATURES_PER_BULLET,
   FEATURES_PER_CONE,
+  FEATURES_PER_ROCK,
   GLOBAL_FEATURES,
   INPUT_COUNT,
 } from '../../src/encoding/encodingPresets.js'
@@ -84,7 +85,7 @@ describe('encodeGameState', () => {
       engine
     )
     expect(result).toHaveLength(INPUT_COUNT)
-    expect(result).toHaveLength(58)
+    expect(result).toHaveLength(90)
   })
 
   it('returns all finite numbers', () => {
@@ -185,8 +186,8 @@ describe('encodeGameState', () => {
 
     // base+0 is proximity, should be non-zero for nearby rock
     const proximityFeatures: number[] = []
-    for (let cone = 0; cone < 8; cone++) {
-      const base = 2 + cone * 4
+    for (let cone = 0; cone < CONE_COUNT; cone++) {
+      const base = GLOBAL_FEATURES + cone * FEATURES_PER_CONE
       proximityFeatures.push(result[base] ?? 0)
     }
 
@@ -217,12 +218,12 @@ describe('encodeGameState', () => {
       engine
     )
 
-    expect(result).toHaveLength(58)
+    expect(result).toHaveLength(INPUT_COUNT)
 
     // At least one cone should have a non-zero proximity
     const proximityFeatures: number[] = []
-    for (let cone = 0; cone < 8; cone++) {
-      const base = 2 + cone * 4
+    for (let cone = 0; cone < CONE_COUNT; cone++) {
+      const base = GLOBAL_FEATURES + cone * FEATURES_PER_CONE
       proximityFeatures.push(result[base] ?? 0)
     }
     expect(proximityFeatures.some((v) => v > 0.001)).toBe(true)
@@ -231,6 +232,51 @@ describe('encodeGameState', () => {
     for (const value of result) {
       expect(Number.isFinite(value)).toBe(true)
     }
+  })
+
+  it('encodes two nearest rocks in the same cone', () => {
+    const { state, engine } = setupGame('enc-v2-two-rocks-same-cone', 0)
+    const player = state.players.get(PLAYER_ID)
+    const ship =
+      player?.shipId != null ? state.ships.get(player.shipId) : undefined
+    if (ship == null || !ship.alive) {
+      throw new Error('Expected alive ship for two-rocks-cone test')
+    }
+
+    const heading = 0.2
+    spawnRock(state, offsetPoint(ship, 3, heading), ROCK_LARGE_SIZE, {
+      gen: () => 0.5,
+      genRange: (min: number, _max: number) => min,
+      genBool: () => true,
+    })
+    spawnRock(state, offsetPoint(ship, 5, heading), ROCK_LARGE_SIZE, {
+      gen: () => 0.5,
+      genRange: (min: number, _max: number) => min,
+      genBool: () => true,
+    })
+
+    const result = encodeGameState(
+      state,
+      PLAYER_ID,
+      undefined,
+      undefined,
+      undefined,
+      engine
+    )
+
+    let coneWithTwoHits: number | null = null
+    for (let cone = 0; cone < CONE_COUNT; cone++) {
+      const base = GLOBAL_FEATURES + cone * FEATURES_PER_CONE
+      const firstProximity = result[base] ?? 0
+      const secondProximity = result[base + FEATURES_PER_ROCK] ?? 0
+      if (firstProximity > 0 && secondProximity > 0) {
+        coneWithTwoHits = cone
+        expect(firstProximity).toBeGreaterThanOrEqual(secondProximity)
+        break
+      }
+    }
+
+    expect(coneWithTwoHits).not.toBeNull()
   })
 
   it('remains finite and bounded for pole-adjacent ship states', () => {
