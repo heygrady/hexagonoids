@@ -89,9 +89,9 @@ export async function collectCandidateScenarios(
 function readScenarioBankFile(pathname: string): unknown {
   const text = readFileSync(pathname, 'utf8')
   if (pathname.endsWith('.js')) {
-    const match = text.match(/export default "([^"]+)"/)
-    if (match?.[1]) {
-      const buf = Buffer.from(match[1], 'base64')
+    const match = text.match(/export\s+default\s+(['"`])([\s\S]*?)\1\s*;?/)
+    if (match?.[2]) {
+      const buf = Buffer.from(match[2], 'base64')
       const bytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
       return JSON.parse(new TextDecoder().decode(gunzipSync(bytes)))
     }
