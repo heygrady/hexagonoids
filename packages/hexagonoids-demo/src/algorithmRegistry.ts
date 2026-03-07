@@ -132,9 +132,14 @@ export const HEXAGONOIDS_HYPERNEAT_HIDDEN_LAYER_SIZES = [4, 4] as const
 
 export const defaultHexagonoidsNEATConfigOptions: NEATConfigOptions = {
   ...defaultNEATConfigOptions,
-  mutateOnlyOneLink: false, // default: true
-  addNodeProbability: 0.09, // default: 0.03
-  addLinkProbability: 0.2,
+  addNodeProbability: 0.06, // default: 0.03
+  addLinkProbability: 0.2, // default: 0.2
+  removeNodeProbability: 0.006, // default: 0.006
+  removeLinkProbability: 0.08, // default: 0.08
+  initialLinkWeightSize: 0.5, // default: 0.5
+  mutateLinkWeightProbability: 0.9, // default: 0.9
+  mutateLinkWeightSize: 0.5, // default: 0.5
+  mutateOnlyOneLink: true, // default: true
 }
 
 export const createHexagonoidsNEATConfigOptions = (): NEATConfigOptions => {
@@ -149,10 +154,21 @@ export const createHexagonoidsNEATGenomeOptions = (): NEATGenomeOptions => {
   }
 }
 
+/** Shared CPPN mutation overrides (all CPPN-based algorithms). Tune down for fine-tuning. */
+const HEXAGONOIDS_CPPN_MUTATIONS = {
+  mutateHiddenBiasProbability: 0.8, // default: 0.8
+  mutateHiddenBiasSize: 0.03, // default: 0.03
+  mutateOutputBiasProbability: 0.8, // default: 0.8
+  mutateOutputBiasSize: 0.03, // default: 0.03
+  mutateHiddenActivationProbability: 0.1, // default: 0.1
+  mutateOutputActivationProbability: 0.1, // default: 0.1
+} as const
+
 export const createHexagonoidsCPPNGenomeOptions = (): CPPNGenomeOptions => {
   return {
     ...cloneDefaultOptions(defaultCPPNGenomeOptions),
     outputActivations: [HEXAGONOIDS_OUTPUT_ACTIVATION],
+    ...HEXAGONOIDS_CPPN_MUTATIONS,
   }
 }
 
@@ -165,6 +181,8 @@ export const createHexagonoidsHyperNEATGenomeOptions =
       hiddenActivation: HEXAGONOIDS_HIDDEN_ACTIVATION,
       outputActivation: HEXAGONOIDS_OUTPUT_ACTIVATION,
       hiddenLayerSizes: [...HEXAGONOIDS_HYPERNEAT_HIDDEN_LAYER_SIZES],
+      weightThreshold: 0.1, // default: 0.1
+      ...HEXAGONOIDS_CPPN_MUTATIONS,
     }
   }
 
@@ -176,6 +194,7 @@ export const createHexagonoidsESHyperNEATGenomeOptions =
       outputConfig: 'line',
       hiddenActivation: HEXAGONOIDS_HIDDEN_ACTIVATION,
       outputActivation: HEXAGONOIDS_OUTPUT_ACTIVATION,
+      ...HEXAGONOIDS_CPPN_MUTATIONS,
     }
   }
 
@@ -187,6 +206,7 @@ export const createHexagonoidsDESHyperNEATGenomeOptions =
       outputConfig: 'line',
       hiddenActivation: HEXAGONOIDS_HIDDEN_ACTIVATION,
       outputActivation: HEXAGONOIDS_OUTPUT_ACTIVATION,
+      ...HEXAGONOIDS_CPPN_MUTATIONS,
     }
   }
 
