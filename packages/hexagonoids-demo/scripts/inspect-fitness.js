@@ -46,7 +46,7 @@ function parseArgs(argv, profileConfig, envDefaults) {
     lab: undefined,
     method: pc.method ?? 'HyperNEAT',
     actionGateFloor: undefined,
-    turnFloor: undefined,
+    turnGateFloor: undefined,
     turnBiasGateFloor: undefined,
   }
   for (let i = 0; i < argv.length; i++) {
@@ -75,8 +75,8 @@ function parseArgs(argv, profileConfig, envDefaults) {
     else if (arg === '--method' && argv[i + 1]) options.method = argv[++i]
     else if (arg === '--actionGateFloor' && argv[i + 1])
       options.actionGateFloor = Number(argv[++i])
-    else if (arg === '--turnFloor' && argv[i + 1])
-      options.turnFloor = Number(argv[++i])
+    else if (arg === '--turnGateFloor' && argv[i + 1])
+      options.turnGateFloor = Number(argv[++i])
     else if (arg === '--turnBiasGateFloor' && argv[i + 1])
       options.turnBiasGateFloor = Number(argv[++i])
   }
@@ -205,8 +205,8 @@ async function main() {
       ...(options.actionGateFloor !== undefined && {
         actionGateFloor: options.actionGateFloor,
       }),
-      ...(options.turnFloor !== undefined && {
-        turnFloor: options.turnFloor,
+      ...(options.turnGateFloor !== undefined && {
+        turnGateFloor: options.turnGateFloor,
       }),
       ...(options.turnBiasGateFloor !== undefined && {
         turnBiasGateFloor: options.turnBiasGateFloor,

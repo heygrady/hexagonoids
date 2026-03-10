@@ -82,6 +82,10 @@ const usage = () => {
     '  --turnLow <float>                        Turn saturation low threshold (default: 0.1)',
     '  --turnHigh <float>                       Turn saturation high threshold (default: 0.65)',
     `  --turnEasing <name>                      Turn penalty easing (${GATE_EASINGS.join('|')}, default: exp)`,
+    '  --throttleGateFloor <float>              Min throttle gate output (default: 0.01)',
+    '  --throttleLow <float>                    Throttle saturation low threshold (default: 0.1)',
+    '  --throttleHigh <float>                   Throttle saturation high threshold (default: 0.9)',
+    `  --throttleEasing <name>                  Throttle penalty easing (${GATE_EASINGS.join('|')}, default: exp)`,
     '  --survivalGateFloor <float>              Min survival gate output (default: 0)',
     '',
     'Lab options (also accepts common + training options):',
@@ -319,7 +323,7 @@ const parseSharedOption = (
   if (token === '--turnGateFloor') {
     options.gateConfig = {
       ...options.gateConfig,
-      turnFloor: readFloat(token, next),
+      turnGateFloor: readFloat(token, next),
     }
     return 1
   }
@@ -349,6 +353,43 @@ const parseSharedOption = (
     options.gateConfig = {
       ...options.gateConfig,
       turnEasing: next,
+    }
+    return 1
+  }
+
+  if (token === '--throttleGateFloor') {
+    options.gateConfig = {
+      ...options.gateConfig,
+      throttleGateFloor: readFloat(token, next),
+    }
+    return 1
+  }
+
+  if (token === '--throttleLow') {
+    options.gateConfig = {
+      ...options.gateConfig,
+      throttleLow: readFloat(token, next),
+    }
+    return 1
+  }
+
+  if (token === '--throttleHigh') {
+    options.gateConfig = {
+      ...options.gateConfig,
+      throttleHigh: readFloat(token, next),
+    }
+    return 1
+  }
+
+  if (token === '--throttleEasing') {
+    if (next == null || !isGateEasing(next)) {
+      throw new Error(
+        `Invalid value for --throttleEasing. Expected one of: ${GATE_EASINGS.join(', ')}.\n\n${usage()}`
+      )
+    }
+    options.gateConfig = {
+      ...options.gateConfig,
+      throttleEasing: next,
     }
     return 1
   }
