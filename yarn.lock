@@ -1640,7 +1640,7 @@ __metadata:
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
-    "@swc/helpers": "npm:^0.5.17"
+    "@swc/helpers": "npm:^0.5.19"
     "@types/rimraf": "npm:^4"
     "@typescript/native-preview": "npm:latest"
     "@vitest/coverage-v8": "npm:^4.0.14"
@@ -1669,15 +1669,15 @@ __metadata:
     "@heygrady/tictactoe-demo": "workspace:^"
     "@heygrady/tictactoe-environment": "workspace:^"
     "@nanostores/solid": "npm:^1.1.1"
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/cppn": "npm:^0.6.6"
-    "@neat-evolution/des-hyperneat": "npm:^0.6.6"
-    "@neat-evolution/es-hyperneat": "npm:^0.6.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/hyperneat": "npm:^0.6.6"
-    "@neat-evolution/neat": "npm:^0.6.6"
-    "@neat-evolution/worker-evaluator": "npm:^0.7.6"
-    "@neat-evolution/worker-reproducer": "npm:^0.7.6"
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/cppn": "npm:^0.6.8"
+    "@neat-evolution/des-hyperneat": "npm:^0.6.8"
+    "@neat-evolution/es-hyperneat": "npm:^0.6.8"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/hyperneat": "npm:^0.6.8"
+    "@neat-evolution/neat": "npm:^0.6.8"
+    "@neat-evolution/worker-evaluator": "npm:^0.9.0"
+    "@neat-evolution/worker-reproducer": "npm:^0.9.0"
     "@solid-primitives/intersection-observer": "npm:^2.1.3"
     "@solidjs/testing-library": "npm:^0.8.10"
     "@tailwindcss/typography": "npm:^0.5.19"
@@ -1703,7 +1703,7 @@ __metadata:
     martinez-polygon-clipping: "npm:^0.7.3"
     nanostores: "npm:^0.9.5"
     p-defer: "npm:^4.0.1"
-    quick-lru: "npm:^7.0.0"
+    quick-lru: "npm:^7.3.0"
     quickhull3d: "npm:^2.1.0"
     solid-js: "npm:^1.9.11"
     tailwindcss: "npm:^4.1.17"
@@ -1721,20 +1721,20 @@ __metadata:
     "@biomejs/biome": "npm:^2.4.2"
     "@heygrady/hexagonoids-environment": "workspace:^"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/cppn": "npm:^0.6.6"
-    "@neat-evolution/des-hyperneat": "npm:^0.6.6"
-    "@neat-evolution/es-hyperneat": "npm:^0.6.6"
-    "@neat-evolution/evaluator": "npm:^0.5.6"
-    "@neat-evolution/evolution": "npm:^0.5.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/hyperneat": "npm:^0.6.6"
-    "@neat-evolution/neat": "npm:^0.6.6"
-    "@neat-evolution/worker-actions": "npm:^0.4.4"
-    "@neat-evolution/worker-evaluator": "npm:^0.7.6"
-    "@neat-evolution/worker-pool": "npm:^0.4.4"
-    "@neat-evolution/worker-reproducer": "npm:^0.7.6"
-    "@neat-evolution/worker-threads": "npm:^0.4.4"
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/cppn": "npm:^0.6.8"
+    "@neat-evolution/des-hyperneat": "npm:^0.6.8"
+    "@neat-evolution/es-hyperneat": "npm:^0.6.8"
+    "@neat-evolution/evaluator": "npm:^0.5.8"
+    "@neat-evolution/evolution": "npm:^0.7.0"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/hyperneat": "npm:^0.6.8"
+    "@neat-evolution/neat": "npm:^0.6.8"
+    "@neat-evolution/worker-actions": "npm:^0.6.0"
+    "@neat-evolution/worker-evaluator": "npm:^0.9.0"
+    "@neat-evolution/worker-pool": "npm:^0.4.6"
+    "@neat-evolution/worker-reproducer": "npm:^0.9.0"
+    "@neat-evolution/worker-threads": "npm:^0.4.6"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
     "@swc/helpers": "npm:^0.5.19"
@@ -1759,15 +1759,15 @@ __metadata:
     "@babylonjs/core": "npm:^8.52.0"
     "@biomejs/biome": "npm:^2.4.2"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
-    "@neat-evolution/utils": "npm:^0.4.0"
+    "@neat-evolution/utils": "npm:^0.6.0"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
-    "@swc/helpers": "npm:^0.5.17"
+    "@swc/helpers": "npm:^0.5.19"
     "@typescript/native-preview": "npm:latest"
     "@vitest/coverage-v8": "npm:^4.0.14"
     concurrently: "npm:^9.2.1"
     nodemon: "npm:^3.0.1"
-    quick-lru: "npm:^7.0.0"
+    quick-lru: "npm:^7.3.0"
     rimraf: "npm:^5.0.5"
     solid-js: "npm:^1.9.11"
     turbo: "npm:^2.6.1"
@@ -1789,11 +1789,11 @@ __metadata:
     "@biomejs/biome": "npm:^2.4.2"
     "@heygrady/hexagonoids-engine": "workspace:^"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/environment": "npm:^0.5.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/neat": "npm:^0.6.6"
-    "@neat-evolution/utils": "npm:^0.4.0"
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/environment": "npm:^0.5.8"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/neat": "npm:^0.6.8"
+    "@neat-evolution/utils": "npm:^0.6.0"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
     "@swc/helpers": "npm:^0.5.19"
@@ -1801,7 +1801,7 @@ __metadata:
     "@vitest/coverage-v8": "npm:^4.0.14"
     concurrently: "npm:^9.2.1"
     nodemon: "npm:^3.0.1"
-    quick-lru: "npm:^7.0.0"
+    quick-lru: "npm:^7.3.0"
     rimraf: "npm:^5.0.5"
     turbo: "npm:^2.6.1"
     typescript: "npm:^5.9.3"
@@ -1835,7 +1835,7 @@ __metadata:
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
-    "@swc/helpers": "npm:^0.5.17"
+    "@swc/helpers": "npm:^0.5.19"
     "@typescript/native-preview": "npm:latest"
     "@vitest/coverage-v8": "npm:^4.0.14"
     concurrently: "npm:^9.2.1"
@@ -1856,21 +1856,21 @@ __metadata:
     "@heygrady/tictactoe-game": "workspace:^"
     "@heygrady/tournament-strategy": "workspace:^"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/cppn": "npm:^0.6.6"
-    "@neat-evolution/des-hyperneat": "npm:^0.6.6"
-    "@neat-evolution/es-hyperneat": "npm:^0.6.6"
-    "@neat-evolution/evaluator": "npm:^0.5.6"
-    "@neat-evolution/evolution": "npm:^0.5.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/hyperneat": "npm:^0.6.6"
-    "@neat-evolution/neat": "npm:^0.6.6"
-    "@neat-evolution/worker-evaluator": "npm:^0.7.6"
-    "@neat-evolution/worker-reproducer": "npm:^0.7.6"
-    "@neat-evolution/worker-threads": "npm:^0.4.4"
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/cppn": "npm:^0.6.8"
+    "@neat-evolution/des-hyperneat": "npm:^0.6.8"
+    "@neat-evolution/es-hyperneat": "npm:^0.6.8"
+    "@neat-evolution/evaluator": "npm:^0.5.8"
+    "@neat-evolution/evolution": "npm:^0.7.0"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/hyperneat": "npm:^0.6.8"
+    "@neat-evolution/neat": "npm:^0.6.8"
+    "@neat-evolution/worker-evaluator": "npm:^0.9.0"
+    "@neat-evolution/worker-reproducer": "npm:^0.9.0"
+    "@neat-evolution/worker-threads": "npm:^0.4.6"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
-    "@swc/helpers": "npm:^0.5.17"
+    "@swc/helpers": "npm:^0.5.19"
     "@typescript/native-preview": "npm:latest"
     "@vitest/coverage-v8": "npm:^4.0.14"
     concurrently: "npm:^9.2.1"
@@ -1889,14 +1889,14 @@ __metadata:
     "@biomejs/biome": "npm:^2.4.2"
     "@heygrady/tictactoe-game": "workspace:^"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/environment": "npm:^0.5.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/neat": "npm:^0.6.6"
-    "@neat-evolution/utils": "npm:^0.4.0"
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/environment": "npm:^0.5.8"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/neat": "npm:^0.6.8"
+    "@neat-evolution/utils": "npm:^0.6.0"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
-    "@swc/helpers": "npm:^0.5.17"
+    "@swc/helpers": "npm:^0.5.19"
     "@typescript/native-preview": "npm:latest"
     "@vitest/coverage-v8": "npm:^4.0.14"
     concurrently: "npm:^9.2.1"
@@ -1914,16 +1914,16 @@ __metadata:
   dependencies:
     "@biomejs/biome": "npm:^2.4.2"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/utils": "npm:^0.4.0"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/utils": "npm:^0.6.0"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
-    "@swc/helpers": "npm:^0.5.17"
+    "@swc/helpers": "npm:^0.5.19"
     "@typescript/native-preview": "npm:latest"
     "@vitest/coverage-v8": "npm:^4.0.14"
     concurrently: "npm:^9.2.1"
     nodemon: "npm:^3.0.1"
-    quick-lru: "npm:^7.0.0"
+    quick-lru: "npm:^7.3.0"
     rimraf: "npm:^5.0.5"
     turbo: "npm:^2.6.1"
     typescript: "npm:^5.9.3"
@@ -1937,12 +1937,12 @@ __metadata:
   dependencies:
     "@biomejs/biome": "npm:^2.4.2"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
-    "@neat-evolution/evaluation-strategy": "npm:^0.3.10"
-    "@neat-evolution/evaluator": "npm:^0.5.6"
-    "@neat-evolution/utils": "npm:^0.4.0"
+    "@neat-evolution/evaluation-strategy": "npm:^0.3.12"
+    "@neat-evolution/evaluator": "npm:^0.5.8"
+    "@neat-evolution/utils": "npm:^0.6.0"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"
-    "@swc/helpers": "npm:^0.5.17"
+    "@swc/helpers": "npm:^0.5.19"
     "@typescript/native-preview": "npm:latest"
     "@vitest/coverage-v8": "npm:^4.0.14"
     concurrently: "npm:^9.2.1"
@@ -2616,228 +2616,229 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@neat-evolution/core@npm:^0.3.9":
-  version: 0.3.9
-  resolution: "@neat-evolution/core@npm:0.3.9::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fcore%2F0.3.9%2F366156d0e47f45a5eda259c956afba437da2e17b"
+"@neat-evolution/core@npm:^0.5.0":
+  version: 0.5.0
+  resolution: "@neat-evolution/core@npm:0.5.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fcore%2F0.5.0%2Faa8b28ad846c9bbe458d3b0c0c0d7685ec864e12"
   dependencies:
-    "@neat-evolution/utils": "npm:^0.4.0"
-    "@swc/helpers": "npm:^0.5.17"
+    "@neat-evolution/utils": "npm:^0.6.0"
+    "@swc/helpers": "npm:^0.5.19"
+  checksum: 10/2fb2e8cf109cb510ff64480013f66a18b09f264ea9016854edd0a65239cbceb3279e75c4f1607e13eb438c2c7849015c7a1317171f4dd64ea3953a86dcad0a04
+  languageName: node
+  linkType: hard
+
+"@neat-evolution/cppn@npm:^0.6.8":
+  version: 0.6.8
+  resolution: "@neat-evolution/cppn@npm:0.6.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fcppn%2F0.6.8%2F2335942665bd181a0e69f10c3bad0f4c39cfb3a3"
+  dependencies:
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/evaluator": "npm:^0.5.8"
+    "@neat-evolution/evolution": "npm:^0.7.0"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/neat": "npm:^0.6.8"
+    "@swc/helpers": "npm:^0.5.19"
+  checksum: 10/c557064a0a0eb45be09f2d1be536f45eecfe7b8f075f2551bf12d463a0fe4c0de506e225565c4e4c6f4831d9d9b5fa1f13df598c17d4eb7f3ec976f9937ffb79
+  languageName: node
+  linkType: hard
+
+"@neat-evolution/des-hyperneat@npm:^0.6.8":
+  version: 0.6.8
+  resolution: "@neat-evolution/des-hyperneat@npm:0.6.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fdes-hyperneat%2F0.6.8%2Fe64347721056ee7c46f4c1371e0850e8f5fbed8d"
+  dependencies:
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/cppn": "npm:^0.6.8"
+    "@neat-evolution/es-hyperneat": "npm:^0.6.8"
+    "@neat-evolution/evaluator": "npm:^0.5.8"
+    "@neat-evolution/evolution": "npm:^0.7.0"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/hyperneat": "npm:^0.6.8"
+    "@neat-evolution/neat": "npm:^0.6.8"
+    "@neat-evolution/utils": "npm:^0.6.0"
+    "@swc/helpers": "npm:^0.5.19"
+  checksum: 10/fd0f536effa1ac2c2eb29ab1245ff7df2cb3c3423a73a776e2b340c724432dfcbaf63f208017bff4d49dbaf487d6c7c6ca85788c2302d5f26f106f2afaba619b
+  languageName: node
+  linkType: hard
+
+"@neat-evolution/environment@npm:^0.5.8":
+  version: 0.5.8
+  resolution: "@neat-evolution/environment@npm:0.5.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fenvironment%2F0.5.8%2Ff491e5a4d36ccd55f992f6a6925c7e98f509f34d"
+  dependencies:
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/utils": "npm:^0.6.0"
+    "@swc/helpers": "npm:^0.5.19"
+  checksum: 10/f702dabd4122a5d88917411f281bd36ea0bc9ac20326146982e9ab05bf6b115c4cb2afb729f51ef6410d04ca4decb3bab29bb24d784767eb2b4d9c79339727af
+  languageName: node
+  linkType: hard
+
+"@neat-evolution/es-hyperneat@npm:^0.6.8":
+  version: 0.6.8
+  resolution: "@neat-evolution/es-hyperneat@npm:0.6.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fes-hyperneat%2F0.6.8%2F1309c29821413b9989bfc7ce41d24dc1d535b061"
+  dependencies:
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/cppn": "npm:^0.6.8"
+    "@neat-evolution/evaluator": "npm:^0.5.8"
+    "@neat-evolution/evolution": "npm:^0.7.0"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/hyperneat": "npm:^0.6.8"
+    "@neat-evolution/neat": "npm:^0.6.8"
+    "@swc/helpers": "npm:^0.5.19"
+  checksum: 10/009cd35f54c4a423e2b2db440ed73a5d0eab4d143390f12fd5f7861fe10886f7c0e7b87d367a6bdaa47546c16db6b5496d858d11f505b7914c07e9f05c24c65c
+  languageName: node
+  linkType: hard
+
+"@neat-evolution/evaluation-strategy@npm:^0.3.12":
+  version: 0.3.12
+  resolution: "@neat-evolution/evaluation-strategy@npm:0.3.12::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fevaluation-strategy%2F0.3.12%2Fdeb9ebe55da6aaa1e08e526370ace5ac4b03a627"
+  dependencies:
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/environment": "npm:^0.5.8"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/worker-actions": "npm:^0.6.0"
+    "@neat-evolution/worker-threads": "npm:^0.4.6"
+    "@swc/helpers": "npm:^0.5.19"
+  checksum: 10/b530990ce747cf3dec79f3cf5d6f035856ef3d0fb77b2913bdc568ff2e5c86aae8a85af140e3858d435ff1b283e90b6cb009735c26dc4e684fc9e80e5b1faccf
+  languageName: node
+  linkType: hard
+
+"@neat-evolution/evaluator@npm:^0.5.8":
+  version: 0.5.8
+  resolution: "@neat-evolution/evaluator@npm:0.5.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fevaluator%2F0.5.8%2F1a2ba9cfe2fd4906ffea34da75828ceaf6b1bf88"
+  dependencies:
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/environment": "npm:^0.5.8"
+    "@neat-evolution/evaluation-strategy": "npm:^0.3.12"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@swc/helpers": "npm:^0.5.19"
+  checksum: 10/49a889b072152d2dcd089e65550e107d4fe7beaabe07ab9cda079792b8ac5daa1ce73b29f3706617655dc497892a0357c3f3623c42db163bd09c97a4cf29f31f
+  languageName: node
+  linkType: hard
+
+"@neat-evolution/evolution@npm:^0.7.0":
+  version: 0.7.0
+  resolution: "@neat-evolution/evolution@npm:0.7.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fevolution%2F0.7.0%2F4e99e3bf8a28a6cf18ed5575f04b738dd62d89a3"
+  dependencies:
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/evaluator": "npm:^0.5.8"
+    "@neat-evolution/utils": "npm:^0.6.0"
+    "@swc/helpers": "npm:^0.5.19"
     quick-lru: "npm:^7.3.0"
-  checksum: 10/339bcb414286c6a83a775c0fa085409607d464484bb5fbcb7a7c40fb2faf7521dd872f725238bbd9c0814030fb42294c730720f2a5d0045d56f96718b34b2519
+  checksum: 10/11e60fa0f448ebc27af435da6e026a5b348f9b93bca59571cf396d8187ae7f8937b28ce35bdb212c603ef7119772db3cb1f7326e5ffe637599268bfbab1cf3d7
   languageName: node
   linkType: hard
 
-"@neat-evolution/cppn@npm:^0.6.6":
-  version: 0.6.6
-  resolution: "@neat-evolution/cppn@npm:0.6.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fcppn%2F0.6.6%2Ff81cda3dc7e48629ef060b0ae9ead5c84093dd83"
+"@neat-evolution/executor@npm:^0.3.13":
+  version: 0.3.13
+  resolution: "@neat-evolution/executor@npm:0.3.13::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fexecutor%2F0.3.13%2Ffc2c21126b172634dc4d915d93caabc24bd62242"
   dependencies:
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/evaluator": "npm:^0.5.6"
-    "@neat-evolution/evolution": "npm:^0.5.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/neat": "npm:^0.6.6"
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/7c12a49f01c7314270cd5b7b38f525ea1f4d0fad2d33a8083a574f48f50fc2eda551024252ed9e57e23872932384bc52b2bef13ccf5b9de10597c6f197e59a16
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@swc/helpers": "npm:^0.5.19"
+  checksum: 10/974f568d79266b8959eb041ee86f937eb81c78c602e5bb81edc10eefa61cdbea0006d19244643e248a4994690c88b1d18b9eb932a5401cc30075124e690abddb
   languageName: node
   linkType: hard
 
-"@neat-evolution/des-hyperneat@npm:^0.6.6":
-  version: 0.6.6
-  resolution: "@neat-evolution/des-hyperneat@npm:0.6.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fdes-hyperneat%2F0.6.6%2F69f9711d09a9061b094b87559359c1c2f722b6f9"
+"@neat-evolution/hyperneat@npm:^0.6.8":
+  version: 0.6.8
+  resolution: "@neat-evolution/hyperneat@npm:0.6.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fhyperneat%2F0.6.8%2F354acb5362413f6e0bfa3f829687f21cc2f5b7be"
   dependencies:
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/cppn": "npm:^0.6.6"
-    "@neat-evolution/es-hyperneat": "npm:^0.6.6"
-    "@neat-evolution/evaluator": "npm:^0.5.6"
-    "@neat-evolution/evolution": "npm:^0.5.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/hyperneat": "npm:^0.6.6"
-    "@neat-evolution/neat": "npm:^0.6.6"
-    "@neat-evolution/utils": "npm:^0.4.0"
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/7720f62c1a860c16d8941d0909d11d239fb8412970fc97b942a84c493483913244004aa963e9506ac88bb0b7ba87b85cd7cf443cb4ea59f845f5e17048770e85
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/cppn": "npm:^0.6.8"
+    "@neat-evolution/evaluator": "npm:^0.5.8"
+    "@neat-evolution/evolution": "npm:^0.7.0"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/neat": "npm:^0.6.8"
+    "@swc/helpers": "npm:^0.5.19"
+  checksum: 10/7506f306514592d1977e17c4a56b2ca52c913b8a8d0172a9311beca011a2993fbe181a9ed3863ad60343bb6d2e8173881539e2e547d6f4e0b642328289888651
   languageName: node
   linkType: hard
 
-"@neat-evolution/environment@npm:^0.5.6":
-  version: 0.5.6
-  resolution: "@neat-evolution/environment@npm:0.5.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fenvironment%2F0.5.6%2F818b5e8579dd53f372803b29fe72a3babce447ae"
+"@neat-evolution/neat@npm:^0.6.8":
+  version: 0.6.8
+  resolution: "@neat-evolution/neat@npm:0.6.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fneat%2F0.6.8%2Fdda0d0a2d67a6cdc50caaae1adfb4cb8b433be81"
   dependencies:
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/utils": "npm:^0.4.0"
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/2d5c6fb433592dca2854cb5afa5e77376de51f4c2f7f5218dcfa8c771cd420aaf96b8a9bc75e19aed7bc918866c4cb7b01e352e4283a2d8c14497a43ae5301d3
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/evaluator": "npm:^0.5.8"
+    "@neat-evolution/evolution": "npm:^0.7.0"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@swc/helpers": "npm:^0.5.19"
+  checksum: 10/fe92de8daaa5a0b416fed7a39d9427bde46f316b37b5c57bdedcf646c401e0ae8a1fe080a264fdce14af1f0dc15b80e9b47a80cc4f7e3ef9bbb0750aa552e5ad
   languageName: node
   linkType: hard
 
-"@neat-evolution/es-hyperneat@npm:^0.6.6":
-  version: 0.6.6
-  resolution: "@neat-evolution/es-hyperneat@npm:0.6.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fes-hyperneat%2F0.6.6%2F3ae44a23900fdb61b33cac0c48905883825423bb"
+"@neat-evolution/utils@npm:^0.6.0":
+  version: 0.6.0
+  resolution: "@neat-evolution/utils@npm:0.6.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Futils%2F0.6.0%2F5749e1653248e00355799bba5567583d5bef0dc6"
   dependencies:
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/cppn": "npm:^0.6.6"
-    "@neat-evolution/evaluator": "npm:^0.5.6"
-    "@neat-evolution/evolution": "npm:^0.5.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/hyperneat": "npm:^0.6.6"
-    "@neat-evolution/neat": "npm:^0.6.6"
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/c50dc56ef92d46c481fbd0955d8477a79a7c558f91a574e5a13f2cd3a801a72098bd558bfc58f3ca048e0c222e6d5e23b91edf402934e8efb51a10bbd612b7e7
+    "@swc/helpers": "npm:^0.5.19"
+  checksum: 10/3542bf6489c52d558e23c11a446bbd116c5910c21fc99a92a2b3aba5db00e3005df918f3b2d050abe53c200dd643b05f79f9c2d729786eef6e24e956139cb0ff
   languageName: node
   linkType: hard
 
-"@neat-evolution/evaluation-strategy@npm:^0.3.10":
-  version: 0.3.10
-  resolution: "@neat-evolution/evaluation-strategy@npm:0.3.10::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fevaluation-strategy%2F0.3.10%2F576ce742d3d1901cfd31cc5b27009d80b73603be"
+"@neat-evolution/worker-actions@npm:^0.6.0":
+  version: 0.6.0
+  resolution: "@neat-evolution/worker-actions@npm:0.6.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-actions%2F0.6.0%2Ffabc545964af11042ff3e9223880e5ac0d8adada"
   dependencies:
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/environment": "npm:^0.5.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/worker-actions": "npm:^0.4.4"
-    "@neat-evolution/worker-threads": "npm:^0.4.4"
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/ddf3ddb9b10cdf5d56cd9e93aa09114d0c1abfb122820daec3e5d2cc4dca5783ff9f0f22fd3e24d40b1ad392650b0f3316972842e60692ff42bc507a3dd425da
-  languageName: node
-  linkType: hard
-
-"@neat-evolution/evaluator@npm:^0.5.6":
-  version: 0.5.6
-  resolution: "@neat-evolution/evaluator@npm:0.5.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fevaluator%2F0.5.6%2F4ddd7788eb89896f98241cd89934281fa831ffa8"
-  dependencies:
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/environment": "npm:^0.5.6"
-    "@neat-evolution/evaluation-strategy": "npm:^0.3.10"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/15b192b6934774d0fd0c9f1129e9ba87b916dd21c097e6eb02b623c0125e0f488010522433872311daa714c32275939762c45296c24705f082312f0d323de00f
-  languageName: node
-  linkType: hard
-
-"@neat-evolution/evolution@npm:^0.5.6":
-  version: 0.5.6
-  resolution: "@neat-evolution/evolution@npm:0.5.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fevolution%2F0.5.6%2F465dcbfc727926f75beee6e53496e5791fd1ee60"
-  dependencies:
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/evaluator": "npm:^0.5.6"
-    "@neat-evolution/utils": "npm:^0.4.0"
-    "@swc/helpers": "npm:^0.5.17"
-    quick-lru: "npm:^7.3.0"
-  checksum: 10/8adf64ab1e1964dc39d331320da08aef34b1b00ded4296592c1469c42dedd5e028f781579d83caf67e540374ffe324902020ef7e24968f1f6655446d409e4264
-  languageName: node
-  linkType: hard
-
-"@neat-evolution/executor@npm:^0.3.11":
-  version: 0.3.11
-  resolution: "@neat-evolution/executor@npm:0.3.11::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fexecutor%2F0.3.11%2Ff0232110cf98e1d3847f3774cfa7fe32cbf433b5"
-  dependencies:
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/28cb2661b64f9c01041aa4df1b34319f6dcd76dddccfc49b6119f8a1c168049ac552b2207c084ec907cb0e4b654f3ff12b1dbeaa4342c966766b8ccedf190f4a
-  languageName: node
-  linkType: hard
-
-"@neat-evolution/hyperneat@npm:^0.6.6":
-  version: 0.6.6
-  resolution: "@neat-evolution/hyperneat@npm:0.6.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fhyperneat%2F0.6.6%2F707e57b148a0584183a744826e07550d7d12534c"
-  dependencies:
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/cppn": "npm:^0.6.6"
-    "@neat-evolution/evaluator": "npm:^0.5.6"
-    "@neat-evolution/evolution": "npm:^0.5.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/neat": "npm:^0.6.6"
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/a0776bf325559ae854a08c6d1ef6c80349ce25f7aa7f46141eecf7eb9ce7c94c5451b5a0926bf286b496c8749da05c08cab392b08061551d823027b4c0371518
-  languageName: node
-  linkType: hard
-
-"@neat-evolution/neat@npm:^0.6.6":
-  version: 0.6.6
-  resolution: "@neat-evolution/neat@npm:0.6.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fneat%2F0.6.6%2F7690f53729e9017df62c73b6137a2ec060737c01"
-  dependencies:
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/evaluator": "npm:^0.5.6"
-    "@neat-evolution/evolution": "npm:^0.5.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/c58abb873fb7215b38db8c356971cac3d7d2355d9b20084abb71b6164e3fd7e5816a5d46baa7d12a1f850a09a8448b55cb0ddc5d00193b8bc002a5fed90dca63
-  languageName: node
-  linkType: hard
-
-"@neat-evolution/utils@npm:^0.4.0":
-  version: 0.4.0
-  resolution: "@neat-evolution/utils@npm:0.4.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Futils%2F0.4.0%2F7d0d7d1051ec25d4f704e8f4f1fe14162b4b10d8"
-  dependencies:
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/aa7d516ac0ad8d23bc426818709ffe8677f59f7e1fc6dfad290c11bbeb7f5874c819ec2f59636b1f4e50068bcf7527eb5acd332b2f89148f6b0c9f7663160b5b
-  languageName: node
-  linkType: hard
-
-"@neat-evolution/worker-actions@npm:^0.4.4":
-  version: 0.4.4
-  resolution: "@neat-evolution/worker-actions@npm:0.4.4::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-actions%2F0.4.4%2F215566d10b3ea2fbdc865cebf36a4e36184c75c3"
-  dependencies:
-    "@neat-evolution/worker-pool": "npm:^0.4.4"
-    "@neat-evolution/worker-threads": "npm:^0.4.4"
-    "@swc/helpers": "npm:^0.5.17"
+    "@neat-evolution/worker-pool": "npm:^0.4.6"
+    "@neat-evolution/worker-threads": "npm:^0.4.6"
+    "@swc/helpers": "npm:^0.5.19"
     p-defer: "npm:^4.0.1"
-  checksum: 10/f8b339d30feff31dbf342c0f77b4fd855422f05ff499ecb8b945d6b96243cb2cc37ea17892c2d82437ec37e73d0eceff0b47d50066b5bbbc13a88e77a25727e5
+  checksum: 10/3d9e5ff8922acac1c003db280fe6bafa2286095106b8d002c70f7a3757e1886ce1ee083d9591d74569c43e85165368e35d1f9eb985f3a18639d6d14316a07acd
   languageName: node
   linkType: hard
 
-"@neat-evolution/worker-evaluator@npm:^0.7.6":
-  version: 0.7.6
-  resolution: "@neat-evolution/worker-evaluator@npm:0.7.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-evaluator%2F0.7.6%2F42aae948a0fbad88a02c4d5d9de94e3822b33ed2"
+"@neat-evolution/worker-evaluator@npm:^0.9.0":
+  version: 0.9.0
+  resolution: "@neat-evolution/worker-evaluator@npm:0.9.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-evaluator%2F0.9.0%2F1652921ed45ee3a939209e3963fa56d2908e7c52"
   dependencies:
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/environment": "npm:^0.5.6"
-    "@neat-evolution/evaluation-strategy": "npm:^0.3.10"
-    "@neat-evolution/evaluator": "npm:^0.5.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/utils": "npm:^0.4.0"
-    "@neat-evolution/worker-actions": "npm:^0.4.4"
-    "@neat-evolution/worker-pool": "npm:^0.4.4"
-    "@neat-evolution/worker-threads": "npm:^0.4.4"
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/d4e59c39af11ed7caad826be15e864e8db05818828ecd4a9fd173f54b69ed5ce9943b75f4a706dbda6c757e2dcef61b05d89643c0f7d3da31ea0d4def0e6f929
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/environment": "npm:^0.5.8"
+    "@neat-evolution/evaluation-strategy": "npm:^0.3.12"
+    "@neat-evolution/evaluator": "npm:^0.5.8"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/utils": "npm:^0.6.0"
+    "@neat-evolution/worker-actions": "npm:^0.6.0"
+    "@neat-evolution/worker-pool": "npm:^0.4.6"
+    "@neat-evolution/worker-threads": "npm:^0.4.6"
+    "@swc/helpers": "npm:^0.5.19"
+    quick-lru: "npm:^7.3.0"
+  checksum: 10/4be0ac9e4fd0bd580392768af41a79f6db6f22ab35adbe808ba7cf2af9a34c74f64b63bbf1b8dfad1fcf4a8ff0e31da5b6db0b3e850f0e3725a97b32e79fbdb7
   languageName: node
   linkType: hard
 
-"@neat-evolution/worker-pool@npm:^0.4.4":
-  version: 0.4.4
-  resolution: "@neat-evolution/worker-pool@npm:0.4.4::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-pool%2F0.4.4%2Fce621721bfbc821f3a6ea9e41d5acdb7fb519298"
+"@neat-evolution/worker-pool@npm:^0.4.6":
+  version: 0.4.6
+  resolution: "@neat-evolution/worker-pool@npm:0.4.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-pool%2F0.4.6%2F918b14b7d2468ba035c11fe12765f22c6f23e37d"
   dependencies:
-    "@neat-evolution/worker-threads": "npm:^0.4.4"
-    "@swc/helpers": "npm:^0.5.17"
+    "@neat-evolution/worker-threads": "npm:^0.4.6"
+    "@swc/helpers": "npm:^0.5.19"
     async-sema: "npm:^3.1.1"
-  checksum: 10/076fe8f6fb6d9fdbbaefa574b36e4715a9e51600fed044cb5dd56eaac240b5a814f4dde519403fe9bb434c17cf70e39af43621ebc59ec09eb67d698039c2f3fa
+  checksum: 10/19f9469e5270c6a0763729cd92e9e5c3f8111c05b915fb788f1adc7b3fe49f888cf2c62194249010d54590ec152d80f935e13ada2fd9568ebd1f3a07cceb60f8
   languageName: node
   linkType: hard
 
-"@neat-evolution/worker-reproducer@npm:^0.7.6":
-  version: 0.7.6
-  resolution: "@neat-evolution/worker-reproducer@npm:0.7.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-reproducer%2F0.7.6%2Fc0da9eb39e6b4659040ea844aab2c865d73eb742"
+"@neat-evolution/worker-reproducer@npm:^0.9.0":
+  version: 0.9.0
+  resolution: "@neat-evolution/worker-reproducer@npm:0.9.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-reproducer%2F0.9.0%2Ff9f353e3ec47ab4b5335912c8dad4e56b890ee67"
   dependencies:
-    "@neat-evolution/core": "npm:^0.3.9"
-    "@neat-evolution/evaluator": "npm:^0.5.6"
-    "@neat-evolution/evolution": "npm:^0.5.6"
-    "@neat-evolution/executor": "npm:^0.3.11"
-    "@neat-evolution/utils": "npm:^0.4.0"
-    "@neat-evolution/worker-actions": "npm:^0.4.4"
-    "@neat-evolution/worker-pool": "npm:^0.4.4"
-    "@neat-evolution/worker-threads": "npm:^0.4.4"
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/b3d9783d522a39a20652e3dbe98c8db21df50ee0717b5bad9286909ebb7daad4b47c5c6414a09b0234b00c0ee5d1759946d8ea1ecc3ea4139f8dc4f6b6ced82f
+    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/evaluator": "npm:^0.5.8"
+    "@neat-evolution/evolution": "npm:^0.7.0"
+    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/utils": "npm:^0.6.0"
+    "@neat-evolution/worker-actions": "npm:^0.6.0"
+    "@neat-evolution/worker-pool": "npm:^0.4.6"
+    "@neat-evolution/worker-threads": "npm:^0.4.6"
+    "@swc/helpers": "npm:^0.5.19"
+    quick-lru: "npm:^7.3.0"
+  checksum: 10/4018bcf2e2d54b21800030feadb4a3c2e8a26f5a8d6cddaed4f4ed00569200aa9607c7c712b4ab859f7d9550470567911c000061672d15ece040ee5f41942dc5
   languageName: node
   linkType: hard
 
-"@neat-evolution/worker-threads@npm:^0.4.4":
-  version: 0.4.4
-  resolution: "@neat-evolution/worker-threads@npm:0.4.4::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-threads%2F0.4.4%2Fc784d21ebfcdcfdf984996d9e05910cfb417ae9c"
+"@neat-evolution/worker-threads@npm:^0.4.6":
+  version: 0.4.6
+  resolution: "@neat-evolution/worker-threads@npm:0.4.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-threads%2F0.4.6%2F40eadac0bfac820394372ba90e46109b7c5d692d"
   dependencies:
-    "@swc/helpers": "npm:^0.5.17"
-  checksum: 10/4cd385bdea2e1dd0feb01577e0967aea1e853c6c80469ad888a442c9dd5bdf34059e86a6816a740fc6723df44af763b133a2c43d7a58001f19fe1ed6fa893819
+    "@swc/helpers": "npm:^0.5.19"
+  checksum: 10/4e63fd859fabc824253f742ba3900f364c73575ce9989f24d446aa1d326444b23d2253b9f201a5e9ffdaa63b92e036060869d0c69f6abf3fe4f71b055ffd06cd
   languageName: node
   linkType: hard
 
@@ -3509,16 +3510,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@swc/helpers@npm:^0.5.12, @swc/helpers@npm:^0.5.17":
-  version: 0.5.17
-  resolution: "@swc/helpers@npm:0.5.17"
-  dependencies:
-    tslib: "npm:^2.8.0"
-  checksum: 10/1fc8312a78f1f99c8ec838585445e99763eeebff2356100738cdfdb8ad47d2d38df678ee6edd93a90fe319ac52da67adc14ac00eb82b606c5fb8ebc5d06ec2a2
-  languageName: node
-  linkType: hard
-
-"@swc/helpers@npm:^0.5.19":
+"@swc/helpers@npm:^0.5.12, @swc/helpers@npm:^0.5.19":
   version: 0.5.19
   resolution: "@swc/helpers@npm:0.5.19"
   dependencies:
@@ -12006,13 +11998,6 @@ __metadata:
   version: 5.1.1
   resolution: "quick-lru@npm:5.1.1"
   checksum: 10/a516faa25574be7947969883e6068dbe4aa19e8ef8e8e0fd96cddd6d36485e9106d85c0041a27153286b0770b381328f4072aa40d3b18a19f5f7d2b78b94b5ed
-  languageName: node
-  linkType: hard
-
-"quick-lru@npm:^7.0.0":
-  version: 7.0.0
-  resolution: "quick-lru@npm:7.0.0"
-  checksum: 10/4ed222a906f99c7a10bc679cb92bf164eaf1a40cb5203d103af9161f0d67702c74fda0332382b28a02c5b70b556a3aa2f4a8719d855682c742e0e3ac9c5dc6ad
   languageName: node
   linkType: hard
 

@@ -47,7 +47,7 @@
     "test:dev": "vitest"
   },
   "dependencies": {
-    "@swc/helpers": "^0.5.17"
+    "@swc/helpers": "^0.5.19"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.2",

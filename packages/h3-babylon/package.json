@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@babylonjs/core": "^8.37.3",
-    "@swc/helpers": "^0.5.17",
+    "@swc/helpers": "^0.5.19",
     "h3-js": "^4.1.0"
   },
   "devDependencies": {
