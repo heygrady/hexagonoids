@@ -1,4 +1,5 @@
 import { INPUT_COUNT } from '@heygrady/hexagonoids-environment'
+import type { Phenotype } from '@neat-evolution/core'
 import {
   Activation,
   defaultNEATConfigOptions,
@@ -47,7 +48,6 @@ import type {
   AnyErasedGenome,
   Evaluator,
 } from '@neat-evolution/evaluator'
-import type { Phenotype } from '@neat-evolution/core'
 import {
   defaultPopulationOptions,
   type Population,
@@ -290,7 +290,7 @@ const createTrainingPopulationFactory = <
   }
 }
 
-const createTypedGenomeHydrator =<G>(
+const createTypedGenomeHydrator = <G>(
   createGenome: (
     config: any,
     state: any,
@@ -312,7 +312,7 @@ const createTypedGenomeHydrator =<G>(
   }
 }
 
-const createTypedPhenotypeHydrator =<G>(
+const createTypedPhenotypeHydrator = <G>(
   createPhenotype: (genome: G) => Phenotype
 ) => {
   return (genome: unknown): Phenotype => createPhenotype(genome as G)
@@ -364,7 +364,9 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
     },
     createPopulationForTraining: createTrainingPopulationFactory(
       createNEATPopulation,
-      (options): PopulationArgs<NEATPopulation, typeof createNEATPopulation> => [
+      (
+        options
+      ): PopulationArgs<NEATPopulation, typeof createNEATPopulation> => [
         createHexagonoidsNEATConfigOptions(),
         createPopulationOptions(options.populationSize),
         createHexagonoidsNEATGenomeOptions(),
@@ -392,7 +394,9 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
     },
     createPopulationForTraining: createTrainingPopulationFactory(
       createCPPNPopulation,
-      (options): PopulationArgs<CPPNPopulation, typeof createCPPNPopulation> => [
+      (
+        options
+      ): PopulationArgs<CPPNPopulation, typeof createCPPNPopulation> => [
         createHexagonoidsNEATConfigOptions(),
         createPopulationOptions(options.populationSize),
         createHexagonoidsCPPNGenomeOptions(),
@@ -420,8 +424,12 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
     },
     createPopulationForTraining: createTrainingPopulationFactory(
       createHyperNEATPopulation,
-      (options):
-        PopulationArgs<HyperNEATPopulation, typeof createHyperNEATPopulation> => [
+      (
+        options
+      ): PopulationArgs<
+        HyperNEATPopulation,
+        typeof createHyperNEATPopulation
+      > => [
         createHexagonoidsNEATConfigOptions(),
         createPopulationOptions(options.populationSize),
         createHexagonoidsHyperNEATGenomeOptions(),
@@ -451,11 +459,12 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
     },
     createPopulationForTraining: createTrainingPopulationFactory(
       createESHyperNEATPopulation,
-      (options):
-        PopulationArgs<
-          ESHyperNEATPopulation,
-          typeof createESHyperNEATPopulation
-        > => [
+      (
+        options
+      ): PopulationArgs<
+        ESHyperNEATPopulation,
+        typeof createESHyperNEATPopulation
+      > => [
         createHexagonoidsNEATConfigOptions(),
         createPopulationOptions(options.populationSize),
         createHexagonoidsESHyperNEATGenomeOptions(),
@@ -486,11 +495,12 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
     },
     createPopulationForTraining: createTrainingPopulationFactory(
       createDESHyperNEATPopulation,
-      (options):
-        PopulationArgs<
-          DESHyperNEATPopulation,
-          typeof createDESHyperNEATPopulation
-        > => [
+      (
+        options
+      ): PopulationArgs<
+        DESHyperNEATPopulation,
+        typeof createDESHyperNEATPopulation
+      > => [
         cloneDefaultOptions(defaultTopologyConfigOptions),
         createHexagonoidsNEATConfigOptions(),
         createPopulationOptions(options.populationSize),

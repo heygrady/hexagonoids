@@ -9,8 +9,8 @@ import {
   simulateGame,
   weightedFitnessSum,
 } from '@heygrady/hexagonoids-environment'
+import type { AnyErasedGenome } from '@neat-evolution/evaluator'
 import { createExecutor } from '@neat-evolution/executor'
-
 import {
   createGenomeFromSerialized,
   createPhenotypeForGenome,
@@ -18,7 +18,6 @@ import {
   type SerializedGenome,
   type SupportedAlgorithm,
 } from '../../algorithmRegistry.js'
-import type { AnyErasedGenome } from '@neat-evolution/evaluator'
 import { generationSeedPack } from '../../evaluation/seedSchedule.js'
 import { loadGenome } from '../../persistence/loadGenome.js'
 import {

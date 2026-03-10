@@ -9,14 +9,14 @@ import { createAgentHandle, loadScenarioRuntime } from './runtime.js'
 import type { AgentHandle, ScenarioRuntime } from './types.js'
 import {
   type AnnotateBatchResult,
+  annotateBatch,
   type CollectCandidatesPayload,
   type CollectCandidatesResult,
-  type FilterInstantDeathResult,
-  type ScoutAgentResult,
-  annotateBatch,
   collectCandidates,
+  type FilterInstantDeathResult,
   filterInstantDeath,
   init,
+  type ScoutAgentResult,
   scoutAgent,
   terminate,
 } from './workerScenarioActions.js'

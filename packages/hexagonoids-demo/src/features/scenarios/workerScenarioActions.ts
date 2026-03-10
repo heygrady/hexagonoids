@@ -101,16 +101,12 @@ export const init = createMessage<InitPayload>(ActionType.INIT, () => ({}))
 export const collectCandidates = createMessage<
   CollectCandidatesPayload,
   CollectCandidatesResult
->(
-  ActionType.COLLECT_CANDIDATES
-)
+>(ActionType.COLLECT_CANDIDATES)
 
 export const filterInstantDeath = createMessage<
   FilterInstantDeathPayload,
   FilterInstantDeathResult
->(
-  ActionType.FILTER_INSTANT_DEATH
-)
+>(ActionType.FILTER_INSTANT_DEATH)
 
 export const scoutAgent = createMessage<ScoutAgentPayload, ScoutAgentResult>(
   ActionType.SCOUT_AGENT
@@ -119,8 +115,6 @@ export const scoutAgent = createMessage<ScoutAgentPayload, ScoutAgentResult>(
 export const annotateBatch = createMessage<
   AnnotateBatchPayload,
   AnnotateBatchResult
->(
-  ActionType.ANNOTATE_BATCH
-)
+>(ActionType.ANNOTATE_BATCH)
 
 export const terminate = createMessage<null>(ActionType.TERMINATE, () => null)
