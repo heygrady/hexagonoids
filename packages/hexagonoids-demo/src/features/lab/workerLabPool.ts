@@ -9,7 +9,6 @@ import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 import type { SupportedAlgorithm } from '../../algorithmRegistry.js'
 import type { GenomeBehavior, ScoringMethod } from './types.js'
 import {
-  type AnalyzeBatchResult,
   analyzeBatch,
   type GenomeRef,
   init,
@@ -104,7 +103,7 @@ export async function createLabWorkerPool(options?: {
 
       const promises = chunks.map((chunk) =>
         dispatcher
-          .call<AnalyzeBatchResult>(
+          .call(
             analyzeBatch({
               genomeRefs: chunk,
               method,
@@ -113,8 +112,8 @@ export async function createLabWorkerPool(options?: {
               dtMs,
               baseSeed,
               includePerSeedMetrics,
-              fitnessWeights,
-              gateConfig,
+              ...(fitnessWeights != null ? { fitnessWeights } : {}),
+              ...(gateConfig != null ? { gateConfig } : {}),
             })
           )
           .then((result) => {
@@ -160,7 +159,7 @@ export async function createLabWorkerPool(options?: {
     },
 
     async terminate(): Promise<void> {
-      await dispatcher.broadcast(terminate())
+      await dispatcher.broadcast(terminate(null))
       await pool.terminate()
     },
   }

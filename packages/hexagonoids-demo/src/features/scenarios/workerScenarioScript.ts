@@ -8,15 +8,17 @@ import {
 import { createAgentHandle, loadScenarioRuntime } from './runtime.js'
 import type { AgentHandle, ScenarioRuntime } from './types.js'
 import {
-  ActionType,
-  type AnnotateBatchPayload,
   type AnnotateBatchResult,
   type CollectCandidatesPayload,
   type CollectCandidatesResult,
-  type FilterInstantDeathPayload,
   type FilterInstantDeathResult,
-  type ScoutAgentPayload,
   type ScoutAgentResult,
+  annotateBatch,
+  collectCandidates,
+  filterInstantDeath,
+  init,
+  scoutAgent,
+  terminate,
 } from './workerScenarioActions.js'
 
 interface ThreadContext {
@@ -47,16 +49,14 @@ async function getOrCreateHandle(
 
 const handler = new Handler()
 
-handler.register(ActionType.INIT, async () => {
+handler.register(init, async (_payload, _context) => {
   threadContext.runtime = await loadScenarioRuntime()
   return null
 })
 
 handler.register(
-  ActionType.COLLECT_CANDIDATES,
-  async (
-    payload: CollectCandidatesPayload
-  ): Promise<CollectCandidatesResult> => {
+  collectCandidates,
+  async (payload, _context): Promise<CollectCandidatesResult> => {
     const runtime = threadContext.runtime
     if (runtime == null) throw new Error('Worker not initialized')
 
@@ -88,10 +88,8 @@ handler.register(
 )
 
 handler.register(
-  ActionType.FILTER_INSTANT_DEATH,
-  async (
-    payload: FilterInstantDeathPayload
-  ): Promise<FilterInstantDeathResult> => {
+  filterInstantDeath,
+  async (payload, _context): Promise<FilterInstantDeathResult> => {
     const runtime = threadContext.runtime
     if (runtime == null) throw new Error('Worker not initialized')
 
@@ -130,8 +128,8 @@ handler.register(
 )
 
 handler.register(
-  ActionType.SCOUT_AGENT,
-  async (payload: ScoutAgentPayload): Promise<ScoutAgentResult> => {
+  scoutAgent,
+  async (payload, _context): Promise<ScoutAgentResult> => {
     const runtime = threadContext.runtime
     if (runtime == null) throw new Error('Worker not initialized')
 
@@ -160,8 +158,8 @@ handler.register(
 )
 
 handler.register(
-  ActionType.ANNOTATE_BATCH,
-  async (payload: AnnotateBatchPayload): Promise<AnnotateBatchResult> => {
+  annotateBatch,
+  async (payload, _context): Promise<AnnotateBatchResult> => {
     const runtime = threadContext.runtime
     if (runtime == null) throw new Error('Worker not initialized')
 
@@ -232,7 +230,7 @@ handler.register(
   }
 )
 
-handler.register(ActionType.TERMINATE, async () => {
+handler.register(terminate, async (_payload, _context) => {
   threadContext.handleCache.clear()
   threadContext.runtime = null
   return null

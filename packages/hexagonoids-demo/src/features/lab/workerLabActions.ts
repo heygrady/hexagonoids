@@ -47,7 +47,10 @@ export interface AnalyzeBatchResult {
 
 export const init = createMessage<InitPayload>(ActionType.INIT, () => ({}))
 
-export const analyzeBatch = createMessage<AnalyzeBatchPayload>(
+export const analyzeBatch = createMessage<
+  AnalyzeBatchPayload,
+  AnalyzeBatchResult
+>(
   ActionType.ANALYZE_BATCH
 )
 

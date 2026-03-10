@@ -1,10 +1,11 @@
 import { Handler } from '@neat-evolution/worker-actions'
 
 import {
-  ActionType,
-  type AnalyzeBatchPayload,
   type AnalyzeBatchResult,
   type AnalyzeBatchResultEntry,
+  analyzeBatch,
+  init,
+  terminate,
 } from './workerLabActions.js'
 
 interface LabRuntime {
@@ -41,7 +42,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
 
 const handler = new Handler()
 
-handler.register(ActionType.INIT, async () => {
+handler.register(init, async (_payload, _context) => {
   const demoNode = await import('@heygrady/hexagonoids-demo/node')
   const env = await import('@heygrady/hexagonoids-environment')
   const { createExecutor } = await import('@neat-evolution/executor')
@@ -77,8 +78,8 @@ handler.register(ActionType.INIT, async () => {
 })
 
 handler.register(
-  ActionType.ANALYZE_BATCH,
-  async (payload: AnalyzeBatchPayload): Promise<AnalyzeBatchResult> => {
+  analyzeBatch,
+  async (payload, _context): Promise<AnalyzeBatchResult> => {
     if (runtime == null) throw new Error('Worker not initialized')
 
     const {
@@ -117,7 +118,7 @@ handler.register(
         initConfig
       )
       const phenotype = runtime.createPhenotypeForGenome(method, genome)
-      const executor = runtime.createExecutor(phenotype as never)
+      const executor = runtime.createExecutor(phenotype)
 
       // Run simulations
       const seeds = runtime.generationSeedPack(
@@ -228,7 +229,7 @@ handler.register(
   }
 )
 
-handler.register(ActionType.TERMINATE, async () => {
+handler.register(terminate, async (_payload, _context) => {
   runtime = null
   return null
 })
