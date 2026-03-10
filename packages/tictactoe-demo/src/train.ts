@@ -27,7 +27,6 @@ import {
   ESHyperNEATAlgorithm,
   eshyperneat,
 } from '@neat-evolution/es-hyperneat'
-import type { AnyGenome } from '@neat-evolution/evaluator'
 import {
   defaultEvolutionOptions,
   defaultPopulationOptions,
@@ -78,7 +77,7 @@ enum Methods {
 
 const method = Methods.NEAT
 
-const createReproducer: ReproducerFactory<any, any> = createReproducerFactory(
+const createReproducer: ReproducerFactory<any> = createReproducerFactory(
   {
     threadCount: workerThreadLimit,
     enableCustomState: (method as unknown) === Methods.DES_HyperNEAT,
@@ -161,7 +160,7 @@ export const demo = async () => {
     // initialHeroes: await loadInitialHeroes(),
     normalizationRanges,
     // heroPoolRatio: 0.0,
-    onHeroesUpdated: (heroes: Array<HeroGenome<AnyGenome<any>>>) => {
+    onHeroesUpdated: (heroes: Array<HeroGenome<any>>) => {
       const [bestHero] = heroes
       if (bestHero == null) return
       const heroRating = bestHero[1].rating ?? 0
@@ -228,13 +227,17 @@ export const demo = async () => {
   const evolve = async (method: Methods) => {
     switch (method) {
       case Methods.NEAT: {
-        const evaluator = new WorkerEvaluator(NEATAlgorithm, environment, {
+        const evaluator = new WorkerEvaluator(
+          NEATAlgorithm,
+          environment,
+          {
           createEnvironmentPathname: '@heygrady/tictactoe-environment',
           createExecutorPathname: '@neat-evolution/executor',
           taskCount: defaultPopulationOptions.populationSize,
           threadCount: workerThreadLimit,
           strategy,
-        })
+          }
+        )
 
         const genomeOptions = {
           ...defaultNEATGenomeOptions,
@@ -251,13 +254,17 @@ export const demo = async () => {
         )
       }
       case Methods.CPPN: {
-        const evaluator = new WorkerEvaluator(CPPNAlgorithm, environment, {
+        const evaluator = new WorkerEvaluator(
+          CPPNAlgorithm,
+          environment,
+          {
           createEnvironmentPathname: '@heygrady/tictactoe-environment',
           createExecutorPathname: '@neat-evolution/executor',
           taskCount: defaultPopulationOptions.populationSize,
           threadCount: workerThreadLimit,
           strategy,
-        })
+          }
+        )
 
         const genomeOptions = {
           ...defaultCPPNGenomeOptions,
@@ -275,13 +282,17 @@ export const demo = async () => {
         )
       }
       case Methods.HyperNEAT: {
-        const evaluator = new WorkerEvaluator(HyperNEATAlgorithm, environment, {
+        const evaluator = new WorkerEvaluator(
+          HyperNEATAlgorithm,
+          environment,
+          {
           createEnvironmentPathname: '@heygrady/tictactoe-environment',
           createExecutorPathname: '@neat-evolution/executor',
           taskCount: populationOptions.populationSize,
           threadCount: workerThreadLimit,
           strategy,
-        })
+          }
+        )
         const genomeOptions = {
           ...defaultHyperNEATGenomeOptions,
           ...activationOptions,

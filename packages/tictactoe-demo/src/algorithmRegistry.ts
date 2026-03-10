@@ -1,4 +1,4 @@
-import { Activation } from '@neat-evolution/core'
+import { Activation, defaultNEATConfigOptions } from '@neat-evolution/core'
 import {
   CPPNAlgorithm,
   createPopulation as createCPPNPopulation,
@@ -15,7 +15,14 @@ import {
   defaultESHyperNEATGenomeOptions,
   ESHyperNEATAlgorithm,
 } from '@neat-evolution/es-hyperneat'
-import type { ReproducerFactory } from '@neat-evolution/evolution'
+import type {
+  ErasedAlgorithmDefinition,
+  PopulationFactoryOptions,
+  Population,
+  PopulationOptions,
+  ReproducerFactory,
+} from '@neat-evolution/evolution'
+import type { Evaluator } from '@neat-evolution/evaluator'
 import {
   createPopulation as createHyperNEATPopulation,
   defaultHyperNEATGenomeOptions,
@@ -27,7 +34,7 @@ import {
   NEATAlgorithm,
 } from '@neat-evolution/neat'
 
-import type { AnyAlgorithm, AnyPopulation } from './types.js'
+import type { AnyAlgorithm } from './types.js'
 
 /**
  * Supported algorithm types.
@@ -66,32 +73,48 @@ export const allActivations: Activation[] = [
 ]
 
 export interface AlgorithmDefinition {
-  algorithm: AnyAlgorithm<any>
-  defaultGenomeOptions: any
+  algorithm: AnyAlgorithm
+  defaultGenomeOptions: unknown
   usesCPPNActivations: boolean
-  createPopulation: (
-    reproducer: ReproducerFactory<any, any>,
-    evaluator: any,
-    config: {
-      neatOptions: any
-      populationOptions: any
-      genomeOptions: any
-      populationFactoryOptions?: any
-      topologyConfigOptions?: TopologyConfigOptions
-    }
-  ) => AnyPopulation<any>
+  createPopulation: ErasedAlgorithmDefinition<AlgorithmPopulationConfig>['createPopulation']
 }
 
-const createStandardPopulationWrapper = (createPopulationFn: any) => {
+export interface AlgorithmPopulationConfig {
+  neatOptions: typeof defaultNEATConfigOptions
+  populationOptions: PopulationOptions
+  genomeOptions: any
+  populationFactoryOptions?: PopulationFactoryOptions<
+    any,
+    any,
+    any,
+    any,
+    any,
+    any
+  >
+  topologyConfigOptions?: TopologyConfigOptions
+}
+
+const createStandardPopulationWrapper = (
+  createPopulationFn: (
+    reproducer: ReproducerFactory<Population<any>>,
+    evaluator: Evaluator<any>,
+    neatOptions: typeof defaultNEATConfigOptions,
+    populationOptions: PopulationOptions,
+    genomeOptions: any,
+    populationFactoryOptions?: PopulationFactoryOptions<
+      any,
+      any,
+      any,
+      any,
+      any,
+      any
+    >
+  ) => Population<any>
+): ErasedAlgorithmDefinition<AlgorithmPopulationConfig>['createPopulation'] => {
   return (
-    reproducer: ReproducerFactory<any, any>,
-    evaluator: any,
-    config: {
-      neatOptions: any
-      populationOptions: any
-      genomeOptions: any
-      populationFactoryOptions?: any
-    }
+    reproducer,
+    evaluator,
+    config
   ) => {
     return createPopulationFn(
       reproducer,
