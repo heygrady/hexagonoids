@@ -21,7 +21,7 @@ import type {
   SwissTournamentStrategyOptions,
 } from './types.js'
 
-export class SwissTournamentStrategy<G extends AnyGenome<G>>
+export class SwissTournamentStrategy<G extends AnyGenome>
   implements EvaluationStrategy<G>
 {
   public readonly options: SwissTournamentStrategyOptions<G>

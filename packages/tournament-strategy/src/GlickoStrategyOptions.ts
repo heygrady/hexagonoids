@@ -29,7 +29,7 @@ export type {
 /**
  * Options for configuring the GlickoStrategy.
  */
-export interface GlickoStrategyOptions<G extends AnyGenome<G>> {
+export interface GlickoStrategyOptions<G extends AnyGenome> {
   matchPlayerSize: number
   individualSeeding: boolean
   /**

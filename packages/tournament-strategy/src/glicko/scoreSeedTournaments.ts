@@ -24,7 +24,7 @@ export interface SeedTournamentOptions {
  * @param {SeedTournamentOptions} options - Tournament configuration options
  * @returns {Promise<{ rawScores: Map<number, number>; normalizedScores: Map<number, number>; seedAIPlayer: GlickoPlayer }>} Object with raw and normalized seed scores for each entry
  */
-export async function scoreSeedTournaments<G extends AnyGenome<G>>(
+export async function scoreSeedTournaments<G extends AnyGenome>(
   context: EvaluationContext<G>,
   allEntries: Array<GenomeEntry<G>>,
   numEvaluations: number,

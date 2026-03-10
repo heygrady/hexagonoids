@@ -35,7 +35,7 @@ import type {
   GlickoScoreComponents,
 } from './score/types.js'
 
-export class GlickoStrategy<G extends AnyGenome<G>>
+export class GlickoStrategy<G extends AnyGenome>
   implements EvaluationStrategy<G>
 {
   public readonly options: GlickoStrategyOptions<G>

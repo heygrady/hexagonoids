@@ -14,7 +14,7 @@ import { toId } from '../entities/toId.js'
  * @param {number} matchPlayerSize - Number of players per match (currently only supports 2)
  * @returns {Array<Array<GenomeEntry<G>>>} Array of matches, where each match is an array of entries
  */
-export function createGlickoMatches<G extends AnyGenome<G>>(
+export function createGlickoMatches<G extends AnyGenome>(
   entries: Array<GenomeEntry<G>>,
   playerRatings: Map<number, GlickoPlayer>,
   previousOpponents: Map<number, Set<number>>,

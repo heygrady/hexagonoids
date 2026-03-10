@@ -8,7 +8,7 @@ export type { ScoreComponents, FitnessCalculator }
 /**
  * Configuration options for Swiss Tournament Strategy.
  */
-export interface SwissTournamentStrategyOptions<G extends AnyGenome<G>> {
+export interface SwissTournamentStrategyOptions<G extends AnyGenome> {
   /** Number of players per match (default: 2) */
   matchPlayerSize?: number
   /** Number of tournament rounds (default: ceil(log2(populationSize))) */

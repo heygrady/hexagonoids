@@ -11,7 +11,7 @@ import { toId } from '../entities/toId.js'
  * @param {Set<number>} fillerIds - Set of filler IDs to exclude
  * @returns {GenomeEntry<G> | undefined} Best entry or undefined if none found
  */
-export function selectBestGenomeByRawRating<G extends AnyGenome<G>>(
+export function selectBestGenomeByRawRating<G extends AnyGenome>(
   entries: Array<GenomeEntry<G>>,
   playerRatings: Map<number, GlickoPlayer>,
   fillerIds: Set<number>
