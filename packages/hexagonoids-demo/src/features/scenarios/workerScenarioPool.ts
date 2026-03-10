@@ -10,15 +10,11 @@ import type {
   SourceGenome,
 } from './types.js'
 import {
-  type AnnotateBatchResult,
   annotateBatch,
-  type CollectCandidatesResult,
   collectCandidates,
-  type FilterInstantDeathResult,
   filterInstantDeath,
   init,
   type ScenarioRef,
-  type ScoutAgentResult,
   scoutAgent,
   terminate,
 } from './workerScenarioActions.js'
@@ -107,7 +103,7 @@ export async function createScenarioWorkerPool(options?: {
           )
         }
         return dispatcher
-          .call<CollectCandidatesResult>(
+          .call(
             collectCandidates({
               source,
               countPerSource: scenarioOptions.countPerSource,
@@ -158,7 +154,7 @@ export async function createScenarioWorkerPool(options?: {
       // Send only scenario refs — no source metadata
       const chunks = chunkArray(deathCandidates, threadCount)
       const promises = chunks.map((chunk) =>
-        dispatcher.call<FilterInstantDeathResult>(
+        dispatcher.call(
           filterInstantDeath({
             scenarioRefs: chunk.map(toScenarioRef),
             seed: scenarioOptions.seed,
@@ -219,7 +215,7 @@ export async function createScenarioWorkerPool(options?: {
             `Dispatching scout ${i + 1}/${sources.length} against ${scoutCandidates.length} scenarios`
           )
         }
-        return dispatcher.call<ScoutAgentResult>(
+        return dispatcher.call(
           scoutAgent({
             source,
             scoutScenarios,
@@ -250,7 +246,7 @@ export async function createScenarioWorkerPool(options?: {
         console.log(
           `Dispatching annotation batch ${i + 1}/${chunks.length} (${chunk.length} candidates)`
         )
-        return dispatcher.call<AnnotateBatchResult>(
+        return dispatcher.call(
           annotateBatch({
             scenarioRefs: chunk.map(toScenarioRef),
             panelSources,
@@ -280,7 +276,7 @@ export async function createScenarioWorkerPool(options?: {
     },
 
     async terminate(): Promise<void> {
-      await dispatcher.broadcast(terminate())
+      await dispatcher.broadcast(terminate(null))
       await pool.terminate()
     },
   }

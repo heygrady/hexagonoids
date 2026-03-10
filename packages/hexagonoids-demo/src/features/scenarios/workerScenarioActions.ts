@@ -98,19 +98,28 @@ export interface AnnotateBatchResult {
 
 export const init = createMessage<InitPayload>(ActionType.INIT, () => ({}))
 
-export const collectCandidates = createMessage<CollectCandidatesPayload>(
+export const collectCandidates = createMessage<
+  CollectCandidatesPayload,
+  CollectCandidatesResult
+>(
   ActionType.COLLECT_CANDIDATES
 )
 
-export const filterInstantDeath = createMessage<FilterInstantDeathPayload>(
+export const filterInstantDeath = createMessage<
+  FilterInstantDeathPayload,
+  FilterInstantDeathResult
+>(
   ActionType.FILTER_INSTANT_DEATH
 )
 
-export const scoutAgent = createMessage<ScoutAgentPayload>(
+export const scoutAgent = createMessage<ScoutAgentPayload, ScoutAgentResult>(
   ActionType.SCOUT_AGENT
 )
 
-export const annotateBatch = createMessage<AnnotateBatchPayload>(
+export const annotateBatch = createMessage<
+  AnnotateBatchPayload,
+  AnnotateBatchResult
+>(
   ActionType.ANNOTATE_BATCH
 )
 
