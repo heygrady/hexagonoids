@@ -97,7 +97,7 @@ export interface GameState {
   players: PlayerStore[]
   playerIndex: number
   interactiveGame: InteractiveGame
-  evolutionManager: EvolutionManager<any>
+  evolutionManager: EvolutionManager
 
   // Generation tracking - cohesive entities
   committed?: GenerationSnapshot
