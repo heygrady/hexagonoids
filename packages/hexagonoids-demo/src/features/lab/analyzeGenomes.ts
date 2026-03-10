@@ -18,6 +18,7 @@ import {
   type SerializedGenome,
   type SupportedAlgorithm,
 } from '../../algorithmRegistry.js'
+import type { AnyErasedGenome } from '@neat-evolution/evaluator'
 import { generationSeedPack } from '../../evaluation/seedSchedule.js'
 import { loadGenome } from '../../persistence/loadGenome.js'
 import {
@@ -43,7 +44,7 @@ function shannonEntropy(fractions: number[]): number {
 function hydrateGenome(
   method: SupportedAlgorithm,
   serialized: SerializedOrganism
-): unknown {
+): AnyErasedGenome {
   const genomeData = serialized.genome
   const genomeOptions = genomeData.genomeOptions
   const initConfig = isRecord(genomeOptions?.initConfig)
@@ -57,9 +58,12 @@ function hydrateGenome(
   )
 }
 
-function createExecutorForGenome(method: SupportedAlgorithm, genome: unknown) {
+function createExecutorForGenome(
+  method: SupportedAlgorithm,
+  genome: AnyErasedGenome
+) {
   const phenotype = createPhenotypeForGenome(method, genome)
-  return createExecutor(phenotype as never)
+  return createExecutor(phenotype)
 }
 
 export interface AnalyzeGenomesOptions {

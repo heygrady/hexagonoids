@@ -1,4 +1,13 @@
 import type { ScenarioSnapshot as EnvironmentScenarioSnapshot } from '@heygrady/hexagonoids-environment'
+import type {
+  AgentFn,
+  FitnessContext,
+  FitnessWeights,
+  GateConfig,
+  HexagonoidsEnvironmentConfig,
+  RawMetrics,
+} from '@heygrady/hexagonoids-environment'
+import type { SyncExecutor } from '@neat-evolution/executor'
 
 import type { SupportedAlgorithm } from '../../algorithmRegistry.js'
 
@@ -126,8 +135,8 @@ export interface AgentHandle {
   id: string
   label: string
   source: SourceGenome
-  agent: unknown
-  executor: unknown
+  agent: AgentFn
+  executor: SyncExecutor
 }
 
 export interface PanelAgentScore {
@@ -190,7 +199,7 @@ export interface ScenarioRunCounts {
 
 interface EvolutionManager {
   createOrganism(method: SupportedAlgorithm, serialized: unknown): unknown
-  organismToExecutor(organism: unknown): unknown
+  organismToExecutor(organism: unknown): SyncExecutor
 }
 
 export interface ScenarioRuntime {
@@ -203,39 +212,30 @@ export interface ScenarioRuntime {
     baseSeed: string
     rewindFrames: number
     maxGames: number
-    agent: unknown
-    executor: unknown
+    agent: AgentFn
+    executor: SyncExecutor
     captureTypes?: Array<'death' | 'kill'>
     killRatio?: number
   }): ScenarioSnapshot[]
-  createNeatAgent(): unknown
-  neatAgent: unknown
-  randomAgent: unknown
+  createNeatAgent(): AgentFn
+  neatAgent: AgentFn
+  randomAgent: AgentFn
   simulateScenario(
-    agent: unknown,
+    agent: AgentFn,
     scenario: ScenarioSnapshot,
     simConfig: { maxTicks: number; dtMs: number },
     seed: string,
-    executor?: unknown
-  ): {
-    deaths: number
-    rocksDestroyed: number
-    shotsFired: number
-    shotsHit: number
-    accuracy?: number
-    aliveFrames?: number
-    elapsedTicks: number
-  }
+    executor?: SyncExecutor
+  ): RawMetrics
   weightedFitnessSum(
-    metrics: Record<string, unknown>,
-    fitnessWeights: Record<string, unknown>,
-    gateConfig: Record<string, unknown>,
-    context: Record<string, unknown>
+    metrics: RawMetrics,
+    fitnessWeights: FitnessWeights,
+    gateConfig: GateConfig,
+    context: FitnessContext
   ): number
   computePossibleDeaths(elapsedTicks: number, dtMs: number): number
-  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: {
-    simulation?: { dtMs?: number }
-    fitnessWeights: Record<string, unknown>
-    gateConfig: Record<string, unknown>
-  }
+  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: Pick<
+    HexagonoidsEnvironmentConfig,
+    'simulation' | 'fitnessWeights' | 'gateConfig'
+  >
 }
