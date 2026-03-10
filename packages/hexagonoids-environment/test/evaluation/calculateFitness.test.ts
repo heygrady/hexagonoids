@@ -483,14 +483,14 @@ describe('weightedFitnessSum', () => {
     // Heavy rocks weight
     const rocksHeavy = weightedFitnessSum(
       metrics,
-      { rocksDestroyed: 0.9, accuracy: 0.1 },
+      { rocksDestroyed: 0.9, accuracy: 0.1, targetAccuracy: 0.3 },
       defaultGateConfig,
       defaultContext
     )
     // Heavy accuracy weight (but accuracy is 0 here)
     const accHeavy = weightedFitnessSum(
       metrics,
-      { rocksDestroyed: 0.1, accuracy: 0.9 },
+      { rocksDestroyed: 0.1, accuracy: 0.9, targetAccuracy: 0.3 },
       defaultGateConfig,
       defaultContext
     )
