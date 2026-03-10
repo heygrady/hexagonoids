@@ -227,19 +227,18 @@ export class EvolutionManager {
    */
   private createPopulationInternal(): Population<any> {
     // Create reproducer with terminables tracking
-    const createReproducer: ReproducerFactory<any> =
-      createReproducerFactory(
-        {
-          algorithmPathname: this.modulePathnames[ModulePathnameKey.ALGORITHM],
-          threadCount: workerReproducerThreadLimit,
-          enableCustomState: this.algorithmType === 'DES-HyperNEAT',
-          // Only include workerScriptUrl if defined (exactOptionalPropertyTypes compatibility)
-          ...(this.workerReproducerScriptUrl != null && {
-            workerScriptUrl: this.workerReproducerScriptUrl,
-          }),
-        },
-        this.terminables
-      )
+    const createReproducer: ReproducerFactory<any> = createReproducerFactory(
+      {
+        algorithmPathname: this.modulePathnames[ModulePathnameKey.ALGORITHM],
+        threadCount: workerReproducerThreadLimit,
+        enableCustomState: this.algorithmType === 'DES-HyperNEAT',
+        // Only include workerScriptUrl if defined (exactOptionalPropertyTypes compatibility)
+        ...(this.workerReproducerScriptUrl != null && {
+          workerScriptUrl: this.workerReproducerScriptUrl,
+        }),
+      },
+      this.terminables
+    )
 
     // Merge with provided config
     const finalEnvironmentConfig = {
