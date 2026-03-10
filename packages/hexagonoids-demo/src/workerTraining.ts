@@ -1,29 +1,24 @@
-import type {
-  CPPNGenome,
-  CPPNGenomeOptions,
-  CPPNReproducerFactory,
-} from '@neat-evolution/cppn'
-import type {
-  DESHyperNEATGenome,
-  DESHyperNEATReproducerFactory,
-} from '@neat-evolution/des-hyperneat'
-import type {
-  ESHyperNEATGenomeOptions,
-  ESHyperNEATReproducerFactory,
-} from '@neat-evolution/es-hyperneat'
 import type { EvaluationStrategy } from '@neat-evolution/evaluation-strategy'
-import type { FitnessData } from '@neat-evolution/evaluator'
 import type {
-  HyperNEATGenomeOptions,
-  HyperNEATReproducerFactory,
-} from '@neat-evolution/hyperneat'
-import type { NEATGenome, NEATReproducerFactory } from '@neat-evolution/neat'
+  AnyGenome,
+  FitnessData,
+  GenomeEntries,
+  GenomeEntry,
+} from '@neat-evolution/evaluator'
+import type { CPPNPopulation } from '@neat-evolution/cppn'
+import type { DESHyperNEATPopulation } from '@neat-evolution/des-hyperneat'
+import type { ESHyperNEATPopulation } from '@neat-evolution/es-hyperneat'
+import type { HyperNEATPopulation } from '@neat-evolution/hyperneat'
+import type { NEATPopulation } from '@neat-evolution/neat'
 import {
   createReproducerFactory,
   type Terminable,
 } from '@neat-evolution/worker-reproducer'
 
-import type { SupportedAlgorithm } from './algorithmRegistry.js'
+import type {
+  AnyReproducerFactory,
+  SupportedAlgorithm,
+} from './algorithmRegistry.js'
 import {
   evaluateOrganismMultiSeed,
   type FitnessAggregator,
@@ -31,7 +26,9 @@ import {
 import { mean } from './evaluation/metrics.js'
 import { generationSeedPack } from './evaluation/seedSchedule.js'
 
-export class MultiSeedGenerationStrategy implements EvaluationStrategy<any> {
+export class MultiSeedGenerationStrategy
+  implements EvaluationStrategy<AnyGenome>
+{
   private generation = 0
   private readonly seedsPerOrganism: number
   private readonly baseSeed: string
@@ -50,11 +47,11 @@ export class MultiSeedGenerationStrategy implements EvaluationStrategy<any> {
   async *evaluate(
     context: {
       evaluateGenomeEntry: (
-        entry: [number, number, unknown],
+        entry: GenomeEntry<AnyGenome>,
         seed?: string
       ) => Promise<FitnessData>
     },
-    genomeEntries: Iterable<[number, number, unknown]>
+    genomeEntries: GenomeEntries<AnyGenome>
   ): AsyncIterable<FitnessData> {
     const generation = this.generation
     this.generation += 1
@@ -103,40 +100,42 @@ export const createWorkerReproducerFactoryForMethod = (
   baseOptions: {
     threadCount: number
     algorithmPathname?: string | undefined
-    workerScriptUrl?: string | undefined
+    workerScriptUrl?: URL | string | undefined
   },
   terminables: Set<Terminable>
-) => {
-  const workerOptions = baseOptions as any
+): AnyReproducerFactory => {
+  const workerOptions = {
+    threadCount: baseOptions.threadCount,
+    ...(baseOptions.algorithmPathname != null && {
+      algorithmPathname: baseOptions.algorithmPathname,
+    }),
+    ...(baseOptions.workerScriptUrl != null && {
+      workerScriptUrl: baseOptions.workerScriptUrl,
+    }),
+  }
 
   switch (method) {
     case 'NEAT':
-      return createReproducerFactory<NEATGenome>(
-        workerOptions,
-        terminables
-      ) as unknown as NEATReproducerFactory
+      return createReproducerFactory<NEATPopulation>(workerOptions, terminables)
     case 'CPPN':
-      return createReproducerFactory<CPPNGenome<CPPNGenomeOptions>>(
-        workerOptions,
-        terminables
-      ) as unknown as CPPNReproducerFactory
+      return createReproducerFactory<CPPNPopulation>(workerOptions, terminables)
     case 'HyperNEAT':
-      return createReproducerFactory<CPPNGenome<HyperNEATGenomeOptions>>(
+      return createReproducerFactory<HyperNEATPopulation>(
         workerOptions,
         terminables
-      ) as unknown as HyperNEATReproducerFactory
+      )
     case 'ES-HyperNEAT':
-      return createReproducerFactory<CPPNGenome<ESHyperNEATGenomeOptions>>(
+      return createReproducerFactory<ESHyperNEATPopulation>(
         workerOptions,
         terminables
-      ) as unknown as ESHyperNEATReproducerFactory
+      )
     case 'DES-HyperNEAT':
-      return createReproducerFactory<DESHyperNEATGenome>(
+      return createReproducerFactory<DESHyperNEATPopulation>(
         {
           ...workerOptions,
           enableCustomState: true,
         },
         terminables
-      ) as unknown as DESHyperNEATReproducerFactory
+      )
   }
 }

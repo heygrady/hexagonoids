@@ -1,4 +1,5 @@
 import { Organism } from '@neat-evolution/evolution'
+import type { AnyErasedGenome } from '@neat-evolution/evaluator'
 import { createExecutor, type SyncExecutor } from '@neat-evolution/executor'
 
 import {
@@ -20,16 +21,18 @@ export interface HexagonoidsEvolutionManagerOptions
   deserializeOrganism?: (pathname: string) => unknown
 }
 
-interface OrganismLike {
-  genome: unknown
-}
-
 type Trainer = (options: TrainOptions) => Promise<TrainResult>
 
 const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return value != null && typeof value === 'object'
+}
+
+const hasGenome = (
+  value: unknown
+): value is { genome: AnyErasedGenome } => {
+  return isRecord(value) && 'genome' in value
 }
 
 export class HexagonoidsEvolutionManager {
@@ -140,7 +143,7 @@ export class HexagonoidsEvolutionManager {
         ? organismState.adjustedFitness
         : null
 
-    return new Organism(genome as never, generation, {
+    return new Organism(genome, generation, {
       fitness,
       adjustedFitness,
     })
@@ -151,13 +154,12 @@ export class HexagonoidsEvolutionManager {
       ? this.createOrganism(this.method, organism)
       : organism
 
-    if (!isRecord(candidate) || !('genome' in candidate)) {
+    if (!hasGenome(candidate)) {
       throw new Error('Expected organism instance with a "genome" property.')
     }
 
-    const { genome } = candidate as unknown as OrganismLike
     return createExecutor(
-      createPhenotypeForGenome(this.method, genome) as never
+      createPhenotypeForGenome(this.method, candidate.genome)
     )
   }
 }
