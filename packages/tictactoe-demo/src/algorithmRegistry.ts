@@ -1,4 +1,4 @@
-import { Activation, defaultNEATConfigOptions } from '@neat-evolution/core'
+import { Activation, type defaultNEATConfigOptions } from '@neat-evolution/core'
 import {
   CPPNAlgorithm,
   createPopulation as createCPPNPopulation,
@@ -15,14 +15,14 @@ import {
   defaultESHyperNEATGenomeOptions,
   ESHyperNEATAlgorithm,
 } from '@neat-evolution/es-hyperneat'
+import type { Evaluator } from '@neat-evolution/evaluator'
 import type {
   ErasedAlgorithmDefinition,
-  PopulationFactoryOptions,
   Population,
+  PopulationFactoryOptions,
   PopulationOptions,
   ReproducerFactory,
 } from '@neat-evolution/evolution'
-import type { Evaluator } from '@neat-evolution/evaluator'
 import {
   createPopulation as createHyperNEATPopulation,
   defaultHyperNEATGenomeOptions,
@@ -111,11 +111,7 @@ const createStandardPopulationWrapper = (
     >
   ) => Population<any>
 ): ErasedAlgorithmDefinition<AlgorithmPopulationConfig>['createPopulation'] => {
-  return (
-    reproducer,
-    evaluator,
-    config
-  ) => {
+  return (reproducer, evaluator, config) => {
     return createPopulationFn(
       reproducer,
       evaluator,

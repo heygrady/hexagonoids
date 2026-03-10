@@ -227,17 +227,13 @@ export const demo = async () => {
   const evolve = async (method: Methods) => {
     switch (method) {
       case Methods.NEAT: {
-        const evaluator = new WorkerEvaluator(
-          NEATAlgorithm,
-          environment,
-          {
+        const evaluator = new WorkerEvaluator(NEATAlgorithm, environment, {
           createEnvironmentPathname: '@heygrady/tictactoe-environment',
           createExecutorPathname: '@neat-evolution/executor',
           taskCount: defaultPopulationOptions.populationSize,
           threadCount: workerThreadLimit,
           strategy,
-          }
-        )
+        })
 
         const genomeOptions = {
           ...defaultNEATGenomeOptions,
@@ -254,17 +250,13 @@ export const demo = async () => {
         )
       }
       case Methods.CPPN: {
-        const evaluator = new WorkerEvaluator(
-          CPPNAlgorithm,
-          environment,
-          {
+        const evaluator = new WorkerEvaluator(CPPNAlgorithm, environment, {
           createEnvironmentPathname: '@heygrady/tictactoe-environment',
           createExecutorPathname: '@neat-evolution/executor',
           taskCount: defaultPopulationOptions.populationSize,
           threadCount: workerThreadLimit,
           strategy,
-          }
-        )
+        })
 
         const genomeOptions = {
           ...defaultCPPNGenomeOptions,
@@ -282,17 +274,13 @@ export const demo = async () => {
         )
       }
       case Methods.HyperNEAT: {
-        const evaluator = new WorkerEvaluator(
-          HyperNEATAlgorithm,
-          environment,
-          {
+        const evaluator = new WorkerEvaluator(HyperNEATAlgorithm, environment, {
           createEnvironmentPathname: '@heygrady/tictactoe-environment',
           createExecutorPathname: '@neat-evolution/executor',
           taskCount: populationOptions.populationSize,
           threadCount: workerThreadLimit,
           strategy,
-          }
-        )
+        })
         const genomeOptions = {
           ...defaultHyperNEATGenomeOptions,
           ...activationOptions,
