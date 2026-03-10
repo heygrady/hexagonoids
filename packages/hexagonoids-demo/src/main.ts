@@ -10,7 +10,7 @@ import {
 import { runCli as runReplayCli } from './cli.js'
 import { runLab } from './features/lab/runLab.js'
 import type { LabOptions } from './features/lab/types.js'
-import { defaultProfile } from './features/profiles/index.js'
+import { defaultProfile, getProfile } from './features/profiles/index.js'
 import { loadProfile } from './features/profiles/loadProfile.js'
 import { runGenerateScenariosCommand } from './features/scenarios/runGenerateScenarios.js'
 import { type TrainOptions, train } from './train.js'
@@ -526,9 +526,15 @@ const runTraining = async (args: string[]): Promise<number> => {
   // Load profile: explicit --profile flag, or built-in default
   let profileConfig: Partial<TrainOptions> = {}
   if (cliOptions.profilePath != null) {
-    const profile = await loadProfile(cliOptions.profilePath)
-    profileConfig = profile.config ?? {}
-    console.log(`Loading profile from ${cliOptions.profilePath}...`)
+    const namedProfile = getProfile(cliOptions.profilePath)
+    if (namedProfile != null) {
+      profileConfig = namedProfile.config ?? {}
+      console.log(`Using profile: ${cliOptions.profilePath}`)
+    } else {
+      const profile = await loadProfile(cliOptions.profilePath)
+      profileConfig = profile.config ?? {}
+      console.log(`Loading profile from ${cliOptions.profilePath}...`)
+    }
   } else {
     profileConfig = defaultProfile.config ?? {}
     console.log('Using default profile')

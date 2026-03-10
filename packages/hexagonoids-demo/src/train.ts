@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
@@ -10,7 +10,10 @@ import {
   randomAgent,
 } from '@heygrady/hexagonoids-environment'
 import { createEnvironment } from '@heygrady/hexagonoids-environment/node'
-import { defaultEvolutionOptions, evolve } from '@neat-evolution/evolution'
+import {
+  defaultEvolutionOptions,
+  evolve,
+} from '@neat-evolution/evolution'
 import { WorkerEvaluator } from '@neat-evolution/worker-evaluator'
 import type { Terminable } from '@neat-evolution/worker-reproducer'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
@@ -40,7 +43,10 @@ import {
 const DEFAULT_OUTPUT_DIR = fileURLToPath(new URL('../../', import.meta.url))
 const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
 const DEFAULT_BASE_SEED = 'hexagonoids-phase03'
-const CREATE_ENVIRONMENT_PATHNAME = '@heygrady/hexagonoids-environment/node'
+const CREATE_ENVIRONMENT_PATHNAME = resolve(
+  DEFAULT_OUTPUT_DIR,
+  '../hexagonoids-environment/dist/esm/node.js'
+)
 const CREATE_EXECUTOR_PATHNAME = '@neat-evolution/executor'
 
 const toRunConfig = (options: TrainOptions) => {
