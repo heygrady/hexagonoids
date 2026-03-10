@@ -8,7 +8,7 @@ export interface GlickoPersistenceData {
 }
 
 /** A "Hero" agent, combining its genome and Glicko data. */
-export type HeroGenome<G extends AnyGenome<G>> = [
+export type HeroGenome<G extends AnyGenome> = [
   genomeEntry: GenomeEntry<G>,
   glickoData: GlickoPersistenceData,
 ]
