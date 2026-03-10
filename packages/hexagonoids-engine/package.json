@@ -53,9 +53,9 @@
   },
   "dependencies": {
     "@babylonjs/core": "^8.52.0",
-    "@neat-evolution/utils": "^0.4.0",
-    "@swc/helpers": "^0.5.17",
-    "quick-lru": "^7.0.0"
+    "@neat-evolution/utils": "^0.6.0",
+    "@swc/helpers": "^0.5.19",
+    "quick-lru": "^7.3.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.2",
