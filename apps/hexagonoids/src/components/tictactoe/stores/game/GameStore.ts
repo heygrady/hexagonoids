@@ -20,7 +20,7 @@ export type GameStore = MapStore<GameState>
 export const createGameStore = (
   size: number,
   interactiveGame: InteractiveGame,
-  evolutionManager: EvolutionManager<any>,
+  evolutionManager: EvolutionManager,
   $settings: SettingsStore
 ): GameStore => {
   if (size < 3) {
