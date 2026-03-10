@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises'
 
 import type { HeroGenome } from '@heygrady/tournament-strategy'
-import type { AnyGenome } from '@neat-evolution/evaluator'
 import {
   createConfig,
   createGenome,
@@ -24,9 +23,7 @@ export async function saveHeroesLog() {
   await fs.copyFile(heroesLogPath, heroesLogSavedPath)
 }
 
-export function handleHeroesUpdated<G extends AnyGenome<G>>(
-  heroes: Array<HeroGenome<G>>
-) {
+export function handleHeroesUpdated(heroes: Array<HeroGenome<any>>) {
   const [hero] = heroes
   if (hero == null) return
   fs.appendFile(heroesLogPath, `${JSON.stringify(hero)}\n`).catch((error) => {
@@ -34,12 +31,10 @@ export function handleHeroesUpdated<G extends AnyGenome<G>>(
   })
 }
 
-export async function loadInitialHeroes<G extends AnyGenome<G>>(): Promise<
-  Array<HeroGenome<G>>
-> {
+export async function loadInitialHeroes(): Promise<Array<HeroGenome<any>>> {
   const fileContent = await fs.readFile(heroesLogSavedPath, 'utf-8')
   const lines = fileContent.split('\n').filter((line) => line.trim() !== '')
-  const heroes: Array<HeroGenome<G>> = lines.map((line) => {
+  const heroes: Array<HeroGenome<any>> = lines.map((line) => {
     const data = JSON.parse(line) as [[number, number, NEATGenomeData], any]
     const [, , genomeData] = data[0]
     const { config, state, genomeOptions, factoryOptions } = genomeData
@@ -54,8 +49,8 @@ export async function loadInitialHeroes<G extends AnyGenome<G>>(): Promise<
         outputs: 9,
       },
       factoryOptions
-    ) as unknown as AnyGenome<G>
-    return [[data[0][1], data[0][1], genome], data[1]] as HeroGenome<G>
+    )
+    return [[data[0][1], data[0][1], genome], data[1]]
   })
   return heroes
 }
