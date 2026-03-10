@@ -30,7 +30,7 @@ export async function loadScenarioRuntime(): Promise<ScenarioRuntime> {
     computePossibleDeaths: env.computePossibleDeaths,
     DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG:
       env.DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
-  } as unknown as ScenarioRuntime
+  } satisfies ScenarioRuntime
 }
 
 export async function createAgentHandle(
