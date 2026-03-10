@@ -18,6 +18,7 @@ import type {
   Environment,
   EnvironmentDescription,
 } from '@neat-evolution/environment'
+import type { AnyErasedGenome } from '@neat-evolution/evaluator'
 import { defaultEvolutionOptions, evolve } from '@neat-evolution/evolution'
 import type { Executor, SyncExecutor } from '@neat-evolution/executor'
 import { createExecutor } from '@neat-evolution/executor'
@@ -57,6 +58,10 @@ export interface ObserveTrainingAdapter {
 }
 
 const DEFAULT_OBSERVE_METHOD: SupportedAlgorithm = 'HyperNEAT'
+
+function hasGenome(value: unknown): value is { genome: AnyErasedGenome } {
+  return value != null && typeof value === 'object' && 'genome' in value
+}
 
 function normalizeThreadCount(value: number | undefined): number {
   if (value != null) return Math.max(1, Math.floor(value))
@@ -320,13 +325,8 @@ export function organismToExecutor(
   method: SupportedAlgorithm,
   organism: unknown
 ) {
-  if (
-    organism == null ||
-    typeof organism !== 'object' ||
-    !('genome' in organism)
-  ) {
+  if (!hasGenome(organism)) {
     throw new Error('Observe training: organism is missing genome data')
   }
-  const genome = (organism as { genome: unknown }).genome
-  return createExecutor(createPhenotypeForGenome(method, genome) as never)
+  return createExecutor(createPhenotypeForGenome(method, organism.genome) as never)
 }
