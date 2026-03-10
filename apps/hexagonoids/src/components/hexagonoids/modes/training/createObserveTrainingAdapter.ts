@@ -328,5 +328,7 @@ export function organismToExecutor(
   if (!hasGenome(organism)) {
     throw new Error('Observe training: organism is missing genome data')
   }
-  return createExecutor(createPhenotypeForGenome(method, organism.genome) as never)
+  return createExecutor(
+    createPhenotypeForGenome(method, organism.genome) as never
+  )
 }
