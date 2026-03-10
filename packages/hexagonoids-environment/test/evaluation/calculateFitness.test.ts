@@ -104,7 +104,7 @@ describe('turnGate', () => {
       rightFrames: 0,
     })
     const result = turnGate(metrics, defaultGateConfig)
-    expect(result).toBe(defaultGateConfig.turnFloor)
+    expect(result).toBe(defaultGateConfig.turnGateFloor)
   })
 
   it('returns ~1.0 for healthy turn usage', () => {
@@ -126,7 +126,7 @@ describe('turnGate', () => {
       rightFrames: 0,
     })
     const result = turnGate(metrics, defaultGateConfig)
-    expect(result).toBe(defaultGateConfig.turnFloor)
+    expect(result).toBe(defaultGateConfig.turnGateFloor)
   })
 
   it('passes agent that turns in one direction', () => {
@@ -136,13 +136,13 @@ describe('turnGate', () => {
       rightFrames: 0,
     })
     const result = turnGate(metrics, defaultGateConfig)
-    expect(result).toBeGreaterThan(defaultGateConfig.turnFloor)
+    expect(result).toBeGreaterThan(defaultGateConfig.turnGateFloor)
   })
 
   it('returns turnFloor when aliveFrames is 0', () => {
     const metrics = makeMetrics({ aliveFrames: 0 })
     const result = turnGate(metrics, defaultGateConfig)
-    expect(result).toBe(defaultGateConfig.turnFloor)
+    expect(result).toBe(defaultGateConfig.turnGateFloor)
   })
 })
 

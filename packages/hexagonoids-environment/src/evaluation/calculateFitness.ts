@@ -175,7 +175,7 @@ export function turnGate(
   metrics: ActionFrames,
   gateConfig: GateConfig
 ): number {
-  const { turnLow, turnHigh, turnEasing, turnFloor } = gateConfig
+  const { turnLow, turnHigh, turnEasing, turnGateFloor } = gateConfig
   const alive = metrics.aliveFrames
   const turnFrames = metrics.leftFrames + metrics.rightFrames
   const score = actionSaturationScore(
@@ -185,7 +185,29 @@ export function turnGate(
     turnHigh,
     turnEasing
   )
-  return Math.max(score, turnFloor)
+  return Math.max(score, turnGateFloor)
+}
+
+/**
+ * Throttle gate: ensures agents actually thrust, not just spin and shoot.
+ * Uses thrust frame fraction through the same saturation curve as the other
+ * gates. Agents that never or always thrust get gated.
+ */
+export function throttleGate(
+  metrics: ActionFrames,
+  gateConfig: GateConfig
+): number {
+  const { throttleLow, throttleHigh, throttleEasing, throttleGateFloor } =
+    gateConfig
+  const alive = metrics.aliveFrames
+  const score = actionSaturationScore(
+    metrics.thrustFrames,
+    alive,
+    throttleLow,
+    throttleHigh,
+    throttleEasing
+  )
+  return Math.max(score, throttleGateFloor)
 }
 
 /**
@@ -352,8 +374,9 @@ export function applyBehavioralGates(
 ): number {
   const action = actionDiversityGate(aggregatedMetrics, gateConfig)
   const turn = turnGate(aggregatedMetrics, gateConfig)
+  const throttle = throttleGate(aggregatedMetrics, gateConfig)
   const turnBias = turnBiasGate(aggregatedMetrics, gateConfig)
-  return clamp(fitness * action * turn * turnBias, 0, 1)
+  return clamp(fitness * action * turn * throttle * turnBias, 0, 1)
 }
 
 /**

@@ -44,13 +44,21 @@ export interface GateConfig {
   /** Easing curve for action saturation penalty falloff. */
   actionEasing: GateEasing
   /** Minimum turn gate output. */
-  turnFloor: number
+  turnGateFloor: number
   /** Turn saturation low threshold (fraction of aliveFrames). */
   turnLow: number
   /** Turn saturation high threshold (fraction of aliveFrames). */
   turnHigh: number
   /** Easing curve for turn saturation penalty falloff. */
   turnEasing: GateEasing
+  /** Minimum throttle gate output. */
+  throttleGateFloor: number
+  /** Throttle saturation low threshold (fraction of aliveFrames). */
+  throttleLow: number
+  /** Throttle saturation high threshold (fraction of aliveFrames). */
+  throttleHigh: number
+  /** Easing curve for throttle saturation penalty falloff. */
+  throttleEasing: GateEasing
   /** Minimum turn bias gate output. */
   turnBiasGateFloor: number
   /** Bias threshold (0.5=balanced, 1.0=all one direction) above which penalty kicks in. */
@@ -97,10 +105,14 @@ export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfi
       actionLow: 0.005,
       actionHigh: 0.65,
       actionEasing: 'exp',
-      turnFloor: 0.01,
+      turnGateFloor: 0.01,
       turnLow: 0.01,
       turnHigh: 0.95,
       turnEasing: 'exp',
+      throttleGateFloor: 0.01,
+      throttleLow: 0.1,
+      throttleHigh: 0.9,
+      throttleEasing: 'exp',
       turnBiasGateFloor: 0.01,
       turnBiasMax: 0.99,
       turnBiasEasing: 'cubic',

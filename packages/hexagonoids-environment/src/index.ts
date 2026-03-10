@@ -56,6 +56,7 @@ export {
   engagementGate,
   evaluateFullGameFitness,
   type FitnessContext,
+  throttleGate,
   turnBiasGate,
   turnGate,
   weightedFitnessSum,
