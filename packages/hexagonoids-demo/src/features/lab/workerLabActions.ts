@@ -50,8 +50,6 @@ export const init = createMessage<InitPayload>(ActionType.INIT, () => ({}))
 export const analyzeBatch = createMessage<
   AnalyzeBatchPayload,
   AnalyzeBatchResult
->(
-  ActionType.ANALYZE_BATCH
-)
+>(ActionType.ANALYZE_BATCH)
 
 export const terminate = createMessage<null>(ActionType.TERMINATE, () => null)

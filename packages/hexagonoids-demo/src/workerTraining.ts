@@ -1,3 +1,6 @@
+import type { CPPNPopulation } from '@neat-evolution/cppn'
+import type { DESHyperNEATPopulation } from '@neat-evolution/des-hyperneat'
+import type { ESHyperNEATPopulation } from '@neat-evolution/es-hyperneat'
 import type { EvaluationStrategy } from '@neat-evolution/evaluation-strategy'
 import type {
   AnyGenome,
@@ -5,9 +8,6 @@ import type {
   GenomeEntries,
   GenomeEntry,
 } from '@neat-evolution/evaluator'
-import type { CPPNPopulation } from '@neat-evolution/cppn'
-import type { DESHyperNEATPopulation } from '@neat-evolution/des-hyperneat'
-import type { ESHyperNEATPopulation } from '@neat-evolution/es-hyperneat'
 import type { HyperNEATPopulation } from '@neat-evolution/hyperneat'
 import type { NEATPopulation } from '@neat-evolution/neat'
 import {

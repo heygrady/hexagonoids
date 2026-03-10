@@ -10,10 +10,7 @@ import {
   randomAgent,
 } from '@heygrady/hexagonoids-environment'
 import { createEnvironment } from '@heygrady/hexagonoids-environment/node'
-import {
-  defaultEvolutionOptions,
-  evolve,
-} from '@neat-evolution/evolution'
+import { defaultEvolutionOptions, evolve } from '@neat-evolution/evolution'
 import { WorkerEvaluator } from '@neat-evolution/worker-evaluator'
 import type { Terminable } from '@neat-evolution/worker-reproducer'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'

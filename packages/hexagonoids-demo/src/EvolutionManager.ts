@@ -1,5 +1,5 @@
-import { Organism } from '@neat-evolution/evolution'
 import type { AnyErasedGenome } from '@neat-evolution/evaluator'
+import { Organism } from '@neat-evolution/evolution'
 import { createExecutor, type SyncExecutor } from '@neat-evolution/executor'
 
 import {
@@ -29,9 +29,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
   return value != null && typeof value === 'object'
 }
 
-const hasGenome = (
-  value: unknown
-): value is { genome: AnyErasedGenome } => {
+const hasGenome = (value: unknown): value is { genome: AnyErasedGenome } => {
   return isRecord(value) && 'genome' in value
 }
 

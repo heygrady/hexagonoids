@@ -1,6 +1,6 @@
-import type { ScenarioSnapshot as EnvironmentScenarioSnapshot } from '@heygrady/hexagonoids-environment'
 import type {
   AgentFn,
+  ScenarioSnapshot as EnvironmentScenarioSnapshot,
   FitnessContext,
   FitnessWeights,
   GateConfig,
