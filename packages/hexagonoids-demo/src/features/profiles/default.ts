@@ -9,7 +9,7 @@ const defaultProfile: TrainingProfile = {
     fitnessWeights: {
       rocksDestroyed: 0.9,
       accuracy: 0.1,
-      targetAccuracy: 0.2, // percentage of bullets landed that counts as "perfect"
+      targetAccuracy: 0.4, // percentage of bullets landed that counts as "perfect"
     },
     gateConfig: {
       actionGateFloor: 0.6,
@@ -20,9 +20,9 @@ const defaultProfile: TrainingProfile = {
       turnLow: 0.1,
       turnHigh: 0.75,
       turnEasing: 'exp',
-      throttleGateFloor: 0.6,
+      throttleGateFloor: 0.2,
       throttleLow: 0.1,
-      throttleHigh: 0.85,
+      throttleHigh: 0.9,
       throttleEasing: 'exp',
       turnBiasGateFloor: 0.01,
       turnBiasMax: 0.85,
