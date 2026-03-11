@@ -1,5 +1,4 @@
 {
-  "max_tabs": 7,
   "languages": {
     "JavaScript": {
       "formatter": { "language_server": { "name": "biome" } },
