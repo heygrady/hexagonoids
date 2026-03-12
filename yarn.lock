@@ -2616,231 +2616,214 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@neat-evolution/core@npm:^0.5.0":
-  version: 0.5.0
-  resolution: "@neat-evolution/core@npm:0.5.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fcore%2F0.5.0%2Faa8b28ad846c9bbe458d3b0c0c0d7685ec864e12"
+"@neat-evolution/core@portal:../../packages/core::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/core@portal:../../packages/core::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/utils": "npm:^0.6.0"
+    "@neat-evolution/utils": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
-  checksum: 10/2fb2e8cf109cb510ff64480013f66a18b09f264ea9016854edd0a65239cbceb3279e75c4f1607e13eb438c2c7849015c7a1317171f4dd64ea3953a86dcad0a04
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/cppn@npm:^0.6.8":
-  version: 0.6.8
-  resolution: "@neat-evolution/cppn@npm:0.6.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fcppn%2F0.6.8%2F2335942665bd181a0e69f10c3bad0f4c39cfb3a3"
+"@neat-evolution/cppn@portal:../../packages/cppn::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/cppn@portal:../../packages/cppn::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/core": "npm:^0.5.0"
-    "@neat-evolution/evaluator": "npm:^0.5.8"
-    "@neat-evolution/evolution": "npm:^0.7.0"
-    "@neat-evolution/executor": "npm:^0.3.13"
-    "@neat-evolution/neat": "npm:^0.6.8"
+    "@neat-evolution/core": "workspace:^"
+    "@neat-evolution/evaluator": "workspace:^"
+    "@neat-evolution/evolution": "workspace:^"
+    "@neat-evolution/executor": "workspace:^"
+    "@neat-evolution/neat": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
-  checksum: 10/c557064a0a0eb45be09f2d1be536f45eecfe7b8f075f2551bf12d463a0fe4c0de506e225565c4e4c6f4831d9d9b5fa1f13df598c17d4eb7f3ec976f9937ffb79
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/des-hyperneat@npm:^0.6.8":
-  version: 0.6.8
-  resolution: "@neat-evolution/des-hyperneat@npm:0.6.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fdes-hyperneat%2F0.6.8%2Fe64347721056ee7c46f4c1371e0850e8f5fbed8d"
+"@neat-evolution/des-hyperneat@portal:../../packages/des-hyperneat::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/des-hyperneat@portal:../../packages/des-hyperneat::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/core": "npm:^0.5.0"
-    "@neat-evolution/cppn": "npm:^0.6.8"
-    "@neat-evolution/es-hyperneat": "npm:^0.6.8"
-    "@neat-evolution/evaluator": "npm:^0.5.8"
-    "@neat-evolution/evolution": "npm:^0.7.0"
-    "@neat-evolution/executor": "npm:^0.3.13"
-    "@neat-evolution/hyperneat": "npm:^0.6.8"
-    "@neat-evolution/neat": "npm:^0.6.8"
-    "@neat-evolution/utils": "npm:^0.6.0"
+    "@neat-evolution/core": "workspace:^"
+    "@neat-evolution/cppn": "workspace:^"
+    "@neat-evolution/es-hyperneat": "workspace:^"
+    "@neat-evolution/evaluator": "workspace:^"
+    "@neat-evolution/evolution": "workspace:^"
+    "@neat-evolution/executor": "workspace:^"
+    "@neat-evolution/hyperneat": "workspace:^"
+    "@neat-evolution/neat": "workspace:^"
+    "@neat-evolution/utils": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
-  checksum: 10/fd0f536effa1ac2c2eb29ab1245ff7df2cb3c3423a73a776e2b340c724432dfcbaf63f208017bff4d49dbaf487d6c7c6ca85788c2302d5f26f106f2afaba619b
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/environment@npm:^0.5.8":
-  version: 0.5.8
-  resolution: "@neat-evolution/environment@npm:0.5.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fenvironment%2F0.5.8%2Ff491e5a4d36ccd55f992f6a6925c7e98f509f34d"
+"@neat-evolution/environment@portal:../../packages/environment::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/environment@portal:../../packages/environment::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/core": "npm:^0.5.0"
-    "@neat-evolution/executor": "npm:^0.3.13"
-    "@neat-evolution/utils": "npm:^0.6.0"
+    "@neat-evolution/core": "workspace:^"
+    "@neat-evolution/executor": "workspace:^"
+    "@neat-evolution/utils": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
-  checksum: 10/f702dabd4122a5d88917411f281bd36ea0bc9ac20326146982e9ab05bf6b115c4cb2afb729f51ef6410d04ca4decb3bab29bb24d784767eb2b4d9c79339727af
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/es-hyperneat@npm:^0.6.8":
-  version: 0.6.8
-  resolution: "@neat-evolution/es-hyperneat@npm:0.6.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fes-hyperneat%2F0.6.8%2F1309c29821413b9989bfc7ce41d24dc1d535b061"
+"@neat-evolution/es-hyperneat@portal:../../packages/es-hyperneat::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/es-hyperneat@portal:../../packages/es-hyperneat::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/core": "npm:^0.5.0"
-    "@neat-evolution/cppn": "npm:^0.6.8"
-    "@neat-evolution/evaluator": "npm:^0.5.8"
-    "@neat-evolution/evolution": "npm:^0.7.0"
-    "@neat-evolution/executor": "npm:^0.3.13"
-    "@neat-evolution/hyperneat": "npm:^0.6.8"
-    "@neat-evolution/neat": "npm:^0.6.8"
+    "@neat-evolution/core": "workspace:^"
+    "@neat-evolution/cppn": "workspace:^"
+    "@neat-evolution/evaluator": "workspace:^"
+    "@neat-evolution/evolution": "workspace:^"
+    "@neat-evolution/executor": "workspace:^"
+    "@neat-evolution/hyperneat": "workspace:^"
+    "@neat-evolution/neat": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
-  checksum: 10/009cd35f54c4a423e2b2db440ed73a5d0eab4d143390f12fd5f7861fe10886f7c0e7b87d367a6bdaa47546c16db6b5496d858d11f505b7914c07e9f05c24c65c
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/evaluation-strategy@npm:^0.3.12":
-  version: 0.3.12
-  resolution: "@neat-evolution/evaluation-strategy@npm:0.3.12::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fevaluation-strategy%2F0.3.12%2Fdeb9ebe55da6aaa1e08e526370ace5ac4b03a627"
+"@neat-evolution/evaluation-strategy@portal:../../packages/evaluation-strategy::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/evaluation-strategy@portal:../../packages/evaluation-strategy::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/core": "npm:^0.5.0"
-    "@neat-evolution/environment": "npm:^0.5.8"
-    "@neat-evolution/executor": "npm:^0.3.13"
-    "@neat-evolution/worker-actions": "npm:^0.6.0"
-    "@neat-evolution/worker-threads": "npm:^0.4.6"
+    "@neat-evolution/core": "workspace:^"
+    "@neat-evolution/environment": "workspace:^"
+    "@neat-evolution/executor": "workspace:^"
+    "@neat-evolution/worker-actions": "workspace:^"
+    "@neat-evolution/worker-threads": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
-  checksum: 10/b530990ce747cf3dec79f3cf5d6f035856ef3d0fb77b2913bdc568ff2e5c86aae8a85af140e3858d435ff1b283e90b6cb009735c26dc4e684fc9e80e5b1faccf
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/evaluator@npm:^0.5.8":
-  version: 0.5.8
-  resolution: "@neat-evolution/evaluator@npm:0.5.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fevaluator%2F0.5.8%2F1a2ba9cfe2fd4906ffea34da75828ceaf6b1bf88"
+"@neat-evolution/evaluator@portal:../../packages/evaluator::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/evaluator@portal:../../packages/evaluator::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/core": "npm:^0.5.0"
-    "@neat-evolution/environment": "npm:^0.5.8"
-    "@neat-evolution/evaluation-strategy": "npm:^0.3.12"
-    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/core": "workspace:^"
+    "@neat-evolution/environment": "workspace:^"
+    "@neat-evolution/evaluation-strategy": "workspace:^"
+    "@neat-evolution/executor": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
-  checksum: 10/49a889b072152d2dcd089e65550e107d4fe7beaabe07ab9cda079792b8ac5daa1ce73b29f3706617655dc497892a0357c3f3623c42db163bd09c97a4cf29f31f
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/evolution@npm:^0.7.0":
-  version: 0.7.0
-  resolution: "@neat-evolution/evolution@npm:0.7.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fevolution%2F0.7.0%2F4e99e3bf8a28a6cf18ed5575f04b738dd62d89a3"
+"@neat-evolution/evolution@portal:../../packages/evolution::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/evolution@portal:../../packages/evolution::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/core": "npm:^0.5.0"
-    "@neat-evolution/evaluator": "npm:^0.5.8"
-    "@neat-evolution/utils": "npm:^0.6.0"
+    "@neat-evolution/core": "workspace:^"
+    "@neat-evolution/evaluator": "workspace:^"
+    "@neat-evolution/utils": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
     quick-lru: "npm:^7.3.0"
-  checksum: 10/11e60fa0f448ebc27af435da6e026a5b348f9b93bca59571cf396d8187ae7f8937b28ce35bdb212c603ef7119772db3cb1f7326e5ffe637599268bfbab1cf3d7
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/executor@npm:^0.3.13":
-  version: 0.3.13
-  resolution: "@neat-evolution/executor@npm:0.3.13::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fexecutor%2F0.3.13%2Ffc2c21126b172634dc4d915d93caabc24bd62242"
+"@neat-evolution/executor@portal:../../packages/executor::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/executor@portal:../../packages/executor::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/core": "npm:^0.5.0"
+    "@neat-evolution/core": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
-  checksum: 10/974f568d79266b8959eb041ee86f937eb81c78c602e5bb81edc10eefa61cdbea0006d19244643e248a4994690c88b1d18b9eb932a5401cc30075124e690abddb
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/hyperneat@npm:^0.6.8":
-  version: 0.6.8
-  resolution: "@neat-evolution/hyperneat@npm:0.6.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fhyperneat%2F0.6.8%2F354acb5362413f6e0bfa3f829687f21cc2f5b7be"
+"@neat-evolution/hyperneat@portal:../../packages/hyperneat::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/hyperneat@portal:../../packages/hyperneat::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/core": "npm:^0.5.0"
-    "@neat-evolution/cppn": "npm:^0.6.8"
-    "@neat-evolution/evaluator": "npm:^0.5.8"
-    "@neat-evolution/evolution": "npm:^0.7.0"
-    "@neat-evolution/executor": "npm:^0.3.13"
-    "@neat-evolution/neat": "npm:^0.6.8"
+    "@neat-evolution/core": "workspace:^"
+    "@neat-evolution/cppn": "workspace:^"
+    "@neat-evolution/evaluator": "workspace:^"
+    "@neat-evolution/evolution": "workspace:^"
+    "@neat-evolution/executor": "workspace:^"
+    "@neat-evolution/neat": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
-  checksum: 10/7506f306514592d1977e17c4a56b2ca52c913b8a8d0172a9311beca011a2993fbe181a9ed3863ad60343bb6d2e8173881539e2e547d6f4e0b642328289888651
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/neat@npm:^0.6.8":
-  version: 0.6.8
-  resolution: "@neat-evolution/neat@npm:0.6.8::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fneat%2F0.6.8%2Fdda0d0a2d67a6cdc50caaae1adfb4cb8b433be81"
+"@neat-evolution/neat@portal:../../packages/neat::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/neat@portal:../../packages/neat::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/core": "npm:^0.5.0"
-    "@neat-evolution/evaluator": "npm:^0.5.8"
-    "@neat-evolution/evolution": "npm:^0.7.0"
-    "@neat-evolution/executor": "npm:^0.3.13"
+    "@neat-evolution/core": "workspace:^"
+    "@neat-evolution/evaluator": "workspace:^"
+    "@neat-evolution/evolution": "workspace:^"
+    "@neat-evolution/executor": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
-  checksum: 10/fe92de8daaa5a0b416fed7a39d9427bde46f316b37b5c57bdedcf646c401e0ae8a1fe080a264fdce14af1f0dc15b80e9b47a80cc4f7e3ef9bbb0750aa552e5ad
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/utils@npm:^0.6.0":
-  version: 0.6.0
-  resolution: "@neat-evolution/utils@npm:0.6.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Futils%2F0.6.0%2F5749e1653248e00355799bba5567583d5bef0dc6"
+"@neat-evolution/utils@portal:../../packages/utils::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/utils@portal:../../packages/utils::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
     "@swc/helpers": "npm:^0.5.19"
-  checksum: 10/3542bf6489c52d558e23c11a446bbd116c5910c21fc99a92a2b3aba5db00e3005df918f3b2d050abe53c200dd643b05f79f9c2d729786eef6e24e956139cb0ff
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/worker-actions@npm:^0.6.0":
-  version: 0.6.0
-  resolution: "@neat-evolution/worker-actions@npm:0.6.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-actions%2F0.6.0%2Ffabc545964af11042ff3e9223880e5ac0d8adada"
+"@neat-evolution/worker-actions@portal:../../packages/worker-actions::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/worker-actions@portal:../../packages/worker-actions::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/worker-pool": "npm:^0.4.6"
-    "@neat-evolution/worker-threads": "npm:^0.4.6"
+    "@neat-evolution/worker-pool": "workspace:^"
+    "@neat-evolution/worker-threads": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
     p-defer: "npm:^4.0.1"
-  checksum: 10/3d9e5ff8922acac1c003db280fe6bafa2286095106b8d002c70f7a3757e1886ce1ee083d9591d74569c43e85165368e35d1f9eb985f3a18639d6d14316a07acd
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/worker-evaluator@npm:^0.9.0":
-  version: 0.9.0
-  resolution: "@neat-evolution/worker-evaluator@npm:0.9.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-evaluator%2F0.9.0%2F1652921ed45ee3a939209e3963fa56d2908e7c52"
+"@neat-evolution/worker-evaluator@portal:../../packages/worker-evaluator::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/worker-evaluator@portal:../../packages/worker-evaluator::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/core": "npm:^0.5.0"
-    "@neat-evolution/environment": "npm:^0.5.8"
-    "@neat-evolution/evaluation-strategy": "npm:^0.3.12"
-    "@neat-evolution/evaluator": "npm:^0.5.8"
-    "@neat-evolution/executor": "npm:^0.3.13"
-    "@neat-evolution/utils": "npm:^0.6.0"
-    "@neat-evolution/worker-actions": "npm:^0.6.0"
-    "@neat-evolution/worker-pool": "npm:^0.4.6"
-    "@neat-evolution/worker-threads": "npm:^0.4.6"
+    "@neat-evolution/core": "workspace:^"
+    "@neat-evolution/environment": "workspace:^"
+    "@neat-evolution/evaluation-strategy": "workspace:^"
+    "@neat-evolution/evaluator": "workspace:^"
+    "@neat-evolution/executor": "workspace:^"
+    "@neat-evolution/utils": "workspace:^"
+    "@neat-evolution/worker-actions": "workspace:^"
+    "@neat-evolution/worker-pool": "workspace:^"
+    "@neat-evolution/worker-threads": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
     quick-lru: "npm:^7.3.0"
-  checksum: 10/4be0ac9e4fd0bd580392768af41a79f6db6f22ab35adbe808ba7cf2af9a34c74f64b63bbf1b8dfad1fcf4a8ff0e31da5b6db0b3e850f0e3725a97b32e79fbdb7
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/worker-pool@npm:^0.4.6":
-  version: 0.4.6
-  resolution: "@neat-evolution/worker-pool@npm:0.4.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-pool%2F0.4.6%2F918b14b7d2468ba035c11fe12765f22c6f23e37d"
+"@neat-evolution/worker-pool@portal:../../packages/worker-pool::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/worker-pool@portal:../../packages/worker-pool::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/worker-threads": "npm:^0.4.6"
+    "@neat-evolution/worker-threads": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
     async-sema: "npm:^3.1.1"
-  checksum: 10/19f9469e5270c6a0763729cd92e9e5c3f8111c05b915fb788f1adc7b3fe49f888cf2c62194249010d54590ec152d80f935e13ada2fd9568ebd1f3a07cceb60f8
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/worker-reproducer@npm:^0.9.0":
-  version: 0.9.0
-  resolution: "@neat-evolution/worker-reproducer@npm:0.9.0::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-reproducer%2F0.9.0%2Ff9f353e3ec47ab4b5335912c8dad4e56b890ee67"
+"@neat-evolution/worker-reproducer@portal:../../packages/worker-reproducer::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/worker-reproducer@portal:../../packages/worker-reproducer::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/core": "npm:^0.5.0"
-    "@neat-evolution/evaluator": "npm:^0.5.8"
-    "@neat-evolution/evolution": "npm:^0.7.0"
-    "@neat-evolution/executor": "npm:^0.3.13"
-    "@neat-evolution/utils": "npm:^0.6.0"
-    "@neat-evolution/worker-actions": "npm:^0.6.0"
-    "@neat-evolution/worker-pool": "npm:^0.4.6"
-    "@neat-evolution/worker-threads": "npm:^0.4.6"
+    "@neat-evolution/core": "workspace:^"
+    "@neat-evolution/evaluator": "workspace:^"
+    "@neat-evolution/evolution": "workspace:^"
+    "@neat-evolution/executor": "workspace:^"
+    "@neat-evolution/utils": "workspace:^"
+    "@neat-evolution/worker-actions": "workspace:^"
+    "@neat-evolution/worker-pool": "workspace:^"
+    "@neat-evolution/worker-threads": "workspace:^"
     "@swc/helpers": "npm:^0.5.19"
     quick-lru: "npm:^7.3.0"
-  checksum: 10/4018bcf2e2d54b21800030feadb4a3c2e8a26f5a8d6cddaed4f4ed00569200aa9607c7c712b4ab859f7d9550470567911c000061672d15ece040ee5f41942dc5
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@neat-evolution/worker-threads@npm:^0.4.6":
-  version: 0.4.6
-  resolution: "@neat-evolution/worker-threads@npm:0.4.6::__archiveUrl=https%3A%2F%2Fnpm.pkg.github.com%2Fdownload%2F%40neat-evolution%2Fworker-threads%2F0.4.6%2F40eadac0bfac820394372ba90e46109b7c5d692d"
+"@neat-evolution/worker-threads@portal:../../packages/worker-threads::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@neat-evolution/worker-threads@portal:../../packages/worker-threads::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
     "@swc/helpers": "npm:^0.5.19"
-  checksum: 10/4e63fd859fabc824253f742ba3900f364c73575ce9989f24d446aa1d326444b23d2253b9f201a5e9ffdaa63b92e036060869d0c69f6abf3fe4f71b055ffd06cd
   languageName: node
-  linkType: hard
+  linkType: soft
 
 "@nodelib/fs.scandir@npm:2.1.5":
   version: 2.1.5

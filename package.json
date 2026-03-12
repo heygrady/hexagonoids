@@ -60,5 +60,25 @@
   },
   "dependencies": {
     "agent-browser": "^0.14.0"
+  },
+  "resolutions": {
+    "@neat-evolution/backprop": "portal:../../packages/backprop",
+    "@neat-evolution/core": "portal:../../packages/core",
+    "@neat-evolution/cppn": "portal:../../packages/cppn",
+    "@neat-evolution/des-hyperneat": "portal:../../packages/des-hyperneat",
+    "@neat-evolution/environment": "portal:../../packages/environment",
+    "@neat-evolution/es-hyperneat": "portal:../../packages/es-hyperneat",
+    "@neat-evolution/evaluation-strategy": "portal:../../packages/evaluation-strategy",
+    "@neat-evolution/evaluator": "portal:../../packages/evaluator",
+    "@neat-evolution/evolution": "portal:../../packages/evolution",
+    "@neat-evolution/executor": "portal:../../packages/executor",
+    "@neat-evolution/hyperneat": "portal:../../packages/hyperneat",
+    "@neat-evolution/neat": "portal:../../packages/neat",
+    "@neat-evolution/utils": "portal:../../packages/utils",
+    "@neat-evolution/worker-actions": "portal:../../packages/worker-actions",
+    "@neat-evolution/worker-evaluator": "portal:../../packages/worker-evaluator",
+    "@neat-evolution/worker-pool": "portal:../../packages/worker-pool",
+    "@neat-evolution/worker-reproducer": "portal:../../packages/worker-reproducer",
+    "@neat-evolution/worker-threads": "portal:../../packages/worker-threads"
   }
 }
