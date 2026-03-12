@@ -10,19 +10,32 @@ import {
   randomAgent,
 } from '@heygrady/hexagonoids-environment'
 import { createEnvironment } from '@heygrady/hexagonoids-environment/node'
-import { defaultEvolutionOptions, evolve } from '@neat-evolution/evolution'
-import { WorkerEvaluator } from '@neat-evolution/worker-evaluator'
-import type { Terminable } from '@neat-evolution/worker-reproducer'
+import { CPPNAlgorithm } from '@neat-evolution/cppn'
+import {
+  DESHyperNEATAlgorithm,
+  defaultTopologyConfigOptions,
+} from '@neat-evolution/des-hyperneat'
+import { ESHyperNEATAlgorithm } from '@neat-evolution/es-hyperneat'
+import { defaultEvolutionOptions } from '@neat-evolution/evolution'
+import {
+  EvolutionManager,
+  type EvolutionManagerConfig,
+} from '@neat-evolution/evolution-manager'
+import { HyperNEATAlgorithm } from '@neat-evolution/hyperneat'
+import { NEATAlgorithm } from '@neat-evolution/neat'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
-import type { SupportedAlgorithm } from './algorithmRegistry.js'
 import {
-  createPopulationForTraining,
-  getAlgorithmDefinition,
+  createHexagonoidsCPPNGenomeOptions,
+  createHexagonoidsDESHyperNEATGenomeOptions,
+  createHexagonoidsESHyperNEATGenomeOptions,
+  createHexagonoidsHyperNEATGenomeOptions,
+  createHexagonoidsNEATConfigOptions,
+  createHexagonoidsNEATGenomeOptions,
+  type SupportedAlgorithm,
 } from './algorithmRegistry.js'
 import { buildEnvironmentOptions } from './buildEnvironmentOptions.js'
 import { summarizeBaselineAgent } from './evaluation/baselines.js'
-import {} from './evaluation/evaluateOrganism.js'
 import { mean, median } from './evaluation/metrics.js'
 import { generationSeedPack } from './evaluation/seedSchedule.js'
 import {
@@ -32,10 +45,7 @@ import {
   saveGenerationGenome,
 } from './persistence/appendGenerationLog.js'
 import { saveGenome } from './persistence/saveGenome.js'
-import {
-  createWorkerReproducerFactoryForMethod,
-  MultiSeedGenerationStrategy,
-} from './workerTraining.js'
+import { MultiSeedGenerationStrategy } from './workerTraining.js'
 
 const DEFAULT_OUTPUT_DIR = fileURLToPath(new URL('../../', import.meta.url))
 const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
@@ -216,6 +226,51 @@ async function writeWorkerCpuProfiles(
   await Promise.all(writes)
 }
 
+// --- Algorithm config for EvolutionManager ---
+
+type ErasedManagerConfig = Pick<
+  EvolutionManagerConfig,
+  'algorithm' | 'configData' | 'genomeOptions'
+>
+
+function algorithmConfig(method: SupportedAlgorithm): ErasedManagerConfig {
+  switch (method) {
+    case 'NEAT':
+      return {
+        algorithm: NEATAlgorithm,
+        configData: { neat: createHexagonoidsNEATConfigOptions() },
+        genomeOptions: createHexagonoidsNEATGenomeOptions(),
+      } as unknown as ErasedManagerConfig
+    case 'CPPN':
+      return {
+        algorithm: CPPNAlgorithm,
+        configData: { neat: createHexagonoidsNEATConfigOptions() },
+        genomeOptions: createHexagonoidsCPPNGenomeOptions(),
+      } as unknown as ErasedManagerConfig
+    case 'HyperNEAT':
+      return {
+        algorithm: HyperNEATAlgorithm,
+        configData: { neat: createHexagonoidsNEATConfigOptions() },
+        genomeOptions: createHexagonoidsHyperNEATGenomeOptions(),
+      } as unknown as ErasedManagerConfig
+    case 'ES-HyperNEAT':
+      return {
+        algorithm: ESHyperNEATAlgorithm,
+        configData: { neat: createHexagonoidsNEATConfigOptions() },
+        genomeOptions: createHexagonoidsESHyperNEATGenomeOptions(),
+      } as unknown as ErasedManagerConfig
+    case 'DES-HyperNEAT':
+      return {
+        algorithm: DESHyperNEATAlgorithm,
+        configData: {
+          neat: defaultTopologyConfigOptions,
+          cppn: createHexagonoidsNEATConfigOptions(),
+        },
+        genomeOptions: createHexagonoidsDESHyperNEATGenomeOptions(),
+      } as unknown as ErasedManagerConfig
+  }
+}
+
 export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   const config = toRunConfig(options)
   const method = config.method
@@ -252,7 +307,6 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     return result
   }
 
-  const terminables = new Set<Terminable>()
   const pendingGenerationWrites: Array<
     Promise<{ ok: true } | { ok: false; error: unknown }>
   > = []
@@ -282,36 +336,85 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   const environment = createEnvironment(
     buildEnvironmentOptions({ ...options, ...config }, scenarioBank)
   )
-  const algorithm = getAlgorithmDefinition(method).createAlgorithm()
-  const evaluator = new WorkerEvaluator(algorithm, environment, {
-    createEnvironmentPathname: CREATE_ENVIRONMENT_PATHNAME,
-    createExecutorPathname: CREATE_EXECUTOR_PATHNAME,
-    taskCount: config.populationSize,
-    threadCount: config.threadCount,
+
+  const manager = new EvolutionManager({
+    ...algorithmConfig(method),
+    environment,
     strategy: new MultiSeedGenerationStrategy(
       config.evaluationSeedsPerOrganism,
       config.baseSeed,
       mean
     ),
-  })
-  terminables.add(evaluator)
+    evolutionOptions: {
+      iterations: config.iterations,
+      secondsLimit: config.secondsLimit,
+      earlyStop: true,
+      earlyStopPatience: config.earlyStopPatience,
+      logInterval: config.logInterval,
+      handleNewBest: (organism: unknown) => {
+        bestOrganism = organism
+        if (
+          organism != null &&
+          typeof organism === 'object' &&
+          'fitness' in organism &&
+          typeof organism.fitness === 'number'
+        ) {
+          bestFitness = organism.fitness
+        }
+      },
+      afterEvaluate: (activePopulation, iteration) => {
+        const best = activePopulation.best()
+        if (best == null) return
 
-  const createReproducer = createWorkerReproducerFactoryForMethod(
-    method,
-    {
+        const entry: GenerationLogEntry = {
+          generation: iteration,
+          method,
+          bestFitness: best.fitness ?? 0,
+          seeds: generationSeedPack(
+            iteration,
+            config.evaluationSeedsPerOrganism,
+            config.baseSeed
+          ),
+          seedsPerOrganism: config.evaluationSeedsPerOrganism,
+          baseSeed: config.baseSeed,
+          elapsedMs: Date.now() - runStart,
+          timestamp: new Date().toISOString(),
+        }
+
+        const logWrite = appendGenerationLog(entry, config.outputDir)
+          .then(() => ({ ok: true }) as const)
+          .catch((error) => ({ ok: false, error }) as const)
+        pendingGenerationWrites.push(logWrite)
+
+        const genomeWrite = saveGenerationGenome(
+          best,
+          iteration,
+          config.outputDir
+        )
+          .then(() => ({ ok: true }) as const)
+          .catch((error) => ({ ok: false, error }) as const)
+        pendingGenerationWrites.push(genomeWrite)
+      },
+    },
+    populationOptions: {
+      populationSize: config.populationSize,
+    },
+    workerConfig: {
+      createEnvironmentPathname: CREATE_ENVIRONMENT_PATHNAME,
+      createExecutorPathname: CREATE_EXECUTOR_PATHNAME,
+      taskCount: config.populationSize,
       threadCount: config.threadCount,
     },
-    terminables
-  )
-
-  const population = createPopulationForTraining(method, {
-    createReproducer,
-    evaluator,
-    populationSize: config.populationSize,
+    ...(config.signal != null && { signal: config.signal }),
   })
 
+  // Initialize the manager to create workers before starting CPU profiles
+  await manager.init()
+
   if (options.workerCpuProfiles) {
-    const reproducer = isObjectLike(population) ? population.reproducer : null
+    const population = manager.currentPopulation
+    const evaluator = population != null ? population.evaluator : null
+    const reproducer = population != null ? population.reproducer : null
     const profiledWorkers = await Promise.all([
       startWorkerCpuProfilesForOwner(evaluator, 'evaluator'),
       startWorkerCpuProfilesForOwner(reproducer, 'reproducer'),
@@ -319,67 +422,11 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     workerProfiles = profiledWorkers.flat()
   }
 
-  const evolutionOptions = {
-    ...defaultEvolutionOptions,
-    iterations: config.iterations,
-    secondsLimit: config.secondsLimit,
-    earlyStop: true,
-    earlyStopPatience: config.earlyStopPatience,
-    logInterval: config.logInterval,
-    ...(config.signal != null && {
-      signal: config.signal,
-    }),
-    handleNewBest: (organism: unknown) => {
-      bestOrganism = organism
-      if (
-        organism != null &&
-        typeof organism === 'object' &&
-        'fitness' in organism &&
-        typeof organism.fitness === 'number'
-      ) {
-        bestFitness = organism.fitness
-      }
-    },
-    afterEvaluate: (_currentPopulation: unknown, iteration: number) => {
-      const best = population.best()
-      if (best == null) {
-        return
-      }
-
-      const entry: GenerationLogEntry = {
-        generation: iteration,
-        method,
-        bestFitness: best.fitness ?? 0,
-        seeds: generationSeedPack(
-          iteration,
-          config.evaluationSeedsPerOrganism,
-          config.baseSeed
-        ),
-        seedsPerOrganism: config.evaluationSeedsPerOrganism,
-        baseSeed: config.baseSeed,
-        elapsedMs: Date.now() - runStart,
-        timestamp: new Date().toISOString(),
-      }
-
-      const logWrite = appendGenerationLog(entry, config.outputDir)
-        .then(() => ({ ok: true }) as const)
-        .catch((error) => ({ ok: false, error }) as const)
-      pendingGenerationWrites.push(logWrite)
-
-      const genomeWrite = saveGenerationGenome(
-        best,
-        iteration,
-        config.outputDir
-      )
-        .then(() => ({ ok: true }) as const)
-        .catch((error) => ({ ok: false, error }) as const)
-      pendingGenerationWrites.push(genomeWrite)
-    },
-  }
-
   try {
-    await evolve(population, evolutionOptions)
-    const best = bestOrganism ?? population.best()
+    await manager.evolve()
+
+    const population = manager.currentPopulation
+    const best = bestOrganism ?? population?.best()
     if (best == null) {
       throw new Error('No best organism available after evolution run')
     }
@@ -406,11 +453,13 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     }
 
     const fitnessValues: number[] = []
-    for (const organism of population.organismValues() as Iterable<{
-      fitness: number | null
-    }>) {
-      if (organism.fitness != null) {
-        fitnessValues.push(organism.fitness)
+    if (population != null) {
+      for (const organism of population.organismValues() as Iterable<{
+        fitness: number | null
+      }>) {
+        if (organism.fitness != null) {
+          fitnessValues.push(organism.fitness)
+        }
       }
     }
     if (fitnessValues.length > 0) {
@@ -439,9 +488,6 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
       await writeWorkerCpuProfiles(workerProfiles, outputDir)
       workerProfiles = []
     }
-    for (const terminable of terminables) {
-      await terminable.terminate()
-    }
-    terminables.clear()
+    await manager.terminate()
   }
 }

@@ -1,6 +1,3 @@
-import type { CPPNPopulation } from '@neat-evolution/cppn'
-import type { DESHyperNEATPopulation } from '@neat-evolution/des-hyperneat'
-import type { ESHyperNEATPopulation } from '@neat-evolution/es-hyperneat'
 import type { EvaluationStrategy } from '@neat-evolution/evaluation-strategy'
 import type {
   AnyGenome,
@@ -8,17 +5,7 @@ import type {
   GenomeEntries,
   GenomeEntry,
 } from '@neat-evolution/evaluator'
-import type { HyperNEATPopulation } from '@neat-evolution/hyperneat'
-import type { NEATPopulation } from '@neat-evolution/neat'
-import {
-  createReproducerFactory,
-  type Terminable,
-} from '@neat-evolution/worker-reproducer'
 
-import type {
-  AnyReproducerFactory,
-  SupportedAlgorithm,
-} from './algorithmRegistry.js'
 import {
   evaluateOrganismMultiSeed,
   type FitnessAggregator,
@@ -92,50 +79,5 @@ export class MultiSeedGenerationStrategy
       pending.delete(settled.id)
       yield settled.result
     }
-  }
-}
-
-export const createWorkerReproducerFactoryForMethod = (
-  method: SupportedAlgorithm,
-  baseOptions: {
-    threadCount: number
-    algorithmPathname?: string | undefined
-    workerScriptUrl?: URL | string | undefined
-  },
-  terminables: Set<Terminable>
-): AnyReproducerFactory => {
-  const workerOptions = {
-    threadCount: baseOptions.threadCount,
-    ...(baseOptions.algorithmPathname != null && {
-      algorithmPathname: baseOptions.algorithmPathname,
-    }),
-    ...(baseOptions.workerScriptUrl != null && {
-      workerScriptUrl: baseOptions.workerScriptUrl,
-    }),
-  }
-
-  switch (method) {
-    case 'NEAT':
-      return createReproducerFactory<NEATPopulation>(workerOptions, terminables)
-    case 'CPPN':
-      return createReproducerFactory<CPPNPopulation>(workerOptions, terminables)
-    case 'HyperNEAT':
-      return createReproducerFactory<HyperNEATPopulation>(
-        workerOptions,
-        terminables
-      )
-    case 'ES-HyperNEAT':
-      return createReproducerFactory<ESHyperNEATPopulation>(
-        workerOptions,
-        terminables
-      )
-    case 'DES-HyperNEAT':
-      return createReproducerFactory<DESHyperNEATPopulation>(
-        {
-          ...workerOptions,
-          enableCustomState: true,
-        },
-        terminables
-      )
   }
 }

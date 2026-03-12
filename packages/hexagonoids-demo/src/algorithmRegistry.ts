@@ -8,12 +8,9 @@ import {
 import {
   CPPNAlgorithm,
   type CPPNGenomeOptions,
-  type CPPNPopulation,
-  type CPPNReproducerFactory,
   createConfig as createCPPNConfig,
   createGenome as createCPPNGenome,
   createPhenotype as createCPPNPhenotype,
-  createPopulation as createCPPNPopulation,
   createState as createCPPNState,
   defaultCPPNGenomeOptions,
 } from '@neat-evolution/cppn'
@@ -21,64 +18,42 @@ import {
   createConfig as createDESHyperNEATConfig,
   createGenome as createDESHyperNEATGenome,
   createPhenotype as createDESHyperNEATPhenotype,
-  createPopulation as createDESHyperNEATPopulation,
   createState as createDESHyperNEATState,
   DESHyperNEATAlgorithm,
   type DESHyperNEATGenomeOptions,
-  type DESHyperNEATPopulation,
-  type DESHyperNEATReproducerFactory,
   defaultDESHyperNEATGenomeOptions,
-  defaultTopologyConfigOptions,
 } from '@neat-evolution/des-hyperneat'
-import type { Environment } from '@neat-evolution/environment'
 import {
   createConfig as createESHyperNEATConfig,
   createGenome as createESHyperNEATGenome,
   createPhenotype as createESHyperNEATPhenotype,
-  createPopulation as createESHyperNEATPopulation,
   createState as createESHyperNEATState,
   defaultESHyperNEATGenomeOptions,
   ESHyperNEATAlgorithm,
   type ESHyperNEATGenomeOptions,
-  type ESHyperNEATPopulation,
-  type ESHyperNEATReproducerFactory,
 } from '@neat-evolution/es-hyperneat'
 import type {
   AnyErasedAlgorithm,
   AnyErasedGenome,
-  Evaluator,
 } from '@neat-evolution/evaluator'
-import {
-  defaultPopulationOptions,
-  type Population,
-  type ReproducerFactory,
-} from '@neat-evolution/evolution'
-import type { Executor, SyncExecutor } from '@neat-evolution/executor'
 import {
   createConfig as createHyperNEATConfig,
   createGenome as createHyperNEATGenome,
   createPhenotype as createHyperNEATPhenotype,
-  createPopulation as createHyperNEATPopulation,
   createState as createHyperNEATState,
   defaultHyperNEATGenomeOptions,
   HyperNEATAlgorithm,
   type HyperNEATGenomeOptions,
-  type HyperNEATPopulation,
-  type HyperNEATReproducerFactory,
 } from '@neat-evolution/hyperneat'
 import {
   createConfig as createNEATConfig,
   createGenome as createNEATGenome,
   createPhenotype as createNEATPhenotype,
-  createPopulation as createNEATPopulation,
   createState as createNEATState,
   defaultNEATGenomeOptions,
   NEATAlgorithm,
   type NEATGenomeOptions,
-  type NEATPopulation,
-  type NEATReproducerFactory,
 } from '@neat-evolution/neat'
-import type { RNG } from '@neat-evolution/utils'
 
 export interface AlgorithmIO {
   inputs: number
@@ -92,27 +67,9 @@ export type SupportedAlgorithm =
   | 'ES-HyperNEAT'
   | 'DES-HyperNEAT'
 
-export type AlgorithmPopulation =
-  | ReturnType<typeof createNEATPopulation>
-  | ReturnType<typeof createCPPNPopulation>
-  | ReturnType<typeof createHyperNEATPopulation>
-  | ReturnType<typeof createESHyperNEATPopulation>
-  | ReturnType<typeof createDESHyperNEATPopulation>
-
-export type AnyReproducerFactory =
-  | NEATReproducerFactory
-  | CPPNReproducerFactory
-  | HyperNEATReproducerFactory
-  | ESHyperNEATReproducerFactory
-  | DESHyperNEATReproducerFactory
-
 export interface AlgorithmDefinition {
   method: SupportedAlgorithm
   createAlgorithm: () => AnyErasedAlgorithm
-  createPopulation: (size: number, io: AlgorithmIO) => AlgorithmPopulation
-  createPopulationForTraining: (
-    options: TrainingPopulationOptions
-  ) => Population<any>
   createGenomeFromSerialized: (
     genomeData: SerializedGenome,
     initConfig: unknown
@@ -120,27 +77,6 @@ export interface AlgorithmDefinition {
   createPhenotypeForGenome: (genome: AnyErasedGenome) => Phenotype
   usesCPPNActivations: boolean
 }
-
-export interface TrainingPopulationOptions {
-  createReproducer: ReproducerFactory<Population<any>>
-  evaluator: Evaluator<unknown>
-  populationSize: number
-}
-
-type PopulationArgs<
-  P extends Population<any>,
-  C extends (
-    createReproducer: ReproducerFactory<P>,
-    evaluator: Evaluator<unknown>,
-    ...args: any[]
-  ) => P,
-> = C extends (
-  createReproducer: ReproducerFactory<P>,
-  evaluator: Evaluator<unknown>,
-  ...args: infer A
-) => P
-  ? A
-  : never
 
 export interface SerializedGenome {
   config: unknown
@@ -240,56 +176,6 @@ export const createHexagonoidsDESHyperNEATGenomeOptions =
     }
   }
 
-const createEvaluatorStub = (
-  io: AlgorithmIO
-): Evaluator<Record<string, never>> => {
-  const environment = {
-    description: io,
-    isAsync: false,
-    evaluate: (_executor: SyncExecutor, _rng?: RNG) => 0,
-    evaluateBatch: (_executors: SyncExecutor[], _rng?: RNG) => [],
-    evaluateAsync: async (_executor: Executor, _rng?: RNG) => 0,
-    evaluateBatchAsync: async (_executors: Executor[], _rng?: RNG) => [],
-    toFactoryOptions: () => ({}),
-  } satisfies Environment<Record<string, never>>
-
-  return {
-    environment,
-    initGenomeFactory: async () => {},
-    evaluate: async function* (_genomeEntries) {
-      // The constructor only needs the evaluator shape; this iterator is unused in registry tests.
-    },
-  } satisfies Evaluator<Record<string, never>>
-}
-
-const createPopulationOptions = (size: number) => {
-  return {
-    ...defaultPopulationOptions,
-    populationSize: size,
-  }
-}
-
-const createTrainingPopulationFactory = <
-  P extends Population<any>,
-  A extends unknown[],
->(
-  createPopulation: (
-    createReproducer: ReproducerFactory<P>,
-    evaluator: Evaluator<unknown>,
-    ...args: A
-  ) => P,
-  createArgs: (options: TrainingPopulationOptions) => A
-) => {
-  return (options: TrainingPopulationOptions): P => {
-    const args = createArgs(options) as A
-    return createPopulation(
-      options.createReproducer as ReproducerFactory<P>,
-      options.evaluator,
-      ...args
-    )
-  }
-}
-
 const createTypedGenomeHydrator = <G>(
   createGenome: (
     config: any,
@@ -318,60 +204,10 @@ const createTypedPhenotypeHydrator = <G>(
   return (genome: unknown): Phenotype => createPhenotype(genome as G)
 }
 
-const createNEATReproducerStub: NEATReproducerFactory = (_population) => ({
-  copyElites: async (_speciesIds: number[]) => [],
-  reproduce: async (_speciesIds: number[]) => [],
-})
-
-const createCPPNReproducerStub: CPPNReproducerFactory = (_population) => ({
-  copyElites: async (_speciesIds: number[]) => [],
-  reproduce: async (_speciesIds: number[]) => [],
-})
-
-const createHyperNEATReproducerStub: HyperNEATReproducerFactory = (
-  _population
-) => ({
-  copyElites: async (_speciesIds: number[]) => [],
-  reproduce: async (_speciesIds: number[]) => [],
-})
-
-const createESHyperNEATReproducerStub: ESHyperNEATReproducerFactory = (
-  _population
-) => ({
-  copyElites: async (_speciesIds: number[]) => [],
-  reproduce: async (_speciesIds: number[]) => [],
-})
-
-const createDESHyperNEATReproducerStub: DESHyperNEATReproducerFactory = (
-  _population
-) => ({
-  copyElites: async (_speciesIds: number[]) => [],
-  reproduce: async (_speciesIds: number[]) => [],
-})
-
 const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
   NEAT: {
     method: 'NEAT',
     createAlgorithm: () => NEATAlgorithm,
-    createPopulation: (size, io) => {
-      return createNEATPopulation(
-        createNEATReproducerStub,
-        createEvaluatorStub(io),
-        createHexagonoidsNEATConfigOptions(),
-        createPopulationOptions(size),
-        createHexagonoidsNEATGenomeOptions()
-      )
-    },
-    createPopulationForTraining: createTrainingPopulationFactory(
-      createNEATPopulation,
-      (
-        options
-      ): PopulationArgs<NEATPopulation, typeof createNEATPopulation> => [
-        createHexagonoidsNEATConfigOptions(),
-        createPopulationOptions(options.populationSize),
-        createHexagonoidsNEATGenomeOptions(),
-      ]
-    ),
     createGenomeFromSerialized: createTypedGenomeHydrator(
       createNEATGenome,
       createNEATConfig,
@@ -383,25 +219,6 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
   CPPN: {
     method: 'CPPN',
     createAlgorithm: () => CPPNAlgorithm,
-    createPopulation: (size, io) => {
-      return createCPPNPopulation(
-        createCPPNReproducerStub,
-        createEvaluatorStub(io),
-        createHexagonoidsNEATConfigOptions(),
-        createPopulationOptions(size),
-        createHexagonoidsCPPNGenomeOptions()
-      )
-    },
-    createPopulationForTraining: createTrainingPopulationFactory(
-      createCPPNPopulation,
-      (
-        options
-      ): PopulationArgs<CPPNPopulation, typeof createCPPNPopulation> => [
-        createHexagonoidsNEATConfigOptions(),
-        createPopulationOptions(options.populationSize),
-        createHexagonoidsCPPNGenomeOptions(),
-      ]
-    ),
     createGenomeFromSerialized: createTypedGenomeHydrator(
       createCPPNGenome,
       createCPPNConfig,
@@ -413,28 +230,6 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
   HyperNEAT: {
     method: 'HyperNEAT',
     createAlgorithm: () => HyperNEATAlgorithm,
-    createPopulation: (size, io) => {
-      return createHyperNEATPopulation(
-        createHyperNEATReproducerStub,
-        createEvaluatorStub(io),
-        createHexagonoidsNEATConfigOptions(),
-        createPopulationOptions(size),
-        createHexagonoidsHyperNEATGenomeOptions()
-      )
-    },
-    createPopulationForTraining: createTrainingPopulationFactory(
-      createHyperNEATPopulation,
-      (
-        options
-      ): PopulationArgs<
-        HyperNEATPopulation,
-        typeof createHyperNEATPopulation
-      > => [
-        createHexagonoidsNEATConfigOptions(),
-        createPopulationOptions(options.populationSize),
-        createHexagonoidsHyperNEATGenomeOptions(),
-      ]
-    ),
     createGenomeFromSerialized: createTypedGenomeHydrator(
       createHyperNEATGenome,
       createHyperNEATConfig,
@@ -448,28 +243,6 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
   'ES-HyperNEAT': {
     method: 'ES-HyperNEAT',
     createAlgorithm: () => ESHyperNEATAlgorithm,
-    createPopulation: (size, io) => {
-      return createESHyperNEATPopulation(
-        createESHyperNEATReproducerStub,
-        createEvaluatorStub(io),
-        createHexagonoidsNEATConfigOptions(),
-        createPopulationOptions(size),
-        createHexagonoidsESHyperNEATGenomeOptions()
-      )
-    },
-    createPopulationForTraining: createTrainingPopulationFactory(
-      createESHyperNEATPopulation,
-      (
-        options
-      ): PopulationArgs<
-        ESHyperNEATPopulation,
-        typeof createESHyperNEATPopulation
-      > => [
-        createHexagonoidsNEATConfigOptions(),
-        createPopulationOptions(options.populationSize),
-        createHexagonoidsESHyperNEATGenomeOptions(),
-      ]
-    ),
     createGenomeFromSerialized: createTypedGenomeHydrator(
       createESHyperNEATGenome,
       createESHyperNEATConfig,
@@ -483,30 +256,6 @@ const algorithmRegistry: Record<SupportedAlgorithm, AlgorithmDefinition> = {
   'DES-HyperNEAT': {
     method: 'DES-HyperNEAT',
     createAlgorithm: () => DESHyperNEATAlgorithm,
-    createPopulation: (size, io) => {
-      return createDESHyperNEATPopulation(
-        createDESHyperNEATReproducerStub,
-        createEvaluatorStub(io),
-        cloneDefaultOptions(defaultTopologyConfigOptions),
-        createHexagonoidsNEATConfigOptions(),
-        createPopulationOptions(size),
-        createHexagonoidsDESHyperNEATGenomeOptions()
-      )
-    },
-    createPopulationForTraining: createTrainingPopulationFactory(
-      createDESHyperNEATPopulation,
-      (
-        options
-      ): PopulationArgs<
-        DESHyperNEATPopulation,
-        typeof createDESHyperNEATPopulation
-      > => [
-        cloneDefaultOptions(defaultTopologyConfigOptions),
-        createHexagonoidsNEATConfigOptions(),
-        createPopulationOptions(options.populationSize),
-        createHexagonoidsDESHyperNEATGenomeOptions(),
-      ]
-    ),
     createGenomeFromSerialized: createTypedGenomeHydrator(
       createDESHyperNEATGenome,
       createDESHyperNEATConfig,
@@ -537,15 +286,6 @@ export const getAlgorithmDefinitions =
   (): ReadonlyArray<AlgorithmDefinition> => {
     return SUPPORTED_ALGORITHMS.map((method) => algorithmRegistry[method])
   }
-
-export const createPopulationForTraining = (
-  method: SupportedAlgorithm,
-  options: TrainingPopulationOptions
-): AlgorithmPopulation => {
-  return algorithmRegistry[method].createPopulationForTraining(
-    options
-  ) as AlgorithmPopulation
-}
 
 export const createGenomeFromSerialized = (
   method: SupportedAlgorithm,
