@@ -1,7 +1,5 @@
-import type {
-  EvolutionManager,
-  InteractiveGame,
-} from '@heygrady/tictactoe-demo'
+import type { InteractiveGame } from '@heygrady/tictactoe-demo'
+import type { EvolutionManager } from '@neat-evolution/evolution-manager'
 import type { SyncExecutor } from '@neat-evolution/executor'
 import type { Glicko2 } from 'glicko2'
 

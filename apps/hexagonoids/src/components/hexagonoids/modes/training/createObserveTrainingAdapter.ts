@@ -1,9 +1,12 @@
 import {
   buildEnvironmentOptions,
+  createHexagonoidsCPPNGenomeOptions,
+  createHexagonoidsDESHyperNEATGenomeOptions,
+  createHexagonoidsESHyperNEATGenomeOptions,
+  createHexagonoidsHyperNEATGenomeOptions,
+  createHexagonoidsNEATConfigOptions,
+  createHexagonoidsNEATGenomeOptions,
   createPhenotypeForGenome,
-  createPopulationForTraining,
-  createWorkerReproducerFactoryForMethod,
-  getAlgorithmDefinition,
   MultiSeedGenerationStrategy,
   type SupportedAlgorithm,
   type TrainOptions,
@@ -14,19 +17,23 @@ import {
   mergeConfig,
   type ScenarioSnapshot,
 } from '@heygrady/hexagonoids-environment'
-import type {
-  Environment,
-  EnvironmentDescription,
-} from '@neat-evolution/environment'
+import { CPPNAlgorithm } from '@neat-evolution/cppn'
+import {
+  DESHyperNEATAlgorithm,
+  defaultTopologyConfigOptions,
+} from '@neat-evolution/des-hyperneat'
+import type { EnvironmentDescription } from '@neat-evolution/environment'
+import { ESHyperNEATAlgorithm } from '@neat-evolution/es-hyperneat'
 import type { AnyErasedGenome } from '@neat-evolution/evaluator'
-import { defaultEvolutionOptions, evolve } from '@neat-evolution/evolution'
-import type { Executor, SyncExecutor } from '@neat-evolution/executor'
+import {
+  EvolutionManager,
+  type EvolutionManagerConfig,
+} from '@neat-evolution/evolution-manager'
 import { createExecutor } from '@neat-evolution/executor'
-import type { WorkerEvaluatorOptions } from '@neat-evolution/worker-evaluator'
-import { WorkerEvaluator } from '@neat-evolution/worker-evaluator'
+import { HyperNEATAlgorithm } from '@neat-evolution/hyperneat'
+import { NEATAlgorithm } from '@neat-evolution/neat'
 // eslint-disable-next-line import/default
 import workerEvaluatorScriptUrl from '@neat-evolution/worker-evaluator/workerEvaluatorScript?worker&url'
-import type { Terminable } from '@neat-evolution/worker-reproducer'
 // eslint-disable-next-line import/default
 import workerReproducerScriptUrl from '@neat-evolution/worker-reproducer/workerReproducerScript?worker&url'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
@@ -92,28 +99,46 @@ function buildEnvironmentConfig(
   }
 }
 
-function createBrowserWorkerEnvironment(
-  envConfig: HexagonoidsEnvironmentConfig,
-  description: EnvironmentDescription
-): Environment<HexagonoidsEnvironmentConfig> {
-  return {
-    description,
-    isAsync: false,
-    evaluate(_executor: SyncExecutor): number {
-      throw new Error('Browser worker environment should evaluate in workers')
-    },
-    evaluateBatch(_executors: SyncExecutor[]): number[] {
-      throw new Error('Browser worker environment should evaluate in workers')
-    },
-    async evaluateAsync(_executor: Executor): Promise<number> {
-      throw new Error('Browser worker environment should evaluate in workers')
-    },
-    async evaluateBatchAsync(_executors: Executor[]): Promise<number[]> {
-      throw new Error('Browser worker environment should evaluate in workers')
-    },
-    toFactoryOptions(): HexagonoidsEnvironmentConfig {
-      return envConfig
-    },
+type ErasedManagerConfig = Pick<
+  EvolutionManagerConfig,
+  'algorithm' | 'configData' | 'genomeOptions'
+>
+
+function algorithmConfig(method: SupportedAlgorithm): ErasedManagerConfig {
+  switch (method) {
+    case 'NEAT':
+      return {
+        algorithm: NEATAlgorithm,
+        configData: { neat: createHexagonoidsNEATConfigOptions() },
+        genomeOptions: createHexagonoidsNEATGenomeOptions(),
+      } as unknown as ErasedManagerConfig
+    case 'CPPN':
+      return {
+        algorithm: CPPNAlgorithm,
+        configData: { neat: createHexagonoidsNEATConfigOptions() },
+        genomeOptions: createHexagonoidsCPPNGenomeOptions(),
+      } as unknown as ErasedManagerConfig
+    case 'HyperNEAT':
+      return {
+        algorithm: HyperNEATAlgorithm,
+        configData: { neat: createHexagonoidsNEATConfigOptions() },
+        genomeOptions: createHexagonoidsHyperNEATGenomeOptions(),
+      } as unknown as ErasedManagerConfig
+    case 'ES-HyperNEAT':
+      return {
+        algorithm: ESHyperNEATAlgorithm,
+        configData: { neat: createHexagonoidsNEATConfigOptions() },
+        genomeOptions: createHexagonoidsESHyperNEATGenomeOptions(),
+      } as unknown as ErasedManagerConfig
+    case 'DES-HyperNEAT':
+      return {
+        algorithm: DESHyperNEATAlgorithm,
+        configData: {
+          neat: defaultTopologyConfigOptions,
+          cppn: createHexagonoidsNEATConfigOptions(),
+        },
+        genomeOptions: createHexagonoidsDESHyperNEATGenomeOptions(),
+      } as unknown as ErasedManagerConfig
   }
 }
 
@@ -124,8 +149,8 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
   let statusIntervalId: number | null = null
   let generationTarget = 1
   let startedAt = 0
+  let currentManager: EvolutionManager | null = null
 
-  const terminables = new Set<Terminable>()
   const bestListeners = new Set<(evt: ObserveGenerationBestEvent) => void>()
   const statusListeners = new Set<(evt: ObserveTrainingStatusEvent) => void>()
 
@@ -151,13 +176,6 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
     if (statusIntervalId == null) return
     clearInterval(statusIntervalId)
     statusIntervalId = null
-  }
-
-  const terminateWorkers = async () => {
-    for (const terminable of terminables) {
-      await terminable.terminate()
-    }
-    terminables.clear()
   }
 
   return {
@@ -207,66 +225,51 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
         config,
         scenarioBank
       )
-      const environment = createBrowserWorkerEnvironment(envConfig, description)
 
-      const evaluatorOptions: WorkerEvaluatorOptions = {
-        algorithmPathname,
-        createEnvironmentPathname,
-        createExecutorPathname,
-        taskCount: populationSize,
-        threadCount,
-        workerScriptUrl: workerEvaluatorScriptUrl,
+      const manager = new EvolutionManager({
+        ...algorithmConfig(method),
+        environment: {
+          description,
+          toFactoryOptions: () => envConfig,
+        },
         strategy: new MultiSeedGenerationStrategy(
           evaluationSeedsPerOrganism,
           config.evaluationBaseSeed ?? 'observe-training'
         ),
-      }
-      const algorithm = getAlgorithmDefinition(method).createAlgorithm()
-      const evaluator = new WorkerEvaluator(
-        algorithm,
-        environment,
-        evaluatorOptions
-      )
-      terminables.add(evaluator)
+        evolutionOptions: {
+          iterations,
+          afterEvaluateInterval: 1,
+          afterEvaluate: (activePopulation, iteration) => {
+            if (disposed) return
+            const generation = iteration + 1
+            const best = activePopulation.best()
+            generationTarget = Math.min(iterations, generation + 1)
+            emitStatus('training')
 
-      const createReproducer = createWorkerReproducerFactoryForMethod(
-        method,
-        {
+            if (best?.fitness == null) return
+            emitBest({
+              generation,
+              fitness: best.fitness,
+              organism: best,
+              elapsedMs: performance.now() - startedAt,
+            })
+          },
+        },
+        populationOptions: { populationSize },
+        workerConfig: {
+          createEnvironmentPathname,
           algorithmPathname,
+          createExecutorPathname,
           threadCount,
-          workerScriptUrl: workerReproducerScriptUrl,
+          evaluatorWorkerScriptUrl: workerEvaluatorScriptUrl,
+          reproducerWorkerScriptUrl: workerReproducerScriptUrl,
         },
-        terminables
-      )
-
-      const population = createPopulationForTraining(method, {
-        createReproducer,
-        evaluator,
-        populationSize,
-      })
-
-      runPromise = evolve(population, {
-        ...defaultEvolutionOptions,
-        iterations,
-        threadCount,
         signal: abortController.signal,
-        afterEvaluateInterval: 1,
-        afterEvaluate: (activePopulation, iteration) => {
-          if (disposed) return
-          const generation = iteration + 1
-          const best = activePopulation.best()
-          generationTarget = Math.min(iterations, generation + 1)
-          emitStatus('training')
-
-          if (best?.fitness == null) return
-          emitBest({
-            generation,
-            fitness: best.fitness,
-            organism: best,
-            elapsedMs: performance.now() - startedAt,
-          })
-        },
       })
+      currentManager = manager
+
+      runPromise = manager
+        .evolve()
         .then(() => {
           if (disposed) return
           generationTarget = iterations
@@ -287,7 +290,8 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
         })
         .finally(async () => {
           clearStatusTimer()
-          await terminateWorkers()
+          await manager.terminate()
+          currentManager = null
           runPromise = null
           abortController = null
         })
@@ -299,8 +303,9 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
       abortController?.abort()
       if (runPromise != null) {
         await runPromise
-      } else {
-        await terminateWorkers()
+      } else if (currentManager != null) {
+        await currentManager.terminate()
+        currentManager = null
       }
       emitStatus('stopped')
     },

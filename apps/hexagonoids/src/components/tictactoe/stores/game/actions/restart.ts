@@ -2,11 +2,12 @@ import { setStatus } from '../GameSetters.js'
 import { EvolutionStatus, GameStatus } from '../GameState.js'
 import type { GameStore } from '../GameStore.js'
 
+import { createTictactoeEvolutionManager } from '../../../createGame.js'
+
 import {
   bindGameSetters,
   clearGenerationSnapshots,
   DEFAULT_POPULATION_SIZE,
-  getModulePathnamesForAlgorithm,
   loadPopulationFromStorage,
   playerToToken,
   restoreSnapshotsFromStorage,
@@ -66,8 +67,8 @@ export const restart = async (
   // 6. Clear all generation snapshots before loading new population
   clearGenerationSnapshots(gameSetters)
 
-  // 7. Get module pathnames for the NEW algorithm
-  const modulePathnames = getModulePathnamesForAlgorithm(newSettings.algorithm)
+  // 7. Terminate old evolution manager
+  await evolutionManager.terminate()
 
   // 8. Try to load saved population for the NEW settings combo
   const savedData = await loadPopulationFromStorage(
@@ -75,11 +76,10 @@ export const restart = async (
     newSettings.activation
   )
 
-  // 9. Reset population with new settings (now safe - nothing in-flight)
-  // If we have saved data, pass all saved config to restore population exactly
-  await evolutionManager.resetPopulation({
+  // 9. Create new evolution manager with new settings
+  // Capture the onBestExecutorUpdate callback from the game store
+  const newManager = createTictactoeEvolutionManager({
     algorithm: newSettings.algorithm,
-    modulePathnames,
     neatOptions: savedData?.populationData.config,
     populationOptions: savedData?.populationData.populationOptions ?? {
       populationSize: DEFAULT_POPULATION_SIZE,
@@ -88,17 +88,27 @@ export const restart = async (
       hiddenActivation: newSettings.activation,
     },
     populationFactoryOptions: savedData?.populationData.factoryOptions,
+    strategyOptions: {
+      onBestExecutorUpdate: (data: {
+        rating: number
+        rd: number
+        vol: number
+        fitness: number
+      }) => {
+        $game.setKey('latestGlickoData', {
+          rating: data.rating,
+          rd: data.rd,
+          vol: data.vol,
+          fitness: data.fitness,
+        })
+      },
+    },
   })
+  $game.setKey('evolutionManager', newManager)
 
   // 10. Restore snapshots from saved data if available
   if (savedData != null) {
-    restoreSnapshotsFromStorage(
-      $game,
-      gameSetters,
-      savedData,
-      evolutionManager,
-      newSettings.algorithm
-    )
+    restoreSnapshotsFromStorage($game, gameSetters, savedData, newManager)
   }
 
   // 11. Clear previous settings after successful switch

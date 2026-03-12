@@ -1,3 +1,4 @@
+import type { EvolutionManager } from '@neat-evolution/evolution-manager'
 import pDefer from 'p-defer'
 
 import {
@@ -6,10 +7,8 @@ import {
   GLICKO_WINDOW_SIZE,
   PLAYER_GLICKO_RD_FLOOR,
 } from '../../../constants/glickoSettings.js'
-import { getModulePathnamesForAlgorithm } from '../../../createGame.js'
 import { bindBoardSetters } from '../../board/BoardSetters.js'
 import { PlayerToken } from '../../player/PlayerState.js'
-import type { AlgorithmType } from '../../settings/SettingsStore.js'
 import { bindGameSetters } from '../GameSetters.js'
 import {
   EvolutionStatus,
@@ -683,22 +682,19 @@ export interface SavedPopulationData {
  * @param {GameStore} $game - The game store
  * @param {ReturnType<typeof bindGameSetters>} gameSetters - The game setters
  * @param {SavedPopulationData} savedData - The saved population data
- * @param {any} evolutionManager - The evolution manager
- * @param {AlgorithmType} algorithm - The algorithm type for creating organisms
+ * @param {EvolutionManager} evolutionManager - The evolution manager
  */
 export const restoreSnapshotsFromStorage = (
   $game: GameStore,
   gameSetters: ReturnType<typeof bindGameSetters>,
   savedData: SavedPopulationData,
-  evolutionManager: any,
-  algorithm: AlgorithmType
+  evolutionManager: EvolutionManager
 ) => {
   const newSettings = $game.get().$settings.get().committed
 
   // Restore committed snapshot
   if (savedData.committedSnapshot?.bestOrganismData != null) {
     const organism = evolutionManager.createOrganism(
-      algorithm,
       savedData.committedSnapshot.bestOrganismData
     )
     const executor = evolutionManager.organismToExecutor(organism)
@@ -717,7 +713,6 @@ export const restoreSnapshotsFromStorage = (
   // Restore best snapshot
   if (savedData.bestSnapshot?.bestOrganismData != null) {
     const organism = evolutionManager.createOrganism(
-      algorithm,
       savedData.bestSnapshot.bestOrganismData
     )
     const executor = evolutionManager.organismToExecutor(organism)
@@ -748,7 +743,6 @@ export const restoreSnapshotsFromStorage = (
 // Re-exports for convenience
 // =============================================================================
 
-export { getModulePathnamesForAlgorithm }
 export { loadPopulationFromStorage }
 export { bindBoardSetters }
 export { bindGameSetters }

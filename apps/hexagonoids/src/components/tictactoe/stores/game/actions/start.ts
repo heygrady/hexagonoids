@@ -47,7 +47,7 @@ export const start = async ($game: GameStore) => {
 
     const bestExecutor = evolutionManager.getBestExecutor()
     console.log('[start] Got bestExecutor:', bestExecutor != null)
-    const best = evolutionManager.population.best()
+    const best = evolutionManager.currentPopulation?.best()
     console.log(
       '[start] Got best organism:',
       best != null,
@@ -72,9 +72,14 @@ export const start = async ($game: GameStore) => {
       console.warn('[start] No best organism found after initializePopulation!')
     }
   } else {
-    // Restored state - skip mutations but still evaluate the population
+    // Restored state - init (creates population from factory options) then evaluate
     console.log('[GameActions] Using restored population state, evaluating...')
-    await evolutionManager.population.evaluate()
+    await evolutionManager.init()
+    const population = evolutionManager.currentPopulation
+    if (population == null) {
+      throw new Error('Population not created after init')
+    }
+    await population.evaluate()
 
     const opponent = getOpponent($game)
     if (opponent != null) {

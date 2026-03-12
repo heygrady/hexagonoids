@@ -1,16 +1,44 @@
 import {
-  EvolutionManager,
+  allActivations,
+  defaultEnvironmentConfig,
+  defaultStrategyOptions,
+  getAlgorithmDefinition,
   InteractiveGame,
-  ModulePathnameKey,
-  type ModulePathnames,
+  normalizationRanges,
   type SupportedAlgorithm,
-  validateModulePathnames,
 } from '@heygrady/tictactoe-demo'
+import {
+  createEnvironment,
+  type TicTacToeEnvironmentConfig,
+} from '@heygrady/tictactoe-environment'
+import {
+  GlickoStrategy,
+  type GlickoStrategyOptions,
+} from '@heygrady/tournament-strategy'
+import {
+  Activation,
+  type AnyGenome,
+  defaultNEATConfigOptions,
+} from '@neat-evolution/core'
+import { CPPNAlgorithm } from '@neat-evolution/cppn'
+import {
+  DESHyperNEATAlgorithm,
+  defaultTopologyConfigOptions,
+} from '@neat-evolution/des-hyperneat'
+import { ESHyperNEATAlgorithm } from '@neat-evolution/es-hyperneat'
+import type { PopulationOptions } from '@neat-evolution/evolution'
+import {
+  EvolutionManager,
+  type EvolutionManagerConfig,
+} from '@neat-evolution/evolution-manager'
+import { HyperNEATAlgorithm } from '@neat-evolution/hyperneat'
+import { NEATAlgorithm } from '@neat-evolution/neat'
 // Vite worker URL imports - must use ?worker&url suffix for Vite to bundle correctly
 // eslint-disable-next-line import/default
 import workerEvaluatorScriptUrl from '@neat-evolution/worker-evaluator/workerEvaluatorScript?worker&url'
 // eslint-disable-next-line import/default
 import workerReproducerScriptUrl from '@neat-evolution/worker-reproducer/workerReproducerScript?worker&url'
+import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
 import { GLICKO_MAX_HISTORY } from './constants/glickoSettings.js'
 import { resetBoard } from './stores/board/BoardSetters.js'
@@ -30,6 +58,8 @@ import { createSettingsStore } from './stores/settings/SettingsStore.js'
 
 // Default population size (matches NEAT-JS defaultPopulationOptions)
 const DEFAULT_POPULATION_SIZE = 100
+
+const workerEvaluatorThreadLimit = Math.max(1, Math.floor(hardwareConcurrency - 1))
 
 // Vite glob import pattern for resolving module pathnames for worker threads.
 // Workers need absolute pathnames, not package names, so we use import.meta.glob()
@@ -63,6 +93,12 @@ const extractModulePath = (
   return new URL(key, import.meta.url).href
 }
 
+interface ModulePathnames {
+  algorithmPathname: string
+  createEnvironmentPathname: string
+  createExecutorPathname: string
+}
+
 /**
  * Get module pathnames for a specific algorithm.
  * @param {SupportedAlgorithm} algorithmName - The algorithm name (NEAT, CPPN, etc.)
@@ -82,21 +118,177 @@ export const getModulePathnamesForAlgorithm = (
   for (const [key, importFn] of Object.entries(modules)) {
     if (key.includes(algorithmPathnameKey)) {
       modulePathnames.algorithmPathname = extractModulePath(key, importFn)
-    } else if (key.includes(ModulePathnameKey.CREATE_ENVIRONMENT)) {
+    } else if (key.includes('createEnvironmentPathname')) {
       modulePathnames.createEnvironmentPathname = extractModulePath(
         key,
         importFn
       )
-    } else if (key.includes(ModulePathnameKey.CREATE_EXECUTOR)) {
+    } else if (key.includes('createExecutorPathname')) {
       modulePathnames.createExecutorPathname = extractModulePath(key, importFn)
     }
   }
 
   // Validate that all required pathnames were resolved
-  validateModulePathnames(modulePathnames)
+  for (const [name, value] of Object.entries(modulePathnames)) {
+    if (value === '') {
+      throw new Error(`Module pathname '${name}' was not resolved`)
+    }
+  }
 
   return modulePathnames
 }
+
+// --- Algorithm config for EvolutionManager ---
+
+type ErasedManagerConfig = Pick<
+  EvolutionManagerConfig,
+  'algorithm' | 'configData' | 'genomeOptions'
+>
+
+/**
+ * Build genome options for a given algorithm, merging algorithm defaults
+ * with tictactoe-specific activation overrides and user-provided options.
+ */
+function buildGenomeOptions(
+  algorithmName: SupportedAlgorithm,
+  userOptions?: Record<string, unknown>
+): unknown {
+  const definition = getAlgorithmDefinition(algorithmName)
+  const defaults = definition.defaultGenomeOptions as Record<string, unknown>
+
+  let activationOptions: Record<string, unknown>
+  if (definition.usesCPPNActivations) {
+    activationOptions = {
+      hiddenActivations: allActivations,
+      outputActivations: [Activation.Softmax],
+    }
+  } else {
+    activationOptions = {
+      hiddenActivation:
+        (userOptions?.hiddenActivation as Activation | undefined) ??
+        Activation.GELU,
+      outputActivation:
+        (userOptions?.outputActivation as Activation | undefined) ??
+        Activation.Softmax,
+    }
+  }
+
+  return { ...defaults, ...activationOptions, ...userOptions }
+}
+
+function algorithmConfig(
+  algorithmName: SupportedAlgorithm,
+  userGenomeOptions?: Record<string, unknown>,
+  savedNeatOptions?: Record<string, unknown>
+): ErasedManagerConfig {
+  const genomeOptions = buildGenomeOptions(algorithmName, userGenomeOptions)
+  const neatOptions = {
+    ...defaultNEATConfigOptions,
+    mutateOnlyOneLink: false,
+    ...savedNeatOptions,
+  }
+
+  switch (algorithmName) {
+    case 'NEAT':
+      return {
+        algorithm: NEATAlgorithm,
+        configData: { neat: neatOptions },
+        genomeOptions,
+      } as unknown as ErasedManagerConfig
+    case 'CPPN':
+      return {
+        algorithm: CPPNAlgorithm,
+        configData: { neat: neatOptions },
+        genomeOptions,
+      } as unknown as ErasedManagerConfig
+    case 'HyperNEAT':
+      return {
+        algorithm: HyperNEATAlgorithm,
+        configData: { neat: neatOptions },
+        genomeOptions,
+      } as unknown as ErasedManagerConfig
+    case 'ES-HyperNEAT':
+      return {
+        algorithm: ESHyperNEATAlgorithm,
+        configData: { neat: neatOptions },
+        genomeOptions,
+      } as unknown as ErasedManagerConfig
+    case 'DES-HyperNEAT':
+      return {
+        algorithm: DESHyperNEATAlgorithm,
+        configData: {
+          neat: { ...defaultTopologyConfigOptions },
+          cppn: neatOptions,
+        },
+        genomeOptions,
+      } as unknown as ErasedManagerConfig
+  }
+}
+
+// --- EvolutionManager factory ---
+
+export interface CreateManagerOptions {
+  algorithm: SupportedAlgorithm
+  environmentConfig?: Partial<TicTacToeEnvironmentConfig>
+  populationOptions?: Partial<PopulationOptions>
+  genomeOptions?: Record<string, unknown>
+  neatOptions?: Record<string, unknown>
+  populationFactoryOptions?: unknown
+  strategyOptions?: Partial<GlickoStrategyOptions<AnyGenome>>
+}
+
+/**
+ * Create a tictactoe EvolutionManager with the standard configuration.
+ * Used by both createGame (initial setup) and restart (algorithm/settings change).
+ */
+export function createTictactoeEvolutionManager(
+  options: CreateManagerOptions
+): EvolutionManager {
+  const modulePathnames = getModulePathnamesForAlgorithm(options.algorithm)
+
+  const finalEnvironmentConfig = {
+    ...defaultEnvironmentConfig,
+    ...options.environmentConfig,
+  }
+  const environment = createEnvironment(finalEnvironmentConfig)
+
+  const strategy = new GlickoStrategy({
+    ...defaultStrategyOptions,
+    normalizationRanges,
+    onHeroesUpdated: () => {},
+    ...options.strategyOptions,
+  })
+
+  return new EvolutionManager({
+    ...algorithmConfig(
+      options.algorithm,
+      options.genomeOptions,
+      options.neatOptions
+    ),
+    environment,
+    strategy,
+    populationOptions: {
+      populationSize: DEFAULT_POPULATION_SIZE,
+      ...options.populationOptions,
+    },
+    ...(options.populationFactoryOptions != null
+      ? {
+          populationFactoryOptions:
+            options.populationFactoryOptions as EvolutionManagerConfig['populationFactoryOptions'],
+        }
+      : {}),
+    workerConfig: {
+      createEnvironmentPathname: modulePathnames.createEnvironmentPathname,
+      algorithmPathname: modulePathnames.algorithmPathname,
+      createExecutorPathname: modulePathnames.createExecutorPathname,
+      evaluatorWorkerScriptUrl: workerEvaluatorScriptUrl,
+      reproducerWorkerScriptUrl: workerReproducerScriptUrl,
+      threadCount: workerEvaluatorThreadLimit,
+    },
+  })
+}
+
+// --- Game creation ---
 
 export const createGame = async (
   size: number
@@ -116,20 +308,12 @@ export const createGame = async (
     settings.activation
   )
 
-  // Get module pathnames for the selected algorithm
-  const modulePathnames = getModulePathnamesForAlgorithm(settings.algorithm)
-
   // Closure container for game store (populated after store is created)
   const localGameStoreContainer: { $game?: GameStore } = {}
 
   // Create evolution manager with settings (and optional persisted population)
-  // When restoring from saved data, use the saved config to ensure consistency
-  const evolutionManager = new EvolutionManager({
+  const evolutionManager = createTictactoeEvolutionManager({
     algorithm: settings.algorithm,
-    modulePathnames,
-    workerEvaluatorScriptUrl,
-    workerReproducerScriptUrl,
-    // Use saved config if available, otherwise use defaults
     neatOptions:
       savedData?.populationData.config != null
         ? { ...savedData?.populationData.config }
@@ -142,7 +326,12 @@ export const createGame = async (
     },
     populationFactoryOptions: savedData?.populationData.factoryOptions,
     strategyOptions: {
-      onBestExecutorUpdate: (data) => {
+      onBestExecutorUpdate: (data: {
+        rating: number
+        rd: number
+        vol: number
+        fitness: number
+      }) => {
         const { $game } = localGameStoreContainer
         if ($game == null) return
 
@@ -189,7 +378,6 @@ export const createGame = async (
     // Restore committed snapshot from current population state
     if (savedData.committedSnapshot?.bestOrganismData != null) {
       const organism = evolutionManager.createOrganism(
-        settings.algorithm,
         savedData.committedSnapshot.bestOrganismData
       )
       const executor = evolutionManager.organismToExecutor(organism)
@@ -204,7 +392,6 @@ export const createGame = async (
     // Restore best snapshot from historical best
     if (savedData.bestSnapshot?.bestOrganismData != null) {
       const organism = evolutionManager.createOrganism(
-        settings.algorithm,
         savedData.bestSnapshot.bestOrganismData
       )
       const executor = evolutionManager.organismToExecutor(organism)
