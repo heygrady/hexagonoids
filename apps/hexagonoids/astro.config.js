@@ -1,11 +1,17 @@
 import path from 'node:path'
+
 import solid from '@astrojs/solid-js'
+import vercel from '@astrojs/vercel'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'astro/config'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://astro.build/config
 export default defineConfig({
   integrations: [solid()],
+  adapter: vercel({
+    analytics: true,
+  }),
   vite: {
     optimizeDeps: {
       include: ['async-sema'],
@@ -25,7 +31,13 @@ export default defineConfig({
         '@heygrady/tictactoe-game',
       ],
     },
-    plugins: [tailwindcss()],
+    plugins: [
+      tailwindcss(),
+      {
+        ...nodePolyfills(),
+        apply: 'serve', // Only apply in dev mode
+      },
+    ],
     build: {
       sourcemap: true,
       rollupOptions: {
