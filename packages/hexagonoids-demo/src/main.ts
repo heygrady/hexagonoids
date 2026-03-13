@@ -88,6 +88,17 @@ const usage = () => {
     `  --throttleEasing <name>                  Throttle penalty easing (${GATE_EASINGS.join('|')}, default: exp)`,
     '  --survivalGateFloor <float>              Min survival gate output (default: 0)',
     '',
+    'RL options:',
+    '  --rl <none|ac|ql>                        Enable RL plugin (default: none)',
+    '  --rlLearningRate <float>                 RL learning rate (default: 0.01)',
+    '  --rlRewardThreshold <float>              Reward threshold for rollout capture (default: 0.1)',
+    '  --rlActorActivation <sigmoid|softmax|tanh> Actor activation (AC only, default: softmax)',
+    '  --rlEpsilon <float>                      Initial epsilon for Q-learning (default: 0.3)',
+    '  --rlEpsilonDecay <float>                 Q-learning epsilon decay (default: 0.95)',
+    '  --rlEpsilonMin <float>                   Minimum epsilon for Q-learning (default: 0.01)',
+    '  --rlLamarckian                           Enable Lamarckian write-back (default)',
+    '  --rlDarwinian                            Disable write-back (Darwinian mode)',
+    '',
     'Lab options (also accepts common + training options):',
     `  <method>                                 ${SUPPORTED_ALGORITHMS.join(' | ')}`,
     '  --profile <path>                         Profile file (.json or .mjs)',
@@ -400,6 +411,70 @@ const parseSharedOption = (
       survivalGateFloor: readFloat(token, next),
     }
     return 1
+  }
+
+  if (token === '--rl') {
+    if (next == null) {
+      throw new Error(`Missing value for --rl.\n\n${usage()}`)
+    }
+    if (next === 'ac') {
+      options.rlMode = 'actor-critic'
+    } else if (next === 'ql') {
+      options.rlMode = 'q-learning'
+    } else if (next === 'none') {
+      options.rlMode = 'none'
+    } else {
+      throw new Error(`Invalid value for --rl.\n\n${usage()}`)
+    }
+    return 1
+  }
+
+  if (token === '--rlLearningRate') {
+    options.rlLearningRate = readFloat(token, next)
+    return 1
+  }
+
+  if (token === '--rlRewardThreshold') {
+    options.rlRewardThreshold = readFloat(token, next)
+    return 1
+  }
+
+  if (token === '--rlActorActivation') {
+    if (
+      next == null ||
+      !['sigmoid', 'softmax', 'tanh'].includes(next as string)
+    ) {
+      throw new Error(
+        'Invalid value for --rlActorActivation. Expected sigmoid|softmax|tanh.'
+      )
+    }
+    options.rlActorActivation = next as 'sigmoid' | 'softmax' | 'tanh'
+    return 1
+  }
+
+  if (token === '--rlEpsilon') {
+    options.rlEpsilon = readFloat(token, next)
+    return 1
+  }
+
+  if (token === '--rlEpsilonDecay') {
+    options.rlEpsilonDecay = readFloat(token, next)
+    return 1
+  }
+
+  if (token === '--rlEpsilonMin') {
+    options.rlEpsilonMin = readFloat(token, next)
+    return 1
+  }
+
+  if (token === '--rlLamarckian') {
+    options.rlIsLamarckian = true
+    return 0
+  }
+
+  if (token === '--rlDarwinian') {
+    options.rlIsLamarckian = false
+    return 0
   }
 
   return null

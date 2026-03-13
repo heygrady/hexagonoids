@@ -1,15 +1,17 @@
-import type { Environment } from '@neat-evolution/environment'
-import type { Evaluator } from '@neat-evolution/evaluator'
-import type { Executor, SyncExecutor } from '@neat-evolution/executor'
-import type { RNG } from '@neat-evolution/utils'
 import { createPopulation as createCPPNPopulation } from '@neat-evolution/cppn'
-import { createPopulation as createDESHyperNEATPopulation } from '@neat-evolution/des-hyperneat'
+import {
+  createPopulation as createDESHyperNEATPopulation,
+  defaultTopologyConfigOptions,
+} from '@neat-evolution/des-hyperneat'
+import type { Environment } from '@neat-evolution/environment'
 import { createPopulation as createESHyperNEATPopulation } from '@neat-evolution/es-hyperneat'
+import type { Evaluator } from '@neat-evolution/evaluator'
 import { defaultPopulationOptions } from '@neat-evolution/evolution'
+import type { Executor, SyncExecutor } from '@neat-evolution/executor'
 import { createPopulation as createHyperNEATPopulation } from '@neat-evolution/hyperneat'
 import { createPopulation as createNEATPopulation } from '@neat-evolution/neat'
+import type { RNG } from '@neat-evolution/utils'
 import { describe, expect, it } from 'vitest'
-
 import {
   type AlgorithmIO,
   createHexagonoidsCPPNGenomeOptions,
@@ -23,7 +25,6 @@ import {
   SUPPORTED_ALGORITHMS,
   type SupportedAlgorithm,
 } from '../src/algorithmRegistry.js'
-import { defaultTopologyConfigOptions } from '@neat-evolution/des-hyperneat'
 
 // --- Test-only stubs for creating populations without real workers ---
 

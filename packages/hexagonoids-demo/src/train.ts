@@ -10,19 +10,23 @@ import {
   randomAgent,
 } from '@heygrady/hexagonoids-environment'
 import { createEnvironment } from '@heygrady/hexagonoids-environment/node'
+import { ACPlugin } from '@neat-evolution/actor-critic-plugin'
 import { CPPNAlgorithm } from '@neat-evolution/cppn'
 import {
   DESHyperNEATAlgorithm,
   defaultTopologyConfigOptions,
 } from '@neat-evolution/des-hyperneat'
 import { ESHyperNEATAlgorithm } from '@neat-evolution/es-hyperneat'
+import type { AnyAlgorithm } from '@neat-evolution/evaluator'
 import { defaultEvolutionOptions } from '@neat-evolution/evolution'
 import {
+  type EvaluationConfig,
   EvolutionManager,
   type EvolutionManagerConfig,
 } from '@neat-evolution/evolution-manager'
 import { HyperNEATAlgorithm } from '@neat-evolution/hyperneat'
 import { NEATAlgorithm } from '@neat-evolution/neat'
+import { QLPlugin } from '@neat-evolution/q-learning-plugin'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
 import {
@@ -77,6 +81,15 @@ const toRunConfig = (options: TrainOptions) => {
     scenarioMode: options.scenarioMode ?? false,
     scenariosPerOrganism: options.scenariosPerOrganism ?? 64,
     scenarioMaxTicks: options.scenarioMaxTicks ?? 32,
+    rlMode: options.rlMode ?? 'none',
+    rlLearningRate: options.rlLearningRate ?? 0.01,
+    rlIsLamarckian: options.rlIsLamarckian ?? true,
+    rlRewardThreshold: options.rlRewardThreshold ?? 0.1,
+    rlActorActivation: options.rlActorActivation ?? 'softmax',
+    rlEpsilon: options.rlEpsilon ?? 0.3,
+    rlEpsilonDecay: options.rlEpsilonDecay ?? 0.95,
+    rlEpsilonMin: options.rlEpsilonMin ?? 0.01,
+    rlMultiDiscrete: options.rlMultiDiscrete ?? true,
   }
 }
 
@@ -111,6 +124,15 @@ export interface TrainOptions {
   fullGameWeight?: number | undefined
   scenarioSeedsPerOrganism?: number | undefined
   fullGameSeedsPerOrganism?: number | undefined
+  rlMode?: 'none' | 'actor-critic' | 'q-learning'
+  rlLearningRate?: number | undefined
+  rlIsLamarckian?: boolean | undefined
+  rlRewardThreshold?: number | undefined
+  rlActorActivation?: 'sigmoid' | 'softmax' | 'tanh' | undefined
+  rlEpsilon?: number | undefined
+  rlEpsilonDecay?: number | undefined
+  rlEpsilonMin?: number | undefined
+  rlMultiDiscrete?: boolean | undefined
 }
 
 export interface BaselineRunResult {
@@ -271,6 +293,52 @@ function algorithmConfig(method: SupportedAlgorithm): ErasedManagerConfig {
   }
 }
 
+function buildEvaluationConfig(
+  config: ReturnType<typeof toRunConfig>,
+  algorithm: AnyAlgorithm
+): EvaluationConfig | undefined {
+  if (config.rlMode === 'actor-critic') {
+    return {
+      type: 'plugin-augmentation',
+      plugins: [
+        new ACPlugin(
+          algorithm,
+          {
+            learningRate: config.rlLearningRate,
+            isLamarckian: config.rlIsLamarckian,
+            rolloutLength: 'episode',
+            rewardThreshold: config.rlRewardThreshold,
+            actorActivation: config.rlActorActivation,
+          },
+          Math.random
+        ),
+      ],
+    }
+  }
+  if (config.rlMode === 'q-learning') {
+    return {
+      type: 'plugin-augmentation',
+      plugins: [
+        new QLPlugin(
+          algorithm,
+          {
+            learningRate: config.rlLearningRate,
+            isLamarckian: config.rlIsLamarckian,
+            rolloutLength: 'episode',
+            rewardThreshold: config.rlRewardThreshold,
+            epsilon: config.rlEpsilon,
+            epsilonDecay: config.rlEpsilonDecay,
+            epsilonMin: config.rlEpsilonMin,
+            multiDiscrete: config.rlMultiDiscrete,
+          },
+          Math.random
+        ),
+      ],
+    }
+  }
+  return undefined
+}
+
 export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   const config = toRunConfig(options)
   const method = config.method
@@ -337,14 +405,21 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     buildEnvironmentOptions({ ...options, ...config }, scenarioBank)
   )
 
+  const algorithmDetails = algorithmConfig(method)
+  const evaluation = buildEvaluationConfig(
+    config,
+    algorithmDetails.algorithm as AnyAlgorithm
+  )
+
   const manager = new EvolutionManager({
-    ...algorithmConfig(method),
+    ...algorithmDetails,
     environment,
     strategy: new MultiSeedGenerationStrategy(
       config.evaluationSeedsPerOrganism,
       config.baseSeed,
       mean
     ),
+    ...(evaluation != null ? { evaluation } : {}),
     evolutionOptions: {
       iterations: config.iterations,
       secondsLimit: config.secondsLimit,

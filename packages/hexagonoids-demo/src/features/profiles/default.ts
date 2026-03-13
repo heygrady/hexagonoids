@@ -16,7 +16,7 @@ const defaultProfile: TrainingProfile = {
       actionLow: 0.1,
       actionHigh: 0.9,
       actionEasing: 'exp',
-      turnGateFloor: 0.6,
+      turnGateFloor: 0.01,
       turnLow: 0.1,
       turnHigh: 0.75,
       turnEasing: 'exp',
