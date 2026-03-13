@@ -232,10 +232,13 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
           description,
           toFactoryOptions: () => envConfig,
         },
-        strategy: new MultiSeedGenerationStrategy(
-          evaluationSeedsPerOrganism,
-          config.evaluationBaseSeed ?? 'observe-training'
-        ),
+        evaluation: {
+          type: 'strategy',
+          strategy: new MultiSeedGenerationStrategy(
+            evaluationSeedsPerOrganism,
+            config.evaluationBaseSeed ?? 'observe-training'
+          ),
+        },
         evolutionOptions: {
           iterations,
           afterEvaluateInterval: 1,
