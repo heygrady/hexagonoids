@@ -2,20 +2,13 @@
 import Canvas from '../../components/Canvas.astro'
 import Layout from '../../layouts/Layout.astro'
 
-export const prerender = false
+export function getStaticPaths() {
+  return ['play', 'observe', 'record', 'playback', 'spawn-debug'].map(
+    (mode) => ({ params: { mode } })
+  )
+}
 
 const { mode } = Astro.params
-const validModes = new Set([
-  'play',
-  'observe',
-  'record',
-  'playback',
-  'spawn-debug',
-] as const)
-
-if (mode == null || !validModes.has(mode as never)) {
-  return Astro.redirect('/')
-}
 ---
 
 <Layout title={`Hexagonoids - ${mode}`}>
