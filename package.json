@@ -63,6 +63,7 @@
   },
   "resolutions": {
     "@neat-evolution/backprop": "portal:../../packages/backprop",
+    "@neat-evolution/actor-critic-plugin": "portal:../../packages/actor-critic-plugin",
     "@neat-evolution/core": "portal:../../packages/core",
     "@neat-evolution/cppn": "portal:../../packages/cppn",
     "@neat-evolution/des-hyperneat": "portal:../../packages/des-hyperneat",
@@ -74,6 +75,7 @@
     "@neat-evolution/executor": "portal:../../packages/executor",
     "@neat-evolution/hyperneat": "portal:../../packages/hyperneat",
     "@neat-evolution/neat": "portal:../../packages/neat",
+    "@neat-evolution/q-learning-plugin": "portal:../../packages/q-learning-plugin",
     "@neat-evolution/utils": "portal:../../packages/utils",
     "@neat-evolution/worker-actions": "portal:../../packages/worker-actions",
     "@neat-evolution/worker-evaluator": "portal:../../packages/worker-evaluator",
