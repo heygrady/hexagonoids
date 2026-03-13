@@ -85,6 +85,7 @@ export function simulateCurriculumScenario(
   const visitedBuckets = new Set<number>()
   let prevScore = 0
   let prevLives = trackedPlayer?.lives ?? 0
+  let episodeReturn = 0
 
   let tick = 0
   for (; tick < maxTicks; tick++) {
@@ -209,6 +210,7 @@ export function simulateCurriculumScenario(
     if (newBullets > 0) {
       reward -= newBullets * rewardConfig.shotPenalty
     }
+    episodeReturn += reward
 
     const transitionInfo: TransitionInfo = {}
     if (runtime?.situationClass != null) {
@@ -265,6 +267,7 @@ export function simulateCurriculumScenario(
         steps: tick,
         terminated,
       }) ?? 0,
+    episodeReturn,
     totalSteps: tick,
     terminated,
     metadata: episodeMetadata,

@@ -122,6 +122,7 @@ export function simulateGame(
   const visitedBuckets = new Set<number>()
   let prevScore = trackedPlayer?.score ?? 0
   let prevLives = trackedPlayer?.lives ?? 0
+  let episodeReturn = 0
 
   // 4. Game loop
   let tick = 0
@@ -243,6 +244,7 @@ export function simulateGame(
     if (waveChanged) {
       reward += rewardConfig.waveBonus
     }
+    episodeReturn += reward
 
     const transitionInfo: TransitionInfo = {}
     if (runtime?.situationClass != null) {
@@ -300,6 +302,7 @@ export function simulateGame(
   if (controller) {
     const episodeResult: EpisodeResult = {
       fitness,
+      episodeReturn,
       totalSteps: tick,
       terminated,
       metadata: episodeMetadata,
