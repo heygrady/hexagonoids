@@ -29,6 +29,8 @@ export default defineConfig({
         '@neat-evolution/executor',
         '@heygrady/tictactoe-environment',
         '@heygrady/tictactoe-game',
+        '@heygrady/hexagonoids-environment',
+        '@heygrady/hexagonoids-engine',
       ],
     },
     plugins: [
@@ -55,9 +57,13 @@ export default defineConfig({
             if (
               id.includes('@neat-evolution') ||
               id.includes('@heygrady/tictactoe') ||
+              id.includes('@heygrady/hexagonoids-engine') ||
+              id.includes('@heygrady/hexagonoids-environment') ||
               id.includes('@heygrady/tournament') ||
               // Match local monorepo packages by folder path
               id.includes('/packages/tictactoe-') ||
+              id.includes('/packages/hexagonoids-engine') ||
+              id.includes('/packages/hexagonoids-environment') ||
               id.includes('/packages/tournament-strategy')
             ) {
               // Chunk by package name only (not per-file) to prevent
@@ -65,7 +71,9 @@ export default defineConfig({
               // Match npm package names OR local package folder names
               const match =
                 id.match(/@(?:neat-evolution|heygrady)\/([^/]+)/) ||
-                id.match(/\/packages\/(tictactoe-[^/]+|tournament-strategy)\//)
+                id.match(
+                  /\/packages\/(tictactoe-[^/]+|hexagonoids-engine|hexagonoids-environment|tournament-strategy)\//
+                )
               return match ? `neat-${match[1]}` : null
             }
           },
