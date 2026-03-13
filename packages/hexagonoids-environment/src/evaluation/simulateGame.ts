@@ -5,6 +5,11 @@ import {
   ROCK_WAVE_SIZES,
   startPlayer,
 } from '@heygrady/hexagonoids-engine'
+import type {
+  EpisodeInfo,
+  EpisodeResult,
+  TransitionInfo,
+} from '@neat-evolution/environment'
 
 import type { AgentContext, AgentFn, SyncExecutor } from '../agents/types.js'
 import { MEMORY_ROCK_PERCEPTION } from '../agents/types.js'
@@ -14,9 +19,38 @@ import {
   type SimulationConfig,
 } from '../HexagonoidsEnvironmentConfig.js'
 import { yawToBearing } from '../utils/sphericalBearing.js'
+import type { EpisodeAgentBridge } from './EpisodeAgentBridge.js'
 import { findBucketXYZ } from './icosahedralBuckets.js'
 import type { RawMetrics } from './RawMetrics.js'
 import { createMetricsCollector } from './RawMetrics.js'
+
+export interface RewardConfig {
+  survivalReward: number
+  scoreScale: number
+  shotPenalty: number
+  deathPenalty: number
+  waveBonus: number
+}
+
+export const DEFAULT_REWARD_CONFIG: RewardConfig = {
+  survivalReward: 0.005,
+  scoreScale: 0.001,
+  shotPenalty: 0.002,
+  deathPenalty: -1,
+  waveBonus: 0.05,
+}
+
+export interface SimulationEpisodeRuntime {
+  controller?: EpisodeAgentBridge
+  episodeInfo?: EpisodeInfo
+  situationClass?: number | undefined
+  rewardConfig?: RewardConfig
+  metadata?: Record<string, unknown>
+  onEpisodeComplete?: (
+    metrics: RawMetrics,
+    context: { steps: number; terminated: boolean }
+  ) => number
+}
 
 const PLAYER_ID = 'player-1'
 /**
@@ -29,11 +63,24 @@ export function simulateGame(
   agent: AgentFn,
   config: Partial<SimulationConfig>,
   seed: string,
-  executor?: SyncExecutor
+  executor?: SyncExecutor,
+  runtime?: SimulationEpisodeRuntime
 ): RawMetrics {
   const { maxTicks, dtMs, useFastThrust } = {
     ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation,
     ...config,
+  }
+  const rewardConfig = runtime?.rewardConfig ?? DEFAULT_REWARD_CONFIG
+  const controller = runtime?.controller
+  const episodeInfo: EpisodeInfo =
+    runtime?.episodeInfo ??
+    ({
+      episodeIndex: 0,
+      type: 'full-game',
+    } as const)
+  const episodeMetadata = runtime?.metadata ?? { seed }
+  if (controller) {
+    controller.startEpisode(episodeInfo)
   }
 
   // 1. Create game
@@ -73,6 +120,8 @@ export function simulateGame(
   let lastBucketZ = 0
   let lastBucketIdx = -1
   const visitedBuckets = new Set<number>()
+  let prevScore = trackedPlayer?.score ?? 0
+  let prevLives = trackedPlayer?.lives ?? 0
 
   // 4. Game loop
   let tick = 0
@@ -163,6 +212,57 @@ export function simulateGame(
     if (newBullets > 0) {
       collector.addShotsFired(newBullets)
     }
+
+    // Reward + metadata plumbing for RL agents
+    const livePlayer = trackedPlayer ?? state.players.get(PLAYER_ID)
+    const liveShip =
+      livePlayer?.shipId != null
+        ? state.ships.get(livePlayer.shipId)
+        : undefined
+    const scoreNow = livePlayer?.score ?? prevScore
+    const scoreDelta = scoreNow - prevScore
+    prevScore = scoreNow
+    const livesNow = livePlayer?.lives ?? prevLives
+    const lifeDelta = livesNow - prevLives
+    prevLives = livesNow
+    const waveChanged = state.wave > waveBefore
+
+    let reward = 0
+    if (liveShip?.alive) {
+      reward += rewardConfig.survivalReward
+    }
+    if (scoreDelta !== 0) {
+      reward += scoreDelta * rewardConfig.scoreScale
+    }
+    if (lifeDelta < 0) {
+      reward += rewardConfig.deathPenalty * Math.abs(lifeDelta)
+    }
+    if (newBullets > 0) {
+      reward -= newBullets * rewardConfig.shotPenalty
+    }
+    if (waveChanged) {
+      reward += rewardConfig.waveBonus
+    }
+
+    const transitionInfo: TransitionInfo = {}
+    if (runtime?.situationClass != null) {
+      transitionInfo.situationClass = runtime.situationClass
+    }
+    if (scoreDelta > 0 || lifeDelta < 0 || waveChanged) {
+      transitionInfo.isInteresting = true
+    }
+
+    const isFinalStep =
+      state.endedAt != null || tick >= maxTicks - 1 || livesNow <= 0
+    if (controller) {
+      if (
+        transitionInfo.isInteresting ||
+        transitionInfo.situationClass != null
+      ) {
+        controller.transitionInfo(transitionInfo)
+      }
+      controller.reward(reward, isFinalStep)
+    }
   }
 
   // Final distance update
@@ -179,7 +279,7 @@ export function simulateGame(
   // 7. Return collected metrics
   collector.setUniqueCellsVisited(visitedBuckets.size)
 
-  return collector.getMetrics({
+  const metrics = collector.getMetrics({
     score: player?.score ?? 0,
     livesRemaining: player?.lives ?? 0,
     timeAlive: state.now,
@@ -187,4 +287,25 @@ export function simulateGame(
     wavesSpawned: state.wave,
     elapsedTicks: tick,
   })
+
+  const terminated =
+    (player?.lives ?? 0) <= 0 ||
+    (state.endedAt != null && player?.alive === false)
+  const fitness =
+    runtime?.onEpisodeComplete?.(metrics, {
+      steps: tick,
+      terminated,
+    }) ?? 0
+
+  if (controller) {
+    const episodeResult: EpisodeResult = {
+      fitness,
+      totalSteps: tick,
+      terminated,
+      metadata: episodeMetadata,
+    }
+    controller.endEpisode(episodeResult)
+  }
+
+  return metrics
 }
