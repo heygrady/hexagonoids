@@ -1,8 +1,8 @@
-import { describe, test, expect } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
-import {
-  type GlickoFitnessWeights,
-  type GlickoScoreComponents,
+import type {
+  GlickoFitnessWeights,
+  GlickoScoreComponents,
 } from '../../src/GlickoStrategyOptions.js'
 import { glickoFitnessCalculator } from '../../src/score/glickoFitnessCalculator.js'
 
@@ -178,7 +178,6 @@ describe('Component Calculation Logic', () => {
         environmentScore: 0.6,
         glickoScore: 0.7,
         conservativeScore: 0.4,
-        innovationScore: 0.2,
       }
 
       const fitness = glickoFitnessCalculator(components, weights)

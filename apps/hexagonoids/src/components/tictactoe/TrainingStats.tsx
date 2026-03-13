@@ -58,33 +58,33 @@ export function TrainingStats() {
   }
 
   return (
-    <div class='relative'>
-      <div class='absolute top-2 right-2 z-10'>
+    <div class="relative">
+      <div class="absolute top-2 right-2 z-10">
         <SettingsPanel />
       </div>
-      <div class='stats shadow w-full bg-base-200'>
+      <div class="stats shadow w-full bg-base-200">
         {/* Opponent Status */}
-        <div class='stat'>
-          <div class='stat-title'>Opponent</div>
-          <div class='stat-value text-secondary'>
+        <div class="stat">
+          <div class="stat-title">Opponent</div>
+          <div class="stat-value text-secondary">
             Gen {game().opponent?.generation ?? 0}
           </div>
-          <div class='stat-desc'>
+          <div class="stat-desc">
             {ratingDisplay()}Fitness:{' '}
             {(game().opponent?.fitness ?? 0).toFixed(2)}
           </div>
         </div>
 
         {/* Training Status */}
-        <div class='stat'>
-          <div class='stat-title'>
+        <div class="stat">
+          <div class="stat-title">
             {isTraining() ? 'Training' : 'Next Opponent'}
           </div>
-          <div class='stat-value text-accent'>
+          <div class="stat-value text-accent">
             {displayedGeneration()?.generation ?? 0}
             {isTraining() ? '' : ` / ${maxGeneration()}`}
           </div>
-          <div class='stat-desc'>
+          <div class="stat-desc">
             Fitness: {(displayedGeneration()?.fitness ?? 0).toFixed(2)} | Best:{' '}
             {(game().best?.fitness ?? 0).toFixed(2)}
           </div>

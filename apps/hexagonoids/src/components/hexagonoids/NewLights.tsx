@@ -7,8 +7,8 @@ import { cellToLatLng, latLngToCell } from 'h3-js'
 import {
   type Component,
   createContext,
-  onCleanup,
   type JSX,
+  onCleanup,
   useContext,
 } from 'solid-js'
 
@@ -103,6 +103,7 @@ export const CameraLighting: Component<CameraLightingProps> = (props) => {
   const MATERIAL_UPDATE_THROTTLE = 16 // ~60fps, throttle material updates to reduce GPU pressure
 
   onBeforeRender(() => {
+    // spotlightPositionNode.computeWorldMatrix(true)
     const position = spotlightPositionNode.absolutePosition
     const location = vector3ToLatLng(position)
     const cell = latLngToCell(location[0], location[1], 2)

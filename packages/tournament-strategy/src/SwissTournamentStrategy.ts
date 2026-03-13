@@ -4,9 +4,9 @@ import type {
 } from '@neat-evolution/evaluation-strategy'
 import type {
   AnyGenome,
+  FitnessData,
   GenomeEntries,
   GenomeEntry,
-  FitnessData,
 } from '@neat-evolution/evaluator'
 import { shuffle, threadRNG } from '@neat-evolution/utils'
 
@@ -16,14 +16,14 @@ import { evaluateIndividually } from './evaluate/evaluateIndividually.js'
 import { defaultFitnessCalculator } from './score/defaultFitnessCalculator.js'
 import { convertToMatchScores } from './swiss/convertToMatchScores.js'
 import type {
-  SwissTournamentStrategyOptions,
   PlayerScore,
   ScoreComponents,
+  SwissTournamentStrategyOptions,
 } from './types.js'
 
-export class SwissTournamentStrategy<
-  G extends AnyGenome<G>,
-> implements EvaluationStrategy<G> {
+export class SwissTournamentStrategy<G extends AnyGenome>
+  implements EvaluationStrategy<G>
+{
   public readonly options: SwissTournamentStrategyOptions<G>
   private readonly fillerIds = new Set<number>()
 
@@ -427,7 +427,7 @@ export class SwissTournamentStrategy<
       const avgEnvironmentScore = totalScore / totalGames
       const normalizedEnvScore = (avgEnvironmentScore - minScore) / scoreRange
 
-      if (isNaN(normalizedEnvScore)) {
+      if (Number.isNaN(normalizedEnvScore)) {
         throw new Error(`Invalid environment score for entry ${entryId}`)
       }
 

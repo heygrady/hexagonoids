@@ -1,8 +1,8 @@
 // Based on https://doc.babylonjs.com/communityExtensions/Babylon.js+ExternalLibraries/BabylonJS_and_ReactJS
 
 import type { AbstractEngineOptions } from '@babylonjs/core/Engines/abstractEngine.js'
-import { Scene } from '@babylonjs/core/scene'
 import type { SceneOptions } from '@babylonjs/core/scene'
+import { Scene } from '@babylonjs/core/scene'
 import { createVisibilityObserver } from '@solid-primitives/intersection-observer'
 import {
   type Component,
@@ -20,7 +20,8 @@ import { SceneContext, type SceneContextValue } from './SceneContext'
 export type ReadyCallback = (scene: Scene) => void
 export type VisibilityChangeCallback = (scene: Scene, visible: boolean) => void
 
-export interface SceneCanvasProps extends JSX.CanvasHTMLAttributes<HTMLCanvasElement> {
+export interface SceneCanvasProps
+  extends JSX.CanvasHTMLAttributes<HTMLCanvasElement> {
   antialias?: boolean
   engineOptions?: AbstractEngineOptions
   adaptToDeviceRatio?: boolean
@@ -139,8 +140,9 @@ export const SceneCanvas: Component<SceneCanvasProps> = (props) => {
           console.log('Attempting WebGPU initialization...')
           try {
             // Lazy load WebGPUEngine only when needed
-            const { WebGPUEngine } =
-              await import('@babylonjs/core/Engines/webgpuEngine.js')
+            const { WebGPUEngine } = await import(
+              '@babylonjs/core/Engines/webgpuEngine.js'
+            )
             const webGPUSupported = await WebGPUEngine.IsSupportedAsync
 
             if (webGPUSupported) {

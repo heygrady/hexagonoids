@@ -3,24 +3,24 @@ import type {
   InteractiveGame,
 } from '@heygrady/tictactoe-demo'
 import { Glicko2 } from 'glicko2'
-import { map, type MapStore } from 'nanostores'
+import { type MapStore, map } from 'nanostores'
 
 import {
-  GLICKO_SETTINGS,
   DEFAULT_PLAYER_GLICKO_DATA,
+  GLICKO_SETTINGS,
 } from '../../constants/glickoSettings.js'
 import { createBoardStore } from '../board/BoardStore.js'
 import { PlayerToken } from '../player/PlayerState.js'
 import type { SettingsStore } from '../settings/SettingsStore.js'
 
-import { GameStatus, type GameState, EvolutionStatus } from './GameState.js'
+import { EvolutionStatus, type GameState, GameStatus } from './GameState.js'
 
 export type GameStore = MapStore<GameState>
 
 export const createGameStore = (
   size: number,
   interactiveGame: InteractiveGame,
-  evolutionManager: EvolutionManager<any>,
+  evolutionManager: EvolutionManager,
   $settings: SettingsStore
 ): GameStore => {
   if (size < 3) {

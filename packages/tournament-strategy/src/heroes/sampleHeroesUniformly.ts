@@ -11,7 +11,7 @@ import type { HeroGenome } from './types.js'
  * @param {number} maxActiveHeroes - Maximum number of heroes to sample
  * @returns {Array<HeroGenome<G>>} Array of sampled heroes
  */
-export function sampleHeroesUniformly<G extends AnyGenome<G>>(
+export function sampleHeroesUniformly<G extends AnyGenome>(
   generationalHeroes: Map<number, HeroGenome<G>>,
   maxActiveHeroes: number
 ): Array<HeroGenome<G>> {

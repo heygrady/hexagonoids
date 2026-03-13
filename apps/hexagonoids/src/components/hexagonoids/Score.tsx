@@ -1,57 +1,61 @@
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
-import { type Component, createRenderEffect, onCleanup } from 'solid-js'
+import { useGameState } from '@heygrady/hexagonoids-engine/solid'
+import { type Component, onCleanup } from 'solid-js'
 
-import { onBeforeRender } from '../solid-babylon/hooks/onBeforeRender'
 import { useScene } from '../solid-babylon/hooks/useScene'
 
+import { DEFAULT_PLAYER_ID } from './constants'
 import { createLivesNode, updateLives } from './hud/createLivesNode'
 import { createScoreNodes, updateScore } from './hud/createScoreNodes'
-import { usePlayer } from './KeyboardPlayer'
 import { useUI } from './UI'
+
+const PLAYER_ID = DEFAULT_PLAYER_ID
 
 export const Score: Component = () => {
   const scene = useScene()
-  const [$player] = usePlayer()
+  const engine = useGameState()
   const hudNode = useUI()
-
   let scoreNode: TransformNode | null = null
   let livesNode: TransformNode | null = null
-  let prevScore = 0
-  let prevLives = 0
-
-  let prevStartedAt: number | null = null
+  let prevScore = -1
+  let prevLives = -1
   let started = false
 
-  createRenderEffect(() => {
-    const { score, lives } = $player.get()
-    prevScore = score
-    prevLives = lives
+  // Create HUD nodes
+  scoreNode = createScoreNodes(scene, '0')
+  scoreNode.scaling.setAll(0.1)
+  scoreNode.position = new Vector3(1.03, 0, -0.45)
+  scoreNode.parent = hudNode
 
-    scoreNode = createScoreNodes(scene, String(score))
-    scoreNode.scaling.setAll(0.1)
-    scoreNode.position = new Vector3(1.03, 0, -0.45)
+  livesNode = createLivesNode(scene, 0)
+  livesNode.position = new Vector3(1.05, 0, -0.35)
+  livesNode.parent = hudNode
 
-    livesNode = createLivesNode(scene, lives)
-    livesNode.position = new Vector3(1.05, 0, -0.35)
-
-    // place the score in the hud
-    scoreNode.parent = hudNode
-    livesNode.parent = hudNode
+  // Hide initially until game starts
+  scoreNode.getChildMeshes().forEach((mesh) => {
+    mesh.isVisible = false
+  })
+  livesNode.getChildMeshes().forEach((mesh) => {
+    mesh.isVisible = false
   })
 
-  // Update the HUD elements with the current score and lives
-  onBeforeRender(() => {
-    const { score, lives, startedAt } = $player.get()
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    const player = engine.state.players.get(PLAYER_ID)
+    const playerStartedAt = player?.startedAt
 
-    if (startedAt == null) {
+    if (playerStartedAt == null) {
       scoreNode?.getChildMeshes().forEach((mesh) => {
         mesh.isVisible = false
       })
       livesNode?.getChildMeshes().forEach((mesh) => {
         mesh.isVisible = false
       })
-    } else if (!started) {
+      started = false
+      return
+    }
+
+    if (!started) {
       started = true
       scoreNode?.getChildMeshes().forEach((mesh) => {
         mesh.isVisible = true
@@ -61,27 +65,25 @@ export const Score: Component = () => {
       })
     }
 
-    if (
-      (score !== prevScore || prevStartedAt !== startedAt) &&
-      scoreNode != null
-    ) {
-      updateScore(scoreNode, String(score))
-      prevScore = score
-      prevStartedAt = startedAt
+    const currentScore = player?.score ?? 0
+    const currentLives = player?.lives ?? 0
+
+    if (currentScore !== prevScore && scoreNode != null) {
+      updateScore(scoreNode, String(currentScore))
+      prevScore = currentScore
     }
-    if (
-      (lives !== prevLives || prevStartedAt !== startedAt) &&
-      livesNode != null
-    ) {
-      updateLives(livesNode, lives)
-      prevLives = lives
-      prevStartedAt = startedAt
+    if (currentLives !== prevLives && livesNode != null) {
+      updateLives(livesNode, currentLives)
+      prevLives = currentLives
     }
   })
+
   onCleanup(() => {
+    scene.onBeforeRenderObservable.remove(observer)
     ;[scoreNode, livesNode].forEach((node) => {
       node?.dispose()
     })
   })
+
   return null
 }

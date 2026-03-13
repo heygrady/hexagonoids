@@ -1,0 +1,29 @@
+---
+import Canvas from '../../components/Canvas.astro'
+import Layout from '../../layouts/Layout.astro'
+
+export function getStaticPaths() {
+  return ['play', 'observe', 'record', 'playback', 'spawn-debug'].map(
+    (mode) => ({ params: { mode } })
+  )
+}
+
+const { mode } = Astro.params
+---
+
+<Layout title={`Hexagonoids - ${mode}`}>
+  <main class="container m-auto">
+    <div class="max-w-screen-xl m-auto mb-10">
+      <Canvas
+        debug={false}
+        enableWebGPU={true}
+        initialAppMode={mode as
+          | 'play'
+          | 'observe'
+          | 'record'
+          | 'playback'
+          | 'spawn-debug'}
+      />
+    </div>
+  </main>
+</Layout>

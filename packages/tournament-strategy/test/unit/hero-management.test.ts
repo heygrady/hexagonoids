@@ -1,4 +1,5 @@
-import { describe, test, expect } from 'vitest'
+import type { GenomeEntry } from '@neat-evolution/evaluator'
+import { describe, expect, test } from 'vitest'
 
 import { toId } from '../../src/entities/toId.js'
 
@@ -17,7 +18,7 @@ describe('Hero Management Logic', () => {
 
       for (let i = 0; i < maxActiveHeroes; i++) {
         const idx = Math.round(i * step)
-        sampled.push(allHeroes[idx])
+        sampled.push(allHeroes[idx]!)
       }
 
       expect(sampled.length).toBe(20)
@@ -28,7 +29,7 @@ describe('Hero Management Logic', () => {
 
       // Check spacing is approximately uniform
       for (let i = 1; i < sampled.length; i++) {
-        const spacing = sampled[i] - sampled[i - 1]
+        const spacing = sampled[i]! - sampled[i - 1]!
         // Spacing should be approximately step ± 1
         expect(spacing).toBeGreaterThanOrEqual(Math.floor(step) - 1)
         expect(spacing).toBeLessThanOrEqual(Math.ceil(step) + 1)
@@ -157,8 +158,16 @@ describe('Hero Management Logic', () => {
       const maxSpecies = 5
       const maxOrganism = 99
 
-      const hero1 = [maxSpecies + 100_000, maxOrganism + 100_000 + 0, {}]
-      const hero2 = [maxSpecies + 100_000, maxOrganism + 100_000 + 1, {}]
+      const hero1 = [
+        maxSpecies + 100_000,
+        maxOrganism + 100_000 + 0,
+        {},
+      ] as GenomeEntry<any>
+      const hero2 = [
+        maxSpecies + 100_000,
+        maxOrganism + 100_000 + 1,
+        {},
+      ] as GenomeEntry<any>
 
       const id1 = toId(hero1)
       const id2 = toId(hero2)
@@ -210,9 +219,9 @@ describe('Hero Management Logic', () => {
       expect(heroSpeciesIndices.every((s) => s === 100_005)).toBe(true)
 
       // Organism indices should increment by 1
-      expect(heroes[0][1]).toBe(100_099)
-      expect(heroes[1][1]).toBe(100_100)
-      expect(heroes[2][1]).toBe(100_101)
+      expect(heroes[0]![1]).toBe(100_099)
+      expect(heroes[1]![1]).toBe(100_100)
+      expect(heroes[2]![1]).toBe(100_101)
     })
   })
 
@@ -258,9 +267,9 @@ describe('Hero Management Logic', () => {
         { generation: -3, data: 'hero2' },
       ]
 
-      expect(initialHeroes[0].generation).toBe(-1)
-      expect(initialHeroes[1].generation).toBe(-2)
-      expect(initialHeroes[2].generation).toBe(-3)
+      expect(initialHeroes[0]!.generation).toBe(-1)
+      expect(initialHeroes[1]!.generation).toBe(-2)
+      expect(initialHeroes[2]!.generation).toBe(-3)
     })
 
     test('evolved heroes should use non-negative generation numbers', () => {
@@ -270,9 +279,9 @@ describe('Hero Management Logic', () => {
         { generation: 2, data: 'gen2' },
       ]
 
-      expect(evolvedHeroes[0].generation).toBeGreaterThanOrEqual(0)
-      expect(evolvedHeroes[1].generation).toBeGreaterThanOrEqual(0)
-      expect(evolvedHeroes[2].generation).toBeGreaterThanOrEqual(0)
+      expect(evolvedHeroes[0]!.generation).toBeGreaterThanOrEqual(0)
+      expect(evolvedHeroes[1]!.generation).toBeGreaterThanOrEqual(0)
+      expect(evolvedHeroes[2]!.generation).toBeGreaterThanOrEqual(0)
     })
 
     test('should support thousands of generations', () => {

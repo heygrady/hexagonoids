@@ -1,12 +1,12 @@
 import {
+  calculateNormalizationBounds,
   createEnvironment,
   type TicTacToeEnvironmentConfig,
-  calculateNormalizationBounds,
 } from '@heygrady/tictactoe-environment'
 import {
+  type GlickoObservedRanges,
   // SwissTournamentStrategy,
   GlickoStrategy,
-  type GlickoObservedRanges,
   type HeroGenome,
   // type FitnessCalculator,
 } from '@heygrady/tournament-strategy'
@@ -18,36 +18,35 @@ import {
 } from '@neat-evolution/cppn'
 import {
   DESHyperNEATAlgorithm,
-  deshyperneat,
   defaultDESHyperNEATGenomeOptions,
   defaultTopologyConfigOptions,
+  deshyperneat,
 } from '@neat-evolution/des-hyperneat'
 import {
+  defaultESHyperNEATGenomeOptions,
   ESHyperNEATAlgorithm,
   eshyperneat,
-  defaultESHyperNEATGenomeOptions,
 } from '@neat-evolution/es-hyperneat'
-import type { AnyGenome } from '@neat-evolution/evaluator'
 import {
-  type EvolutionOptions,
-  type ReproducerFactory,
   defaultEvolutionOptions,
   defaultPopulationOptions,
+  type EvolutionOptions,
+  type ReproducerFactory,
 } from '@neat-evolution/evolution'
 import {
+  defaultHyperNEATGenomeOptions,
   HyperNEATAlgorithm,
   hyperneat,
-  defaultHyperNEATGenomeOptions,
 } from '@neat-evolution/hyperneat'
 import {
+  defaultNEATGenomeOptions,
   NEATAlgorithm,
   neat,
-  defaultNEATGenomeOptions,
 } from '@neat-evolution/neat'
 import { WorkerEvaluator } from '@neat-evolution/worker-evaluator'
 import {
-  type Terminable,
   createReproducerFactory,
+  type Terminable,
 } from '@neat-evolution/worker-reproducer'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
@@ -78,7 +77,7 @@ enum Methods {
 
 const method = Methods.NEAT
 
-const createReproducer: ReproducerFactory<any, any> = createReproducerFactory(
+const createReproducer: ReproducerFactory<any> = createReproducerFactory(
   {
     threadCount: workerThreadLimit,
     enableCustomState: (method as unknown) === Methods.DES_HyperNEAT,
@@ -161,7 +160,7 @@ export const demo = async () => {
     // initialHeroes: await loadInitialHeroes(),
     normalizationRanges,
     // heroPoolRatio: 0.0,
-    onHeroesUpdated: (heroes: Array<HeroGenome<AnyGenome<any>>>) => {
+    onHeroesUpdated: (heroes: Array<HeroGenome<any>>) => {
       const [bestHero] = heroes
       if (bestHero == null) return
       const heroRating = bestHero[1].rating ?? 0

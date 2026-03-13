@@ -1,5 +1,7 @@
 import { Vector2 } from '@babylonjs/core/Maths/math.vector'
-import { type InstancedMesh } from '@babylonjs/core/Meshes/instancedMesh'
+// Side-effect import: registers Mesh.createInstance()
+import '@babylonjs/core/Meshes/instancedMesh'
+import type { InstancedMesh } from '@babylonjs/core/Meshes/instancedMesh'
 import type { Mesh } from '@babylonjs/core/Meshes/mesh'
 import { PolygonMeshBuilder } from '@babylonjs/core/Meshes/polygonMesh'
 import type { Scene } from '@babylonjs/core/scene'
@@ -21,6 +23,10 @@ export const SHIP_HOLE_POLYGON = [
   new Vector2(-16, -14),
 ]
 
+// Module-level singleton: InstancedMesh requires its source (master) mesh to
+// remain alive for the lifetime of all instances, so shipMaster cannot be
+// scoped to a factory closure. It persists across HMR reloads in dev —
+// see work-01-app-structure.md for the known limitation.
 let shipMaster: Mesh | null = null
 
 /**

@@ -140,12 +140,19 @@ dist
 !.yarn/versions
 .turbo
 
+# Session recordings (dev only)
+apps/hexagonoids/.data/
+
 packages/tictactoe-demo/tmp
 packages/tictactoe-demo/best*.json
 
 # AI assistant config
 devlogs/
+.devlogs/
 .claude
 .gemini
 CLAUDE.md
 GEMINI.md
+
+*.cpuprofile
+.artifacts/

@@ -1,16 +1,16 @@
 import type { AnyGenome, GenomeEntry } from '@neat-evolution/evaluator'
 
 import type {
-  NormalizationRange,
   GlickoNormalizationRanges,
   GlickoObservedRanges,
   GlickoSettings,
+  NormalizationRange,
 } from './glicko/types.js'
-import type { HeroGenome, GlickoPersistenceData } from './heroes/types.js'
+import type { GlickoPersistenceData, HeroGenome } from './heroes/types.js'
 import type {
-  GlickoScoreComponents,
   GlickoFitnessCalculator,
   GlickoFitnessWeights,
+  GlickoScoreComponents,
 } from './score/types.js'
 
 // Re-export types for external consumers
@@ -29,7 +29,7 @@ export type {
 /**
  * Options for configuring the GlickoStrategy.
  */
-export interface GlickoStrategyOptions<G extends AnyGenome<G>> {
+export interface GlickoStrategyOptions<G extends AnyGenome> {
   matchPlayerSize: number
   individualSeeding: boolean
   /**

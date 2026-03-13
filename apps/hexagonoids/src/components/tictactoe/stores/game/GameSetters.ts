@@ -1,8 +1,8 @@
 import { action } from 'nanostores'
-import type { OmitFirstArg } from 'nanostores/action'
+import type { OmitFirstArg } from '../../../../types/nanostores.js'
 
 import { resetBoard } from '../board/BoardSetters.js'
-import { type PlayerToken } from '../player/PlayerState.js'
+import type { PlayerToken } from '../player/PlayerState.js'
 import type { PlayerStore } from '../player/PlayerStore.js'
 
 import type {

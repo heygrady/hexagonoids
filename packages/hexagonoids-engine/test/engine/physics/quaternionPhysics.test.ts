@@ -1,0 +1,211 @@
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
+import { describe, expect, it } from 'vitest'
+import {
+  latLngToQuaternion,
+  latLngToVector3,
+  quaternionToLatLng,
+  quaternionToLatLngFast,
+  vector3ToLatLng,
+} from '../../../src/features/engine/physics/latLng.js'
+import {
+  applyAngularFriction,
+  clampAngularVelocity,
+  getPositionFromQuaternion,
+  headingToAngularVelocity,
+  integrateAngularVelocity,
+  integrateAngularVelocityFast,
+} from '../../../src/index.js'
+
+describe('getPositionFromQuaternion', () => {
+  it('returns (0, radius, 0) for identity quaternion', () => {
+    const pos = getPositionFromQuaternion(Quaternion.Identity(), 5)
+    expect(pos.x).toBeCloseTo(0, 5)
+    expect(pos.y).toBeCloseTo(5, 5)
+    expect(pos.z).toBeCloseTo(0, 5)
+  })
+
+  it('returns a point on the sphere surface at the correct radius', () => {
+    const q = Quaternion.RotationAxis(Vector3.Right(), Math.PI / 2)
+    const pos = getPositionFromQuaternion(q, 5)
+    expect(pos.length()).toBeCloseTo(5, 5)
+  })
+})
+
+describe('integrateAngularVelocity', () => {
+  it('returns the same quaternion for zero angular velocity', () => {
+    const q = Quaternion.Identity()
+    const result = integrateAngularVelocity(q, Vector3.Zero(), 1)
+    expect(result.x).toBeCloseTo(q.x, 10)
+    expect(result.y).toBeCloseTo(q.y, 10)
+    expect(result.z).toBeCloseTo(q.z, 10)
+    expect(result.w).toBeCloseTo(q.w, 10)
+  })
+
+  it('produces orientation change for non-zero angular velocity', () => {
+    const q = Quaternion.Identity()
+    const omega = new Vector3(0, 0, 1) // rotate around Z axis at 1 rad/s
+    const result = integrateAngularVelocity(q, omega, 0.1)
+    // Should differ from identity
+    expect(
+      Math.abs(result.x) + Math.abs(result.y) + Math.abs(result.z)
+    ).toBeGreaterThan(0.001)
+  })
+
+  it('results in a normalized quaternion', () => {
+    const q = Quaternion.Identity()
+    const omega = new Vector3(1, 0.5, 0.3)
+    const result = integrateAngularVelocity(q, omega, 0.5)
+    const len = Math.sqrt(
+      result.x ** 2 + result.y ** 2 + result.z ** 2 + result.w ** 2
+    )
+    expect(len).toBeCloseTo(1, 5)
+  })
+
+  it('fast integrator matches quaternion integrator across representative states', () => {
+    const scenarios = [
+      {
+        q: Quaternion.Identity(),
+        omega: new Vector3(0.5, 0.1, -0.2),
+        dt: 0.016,
+      },
+      {
+        q: latLngToQuaternion(32, -74),
+        omega: new Vector3(-0.3, 0.4, 0.15),
+        dt: 0.1,
+      },
+      {
+        q: latLngToQuaternion(-68, 121),
+        omega: new Vector3(0.2, -0.6, 0.45),
+        dt: 0.033,
+      },
+    ]
+
+    for (const { q, omega, dt } of scenarios) {
+      const a = integrateAngularVelocity(q, omega, dt)
+      const b = integrateAngularVelocityFast(q, omega, dt)
+      expect(a.x).toBeCloseTo(b.x, 6)
+      expect(a.y).toBeCloseTo(b.y, 6)
+      expect(a.z).toBeCloseTo(b.z, 6)
+      expect(a.w).toBeCloseTo(b.w, 6)
+    }
+  })
+})
+
+describe('applyAngularFriction', () => {
+  it('reduces velocity magnitude by the expected decay factor', () => {
+    const v = new Vector3(1, 0, 0)
+    const friction = 0.35
+    const dt = 1 // 1 second
+    const result = applyAngularFriction(v, friction, dt)
+    // Expected: exp(-0.35 * 1) ≈ 0.7047
+    expect(result.length()).toBeCloseTo(Math.exp(-friction * dt), 5)
+  })
+
+  it('returns zero-length vector for zero velocity', () => {
+    const v = new Vector3(0, 0, 0)
+    const result = applyAngularFriction(v, 0.35, 1)
+    expect(result.length()).toBeCloseTo(0, 10)
+  })
+
+  it('does not change direction, only magnitude', () => {
+    const v = new Vector3(0, 0, 2)
+    const result = applyAngularFriction(v, 0.35, 0.016)
+    expect(result.x).toBeCloseTo(0, 10)
+    expect(result.y).toBeCloseTo(0, 10)
+    expect(result.z).toBeGreaterThan(0)
+  })
+})
+
+describe('clampAngularVelocity', () => {
+  it('does not change velocity below max speed', () => {
+    const v = new Vector3(0.1, 0, 0)
+    const result = clampAngularVelocity(v, 1)
+    expect(result.x).toBeCloseTo(0.1, 5)
+  })
+
+  it('clamps velocity above max speed', () => {
+    const v = new Vector3(2, 0, 0)
+    const result = clampAngularVelocity(v, 1)
+    expect(result.length()).toBeCloseTo(1, 5)
+  })
+})
+
+describe('headingToAngularVelocity', () => {
+  it('returns zero vector for zero speed', () => {
+    const result = headingToAngularVelocity(Quaternion.Identity(), 0, 0)
+    expect(result.length()).toBeCloseTo(0, 5)
+  })
+
+  it('returns angular velocity with correct magnitude', () => {
+    const result = headingToAngularVelocity(Quaternion.Identity(), 0, 1)
+    expect(result.length()).toBeCloseTo(1, 3)
+  })
+})
+
+describe('lat/lng round-trip', () => {
+  it('quaternionToLatLng returns (90, 0) for identity quaternion', () => {
+    // Identity quaternion → up vector → lat 90, lng 0
+    const [lat, lng] = quaternionToLatLng(Quaternion.Identity())
+    expect(lat).toBeCloseTo(90, 3)
+    expect(lng).toBeCloseTo(0, 3)
+  })
+
+  it('vector3ToLatLng and latLngToVector3 round-trip', () => {
+    const lat = 30
+    const lng = -60
+    const v = latLngToVector3(lat, lng, 5)
+    const [lat2, lng2] = vector3ToLatLng(v)
+    expect(lat2).toBeCloseTo(lat, 3)
+    expect(lng2).toBeCloseTo(lng, 3)
+  })
+
+  it('latLngToVector3 produces a vector at the correct radius', () => {
+    const v = latLngToVector3(45, 90, 10)
+    expect(v.length()).toBeCloseTo(10, 5)
+  })
+
+  it('latLngToQuaternion aligns forward with geographic east at non-zero longitude', () => {
+    const lat = 0
+    const lng = 45
+    const q = latLngToQuaternion(lat, lng)
+
+    const worldForward = Vector3.Forward()
+      .applyRotationQuaternion(q)
+      .normalize()
+    const east = new Vector3(
+      -Math.sin((lng * Math.PI) / 180),
+      0,
+      Math.cos((lng * Math.PI) / 180)
+    )
+
+    expect(Vector3.Dot(worldForward, east)).toBeCloseTo(1, 6)
+  })
+
+  it('latLngToQuaternion keeps up aligned to the surface normal', () => {
+    const lat = 30
+    const lng = -120
+    const q = latLngToQuaternion(lat, lng)
+
+    const worldUp = Vector3.Up().applyRotationQuaternion(q).normalize()
+    const expectedUp = latLngToVector3(lat, lng, 1).normalize()
+
+    expect(Vector3.Dot(worldUp, expectedUp)).toBeCloseTo(1, 6)
+  })
+
+  it('quaternionToLatLngFast matches quaternionToLatLng', () => {
+    const quaternions = [
+      Quaternion.Identity(),
+      latLngToQuaternion(0, 0),
+      latLngToQuaternion(45, 10),
+      latLngToQuaternion(-35, 130),
+      latLngToQuaternion(80, -150),
+    ]
+
+    for (const q of quaternions) {
+      const [latA, lngA] = quaternionToLatLng(q)
+      const [latB, lngB] = quaternionToLatLngFast(q)
+      expect(latB).toBeCloseTo(latA, 6)
+      expect(lngB).toBeCloseTo(lngA, 6)
+    }
+  })
+})

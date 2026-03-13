@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/solid'
-import { For } from 'solid-js'
 import type { Component } from 'solid-js'
+import { For } from 'solid-js'
 
 import { Cell } from './Cell.js'
 import { subscribeBoard } from './hooks/useBoard.js'
@@ -32,10 +32,10 @@ export const TicTacToeBoard: Component<TicTacToeBoardProps> = (props) => {
   return (
     <div
       id={props.id}
-      class='relative w-full'
+      class="relative w-full"
       style={{ 'padding-bottom': '100%' }}
     >
-      <div class='flex flex-wrap border-separate border-spacing-0 w-full absolute inset-0'>
+      <div class="flex flex-wrap border-separate border-spacing-0 w-full absolute inset-0">
         <For each={board().cells}>
           {(cell, index) => (
             <Cell
@@ -56,15 +56,15 @@ export const TicTacToeBoard: Component<TicTacToeBoardProps> = (props) => {
       </div>
 
       {game().gameOutcome !== undefined && (
-        <div class='absolute inset-0 bg-white/50 flex flex-col gap-4 items-center justify-center rounded'>
-          <p class='text-6xl'>
+        <div class="absolute inset-0 bg-white/50 flex flex-col gap-4 items-center justify-center rounded">
+          <p class="text-6xl">
             {game().gameOutcome === 'win'
               ? '🎉'
               : game().gameOutcome === 'loss'
                 ? '🤖'
                 : '🤝'}
           </p>
-          <p class='text-lg font-semibold'>
+          <p class="text-lg font-semibold">
             {game().gameOutcome === 'win'
               ? 'You win!'
               : game().gameOutcome === 'loss'
@@ -75,19 +75,19 @@ export const TicTacToeBoard: Component<TicTacToeBoardProps> = (props) => {
       )}
 
       {game().isWaitingForEvolution && (
-        <div class='absolute inset-0 bg-white/80 flex flex-col gap-4 items-center justify-center rounded z-10'>
-          <div class='flex flex-col items-center gap-2'>
-            <span class='loading loading-spinner loading-lg text-primary' />
-            <p class='text-lg font-bold text-base-content'>Training...</p>
+        <div class="absolute inset-0 bg-white/80 flex flex-col gap-4 items-center justify-center rounded z-10">
+          <div class="flex flex-col items-center gap-2">
+            <span class="loading loading-spinner loading-lg text-primary" />
+            <p class="text-lg font-bold text-base-content">Training...</p>
           </div>
         </div>
       )}
 
       {game().operationStatus !== undefined && (
-        <div class='absolute inset-0 bg-white/80 flex flex-col gap-4 items-center justify-center rounded z-10'>
-          <div class='flex flex-col items-center gap-2'>
-            <span class='loading loading-spinner loading-lg text-primary' />
-            <p class='text-lg font-bold text-base-content'>
+        <div class="absolute inset-0 bg-white/80 flex flex-col gap-4 items-center justify-center rounded z-10">
+          <div class="flex flex-col items-center gap-2">
+            <span class="loading loading-spinner loading-lg text-primary" />
+            <p class="text-lg font-bold text-base-content">
               {game().operationStatus === 'resetting'
                 ? 'Resetting...'
                 : 'Switching...'}

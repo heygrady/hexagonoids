@@ -16,7 +16,7 @@ export function AutoPlayControl() {
   }
 
   return (
-    <div class='flex justify-end min-h-[2rem]'>
+    <div class="flex justify-end min-h-[2rem]">
       <Show when={game().autoPlay || game().isWaitingForEvolution}>
         <button
           onClick={handleToggleAutoPlay}

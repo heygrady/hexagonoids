@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { boardToKey, keyToBoard, type Board } from '../src/board/ticTacToe.js'
+import { type Board, boardToKey, keyToBoard } from '../src/board/ticTacToe.js'
 
 describe('boardToKey', () => {
   test('boardToKey -> keyToBoard', () => {

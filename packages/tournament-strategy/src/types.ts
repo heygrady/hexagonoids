@@ -1,6 +1,6 @@
 import type { AnyGenome } from '@neat-evolution/evaluator'
 
-import type { ScoreComponents, FitnessCalculator } from './score/types.js'
+import type { FitnessCalculator, ScoreComponents } from './score/types.js'
 
 // Re-export types for external consumers
 export type { ScoreComponents, FitnessCalculator }
@@ -8,7 +8,7 @@ export type { ScoreComponents, FitnessCalculator }
 /**
  * Configuration options for Swiss Tournament Strategy.
  */
-export interface SwissTournamentStrategyOptions<G extends AnyGenome<G>> {
+export interface SwissTournamentStrategyOptions<G extends AnyGenome> {
   /** Number of players per match (default: 2) */
   matchPlayerSize?: number
   /** Number of tournament rounds (default: ceil(log2(populationSize))) */

@@ -12,13 +12,14 @@ import {
   type TopologyConfigOptions,
 } from '@neat-evolution/des-hyperneat'
 import {
-  evolve as neatEvolve,
-  type EvolutionOptions,
   defaultEvolutionOptions,
   defaultPopulationOptions,
+  type EvolutionOptions,
+  evolve as neatEvolve,
+  Organism,
+  type Population,
   type PopulationOptions,
   type ReproducerFactory,
-  Organism,
 } from '@neat-evolution/evolution'
 import { createExecutor, type SyncExecutor } from '@neat-evolution/executor'
 import { createEvaluator } from '@neat-evolution/worker-evaluator'
@@ -29,8 +30,8 @@ import {
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
 import {
-  getAlgorithmDefinition,
   allActivations,
+  getAlgorithmDefinition,
   type SupportedAlgorithm,
 } from './algorithmRegistry.js'
 import {
@@ -39,9 +40,9 @@ import {
   normalizationRanges,
 } from './configDefaults.js'
 import { ModulePathnameKey, type ModulePathnames } from './modulePathnames.js'
-import type { AnyAlgorithm, AnyGenome, AnyPopulation } from './types.js'
+import type { AnyAlgorithm } from './types.js'
 
-export { type SupportedAlgorithm } from './algorithmRegistry.js'
+export type { SupportedAlgorithm } from './algorithmRegistry.js'
 
 const workerEvaluatorThreadLimit = Math.floor(hardwareConcurrency - 1)
 const workerReproducerThreadLimit = Math.floor(hardwareConcurrency - 1)
@@ -104,14 +105,14 @@ export interface EvolutionManagerConfig {
  * await manager.terminate()
  * ```
  */
-export class EvolutionManager<G extends AnyGenome<G>> {
+export class EvolutionManager {
   /** Current population */
-  population: AnyPopulation<G>
+  population: Population<any>
 
   /** Current algorithm type */
   private algorithmType: SupportedAlgorithm
   /** Algorithm instance */
-  private algorithm: AnyAlgorithm<G>
+  private algorithm: AnyAlgorithm
 
   /** Terminable resources (workers) */
   private readonly terminables = new Set<Terminable>()
@@ -143,7 +144,7 @@ export class EvolutionManager<G extends AnyGenome<G>> {
     this.algorithmType = config.algorithm
 
     const definition = getAlgorithmDefinition(config.algorithm)
-    this.algorithm = definition.algorithm as AnyAlgorithm<G>
+    this.algorithm = definition.algorithm
 
     this.modulePathnames = config.modulePathnames
 
@@ -190,7 +191,10 @@ export class EvolutionManager<G extends AnyGenome<G>> {
     configGenomeOptions?: any
   ) {
     const definition = getAlgorithmDefinition(algorithm)
-    const algorithmDefaults = definition.defaultGenomeOptions
+    const algorithmDefaults = definition.defaultGenomeOptions as Record<
+      string,
+      unknown
+    >
 
     let activationOptions: any
     if (definition.usesCPPNActivations) {
@@ -219,23 +223,22 @@ export class EvolutionManager<G extends AnyGenome<G>> {
   /**
    * Create population with current configuration.
    * @private
-   * @returns {AnyPopulation<any>} The created population
+   * @returns {Population<any>} The created population
    */
-  private createPopulationInternal(): AnyPopulation<G> {
+  private createPopulationInternal(): Population<any> {
     // Create reproducer with terminables tracking
-    const createReproducer: ReproducerFactory<any, any> =
-      createReproducerFactory(
-        {
-          algorithmPathname: this.modulePathnames[ModulePathnameKey.ALGORITHM],
-          threadCount: workerReproducerThreadLimit,
-          enableCustomState: this.algorithmType === 'DES-HyperNEAT',
-          // Only include workerScriptUrl if defined (exactOptionalPropertyTypes compatibility)
-          ...(this.workerReproducerScriptUrl != null && {
-            workerScriptUrl: this.workerReproducerScriptUrl,
-          }),
-        },
-        this.terminables
-      )
+    const createReproducer: ReproducerFactory<any> = createReproducerFactory(
+      {
+        algorithmPathname: this.modulePathnames[ModulePathnameKey.ALGORITHM],
+        threadCount: workerReproducerThreadLimit,
+        enableCustomState: this.algorithmType === 'DES-HyperNEAT',
+        // Only include workerScriptUrl if defined (exactOptionalPropertyTypes compatibility)
+        ...(this.workerReproducerScriptUrl != null && {
+          workerScriptUrl: this.workerReproducerScriptUrl,
+        }),
+      },
+      this.terminables
+    )
 
     // Merge with provided config
     const finalEnvironmentConfig = {
@@ -273,7 +276,7 @@ export class EvolutionManager<G extends AnyGenome<G>> {
       }),
       verbose: false, // DEBUG: Enable verbose logging for worker pool
     })
-    this.terminables.add(evaluator as any)
+    this.terminables.add(evaluator)
 
     const definition = getAlgorithmDefinition(this.algorithmType)
     return definition.createPopulation(createReproducer, evaluator, {
@@ -388,7 +391,7 @@ export class EvolutionManager<G extends AnyGenome<G>> {
     if (config?.algorithm != null && config.algorithm !== this.algorithmType) {
       this.algorithmType = config.algorithm
       const definition = getAlgorithmDefinition(config.algorithm)
-      this.algorithm = definition.algorithm as AnyAlgorithm<G>
+      this.algorithm = definition.algorithm
 
       // Algorithm change requires module pathnames
       if (config.modulePathnames == null) {

@@ -14,7 +14,7 @@ import { toId } from '../entities/toId.js'
  * @param {Set<number>} fillerIds - Set of filler IDs
  * @returns {GenomeEntry<G>} A new genome entry with synthetic IDs
  */
-export function createMangledHeroEntry<G extends AnyGenome<G>>(
+export function createMangledHeroEntry<G extends AnyGenome>(
   originalEntry: GenomeEntry<G>,
   heroIndex: number,
   genomeEntriesMap: Map<number, GenomeEntry<G>>,

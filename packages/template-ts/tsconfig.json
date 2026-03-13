@@ -1,4 +1,7 @@
 {
-    "extends": "@heygrady/tsconfig-bases/ts-node-esm/tsconfig.json",
-    "include": ["src", "test"]
+  "extends": "@heygrady/tsconfig-bases/ts-node-esm/tsconfig.json",
+  "compilerOptions": {
+    "noPropertyAccessFromIndexSignature": false
+  },
+  "include": ["src", "test"]
 }

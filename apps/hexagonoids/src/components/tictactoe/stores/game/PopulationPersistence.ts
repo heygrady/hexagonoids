@@ -1,10 +1,10 @@
 import type { SupportedAlgorithm } from '@heygrady/tictactoe-demo'
 import type { Activation } from '@neat-evolution/core'
-import { get, set, del } from 'idb-keyval'
+import { del, get, set } from 'idb-keyval'
 
 import type {
-  SerializableGenerationSnapshot,
   RuntimeGenerationSnapshot,
+  SerializableGenerationSnapshot,
 } from './GameState.js'
 
 const POPULATION_STORAGE_PREFIX = 'tictactoe-population'

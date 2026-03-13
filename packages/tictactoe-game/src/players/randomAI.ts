@@ -1,9 +1,9 @@
 import { threadRNG } from '@neat-evolution/utils'
 
 import {
+  type Board,
   getCandidateMoves,
   getValidMoves,
-  type Board,
   type Player,
 } from '../board/ticTacToe.js'
 

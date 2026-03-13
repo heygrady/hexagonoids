@@ -30,7 +30,8 @@
     "build": "yarn clean && concurrently --timings --prefix --names \"cjs,esm,tsc\" \"yarn build:cjs\" \"yarn build:esm\" \"yarn build:types\"",
     "build:cjs": "yarn prebuild:cjs && swc src -d dist/cjs --strip-leading-paths --source-maps --copy-files -C module.type=commonjs",
     "build:esm": "swc src -d dist/esm --strip-leading-paths --source-maps --copy-files -C module.type=es6",
-    "build:types": "tsc --declaration --emitDeclarationOnly --project tsconfig.types.json --outDir dist/types",
+    "build:types": "tsgo --declaration --emitDeclarationOnly --project tsconfig.types.json --outDir dist/types",
+    "check": "tsgo --noEmit",
     "clean": "rimraf dist coverage",
     "coverage": "vitest --coverage",
     "debug": "yarn build && nodemon --exec 'node --inspect=0.0.0.0:9229 ./dist/esm/index.js'",
@@ -39,38 +40,30 @@
     "dev:cjs": "yarn prebuild:cjs && swc --watch src -d dist/cjs --strip-leading-paths --source-maps --copy-files -C module.type=commonjs",
     "dev:esm": "swc --watch src -d dist/esm --strip-leading-paths --source-maps --copy-files -C module.type=es6",
     "dev:types": "tsc --watch --declaration --emitDeclarationOnly --project tsconfig.types.json --outDir dist/types",
-    "format": "eslint \"**/*.{md,cjs,mjs,js,jsx,cts,.ts,ts,tsx,json}\" --fix",
-    "lint": "eslint \"**/*.{md,cjs,mjs,js,jsx,cts,.ts,ts,tsx,json}\"",
-    "prebuild:cjs": "mkdir -p dist/cjs && echo '{\"type\":\"commonjs\",\"main\":\"./index.js\"}' >> dist/cjs/package.json",
-    "precommit": "lint-staged",
+    "format": "biome check --write",
+    "lint": "biome lint",
+    "prebuild:cjs": "mkdir -p dist/cjs && echo '{\"type\":\"commonjs\",\"main\":\"./index.js\"}' > dist/cjs/package.json",
     "test": "vitest --run --passWithNoTests",
     "test:dev": "vitest"
   },
   "dependencies": {
-    "@babylonjs/core": "^8.37.3",
-    "@swc/helpers": "^0.5.17",
+    "@babylonjs/core": "^8.52.0",
+    "@swc/helpers": "^0.5.19",
     "h3-js": "^4.1.0"
   },
   "devDependencies": {
-    "@heygrady/eslint-config": "^1.7.0",
+    "@biomejs/biome": "^2.4.2",
     "@heygrady/tsconfig-bases": "^1.0.7",
     "@swc/cli": "^0.7.9",
     "@swc/core": "^1.15.3",
-    "@types/prettier": "^2",
     "@types/rimraf": "^4",
+    "@typescript/native-preview": "latest",
     "@vitest/coverage-v8": "^4.0.14",
     "concurrently": "^9.2.1",
-    "eslint": "^9.39.1",
-    "lint-staged": "^15.1.0",
     "rimraf": "^5.0.5",
-    "turbo": "^2.6.1",
+    "turbo": "^2.8.16",
     "typescript": "^5.9.3",
     "vitest": "^4.0.14"
-  },
-  "lint-staged": {
-    "*.{md,cjs,mjs,js,jsx,cts,.ts,ts,tsx,json}": [
-      "eslint --fix"
-    ]
   },
   "browserslist": [
     "node >=16"

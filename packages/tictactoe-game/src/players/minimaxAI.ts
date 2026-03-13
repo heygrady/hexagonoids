@@ -3,14 +3,15 @@ import QuickLRU from 'quick-lru'
 
 import { reorientBoard } from '../board/reorientBoard.js'
 import {
+  type Board,
   boardToKey,
   checkState,
   getValidMoves,
-  type Board,
   type Player,
 } from '../board/ticTacToe.js'
 
 import type { PlayerMove, PlayerOptions } from './types.js'
+
 // Re-import reorientBoard for the optimization
 
 // This cache (Transposition Table) is the key to performance.

@@ -1,8 +1,8 @@
 import { useStore } from '@nanostores/solid'
 
 import {
-  bindBoardSetters,
   type BoardSetters,
+  bindBoardSetters,
 } from '../stores/board/BoardSetters.js'
 import type { BoardStore } from '../stores/board/BoardStore'
 

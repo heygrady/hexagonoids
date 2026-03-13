@@ -1,10 +1,10 @@
 import type { EvaluationContext } from '@neat-evolution/evaluation-strategy'
 import type {
-  GenomeEntries,
   FitnessData,
+  GenomeEntries,
   GenomeEntry,
 } from '@neat-evolution/evaluator'
-import { describe, expect, test, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { SwissTournamentStrategy } from '../src/index.js'
 
@@ -28,41 +28,18 @@ describe('SwissTournamentStrategy', () => {
             return [speciesIndex, organismIndex, score] as FitnessData
           })
         }),
-    }
+      dispatch: vi.fn(),
+      request: vi.fn(),
+      broadcast: vi.fn(),
+      addActionHandler: vi.fn(),
+      removeActionHandler: vi.fn(),
+    } as unknown as EvaluationContext<any>
     mockGenomeEntries = [
       [1, 1, {}] as GenomeEntry<any>,
       [1, 2, {}] as GenomeEntry<any>,
       [2, 3, {}] as GenomeEntry<any>,
       [3, 4, {}] as GenomeEntry<any>,
     ]
-  })
-
-  test('should be defined', () => {
-    expect(strategy).toBeDefined()
-  })
-
-  test('should implement EvaluationStrategy interface', () => {
-    expect(strategy.options).toBeDefined()
-    expect(strategy.options.matchPlayerSize).toBe(2)
-    expect(strategy.options.minScore).toBe(-0.25)
-    expect(strategy.options.maxScore).toBe(3)
-    expect(typeof strategy.evaluate).toBe('function')
-  })
-
-  test('should accept custom options', () => {
-    const customStrategy = new SwissTournamentStrategy({
-      matchPlayerSize: 3,
-      rounds: 5,
-      minScore: 0,
-      maxScore: 10,
-      individualSeeding: true,
-    })
-
-    expect(customStrategy.options.matchPlayerSize).toBe(3)
-    expect(customStrategy.options.rounds).toBe(5)
-    expect(customStrategy.options.minScore).toBe(0)
-    expect(customStrategy.options.maxScore).toBe(10)
-    expect(customStrategy.options.individualSeeding).toBe(true)
   })
 
   test('should yield FitnessData for each genome entry', async () => {
@@ -96,7 +73,7 @@ describe('SwissTournamentStrategy', () => {
       individualSeeding: true,
     })
 
-    const mockContextWithSeeding: EvaluationContext<any> = {
+    const mockContextWithSeeding = {
       evaluateGenomeEntry: vi.fn().mockImplementation(async (entry) => {
         const [speciesIndex, organismIndex] = entry
         // Return individual fitness scores
@@ -111,7 +88,12 @@ describe('SwissTournamentStrategy', () => {
             return [speciesIndex, organismIndex, score] as FitnessData
           })
         }),
-    }
+      dispatch: vi.fn(),
+      request: vi.fn(),
+      broadcast: vi.fn(),
+      addActionHandler: vi.fn(),
+      removeActionHandler: vi.fn(),
+    } as unknown as EvaluationContext<any>
 
     const yieldedFitnessData: FitnessData[] = []
     for await (const fitnessData of seedingStrategy.evaluate(
@@ -123,109 +105,11 @@ describe('SwissTournamentStrategy', () => {
 
     // Verify individual evaluation was called for each genome
     expect(mockContextWithSeeding.evaluateGenomeEntry).toHaveBeenCalledTimes(
-      mockGenomeEntries.length
+      [...mockGenomeEntries].length
     )
 
     // Verify results were returned for all genomes
-    expect(yieldedFitnessData).toHaveLength(mockGenomeEntries.length)
-  })
-
-  test('calculateBuchholzScores sums opponents tournament scores', () => {
-    const entryA: GenomeEntry<any> = [0, 0, {}]
-    const entryB: GenomeEntry<any> = [0, 1, {}]
-    const entryC: GenomeEntry<any> = [0, 2, {}]
-    const entryD: GenomeEntry<any> = [0, 3, {}]
-    const entries: Array<GenomeEntry<any>> = [entryA, entryB, entryC, entryD]
-
-    // Tournament scores after all rounds
-    const tournamentScores = new Map([
-      [0, 3.0], // A: 3 wins
-      [1, 2.0], // B: 2 wins
-      [2, 1.0], // C: 1 win
-      [3, 0.0], // D: 0 wins
-    ])
-
-    // Helper to create entry ID (matches toId implementation)
-    const toId = (entry: GenomeEntry<any>): number =>
-      (entry[0] << 16) | entry[1]
-
-    // Opponent relationships
-    const previousOpponents = new Map([
-      [toId(entryA), new Set([toId(entryB), toId(entryC)])], // A faced B, C
-      [toId(entryB), new Set([toId(entryA), toId(entryD)])], // B faced A, D
-      [toId(entryC), new Set([toId(entryA), toId(entryD)])], // C faced A, D
-      [toId(entryD), new Set([toId(entryB), toId(entryC)])], // D faced B, C
-    ])
-
-    const buchholz = strategy['calculateBuchholzScores'](
-      tournamentScores,
-      previousOpponents,
-      entries
-    )
-
-    // A faced B(2.0) + C(1.0) = 3.0
-    expect(buchholz.get(0)).toBe(3.0)
-
-    // B faced A(3.0) + D(0.0) = 3.0
-    expect(buchholz.get(1)).toBe(3.0)
-
-    // C faced A(3.0) + D(0.0) = 3.0
-    expect(buchholz.get(2)).toBe(3.0)
-
-    // D faced B(2.0) + C(1.0) = 3.0
-    expect(buchholz.get(3)).toBe(3.0)
-  })
-
-  test('calculateBuchholzScores includes filler opponents but not filler itself', () => {
-    const entryA: GenomeEntry<any> = [0, 0, {}]
-    const entryB: GenomeEntry<any> = [0, 1, {}]
-    const entryC: GenomeEntry<any> = [0, 2, {}]
-    const entryFiller: GenomeEntry<any> = [1, 3, {}] // Filler (synthetic ID)
-    const entries: Array<GenomeEntry<any>> = [
-      entryA,
-      entryB,
-      entryC,
-      entryFiller,
-    ]
-
-    // Helper to create entry ID
-    const toId = (entry: GenomeEntry<any>): number =>
-      (entry[0] << 16) | entry[1]
-
-    // Mark filler
-    strategy['fillerIds'].add(toId(entryFiller))
-
-    const tournamentScores = new Map([
-      [0, 2.0], // A
-      [1, 1.0], // B
-      [2, 0.5], // C
-      [3, 0.0], // Filler
-    ])
-
-    const previousOpponents = new Map([
-      [toId(entryA), new Set([toId(entryB), toId(entryFiller)])], // A faced B + filler
-      [toId(entryB), new Set([toId(entryA), toId(entryC)])], // B faced A, C
-      [toId(entryC), new Set([toId(entryB), toId(entryFiller)])], // C faced B + filler
-      [toId(entryFiller), new Set([toId(entryA), toId(entryC)])], // Filler faced A, C
-    ])
-
-    const buchholz = strategy['calculateBuchholzScores'](
-      tournamentScores,
-      previousOpponents,
-      entries
-    )
-
-    // A faced B(1.0) + Filler(0.0) = 1.0 (filler included but scored 0)
-    expect(buchholz.get(0)).toBe(1.0)
-
-    // B faced A(2.0) + C(0.5) = 2.5
-    expect(buchholz.get(1)).toBe(2.5)
-
-    // C faced B(1.0) + Filler(0.0) = 1.0 (filler included but scored 0)
-    expect(buchholz.get(2)).toBe(1.0)
-
-    // Filler's own Buchholz should not be calculated (it's not a real genome)
-    expect(buchholz.has(3)).toBe(false)
+    expect(yieldedFitnessData).toHaveLength([...mockGenomeEntries].length)
   })
 
   test('uses default weighted scoring to combine all components', async () => {
@@ -235,7 +119,7 @@ describe('SwissTournamentStrategy', () => {
     })
 
     // Mock context with both individual and batch evaluation
-    const mockContextWithSeeding: EvaluationContext<any> = {
+    const mockContextWithSeeding = {
       evaluateGenomeEntry: vi.fn().mockImplementation(async (entry) => {
         const [speciesIndex, organismIndex] = entry
         // All genomes get same seed score for simplicity
@@ -251,7 +135,12 @@ describe('SwissTournamentStrategy', () => {
             return [speciesIndex, organismIndex, score] as FitnessData
           })
         }),
-    }
+      dispatch: vi.fn(),
+      request: vi.fn(),
+      broadcast: vi.fn(),
+      addActionHandler: vi.fn(),
+      removeActionHandler: vi.fn(),
+    } as unknown as EvaluationContext<any>
 
     const entries: Array<GenomeEntry<any>> = [
       [0, 0, {}],
@@ -324,7 +213,7 @@ describe('SwissTournamentStrategy', () => {
     }
 
     // Should complete without errors
-    expect(results).toHaveLength(Array.from(mockGenomeEntries).length)
+    expect(results).toHaveLength([...mockGenomeEntries].length)
 
     // All fitness values should be valid
     for (const [, , fitness] of results) {

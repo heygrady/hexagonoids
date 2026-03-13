@@ -1,28 +1,32 @@
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { Node } from '@babylonjs/core/node'
+import { restartGame } from '@heygrady/hexagonoids-engine'
+import { useGameOver, useGameState } from '@heygrady/hexagonoids-engine/solid'
 import { type Component, onCleanup } from 'solid-js'
 
-import { onAfterRender } from '../solid-babylon/hooks/onAfterRender'
 import { useScene } from '../solid-babylon/hooks/useScene'
 
 import { getCommonMaterial } from './common/commonMaterial'
-import { useGame } from './hooks/useGame'
+import { DEFAULT_PLAYER_ID, RADIUS } from './constants'
+import { useInputs } from './engine/useInputBridge'
 import { createTextMesh } from './hud/createTextMesh'
-import { usePlayer } from './KeyboardPlayer'
+import { useCamera } from './ShipCamera'
 import { getYawPitch } from './ship/getYawPitch'
 import { moveNodeTo } from './ship/orientation'
-import { useCamera } from './ShipCamera'
 import { useUI } from './UI'
 
 const allowedKeys = new Set<string>([' ', 'Spacebar'])
 
+const PLAYER_ID = DEFAULT_PLAYER_ID
+
 export const EndScreen: Component = () => {
   const scene = useScene()
-  const [$game, { start }] = useGame()
-  const [$player] = usePlayer()
+  const engine = useGameState()
+  const inputs = useInputs()
   const hudNode = useUI()
   const { originNode: cameraOriginNode } = useCamera()
+  const gameOver = useGameOver(engine)
 
   const disposables = new Set<Node>()
 
@@ -30,7 +34,6 @@ export const EndScreen: Component = () => {
     emissiveColor: Color3.White(),
   })
 
-  // before the game starts
   const line1 = createTextMesh(scene, 'Game Over')
   line1.scaling.setAll(0.2)
   line1.parent = hudNode
@@ -67,34 +70,52 @@ export const EndScreen: Component = () => {
     if (!allowedKeys.has(event.key)) {
       return
     }
-    const now = Date.now()
-    const endedAt = $game.get().endedAt
+    event.preventDefault()
 
-    // wait a second before restarting
-    if (endedAt != null && now - endedAt < 1000) {
+    // Wait a second before allowing restart
+    const endedAt = engine.state.endedAt
+    if (endedAt != null && engine.state.now - endedAt < 1000) {
       return
     }
 
     hideScreen()
-    start($player, scene)
-    const shipPositionNode = $player.get().$ship?.get().positionNode
-    if (shipPositionNode != null) {
-      const [yaw, pitch] = getYawPitch(shipPositionNode.absolutePosition)
-      moveNodeTo(cameraOriginNode, yaw, pitch)
+
+    // Restart via engine — restartGame resets all state (wave, entities, etc.)
+    // in one batch so SolidJS sees the final state atomically.
+    inputs.reset()
+    engine.mutate((state) => {
+      restartGame(state, PLAYER_ID, engine.rng)
+    })
+
+    // Move camera to the new ship position
+    const player = engine.state.players.get(PLAYER_ID)
+    if (player?.shipId != null) {
+      const ship = engine.state.ships.get(player.shipId)
+      if (ship != null) {
+        const pos = new Vector3(
+          ship.x * RADIUS,
+          ship.y * RADIUS,
+          ship.z * RADIUS
+        )
+        const [yaw, pitch] = getYawPitch(pos)
+        moveNodeTo(cameraOriginNode, yaw, pitch)
+      }
     }
   }
 
-  // start hidden
+  // Start hidden
   hideScreen()
 
-  onAfterRender(() => {
-    const { alive, lives } = $player.get()
-    if (!showing && !alive && lives <= 0) {
+  const observer = scene.onBeforeRenderObservable.add(() => {
+    if (!showing && gameOver()) {
       showScreen()
+    } else if (showing && !gameOver()) {
+      hideScreen()
     }
   })
 
   onCleanup(() => {
+    scene.onBeforeRenderObservable.remove(observer)
     window.removeEventListener('keydown', handleKeyDown)
     disposables.forEach((d) => {
       d.dispose()

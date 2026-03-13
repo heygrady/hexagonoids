@@ -16,10 +16,11 @@
     "build:demo": "turbo run build --filter=@heygrady/tictactoe-demo",
     "clean": "turbo run clean",
     "clean:hard": "turbo run clean --force && find . -name node_modules -type d -prune -exec rm -rf {} +",
+    "check": "turbo run check",
     "claude": "yarn dlx @anthropic-ai/claude-code",
     "coverage": "turbo run coverage",
     "coverage:ci": "turbo run coverage --concurrency=2 -- --passWithNoTests --run",
-    "demo": "yarn build:demo && yarn workspace @heygrady/tictactoe-demo start",
+    "demo": "turbo run build --filter=@heygrady/hexagonoids-demo... && yarn workspace @heygrady/hexagonoids-demo demo",
     "dev": "yarn workspace @heygrady/hexagonoids-app dev:workspace",
     "format": "turbo run format",
     "gemini": "yarn dlx @google/gemini-cli",
@@ -31,7 +32,8 @@
     "test": "turbo run test",
     "test:ci": "turbo run test --concurrency=2 -- --passWithNoTests --run",
     "vercel-build": "./scripts/inject-npm-auth.sh && yarn install && yarn build",
-    "version": "changeset version && yarn install"
+    "version": "changeset version && yarn install",
+    "work-session": "node ../tone-studio/scripts/work-session/bin/index.js"
   },
   "packageManager": "yarn@4.12.0",
   "volta": {
@@ -40,13 +42,20 @@
     "yarn": "4.12.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.2",
     "@changesets/cli": "^2.29.8",
     "@commitlint/cli": "^20.1.0",
     "@commitlint/config-conventional": "^20.0.0",
     "@commitlint/config-workspace-scopes": "^20.0.0",
     "@manypkg/cli": "^0.25.1",
     "husky": "^9.1.7",
-    "turbo": "^2.6.1",
-    "vercel": "^48.12.0"
+    "lint-staged": "^15.1.0",
+    "turbo": "^2.8.16",
+    "vercel": "^50.32.5"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,astro}": [
+      "biome check --write --no-errors-on-unmatched"
+    ]
   }
 }

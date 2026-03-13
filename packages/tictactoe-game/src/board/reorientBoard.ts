@@ -1,6 +1,6 @@
 import QuickLRU from 'quick-lru'
 
-import { boardToKey, type Board } from './ticTacToe.js'
+import { type Board, boardToKey } from './ticTacToe.js'
 
 type IndexBoard = [
   number,

@@ -1,4 +1,4 @@
-import { expect, test, describe } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { reorientBoard } from '../src/board/reorientBoard.js'
 import type { Board } from '../src/board/ticTacToe.js'

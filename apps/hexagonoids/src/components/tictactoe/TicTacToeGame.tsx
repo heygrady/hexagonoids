@@ -28,7 +28,7 @@ export const TicTacToeGame = () => {
     <Show when={game()} fallback={<div>Loading...</div>}>
       {(gameInstance) => (
         <TicTacToeContext.Provider value={gameInstance()}>
-          <div class='mb-2 sm:mb-4 w-full'>
+          <div class="mb-2 sm:mb-4 w-full">
             <TrainingStats />
           </div>
           <TicTacToeBoard />

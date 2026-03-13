@@ -1,8 +1,8 @@
 import {
+  type Board,
   checkState,
   getInitialBoard,
   neatAI,
-  type Board,
   type Player,
 } from '@heygrady/tictactoe-game'
 import type { SyncExecutor } from '@neat-evolution/executor'

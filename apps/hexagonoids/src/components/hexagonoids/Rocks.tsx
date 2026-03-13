@@ -1,7 +1,10 @@
+import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import type { Component, JSX } from 'solid-js'
 import { For } from 'solid-js'
 
-import { subscribeRockPool } from './hooks/useRockPool'
+import { useScene } from '../solid-babylon/hooks/useScene'
+
+import { createRockNodePool } from './engine/rockNodePool'
 import { Rock } from './Rock'
 
 export interface RocksProps {
@@ -9,18 +12,15 @@ export interface RocksProps {
 }
 
 export const Rocks: Component<RocksProps> = (props) => {
-  const rocks = subscribeRockPool()
+  const engine = useGameState()
+  const scene = useScene()
+  const globe = scene.getMeshByName('globe')
+  const pool = createRockNodePool(scene, globe)
 
   return (
     <>
-      <For each={Object.keys(rocks())}>
-        {(id) => {
-          const $rock = rocks()[id]
-          if ($rock == null) {
-            return
-          }
-          return <Rock id={id} store={$rock} />
-        }}
+      <For each={engine.rockIds()}>
+        {(id) => <Rock rockId={id} pool={pool} />}
       </For>
       {props.children}
     </>

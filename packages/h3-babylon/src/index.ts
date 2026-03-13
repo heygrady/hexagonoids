@@ -1,10 +1,10 @@
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import {
+  type CoordPair,
   cellToLatLng,
   degsToRads,
-  type CoordPair,
-  radsToDegs,
   latLngToCell,
+  radsToDegs,
 } from 'h3-js'
 
 /**

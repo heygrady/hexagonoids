@@ -1,9 +1,17 @@
 import { threadRNG } from '@neat-evolution/utils'
 
 import { boardToInput } from '../board/boardToInput.js'
-import { getValidMoves, type Board, type Player } from '../board/ticTacToe.js'
+import { type Board, getValidMoves, type Player } from '../board/ticTacToe.js'
 
 import type { PlayerMove, PlayerOptions } from './types.js'
+
+function toOutputArray(values: ArrayLike<number>): number[] {
+  return Array.from(values)
+}
+
+function toBoard(values: ArrayLike<number>): Board {
+  return Array.from(values) as Board
+}
 
 /**
  * Converts raw network outputs (logits) into a probability distribution.
@@ -93,10 +101,10 @@ export function neatAI(
   if (validMoves.length === 9) {
     // special layout for empty board
     const input = [...new Array(9).fill(0), ...new Array(9).fill(1)]
-    prediction = executor.execute(input)
+    prediction = toOutputArray(executor.execute(input))
   } else {
     const [input, transform] = boardToInput(board, player)
-    prediction = transform(executor.execute(input) as Board)
+    prediction = transform(toBoard(executor.execute(input)))
   }
 
   // --- Start of Softmax Logic ---

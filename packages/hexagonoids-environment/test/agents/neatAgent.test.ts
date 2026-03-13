@@ -1,0 +1,114 @@
+import {
+  createGame,
+  spawnRock,
+  startPlayer,
+} from '@heygrady/hexagonoids-engine'
+import { describe, expect, it } from 'vitest'
+import { neatAgent } from '../../src/agents/neatAgent.js'
+import type { AgentContext } from '../../src/agents/types.js'
+import { encodeGameState } from '../../src/encoding/encodeGameState.js'
+
+const PLAYER_ID = 'player-1'
+
+function setupGame(seed: string) {
+  const engine = createGame({ seed })
+  const { state, rng } = engine
+  startPlayer(state, PLAYER_ID, rng)
+  return { state, engine }
+}
+
+function createFixedRng(value = 0.5) {
+  return {
+    gen: () => value,
+    genRange: (min: number, max: number) => min + (max - min) * value,
+    genBool: () => value >= 0.5,
+  }
+}
+
+function createCapturingExecutor(onExecute: (inputs: number[]) => void) {
+  return {
+    isAsync: false as const,
+    execute(inputs: ArrayLike<number>) {
+      const values = Array.from(inputs)
+      onExecute(values)
+      return [0, 0, 0, 0]
+    },
+    executeBatch(batch: ArrayLike<ArrayLike<number>>) {
+      return Array.from(batch, (inputs) => this.execute(inputs))
+    },
+  }
+}
+
+describe('neatAgent', () => {
+  it('empty lidar rays are zero (no noise)', () => {
+    const { state, engine } = setupGame('neat-agent-empty-noise')
+    let capturedInputs: number[] | undefined
+    const context: AgentContext = {
+      rng: createFixedRng(),
+      memory: {},
+      executor: createCapturingExecutor((inputs) => {
+        capturedInputs = inputs
+      }),
+      spatialQueries: engine,
+    }
+
+    neatAgent(state, PLAYER_ID, context)
+
+    expect(capturedInputs).toBeDefined()
+    for (let cone = 0; cone < 8; cone++) {
+      const base = 2 + cone * 4
+      expect(capturedInputs?.[base]).toBe(0)
+      expect(capturedInputs?.[base + 1]).toBe(0)
+      expect(capturedInputs?.[base + 2]).toBe(0)
+      expect(capturedInputs?.[base + 3]).toBe(0)
+    }
+  })
+
+  it('does not modify populated lidar rays', () => {
+    const { state, engine } = setupGame('neat-agent-preserve-hits')
+    const player = state.players.get(PLAYER_ID)
+    const ship =
+      player?.shipId != null ? state.ships.get(player.shipId) : undefined
+    if (ship == null || !ship.alive) {
+      throw new Error('Expected alive ship for neatAgent test')
+    }
+
+    spawnRock(state, { x: ship.x, y: ship.y, z: ship.z }, 2, createFixedRng())
+
+    const rawInputs = encodeGameState(
+      state,
+      PLAYER_ID,
+      undefined,
+      undefined,
+      undefined,
+      engine
+    )
+    let capturedInputs: number[] | undefined
+    const context: AgentContext = {
+      rng: createFixedRng(),
+      memory: {},
+      executor: createCapturingExecutor((inputs) => {
+        capturedInputs = inputs
+      }),
+      spatialQueries: engine,
+    }
+
+    neatAgent(state, PLAYER_ID, context)
+
+    expect(capturedInputs).toBeDefined()
+    for (let cone = 0; cone < 8; cone++) {
+      const base = 2 + cone * 4
+      const rawProximity = rawInputs[base] ?? 0
+      const rawBearing = rawInputs[base + 1] ?? 0
+      const rawVelX = rawInputs[base + 2] ?? 0
+      const rawVelY = rawInputs[base + 3] ?? 0
+
+      if (rawProximity > 0 || rawBearing !== 0) {
+        expect(capturedInputs?.[base]).toBe(rawProximity)
+        expect(capturedInputs?.[base + 1]).toBe(rawBearing)
+        expect(capturedInputs?.[base + 2]).toBe(rawVelX)
+        expect(capturedInputs?.[base + 3]).toBe(rawVelY)
+      }
+    }
+  })
+})

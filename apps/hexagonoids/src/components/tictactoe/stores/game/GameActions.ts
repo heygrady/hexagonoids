@@ -1,14 +1,14 @@
 import { action } from 'nanostores'
-import type { OmitFirstArg } from 'nanostores/action'
+import type { OmitFirstArg } from '../../../../types/nanostores.js'
 
 import {
-  start,
-  restart,
-  move,
-  update,
-  end,
-  enableAutoPlay,
   disableAutoPlay,
+  enableAutoPlay,
+  end,
+  move,
+  restart,
+  start,
+  update,
 } from './actions/index.js'
 import type { GameStore } from './GameStore.js'
 

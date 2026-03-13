@@ -1,6 +1,6 @@
 import { threadRNG } from '@neat-evolution/utils'
 
-import { getValidMoves, type Board, type Player } from '../board/ticTacToe.js'
+import { type Board, getValidMoves, type Player } from '../board/ticTacToe.js'
 import { randomAI } from '../index.js'
 
 import { minimaxAI } from './minimaxAI.js'

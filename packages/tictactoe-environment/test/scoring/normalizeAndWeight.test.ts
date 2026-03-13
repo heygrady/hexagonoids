@@ -71,7 +71,10 @@ describe('normalizeAndWeight', () => {
 
   test('should use first player bounds from tuple', () => {
     const rawScore = 0.5
-    const bounds = { min: [0, 0.1], max: [1, 1.1] } // Different bounds per position
+    const bounds = {
+      min: [0, 0.1] as [number, number],
+      max: [1, 1.1] as [number, number],
+    } // Different bounds per position
     const weight = 1
 
     // Should use first bounds: min=0, max=1
@@ -81,7 +84,10 @@ describe('normalizeAndWeight', () => {
 
   test('should use second player bounds from tuple', () => {
     const rawScore = 0.6
-    const bounds = { min: [0, 0.1], max: [1, 1.1] } // Different bounds per position
+    const bounds = {
+      min: [0, 0.1] as [number, number],
+      max: [1, 1.1] as [number, number],
+    } // Different bounds per position
     const weight = 1
 
     // Should use second bounds: min=0.1, max=1.1
@@ -91,7 +97,7 @@ describe('normalizeAndWeight', () => {
 
   test('should handle mixed simple/tuple bounds', () => {
     const rawScore = 0.5
-    const bounds = { min: 0, max: [1, 2] } // min is simple, max is tuple
+    const bounds = { min: 0, max: [1, 2] as [number, number] } // min is simple, max is tuple
     const weight = 1
 
     // First player: min=0, max=1

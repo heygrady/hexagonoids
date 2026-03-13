@@ -1,5 +1,5 @@
 import { Activation } from '@neat-evolution/core'
-import { map, type MapStore } from 'nanostores'
+import { type MapStore, map } from 'nanostores'
 
 import {
   loadSettingsFromStorage,
@@ -91,8 +91,7 @@ export const createSettingsStore = (): [SettingsStore, Promise<void>] => {
 
   // Auto-save committed settings when they change (excluding isOpen and draft)
   store.subscribe((settings) => {
-    const { isOpen: _isOpen, draft: _draft, ...committedWrapper } = settings
-    saveSettingsToStorage(committedWrapper.committed).catch((error) => {
+    saveSettingsToStorage(settings).catch((error) => {
       console.warn('Failed to save settings:', error)
     })
   })

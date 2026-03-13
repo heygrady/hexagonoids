@@ -14,7 +14,7 @@ import { toId } from '../entities/toId.js'
  * @param {number} matchPlayerSize - Number of players per match (currently only supports 2)
  * @returns {Array<Array<GenomeEntry<G>>>} Array of matches, where each match is an array of entries
  */
-export function createGlickoMatches<G extends AnyGenome<G>>(
+export function createGlickoMatches<G extends AnyGenome>(
   entries: Array<GenomeEntry<G>>,
   playerRatings: Map<number, GlickoPlayer>,
   previousOpponents: Map<number, Set<number>>,
@@ -54,7 +54,7 @@ export function createGlickoMatches<G extends AnyGenome<G>>(
 
       // Check if they've already played each other
       const potentialId = toId(potentialOpponent)
-      if (alreadyPlayed != null && alreadyPlayed.has(potentialId)) {
+      if (alreadyPlayed?.has(potentialId)) {
         continue // Skip this opponent, look for another
       }
 

@@ -1,24 +1,15 @@
-import { Vector3, Matrix } from '@babylonjs/core/Maths/math.vector'
+import { Matrix, Vector3 } from '@babylonjs/core/Maths/math.vector'
 import type { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import { easeQuadIn } from 'd3-ease'
 
-import {
-  CAMERA_RADIUS,
-  MAX_DURATION,
-  MAX_SPEED,
-  SCREEN_EDGE_BUFFER,
-} from '../constants'
-import { getScreenDimensions } from '../store/player/PlayerActions'
+import { CAMERA_RADIUS, MAX_SPEED, SCREEN_EDGE_BUFFER } from '../constants'
+import { getScreenDimensions } from '../utils/screenDimensions'
 
 import { getPitchRoll } from './getPitchRoll'
 import { getYawPitch } from './getYawPitch'
 import { moveNodeBy } from './orientation'
 
-export const moveCamera = (
-  shipPosition: TransformNode,
-  delta: number,
-  _duration: number = MAX_DURATION
-) => {
+export const moveCamera = (shipPosition: TransformNode, delta: number) => {
   const scene = shipPosition.getScene()
   const engine = scene.getEngine()
   const camera = scene.getCameraByName('shipCamera')
@@ -30,7 +21,6 @@ export const moveCamera = (
     shipCameraPosition == null ||
     shipCameraOrigin == null
   ) {
-    console.warn('Warning:', { camera, shipCameraOrigin, shipCameraPosition })
     return
   }
 

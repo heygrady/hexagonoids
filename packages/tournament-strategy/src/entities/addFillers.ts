@@ -11,7 +11,7 @@ import { toId } from './toId.js'
  * @param {Set<number>} fillerIds - A Set to track the IDs of filler genomes.
  * @returns {Array<GenomeEntry<G>>} New array with fillers added
  */
-export function addFillers<G extends AnyGenome<G>>(
+export function addFillers<G extends AnyGenome>(
   entries: Array<GenomeEntry<G>>,
   matchPlayerSize: number,
   fillerIds: Set<number>

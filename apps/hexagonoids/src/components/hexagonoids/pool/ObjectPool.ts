@@ -45,7 +45,7 @@ export class ObjectPool<T> {
     // Create LRU pool with eviction handler
     this.pool = new QuickLRU<string, T>({
       maxSize: config.maxSize,
-      onEviction: (key, item) => {
+      onEviction: (_key, item) => {
         this.dispose(item)
       },
     })

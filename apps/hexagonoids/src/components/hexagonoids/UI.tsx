@@ -1,11 +1,11 @@
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import {
-  createContext,
   type Component,
-  useContext,
+  createContext,
   type JSX,
   onCleanup,
+  useContext,
 } from 'solid-js'
 
 import { useScene } from '../solid-babylon/hooks/useScene'

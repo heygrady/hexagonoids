@@ -1,6 +1,6 @@
 import {
-  neatAI,
   type Board,
+  neatAI,
   type Player,
   type PlayerFn,
 } from '@heygrady/tictactoe-game'

@@ -1,22 +1,22 @@
-import type { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { latLngToVector3 } from '@heygrady/h3-babylon'
+import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import {
   type Component,
   createContext,
+  type JSX,
   onCleanup,
   useContext,
-  type JSX,
 } from 'solid-js'
 
 import { useScene, useSceneStore } from '../solid-babylon/hooks/useScene'
-
-import { CAMERA_RADIUS, RADIUS } from './constants'
-import { useGame } from './hooks/useGame'
+import { CAMERA_RADIUS, DEFAULT_PLAYER_ID, RADIUS } from './constants'
+import { useNodeRegistry } from './NodeRegistry'
 import { getYawPitch } from './ship/getYawPitch'
+import { moveCamera } from './ship/moveCamera'
 import { moveNodeTo } from './ship/orientation'
 import {
-  type SphereArenaCamera,
   createSphereArenaCamera,
+  type SphereArenaCamera,
 } from './sphereArenaCamera/SphereArenaCamera'
 
 export type CameraContextValue = SphereArenaCamera
@@ -24,7 +24,7 @@ export const CameraContext = createContext<CameraContextValue>()
 export const useCamera = () => {
   const context = useContext(CameraContext)
   if (context == null) {
-    throw new Error('useGame: cannot find a CameraContext.Provider')
+    throw new Error('useCamera: cannot find a CameraContext.Provider')
   }
   return context
 }
@@ -34,22 +34,15 @@ export interface ShipCameraProps {
   debug?: boolean
 }
 
+const PLAYER_ID = DEFAULT_PLAYER_ID
+
 export const ShipCamera: Component<ShipCameraProps> = (props) => {
   const [, { setCameraContext }] = useSceneStore()
   const scene = useScene()
-  const [$game] = useGame()
-  const { $player } = $game.get()
+  const engine = useGameState()
+  const registry = useNodeRegistry()
 
-  if ($player == null) {
-    throw new Error('ShipCamera: no player found')
-  }
-
-  const { positionNode } = $player.get().$ship?.get() ?? {}
-  // if (positionNode == null) {
-  //   // throw new Error('ShipCamera:  no positionNode found')
-  // }
-
-  const createCamera = (lookAt: Vector3) => {
+  const createCamera = () => {
     // Retrieve the globe mesh from scene state
     const [$scene] = useSceneStore()
     const globe = $scene.get().globe
@@ -67,7 +60,9 @@ export const ShipCamera: Component<ShipCameraProps> = (props) => {
       debug: props.debug,
     })
 
-    const position = lookAt.normalize().scaleInPlace(CAMERA_RADIUS)
+    // Use default starting position (ship starts at origin)
+    const defaultPosition = latLngToVector3(0, 0, RADIUS)
+    const position = defaultPosition.normalize().scaleInPlace(CAMERA_RADIUS)
 
     const [yaw, pitch] = getYawPitch(position)
 
@@ -77,15 +72,23 @@ export const ShipCamera: Component<ShipCameraProps> = (props) => {
     return sphereArenaCamera
   }
 
-  const defaultPosition = latLngToVector3(0, 0, RADIUS)
-  const cameraContext = createCamera(
-    positionNode?.absolutePosition ?? defaultPosition
-  )
+  const cameraContext = createCamera()
 
   // tell the scene about it
   setCameraContext(cameraContext)
 
+  // Per-frame camera tracking: follow the player's ship
+  const trackingObserver = scene.onBeforeRenderObservable.add(() => {
+    const player = engine.state.players.get(PLAYER_ID)
+    if (player?.shipId == null) return
+    const entry = registry.get(`ship:${player.shipId}`)
+    if (entry?.positionNode == null) return
+    const delta = scene.getEngine().getDeltaTime()
+    moveCamera(entry.positionNode, delta)
+  })
+
   onCleanup(() => {
+    scene.onBeforeRenderObservable.remove(trackingObserver)
     cameraContext.camera.dispose()
     cameraContext.originNode.dispose(false, true)
   })

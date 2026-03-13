@@ -1,13 +1,12 @@
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder'
-import { type Component, onCleanup, type JSX } from 'solid-js'
+import { type Component, type JSX, onCleanup } from 'solid-js'
 
 import { useSceneStore } from '../solid-babylon/hooks/useScene'
-
-import { createRes0Polyhedron } from './cell/createRes0Polyhedron'
 import { getCommonMaterial } from './common/commonMaterial'
 import { RADIUS } from './constants'
+import { createRes0Polyhedron } from './globe/createRes0Polyhedron'
 
 export interface GlobeProps {
   children?: JSX.Element

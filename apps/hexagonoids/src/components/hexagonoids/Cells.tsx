@@ -1,43 +1,75 @@
-import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
+import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import type { Component } from 'solid-js'
-import { createRenderEffect, For } from 'solid-js'
+import { onCleanup } from 'solid-js'
 
-import { useSceneStore } from '../solid-babylon/hooks/useScene'
+import { onBeforeRender } from '../solid-babylon/hooks/onBeforeRender'
+import { useScene } from '../solid-babylon/hooks/useScene'
 
-import { Cell } from './Cell'
-import { subscribeCellPool } from './hooks/useCellPool'
+import { CellManager } from './cell/CellManager'
+import { entityToCell } from './cell/entityToCells'
+import { useNodeRegistry } from './NodeRegistry'
 
 export const Cells: Component = () => {
-  const [$scene] = useSceneStore()
+  const scene = useScene()
+  const engine = useGameState()
+  const registry = useNodeRegistry()
 
-  const cells = subscribeCellPool()
+  const globe = scene.getMeshByName('globe')
+  if (globe == null) {
+    console.warn('Cells: globe mesh not found')
+    return null
+  }
 
-  createRenderEffect(() => {
-    const sceneState = $scene.get()
-    if (sceneState.scene == null) {
-      return
+  const manager = new CellManager(scene, globe, registry)
+  const occupiedCells = new Set<string>()
+  let prevNow = 0
+
+  // Per-frame: visit cells under all entities, then update fade
+  onBeforeRender(() => {
+    const state = engine.state
+    const now = state.now
+    occupiedCells.clear()
+
+    // Engine reseed resets game time to 0. Reset active cells so stale
+    // highlights from removed entities don't remain in an undefined state.
+    if (now < prevNow) {
+      manager.reset()
     }
-    const originNode = new TransformNode('h3CellOrigin', sceneState.scene)
-    // NOTE: Scaling is disabled by design. H3 geographic coordinates convert to absolute
-    // world 3D vectors, so scaling would break the coordinate system conversion.
-    // This is a known limitation of the H3 geospatial coordinate system.
-    // originNode.scaling.setAll(0.5)
-    const globe = sceneState.globe
+    prevNow = now
 
-    if (globe != null) {
-      originNode.parent = globe
+    // Ships (only visible entities contribute to cell highlights)
+    for (const ship of state.ships.values()) {
+      if (!ship.alive) continue
+      const entry = registry.get(`ship:${ship.id}`)
+      if (entry != null && !entry.originNode.isEnabled()) continue
+      occupiedCells.add(entityToCell(ship.x, ship.y, ship.z))
     }
+
+    // Rocks
+    for (const rock of state.rocks.values()) {
+      const entry = registry.get(`rock:${rock.id}`)
+      if (entry != null && !entry.originNode.isEnabled()) continue
+      occupiedCells.add(entityToCell(rock.x, rock.y, rock.z))
+    }
+
+    // Bullets
+    for (const bullet of state.bullets.values()) {
+      const entry = registry.get(`bullet:${bullet.id}`)
+      if (entry != null && !entry.originNode.isEnabled()) continue
+      occupiedCells.add(entityToCell(bullet.x, bullet.y, bullet.z))
+    }
+
+    for (const h of occupiedCells) {
+      manager.visitCell(h, now)
+    }
+
+    // Fade and cleanup
+    manager.update(now)
   })
 
-  return (
-    <For each={Object.keys(cells())}>
-      {(h) => {
-        const $cell = cells()[h]
-        if ($cell == null) {
-          return
-        }
-        return <Cell h={h} store={$cell} />
-      }}
-    </For>
-  )
+  onCleanup(() => {
+    manager.dispose()
+  })
+
+  return null
 }

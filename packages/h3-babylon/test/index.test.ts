@@ -6,8 +6,8 @@ import {
   latLngToVector3,
   vector3ToCell,
   vector3ToLatLng,
-  wrap180,
   wrap90,
+  wrap180,
 } from '../src/index.js'
 
 describe('h3-babylon', () => {

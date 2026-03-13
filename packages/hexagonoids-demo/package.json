@@ -1,0 +1,111 @@
+{
+  "name": "@heygrady/hexagonoids-demo",
+  "version": "0.0.1",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/heygrady/hexagonoids.git"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "bin": "./bin/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    },
+    "./node": {
+      "types": "./dist/types/node/index.d.ts",
+      "import": "./dist/esm/node/index.js",
+      "require": "./dist/cjs/node/index.js"
+    },
+    "./data/scenarioBank": "./src/data/scenarioBank.js",
+    "./data/scenarios": {
+      "types": "./dist/types/data/scenarios.d.ts",
+      "import": "./dist/esm/data/scenarios.js",
+      "require": "./dist/cjs/data/scenarios.js"
+    }
+  },
+  "files": [
+    "dist/**/*",
+    "src/**/*",
+    "bin/**/*",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "yarn clean && concurrently --timings --prefix --names \"cjs,esm,tsc\" \"yarn build:cjs\" \"yarn build:esm\" \"yarn build:types\"",
+    "build:cjs": "yarn prebuild:cjs && swc src -d dist/cjs --strip-leading-paths --source-maps --copy-files -C module.type=commonjs",
+    "build:esm": "swc src -d dist/esm --strip-leading-paths --source-maps --copy-files -C module.type=es6",
+    "build:types": "tsgo --declaration --emitDeclarationOnly --project tsconfig.types.json --outDir dist/types",
+    "check": "tsgo --noEmit",
+    "clean": "rimraf dist coverage",
+    "coverage": "vitest --coverage",
+    "debug": "yarn build && nodemon --exec 'node --inspect=0.0.0.0:9229 ./dist/esm/index.js'",
+    "dev": "concurrently --timings --prefix --names \"cjs,esm,tsc\" \"yarn dev:cjs\" \"yarn dev:esm\" \"yarn dev:types\"",
+    "dev:workspace": "turbo run dev --filter='@heygrady/hexagonoids-demo^...'",
+    "dev:cjs": "yarn prebuild:cjs && swc --watch src -d dist/cjs --strip-leading-paths --source-maps --copy-files -C module.type=commonjs",
+    "dev:esm": "swc --watch src -d dist/esm --strip-leading-paths --source-maps --copy-files -C module.type=es6",
+    "dev:types": "tsc --watch --declaration --emitDeclarationOnly --project tsconfig.types.json --outDir dist/types",
+    "format": "biome check --write",
+    "lint": "biome lint",
+    "demo": "node ./bin/index.js",
+    "profile": "node ./scripts/profile.js",
+    "profile:analyze": "node ./scripts/analyze-profile.js",
+    "profile:sim-analyze": "node ./scripts/analyze-sim-profile.js",
+    "bench": "vitest bench --run",
+    "prebuild:cjs": "mkdir -p dist/cjs && echo '{\"type\":\"commonjs\",\"main\":\"./index.js\"}' > dist/cjs/package.json",
+    "test": "vitest --run --passWithNoTests",
+    "test:dev": "vitest"
+  },
+  "dependencies": {
+    "@heygrady/hexagonoids-environment": "workspace:^",
+    "@neat-evolution/core": "^0.5.0",
+    "@neat-evolution/cppn": "^0.6.8",
+    "@neat-evolution/des-hyperneat": "^0.6.8",
+    "@neat-evolution/es-hyperneat": "^0.6.8",
+    "@neat-evolution/evaluator": "^0.5.8",
+    "@neat-evolution/evolution": "^0.7.0",
+    "@neat-evolution/executor": "^0.3.13",
+    "@neat-evolution/hyperneat": "^0.6.8",
+    "@neat-evolution/neat": "^0.6.8",
+    "@neat-evolution/worker-actions": "^0.6.0",
+    "@neat-evolution/worker-evaluator": "^0.9.0",
+    "@neat-evolution/worker-pool": "^0.4.6",
+    "@neat-evolution/worker-reproducer": "^0.9.0",
+    "@neat-evolution/worker-threads": "^0.4.6",
+    "@swc/helpers": "^0.5.19",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.2",
+    "@heygrady/tsconfig-bases": "^1.0.7",
+    "@swc/cli": "^0.7.9",
+    "@swc/core": "^1.15.3",
+    "@typescript/native-preview": "latest",
+    "@vitest/coverage-v8": "^4.0.14",
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.0.1",
+    "rimraf": "^5.0.5",
+    "turbo": "^2.8.16",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  },
+  "browserslist": [
+    "node >=16"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "volta": {
+    "extends": "../../package.json"
+  },
+  "packageManager": "yarn@4.12.0"
+}

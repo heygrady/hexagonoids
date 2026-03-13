@@ -19,7 +19,7 @@ export interface ScoreComponents {
  * Pluggable fitness calculator that combines score components into final fitness.
  * All components are pre-normalized to [0, 1] range.
  */
-export type FitnessCalculator<G extends AnyGenome<G>> = (
+export type FitnessCalculator<G extends AnyGenome> = (
   components: ScoreComponents,
   entry: GenomeEntry<G>
 ) => number
@@ -54,7 +54,7 @@ export interface GlickoScoreComponents {
 /**
  * Pluggable fitness calculator for GlickoStrategy.
  */
-export type GlickoFitnessCalculator<G extends AnyGenome<G>> = (
+export type GlickoFitnessCalculator<G extends AnyGenome> = (
   components: GlickoScoreComponents,
   entry: GenomeEntry<G>
 ) => number

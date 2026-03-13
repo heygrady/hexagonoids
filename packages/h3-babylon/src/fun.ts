@@ -15,9 +15,7 @@ interface Prediction {
 
 export function parseH3Index(h3Index: string): any {
   // Convert the hexadecimal index to a binary string
-  const binaryString = BigInt('0x' + h3Index)
-    .toString(2)
-    .padStart(64, '0')
+  const binaryString = BigInt(`0x${h3Index}`).toString(2).padStart(64, '0')
 
   // Extract parts of the H3 index
   const reserved = binaryString.substring(0, 4)

@@ -23,19 +23,19 @@ export function MatchStats() {
   }
 
   return (
-    <div class='stats shadow w-full bg-base-200'>
-      <div class='stat'>
-        <div class='stat-title'>Score (W-D-L)</div>
-        <div class='stat-value text-primary'>
+    <div class="stats shadow w-full bg-base-200">
+      <div class="stat">
+        <div class="stat-title">Score (W-D-L)</div>
+        <div class="stat-value text-primary">
           {game().winCount}-{game().drawCount}-{game().lossCount}
         </div>
-        <div class='stat-desc'>Vs. Generation {opponentGen()}</div>
+        <div class="stat-desc">Vs. Generation {opponentGen()}</div>
       </div>
 
-      <div class='stat'>
-        <div class='stat-title'>Player Rating</div>
-        <div class='stat-value text-secondary'>{displayPlayerRating()}</div>
-        <div class='stat-desc'>{displayGlickoStatus()}</div>
+      <div class="stat">
+        <div class="stat-title">Player Rating</div>
+        <div class="stat-value text-secondary">{displayPlayerRating()}</div>
+        <div class="stat-desc">{displayGlickoStatus()}</div>
       </div>
     </div>
   )
