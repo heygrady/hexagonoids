@@ -4,12 +4,12 @@ const defaultProfile: TrainingProfile = {
   name: 'default',
   config: {
     populationSize: 100,
-    method: 'ES-HyperNEAT',
+    method: 'DES-HyperNEAT',
     iterations: 50,
     fitnessWeights: {
       rocksDestroyed: 0.9,
       accuracy: 0.1,
-      targetAccuracy: 0.4, // percentage of bullets landed that counts as "perfect"
+      targetAccuracy: 0.6, // percentage of bullets landed that counts as "perfect"
     },
     gateConfig: {
       actionGateFloor: 0.6,
