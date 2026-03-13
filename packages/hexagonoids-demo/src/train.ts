@@ -11,22 +11,30 @@ import {
 } from '@heygrady/hexagonoids-environment'
 import { createEnvironment } from '@heygrady/hexagonoids-environment/node'
 import { ACPlugin } from '@neat-evolution/actor-critic-plugin'
+import type { AnyErasedAlgorithm } from '@neat-evolution/core'
 import { CPPNAlgorithm } from '@neat-evolution/cppn'
 import {
   DESHyperNEATAlgorithm,
   defaultTopologyConfigOptions,
 } from '@neat-evolution/des-hyperneat'
+import type { Environment } from '@neat-evolution/environment'
 import { ESHyperNEATAlgorithm } from '@neat-evolution/es-hyperneat'
+import {
+  type EvaluationStrategy,
+  PluginStrategy,
+} from '@neat-evolution/evaluation-strategy'
 import type { AnyAlgorithm } from '@neat-evolution/evaluator'
 import { defaultEvolutionOptions } from '@neat-evolution/evolution'
 import {
   type EvaluationConfig,
   EvolutionManager,
   type EvolutionManagerConfig,
+  type WorkerConfig,
 } from '@neat-evolution/evolution-manager'
 import { HyperNEATAlgorithm } from '@neat-evolution/hyperneat'
 import { NEATAlgorithm } from '@neat-evolution/neat'
 import { QLPlugin } from '@neat-evolution/q-learning-plugin'
+import { threadRNG } from '@neat-evolution/utils'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
 import {
@@ -295,12 +303,25 @@ function algorithmConfig(method: SupportedAlgorithm): ErasedManagerConfig {
 
 function buildEvaluationConfig(
   config: ReturnType<typeof toRunConfig>,
-  algorithm: AnyAlgorithm
-): EvaluationConfig | undefined {
+  algorithm: AnyAlgorithm,
+  environment: Environment,
+  supportsTraining: boolean
+): EvaluationConfig {
+  const createStrategyConfig = (
+    delegateStrategy?: EvaluationStrategy
+  ): EvaluationConfig => ({
+    type: 'strategy',
+    strategy: new MultiSeedGenerationStrategy(
+      config.evaluationSeedsPerOrganism,
+      config.baseSeed,
+      mean,
+      delegateStrategy
+    ),
+  })
+
   if (config.rlMode === 'actor-critic') {
-    return {
-      type: 'plugin-augmentation',
-      plugins: [
+    const pluginStrategy: EvaluationStrategy = new PluginStrategy(
+      [
         new ACPlugin(
           algorithm,
           {
@@ -313,12 +334,17 @@ function buildEvaluationConfig(
           Math.random
         ),
       ],
-    }
+      {
+        algorithm: algorithm as unknown as AnyErasedAlgorithm,
+        environment,
+        supportsTraining,
+      }
+    )
+    return createStrategyConfig(pluginStrategy)
   }
   if (config.rlMode === 'q-learning') {
-    return {
-      type: 'plugin-augmentation',
-      plugins: [
+    const pluginStrategy: EvaluationStrategy = new PluginStrategy(
+      [
         new QLPlugin(
           algorithm,
           {
@@ -326,17 +352,23 @@ function buildEvaluationConfig(
             isLamarckian: config.rlIsLamarckian,
             rolloutLength: 'episode',
             rewardThreshold: config.rlRewardThreshold,
-            epsilon: config.rlEpsilon,
-            epsilonDecay: config.rlEpsilonDecay,
-            epsilonMin: config.rlEpsilonMin,
+            epsilonInitial: config.rlEpsilon,
+            epsilonDecayPerEpisode: config.rlEpsilonDecay,
+            epsilonMinimum: config.rlEpsilonMin,
             multiDiscrete: config.rlMultiDiscrete,
           },
-          Math.random
+          threadRNG()
         ),
       ],
-    }
+      {
+        algorithm: algorithm as unknown as AnyErasedAlgorithm,
+        environment,
+        supportsTraining,
+      }
+    )
+    return createStrategyConfig(pluginStrategy)
   }
-  return undefined
+  return createStrategyConfig()
 }
 
 export async function train(options: TrainOptions = {}): Promise<TrainResult> {
@@ -406,20 +438,24 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   )
 
   const algorithmDetails = algorithmConfig(method)
+  const workerConfig: WorkerConfig = {
+    createEnvironmentPathname: CREATE_ENVIRONMENT_PATHNAME,
+    createExecutorPathname: CREATE_EXECUTOR_PATHNAME,
+    taskCount: config.populationSize,
+    threadCount: config.threadCount,
+  }
+
   const evaluation = buildEvaluationConfig(
     config,
-    algorithmDetails.algorithm as AnyAlgorithm
+    algorithmDetails.algorithm as AnyAlgorithm,
+    environment as Environment,
+    (workerConfig.pluginPaths?.length ?? 0) > 0
   )
 
   const manager = new EvolutionManager({
     ...algorithmDetails,
     environment,
-    strategy: new MultiSeedGenerationStrategy(
-      config.evaluationSeedsPerOrganism,
-      config.baseSeed,
-      mean
-    ),
-    ...(evaluation != null ? { evaluation } : {}),
+    evaluation,
     evolutionOptions: {
       iterations: config.iterations,
       secondsLimit: config.secondsLimit,
@@ -474,12 +510,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     populationOptions: {
       populationSize: config.populationSize,
     },
-    workerConfig: {
-      createEnvironmentPathname: CREATE_ENVIRONMENT_PATHNAME,
-      createExecutorPathname: CREATE_EXECUTOR_PATHNAME,
-      taskCount: config.populationSize,
-      threadCount: config.threadCount,
-    },
+    workerConfig,
     ...(config.signal != null && { signal: config.signal }),
   })
 

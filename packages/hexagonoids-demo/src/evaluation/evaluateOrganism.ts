@@ -17,9 +17,10 @@ export async function evaluateOrganismMultiSeed(
     throw new Error('seeds must contain at least one value')
   }
 
-  const scores = await Promise.all(
-    seeds.map(async (seed) => await evaluateSingleSeed(seed))
-  )
+  const scores: number[] = []
+  for (const seed of seeds) {
+    scores.push(await evaluateSingleSeed(seed))
+  }
 
   return aggregate(scores)
 }
