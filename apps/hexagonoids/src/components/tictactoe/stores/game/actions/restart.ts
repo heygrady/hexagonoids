@@ -1,8 +1,7 @@
+import { createTictactoeEvolutionManager } from '../../../createGame.js'
 import { setStatus } from '../GameSetters.js'
 import { EvolutionStatus, GameStatus } from '../GameState.js'
 import type { GameStore } from '../GameStore.js'
-
-import { createTictactoeEvolutionManager } from '../../../createGame.js'
 
 import {
   bindGameSetters,

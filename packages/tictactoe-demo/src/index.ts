@@ -1,7 +1,7 @@
 export {
+  type AlgorithmDefinition,
   allActivations,
   getAlgorithmDefinition,
-  type AlgorithmDefinition,
   type SupportedAlgorithm,
 } from './algorithmRegistry.js'
 export {

@@ -59,7 +59,10 @@ import { createSettingsStore } from './stores/settings/SettingsStore.js'
 // Default population size (matches NEAT-JS defaultPopulationOptions)
 const DEFAULT_POPULATION_SIZE = 100
 
-const workerEvaluatorThreadLimit = Math.max(1, Math.floor(hardwareConcurrency - 1))
+const workerEvaluatorThreadLimit = Math.max(
+  1,
+  Math.floor(hardwareConcurrency - 1)
+)
 
 // Vite glob import pattern for resolving module pathnames for worker threads.
 // Workers need absolute pathnames, not package names, so we use import.meta.glob()
