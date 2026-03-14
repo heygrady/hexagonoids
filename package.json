@@ -48,6 +48,7 @@
     "@commitlint/config-conventional": "^20.0.0",
     "@commitlint/config-workspace-scopes": "^20.0.0",
     "@manypkg/cli": "^0.25.1",
+    "agent-browser": "^0.14.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.1.0",
     "turbo": "^2.6.1",
@@ -58,29 +59,33 @@
       "biome check --write --no-errors-on-unmatched"
     ]
   },
-  "dependencies": {
-    "agent-browser": "^0.14.0"
-  },
   "resolutions": {
     "@neat-evolution/backprop": "portal:../../packages/backprop",
+    "@neat-evolution/backprop-strategy": "portal:../../packages/backprop-strategy",
+    "@neat-evolution/actor-critic": "portal:../../packages/actor-critic",
     "@neat-evolution/actor-critic-plugin": "portal:../../packages/actor-critic-plugin",
     "@neat-evolution/core": "portal:../../packages/core",
     "@neat-evolution/cppn": "portal:../../packages/cppn",
     "@neat-evolution/des-hyperneat": "portal:../../packages/des-hyperneat",
+    "@neat-evolution/dataset-environment": "portal:../../packages/dataset-environment",
+    "@neat-evolution/demo": "portal:../../packages/demo",
     "@neat-evolution/environment": "portal:../../packages/environment",
     "@neat-evolution/es-hyperneat": "portal:../../packages/es-hyperneat",
     "@neat-evolution/evaluation-strategy": "portal:../../packages/evaluation-strategy",
     "@neat-evolution/evaluator": "portal:../../packages/evaluator",
     "@neat-evolution/evolution": "portal:../../packages/evolution",
+    "@neat-evolution/evolution-manager": "portal:../../packages/evolution-manager",
     "@neat-evolution/executor": "portal:../../packages/executor",
     "@neat-evolution/hyperneat": "portal:../../packages/hyperneat",
     "@neat-evolution/neat": "portal:../../packages/neat",
+    "@neat-evolution/q-learning": "portal:../../packages/q-learning",
     "@neat-evolution/q-learning-plugin": "portal:../../packages/q-learning-plugin",
     "@neat-evolution/utils": "portal:../../packages/utils",
     "@neat-evolution/worker-actions": "portal:../../packages/worker-actions",
     "@neat-evolution/worker-evaluator": "portal:../../packages/worker-evaluator",
     "@neat-evolution/worker-pool": "portal:../../packages/worker-pool",
     "@neat-evolution/worker-reproducer": "portal:../../packages/worker-reproducer",
+    "@neat-evolution/worker-rl": "portal:../../packages/worker-rl",
     "@neat-evolution/worker-threads": "portal:../../packages/worker-threads"
   }
 }
