@@ -269,7 +269,7 @@ export function createTictactoeEvolutionManager(
       options.neatOptions
     ),
     environment,
-    evaluation: { type: 'strategy', strategy },
+    strategy,
     populationOptions: {
       populationSize: DEFAULT_POPULATION_SIZE,
       ...options.populationOptions,

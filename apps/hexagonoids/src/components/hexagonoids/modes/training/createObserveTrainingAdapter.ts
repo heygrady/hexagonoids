@@ -7,7 +7,6 @@ import {
   createHexagonoidsNEATConfigOptions,
   createHexagonoidsNEATGenomeOptions,
   createPhenotypeForGenome,
-  MultiSeedGenerationStrategy,
   type SupportedAlgorithm,
   type TrainOptions,
 } from '@heygrady/hexagonoids-demo'
@@ -73,13 +72,6 @@ function hasGenome(value: unknown): value is { genome: AnyErasedGenome } {
 function normalizeThreadCount(value: number | undefined): number {
   if (value != null) return Math.max(1, Math.floor(value))
   return Math.max(1, Math.floor(hardwareConcurrency - 3))
-}
-
-function normalizeEvaluationSeedsPerOrganism(
-  value: number | undefined
-): number {
-  if (value == null) return 1
-  return Math.max(1, Math.floor(value))
 }
 
 function buildEnvironmentConfig(
@@ -189,9 +181,6 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
       const method = config.method ?? DEFAULT_OBSERVE_METHOD
       const iterations = config.iterations ?? 500
       const threadCount = normalizeThreadCount(config.threadCount)
-      const evaluationSeedsPerOrganism = normalizeEvaluationSeedsPerOrganism(
-        config.evaluationSeedsPerOrganism
-      )
       const populationSize = config.populationSize ?? 64
       const {
         algorithmPathname,
@@ -231,13 +220,6 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
         environment: {
           description,
           toFactoryOptions: () => envConfig,
-        },
-        evaluation: {
-          type: 'strategy',
-          strategy: new MultiSeedGenerationStrategy(
-            evaluationSeedsPerOrganism,
-            config.evaluationBaseSeed ?? 'observe-training'
-          ),
         },
         evolutionOptions: {
           iterations,
