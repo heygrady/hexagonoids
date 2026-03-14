@@ -47,7 +47,7 @@
     "test:dev": "vitest"
   },
   "dependencies": {
-    "@babylonjs/core": "^8.37.3",
+    "@babylonjs/core": "^8.52.0",
     "@swc/helpers": "^0.5.19",
     "h3-js": "^4.1.0"
   },
@@ -66,10 +66,10 @@
     "vitest": "^4.0.14"
   },
   "browserslist": [
-    "node >=16"
+    "node >=18"
   ],
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "volta": {
     "extends": "../../package.json"
