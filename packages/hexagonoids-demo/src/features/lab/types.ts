@@ -1,4 +1,4 @@
-import type { TrainOptions } from '../../train.js'
+import type { TrainOptions } from '../training/train.js'
 
 export interface LabSpecificOptions {
   name?: string | undefined

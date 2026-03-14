@@ -11,19 +11,19 @@ import {
 } from '@heygrady/hexagonoids-environment'
 import type { AnyErasedGenome } from '@neat-evolution/evaluator'
 import { createExecutor } from '@neat-evolution/executor'
+import { loadGenome } from '../persistence/loadGenome.js'
 import {
   createGenomeFromSerialized,
   createPhenotypeForGenome,
   HEXAGONOIDS_IO,
   type SerializedGenome,
   type SupportedAlgorithm,
-} from '../../algorithmRegistry.js'
-import { generationSeedPack } from '../../evaluation/seedSchedule.js'
-import { loadGenome } from '../../persistence/loadGenome.js'
+} from '../registries/algorithmRegistry.js'
+import { generationSeedPack } from '../training/evaluation/seedSchedule.js'
 import {
   isSerializedOrganism,
   type SerializedOrganism,
-} from '../../serialization/serializedOrganism.js'
+} from '../training/serialization/serializedOrganism.js'
 import type { GenomeBehavior, ScoringMethod } from './types.js'
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {

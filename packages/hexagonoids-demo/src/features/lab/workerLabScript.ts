@@ -9,11 +9,11 @@ import {
 } from './workerLabActions.js'
 
 interface LabRuntime {
-  loadGenome: typeof import('../../persistence/loadGenome.js').loadGenome
-  isSerializedOrganism: typeof import('../../serialization/serializedOrganism.js').isSerializedOrganism
-  createGenomeFromSerialized: typeof import('../../algorithmRegistry.js').createGenomeFromSerialized
-  createPhenotypeForGenome: typeof import('../../algorithmRegistry.js').createPhenotypeForGenome
-  HEXAGONOIDS_IO: typeof import('../../algorithmRegistry.js').HEXAGONOIDS_IO
+  loadGenome: typeof import('../persistence/loadGenome.js').loadGenome
+  isSerializedOrganism: typeof import('../training/serialization/serializedOrganism.js').isSerializedOrganism
+  createGenomeFromSerialized: typeof import('../registries/algorithmRegistry.js').createGenomeFromSerialized
+  createPhenotypeForGenome: typeof import('../registries/algorithmRegistry.js').createPhenotypeForGenome
+  HEXAGONOIDS_IO: typeof import('../registries/algorithmRegistry.js').HEXAGONOIDS_IO
   createExecutor: typeof import('@neat-evolution/executor').createExecutor
   createNeatAgent: typeof import('@heygrady/hexagonoids-environment').createNeatAgent
   simulateGame: typeof import('@heygrady/hexagonoids-environment').simulateGame
@@ -21,7 +21,7 @@ interface LabRuntime {
   evaluateFullGameFitness: typeof import('@heygrady/hexagonoids-environment').evaluateFullGameFitness
   computePossibleDeaths: typeof import('@heygrady/hexagonoids-environment').computePossibleDeaths
   weightedFitnessSum: typeof import('@heygrady/hexagonoids-environment').weightedFitnessSum
-  generationSeedPack: typeof import('../../evaluation/seedSchedule.js').generationSeedPack
+  generationSeedPack: typeof import('../training/evaluation/seedSchedule.js').generationSeedPack
 }
 
 let runtime: LabRuntime | null = null
@@ -47,15 +47,15 @@ handler.register(init, async (_payload, _context) => {
   const env = await import('@heygrady/hexagonoids-environment')
   const { createExecutor } = await import('@neat-evolution/executor')
   const { isSerializedOrganism } = await import(
-    '../../serialization/serializedOrganism.js'
+    '../training/serialization/serializedOrganism.js'
   )
   const {
     createGenomeFromSerialized,
     createPhenotypeForGenome,
     HEXAGONOIDS_IO,
-  } = await import('../../algorithmRegistry.js')
+  } = await import('../registries/algorithmRegistry.js')
   const { generationSeedPack } = await import(
-    '../../evaluation/seedSchedule.js'
+    '../training/evaluation/seedSchedule.js'
   )
 
   runtime = {

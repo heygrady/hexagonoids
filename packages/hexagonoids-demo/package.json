@@ -15,12 +15,22 @@
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/types/index.d.ts",
-  "bin": "./bin/index.js",
+  "bin": "./bin/run.js",
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js"
+      "types": "./dist/types/browser/index.d.ts",
+      "import": "./dist/esm/browser/index.js",
+      "require": "./dist/cjs/browser/index.js"
+    },
+    "./browser": {
+      "types": "./dist/types/browser/index.d.ts",
+      "import": "./dist/esm/browser/index.js",
+      "require": "./dist/cjs/browser/index.js"
+    },
+    "./cli": {
+      "types": "./dist/types/cli/index.d.ts",
+      "import": "./dist/esm/cli/index.js",
+      "require": "./dist/cjs/cli/index.js"
     },
     "./node": {
       "types": "./dist/types/node/index.d.ts",
@@ -56,7 +66,7 @@
     "dev:types": "tsc --watch --declaration --emitDeclarationOnly --project tsconfig.types.json --outDir dist/types",
     "format": "biome check --write",
     "lint": "biome lint",
-    "demo": "node ./bin/index.js",
+    "demo": "node ./bin/run.js",
     "profile": "node ./scripts/profile.js",
     "profile:analyze": "node ./scripts/analyze-profile.js",
     "profile:sim-analyze": "node ./scripts/analyze-sim-profile.js",
@@ -65,15 +75,23 @@
     "test": "vitest --run --passWithNoTests",
     "test:dev": "vitest"
   },
+  "oclif": {
+    "bin": "hexagonoids-demo",
+    "topicSeparator": " ",
+    "commands": {
+      "strategy": "pattern",
+      "target": "./dist/esm/commands"
+    }
+  },
   "dependencies": {
     "@heygrady/hexagonoids-environment": "workspace:^",
+    "@neat-evolution/actor-critic-plugin": "^0.0.1",
     "@neat-evolution/core": "^0.5.0",
     "@neat-evolution/cppn": "^0.6.8",
     "@neat-evolution/des-hyperneat": "^0.6.8",
     "@neat-evolution/es-hyperneat": "^0.6.8",
     "@neat-evolution/evaluator": "^0.5.8",
     "@neat-evolution/evolution": "^0.7.0",
-    "@neat-evolution/actor-critic-plugin": "^0.0.1",
     "@neat-evolution/evolution-manager": "^0.1.0",
     "@neat-evolution/executor": "^0.3.13",
     "@neat-evolution/hyperneat": "^0.6.8",
@@ -82,6 +100,7 @@
     "@neat-evolution/worker-actions": "^0.6.0",
     "@neat-evolution/worker-pool": "^0.4.6",
     "@neat-evolution/worker-threads": "^0.4.6",
+    "@oclif/core": "^4",
     "@swc/helpers": "^0.5.19",
     "zod": "^4.3.6"
   },
@@ -100,10 +119,10 @@
     "vitest": "^4.0.14"
   },
   "browserslist": [
-    "node >=16"
+    "node >=18"
   ],
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "volta": {
     "extends": "../../package.json"

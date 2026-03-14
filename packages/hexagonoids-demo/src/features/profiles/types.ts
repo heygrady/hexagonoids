@@ -1,7 +1,6 @@
 import type { RawMetrics } from '@heygrady/hexagonoids-environment'
-
-import type { TrainOptions } from '../../train.js'
 import type { LabSpecificOptions } from '../lab/types.js'
+import type { TrainOptions } from '../training/train.js'
 
 export type ScoringMethod = (
   metrics: RawMetrics,

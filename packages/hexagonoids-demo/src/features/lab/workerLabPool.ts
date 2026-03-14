@@ -6,7 +6,7 @@ import { Dispatcher } from '@neat-evolution/worker-actions'
 import { WorkerPool } from '@neat-evolution/worker-pool'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
-import type { SupportedAlgorithm } from '../../algorithmRegistry.js'
+import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
 import type { GenomeBehavior, ScoringMethod } from './types.js'
 import {
   analyzeBatch,

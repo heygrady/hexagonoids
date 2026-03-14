@@ -1,6 +1,6 @@
 import { createMessage } from '@neat-evolution/worker-actions'
 
-import type { SupportedAlgorithm } from '../../algorithmRegistry.js'
+import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
 import type { GenomeBehavior } from './types.js'
 
 export enum ActionType {

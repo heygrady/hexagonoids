@@ -24,7 +24,7 @@ import {
   HEXAGONOIDS_IO,
   SUPPORTED_ALGORITHMS,
   type SupportedAlgorithm,
-} from '../src/algorithmRegistry.js'
+} from '../src/features/registries/algorithmRegistry.js'
 
 // --- Test-only stubs for creating populations without real workers ---
 

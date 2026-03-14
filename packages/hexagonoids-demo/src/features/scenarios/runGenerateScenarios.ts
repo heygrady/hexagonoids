@@ -2,7 +2,11 @@ import { writeFileSync } from 'node:fs'
 import { gzipSync } from 'node:zlib'
 import { dedupeCandidates, scoreInterestingness } from './dedupe.js'
 import { discoverSourceGenomes } from './discovery.js'
-import { EXPECTED_IO, EXPECTED_OUTPUTS, parseScenarioArgs } from './options.js'
+import {
+  defaultScenarioOptions,
+  EXPECTED_IO,
+  EXPECTED_OUTPUTS,
+} from './options.js'
 import { makeOutputDocument, makeScenarioBank } from './output.js'
 import {
   selectReviewPanel,
@@ -28,6 +32,7 @@ import {
 import type {
   PanelReport,
   ScenarioCandidate,
+  ScenarioOptions,
   ScenarioRunCounts,
 } from './types.js'
 import { createScenarioWorkerPool } from './workerScenarioPool.js'
@@ -41,8 +46,9 @@ function applyBaseInterestingness(
   }))
 }
 
-export async function runGenerateScenarios(args: string[] = []) {
-  const options = parseScenarioArgs(args)
+async function runGenerateScenariosWithResolvedOptions(
+  options: ScenarioOptions
+) {
   console.log(
     `\n=== Robust Scenario Mining: labs=${options.maxLabs} heroes=${options.heroCount} perSource=${options.countPerSource} rewind=${options.rewind} killRatio=${options.killRatio} ===`
   )
@@ -211,7 +217,11 @@ export async function runGenerateScenarios(args: string[] = []) {
   }
 }
 
-export async function runGenerateScenariosCommand(args: string[] = []) {
-  await runGenerateScenarios(args)
-  return 0
+export async function runGenerateScenarios(
+  options: Partial<ScenarioOptions> = {}
+) {
+  await runGenerateScenariosWithResolvedOptions({
+    ...defaultScenarioOptions(),
+    ...options,
+  })
 }

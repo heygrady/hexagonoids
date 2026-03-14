@@ -4,7 +4,7 @@ const defaultProfile: TrainingProfile = {
   name: 'default',
   config: {
     populationSize: 100,
-    method: 'ES-HyperNEAT',
+    method: 'NEAT',
     iterations: 50,
     fitnessWeights: {
       rocksDestroyed: 0.9,

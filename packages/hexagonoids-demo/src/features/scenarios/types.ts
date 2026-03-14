@@ -9,7 +9,7 @@ import type {
 } from '@heygrady/hexagonoids-environment'
 import type { SyncExecutor } from '@neat-evolution/executor'
 
-import type { SupportedAlgorithm } from '../../algorithmRegistry.js'
+import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
 
 export type SourceKind = 'best-of-lab' | 'hero-gen' | 'existing-bank'
 

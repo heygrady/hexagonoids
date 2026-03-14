@@ -1,16 +1,17 @@
 # @heygrady/hexagonoids-demo
 
-Headless training and replay tooling for NEAT on hexagonoids.
+Headless training, inspection, and replay tooling for NEAT on hexagonoids.
 
 ## Commands
 
-Run all commands from repo root:
+Build first, then run commands from the repo root:
 
 ```bash
 yarn workspace @heygrady/hexagonoids-demo build
+yarn workspace @heygrady/hexagonoids-demo demo --help
 ```
 
-### Baseline mode (no evolution)
+### Baseline
 
 Scores `doNothingAgent` and `randomAgent` over a shared seed pack.
 
@@ -28,12 +29,12 @@ yarn workspace @heygrady/hexagonoids-demo demo baseline \
   --dtMs 33
 ```
 
-### Train mode
+### Train
 
 Runs evolution and writes artifacts (`best-*.json`, heroes log).
 
 ```bash
-yarn workspace @heygrady/hexagonoids-demo demo train
+yarn workspace @heygrady/hexagonoids-demo demo train --method NEAT --profile default
 ```
 
 Example with options:
@@ -51,31 +52,43 @@ yarn workspace @heygrady/hexagonoids-demo demo train \
   --outputDir .artifacts/manual
 ```
 
-Profiling example (writes per-process simulation stage timings as NDJSON):
-
-```bash
-yarn workspace @heygrady/hexagonoids-demo demo train \
-  --method HyperNEAT \
-  --populationSize 32 \
-  --iterations 5 \
-  --maxTicks 1000 \
-  --dtMs 33 \
-  --perfProfile \
-  --perfProfileSampleEveryNGames 64 \
-  --perfProfileOutput .artifacts/manual/perf-profile.ndjson
-```
-
-### Replay mode
+### Replay
 
 Loads a saved genome JSON and runs one simulation.
 
 ```bash
 yarn workspace @heygrady/hexagonoids-demo demo replay \
-  --path packages/hexagonoids-demo/.artifacts/session04/neat/best-NEAT.json \
+  packages/hexagonoids-demo/.artifacts/session04/neat/best-NEAT.json \
   --method NEAT \
   --seed replay-1 \
   --maxTicks 1500 \
   --dtMs 33
+```
+
+`replay` is wired into the CLI correctly, but it is still an older feature and may fail if its underlying assumptions have drifted.
+
+### Lab
+
+```bash
+yarn workspace @heygrady/hexagonoids-demo demo lab \
+  --method NEAT \
+  --name smoke-test \
+  --profile default
+```
+
+### Inspect
+
+```bash
+yarn workspace @heygrady/hexagonoids-demo demo inspect inputs --seed debug-1 --agent random
+yarn workspace @heygrady/hexagonoids-demo demo inspect fitness --genome ./path/to/genome.json --seed debug-1
+```
+
+### Scenarios
+
+```bash
+yarn workspace @heygrady/hexagonoids-demo demo scenarios \
+  --output packages/hexagonoids-demo/src/data/scenarioBank.js \
+  --seed scenario-refresh-1
 ```
 
 ### Help
@@ -97,13 +110,8 @@ node --cpu-prof ./node_modules/vitest/vitest.mjs bench --run \
   packages/hexagonoids-demo/test/training.flamegraph.bench.ts
 ```
 
-## Notes
+## Entry points
 
-- `baseline` and `train` share core numeric options (`--maxTicks`, `--dtMs`,
-  `--evaluationSeedsPerOrganism`, `--baseSeed`, `--method`).
-- `train` additionally accepts evolution options (`--populationSize`,
-  `--iterations`, `--secondsLimit`, `--earlyStopPatience`, `--threadCount`,
-  `--logInterval`, `--outputDir`, `--perfProfile`,
-  `--perfProfileSampleEveryNGames`, `--perfProfileOutput`).
-- `replay` uses replay-specific options (`--path`, `--method`, `--seed`,
-  `--maxTicks`, `--dtMs`).
+- `@heygrady/hexagonoids-demo` and `@heygrady/hexagonoids-demo/browser` expose the browser-friendly demo API.
+- `@heygrady/hexagonoids-demo/node` exposes node-specific helpers such as training, replay, persistence, and the programmatic CLI entry.
+- `@heygrady/hexagonoids-demo/cli` exposes the programmatic CLI runner.

@@ -4,7 +4,7 @@ import { basename, extname, join } from 'node:path'
 import { INPUT_COUNT } from '@heygrady/hexagonoids-environment'
 import { z } from 'zod'
 
-import type { SupportedAlgorithm } from '../../algorithmRegistry.js'
+import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
 import { EXPECTED_OUTPUTS } from './options.js'
 import type {
   GenomeIoShape,

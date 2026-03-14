@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { runMainCli } from '../src/main.js'
+import { runCli } from '../src/cli/index.js'
 
-describe('runMainCli', () => {
+describe('runCli', () => {
   it('returns 0 for --help', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    const code = await runMainCli(['--help'])
+    const code = await runCli(['--help'])
 
     expect(code).toBe(0)
     vi.restoreAllMocks()
@@ -12,58 +12,49 @@ describe('runMainCli', () => {
 
   it('returns 0 when no command is given', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    const code = await runMainCli([])
+    const code = await runCli([])
 
     expect(code).toBe(0)
     vi.restoreAllMocks()
   })
 
-  it('returns 1 for unknown command', async () => {
+  it('returns 2 for unknown command', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    const code = await runMainCli(['foobar'])
+    const code = await runCli(['foobar'])
 
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     vi.restoreAllMocks()
   })
 
-  it('delegates replay subcommand to replay CLI', async () => {
+  it('returns 2 when replay genome path is missing', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    // replay with no args fails because genome path is missing
-    const code = await runMainCli(['replay'])
+    const code = await runCli(['replay'])
 
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     vi.restoreAllMocks()
   })
 
-  it('returns 1 for unknown option in baseline mode', async () => {
+  it('returns 2 for unknown option in baseline mode', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    const code = await runMainCli(['baseline', '--bogus'])
+    const code = await runCli(['baseline', '--bogus'])
 
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     vi.restoreAllMocks()
   })
 
-  it('returns 1 for invalid --thrustMath value', async () => {
+  it('returns 2 for invalid --thrustMath value', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    const code = await runMainCli(['train', '--thrustMath', 'bad'])
+    const code = await runCli(['train', '--thrustMath', 'bad'])
 
-    expect(code).toBe(1)
+    expect(code).toBe(2)
     vi.restoreAllMocks()
   })
 
-  it('accepts a positional method for lab before parsing later options', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const code = await runMainCli([
-      'lab',
-      'NEAT',
-      '--analysisSeedsPerGenome',
-      '0',
-    ])
+  it('rejects the removed positional method shorthand for lab', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const code = await runCli(['lab', 'NEAT'])
 
-    expect(code).toBe(1)
-    expect(errorSpy).toHaveBeenCalledWith(
-      'Invalid value for --analysisSeedsPerGenome.'
-    )
+    expect(code).toBe(2)
     vi.restoreAllMocks()
   })
 })

@@ -4,11 +4,11 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { loadGenome } from '../../src/persistence/loadGenome.js'
+import { loadGenome } from '../../src/features/persistence/loadGenome.js'
 import {
   SERIALIZED_ORGANISM_KIND,
   SERIALIZED_ORGANISM_VERSION,
-} from '../../src/serialization/serializedOrganism.js'
+} from '../../src/features/training/serialization/serializedOrganism.js'
 
 describe('loadGenome', () => {
   it('loads a serialized organism JSON object', async () => {

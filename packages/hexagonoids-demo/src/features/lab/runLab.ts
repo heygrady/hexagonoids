@@ -10,11 +10,11 @@ import {
 
 const PACKAGE_ROOT = fileURLToPath(new URL('../../../..', import.meta.url))
 
-import { LAB_ANALYSIS_DEFAULTS } from '../../configDefaults.js'
-import { type TrainOptions, train } from '../../train.js'
 import { defaultProfile } from '../profiles/index.js'
 import { loadProfile } from '../profiles/loadProfile.js'
 import type { TrainingProfile } from '../profiles/types.js'
+import { LAB_ANALYSIS_DEFAULTS } from '../runtime/configDefaults.js'
+import { type TrainOptions, train } from '../training/train.js'
 import { generateReport } from './generateReport.js'
 import type { LabConfig, LabOptions } from './types.js'
 import { createLabWorkerPool } from './workerLabPool.js'
@@ -48,7 +48,7 @@ export async function runLab(options: LabOptions = {}): Promise<{
   const experimentDir = resolve(PACKAGE_ROOT, '.artifacts', 'lab', experimentId)
   await mkdir(experimentDir, { recursive: true })
 
-  // Merge config: default profile → loaded profile → CLI options
+  // Merge config: default profile -> loaded profile -> explicit command options
   const trainOptions: TrainOptions = {
     ...(defaultProfile.config ?? {}),
     ...profileConfig,

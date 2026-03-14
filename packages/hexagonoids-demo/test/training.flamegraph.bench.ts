@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { bench, describe } from 'vitest'
 
-import { train } from '../src/train.js'
+import { train } from '../src/features/training/train.js'
 
 async function withTempOutputDir<T>(
   prefix: string,

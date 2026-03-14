@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LAB_ANALYSIS_DEFAULTS } from '../src/configDefaults.js'
+import { LAB_ANALYSIS_DEFAULTS } from '../src/features/runtime/configDefaults.js'
 
 describe('configDefaults', () => {
   it('contains positive numeric defaults', () => {
