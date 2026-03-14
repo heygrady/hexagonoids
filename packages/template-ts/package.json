@@ -64,10 +64,10 @@
     "vitest": "^4.0.14"
   },
   "browserslist": [
-    "node >=16"
+    "node >=18"
   ],
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "volta": {
     "extends": "../../package.json"
