@@ -7,20 +7,3 @@ export const arithmeticMean: FitnessAggregator = (scores) => {
 
   return scores.reduce((sum, score) => sum + score, 0) / scores.length
 }
-
-export async function evaluateOrganismMultiSeed(
-  seeds: readonly string[],
-  evaluateSingleSeed: (seed: string) => Promise<number>,
-  aggregate: FitnessAggregator = arithmeticMean
-): Promise<number> {
-  if (seeds.length === 0) {
-    throw new Error('seeds must contain at least one value')
-  }
-
-  const scores: number[] = []
-  for (const seed of seeds) {
-    scores.push(await evaluateSingleSeed(seed))
-  }
-
-  return aggregate(scores)
-}

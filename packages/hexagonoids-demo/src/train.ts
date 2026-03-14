@@ -26,7 +26,6 @@ import {
 import type { AnyAlgorithm } from '@neat-evolution/evaluator'
 import { defaultEvolutionOptions } from '@neat-evolution/evolution'
 import {
-  type EvaluationConfig,
   EvolutionManager,
   type EvolutionManagerConfig,
   type WorkerConfig,
@@ -57,7 +56,6 @@ import {
   saveGenerationGenome,
 } from './persistence/appendGenerationLog.js'
 import { saveGenome } from './persistence/saveGenome.js'
-import { MultiSeedGenerationStrategy } from './workerTraining.js'
 
 const DEFAULT_OUTPUT_DIR = fileURLToPath(new URL('../../', import.meta.url))
 const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
@@ -301,26 +299,13 @@ function algorithmConfig(method: SupportedAlgorithm): ErasedManagerConfig {
   }
 }
 
-function buildEvaluationConfig(
+function buildStrategy(
   config: ReturnType<typeof toRunConfig>,
   algorithm: AnyAlgorithm,
-  environment: Environment,
-  supportsTraining: boolean
-): EvaluationConfig {
-  const createStrategyConfig = (
-    delegateStrategy?: EvaluationStrategy
-  ): EvaluationConfig => ({
-    type: 'strategy',
-    strategy: new MultiSeedGenerationStrategy(
-      config.evaluationSeedsPerOrganism,
-      config.baseSeed,
-      mean,
-      delegateStrategy
-    ),
-  })
-
+  environment: Environment
+): EvaluationStrategy | undefined {
   if (config.rlMode === 'actor-critic') {
-    const pluginStrategy: EvaluationStrategy = new PluginStrategy(
+    return new PluginStrategy(
       [
         new ACPlugin(
           algorithm,
@@ -337,13 +322,11 @@ function buildEvaluationConfig(
       {
         algorithm: algorithm as unknown as AnyErasedAlgorithm,
         environment,
-        supportsTraining,
       }
     )
-    return createStrategyConfig(pluginStrategy)
   }
   if (config.rlMode === 'q-learning') {
-    const pluginStrategy: EvaluationStrategy = new PluginStrategy(
+    return new PluginStrategy(
       [
         new QLPlugin(
           algorithm,
@@ -363,12 +346,10 @@ function buildEvaluationConfig(
       {
         algorithm: algorithm as unknown as AnyErasedAlgorithm,
         environment,
-        supportsTraining,
       }
     )
-    return createStrategyConfig(pluginStrategy)
   }
-  return createStrategyConfig()
+  return undefined
 }
 
 export async function train(options: TrainOptions = {}): Promise<TrainResult> {
@@ -443,19 +424,21 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     createExecutorPathname: CREATE_EXECUTOR_PATHNAME,
     taskCount: config.populationSize,
     threadCount: config.threadCount,
+    ...(config.rlMode !== 'none'
+      ? { pluginPaths: ['@neat-evolution/worker-rl/workerPlugin'] }
+      : {}),
   }
 
-  const evaluation = buildEvaluationConfig(
+  const strategy = buildStrategy(
     config,
     algorithmDetails.algorithm as AnyAlgorithm,
-    environment as Environment,
-    (workerConfig.pluginPaths?.length ?? 0) > 0
+    environment as Environment
   )
 
   const manager = new EvolutionManager({
     ...algorithmDetails,
     environment,
-    evaluation,
+    ...(strategy != null ? { strategy } : {}),
     evolutionOptions: {
       iterations: config.iterations,
       secondsLimit: config.secondsLimit,

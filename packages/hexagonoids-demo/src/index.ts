@@ -16,4 +16,3 @@ export type {
   TrainingProfile,
 } from './features/profiles/types.js'
 export type { TrainOptions } from './train.js'
-export * from './workerTraining.js'
