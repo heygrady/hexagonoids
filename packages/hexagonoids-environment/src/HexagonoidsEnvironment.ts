@@ -40,7 +40,7 @@ import {
 } from './scenarios/stratifiedSample.js'
 import type { ScenarioSnapshot } from './scenarios/types.js'
 
-const OUTPUT_COUNT = 4
+const DEFAULT_OUTPUT_COUNT = 4
 
 export class HexagonoidsEnvironment
   implements
@@ -57,9 +57,10 @@ export class HexagonoidsEnvironment
 
   constructor(config?: Partial<HexagonoidsEnvironmentConfig>) {
     this.config = mergeConfig(config)
+    const outputCount = this.config.outputCount ?? DEFAULT_OUTPUT_COUNT
     this.description = {
       inputs: INPUT_COUNT,
-      outputs: OUTPUT_COUNT,
+      outputs: outputCount,
     }
     this.agent = createNeatAgent()
     if (
@@ -77,7 +78,7 @@ export class HexagonoidsEnvironment
 
   getRLConfig(): RLConfig {
     return {
-      actionSize: OUTPUT_COUNT,
+      actionSize: DEFAULT_OUTPUT_COUNT,
       discountFactor: 0.99,
       maxStepsPerEpisode: this.config.simulation.maxTicks,
       suggestedRolloutLength: 32,
@@ -478,6 +479,9 @@ export class HexagonoidsEnvironment
       curriculumWeight: this.config.curriculumWeight,
       scenarioSeedsPerOrganism: this.config.scenarioSeedsPerOrganism,
       fullGameSeedsPerOrganism: this.config.fullGameSeedsPerOrganism,
+      ...(this.config.outputCount != null && {
+        outputCount: this.config.outputCount,
+      }),
     }
   }
 }

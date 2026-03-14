@@ -82,6 +82,14 @@ export interface HexagonoidsEnvironmentConfig {
   curriculumWeight: number
   scenarioSeedsPerOrganism: number
   fullGameSeedsPerOrganism: number
+  /**
+   * Total number of genome outputs reported in description.outputs.
+   * Defaults to 4 (the 4 game actions). RL modes may need more:
+   * AC adds 1 critic output (5 total), QL multiDiscrete doubles to 8.
+   * The environment always reads the first 4 outputs for game actions;
+   * extra outputs are consumed by the RL agent.
+   */
+  outputCount?: number | undefined
 }
 
 export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfig =
@@ -178,5 +186,6 @@ export function mergeConfig(
     fullGameSeedsPerOrganism:
       partial.fullGameSeedsPerOrganism ??
       DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fullGameSeedsPerOrganism,
+    ...(partial.outputCount != null && { outputCount: partial.outputCount }),
   }
 }
