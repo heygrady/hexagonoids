@@ -1,10 +1,13 @@
-import type { EpisodicAgent } from '@neat-evolution/environment'
+import type {
+  EpisodicAgent,
+  TransitionInfo,
+} from '@neat-evolution/execution-manager'
 import type {
   BatchInputs,
   BatchOutputs,
   Inputs,
   Outputs,
-  SyncExecutor,
+  StaticExecutor,
 } from '@neat-evolution/executor'
 import type { RNG } from '@neat-evolution/utils'
 import { describe, expect, it } from 'vitest'
@@ -19,21 +22,20 @@ describe('HexagonoidsEnvironment parity', () => {
     scenarioMaxTicks: 16,
   }
 
-  const createMidpointExecutor = (): SyncExecutor => ({
-    isAsync: false,
-    execute(_inputs: Inputs): Outputs {
+  const createMidpointExecutor = (): StaticExecutor => ({
+    forward(_inputs: Inputs): Outputs {
       return new Array(4).fill(0.5)
     },
-    executeBatch(batch: BatchInputs): BatchOutputs {
+    forwardBatch(batch: BatchInputs): BatchOutputs {
       return batch.map(() => new Array(4).fill(0.5))
     },
   })
 
   class ExecutorBackedAgent implements EpisodicAgent {
-    constructor(private readonly executor: SyncExecutor) {}
+    constructor(private readonly executor: StaticExecutor) {}
 
     act(inputs: Float64Array): Float64Array {
-      const outputs = this.executor.execute(Array.from(inputs))
+      const outputs = this.executor.forward(Array.from(inputs))
       return Float64Array.from(outputs)
     }
 
@@ -46,6 +48,10 @@ describe('HexagonoidsEnvironment parity', () => {
     }
 
     endEpisode(): void {
+      // no-op
+    }
+
+    setTransitionInfo(_info: TransitionInfo): void {
       // no-op
     }
   }
@@ -77,7 +83,7 @@ describe('HexagonoidsEnvironment parity', () => {
     const agent = new ExecutorBackedAgent(executor)
     const rng = createAgentSeedRng()
 
-    const executorFitness = environment.evaluate(executor, rng)
+    const executorFitness = environment.evaluate(executor, { rng })
     const agentFitness = environment.evaluateAgent(agent)
 
     expect(executorFitness).toBeCloseTo(agentFitness, 10)

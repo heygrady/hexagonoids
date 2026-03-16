@@ -55,6 +55,7 @@
     "@babylonjs/core": "^8.52.0",
     "@heygrady/hexagonoids-engine": "workspace:^",
     "@neat-evolution/environment": "^0.5.8",
+    "@neat-evolution/execution-manager": "^0.1.0",
     "@neat-evolution/executor": "^0.3.13",
     "@neat-evolution/utils": "^0.6.0",
     "@swc/helpers": "^0.5.19",

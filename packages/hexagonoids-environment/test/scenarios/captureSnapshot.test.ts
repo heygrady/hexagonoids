@@ -27,7 +27,7 @@ function tickGame(
   rng: ReturnType<typeof createGame>['rng'],
   ticks: number
 ) {
-  const context: AgentContext = { rng, memory: {}, executor: undefined }
+  const context: AgentContext = { rng, memory: {} }
   const stepInputs: PlayerInputs = {
     [PLAYER_ID]: { left: false, right: false, thrust: false, fire: false },
   }

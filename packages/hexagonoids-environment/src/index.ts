@@ -1,6 +1,9 @@
 // Agents
+export {
+  createGameAgent,
+  type GameAgent,
+} from './agents/createGameAgent.js'
 export { doNothingAgent } from './agents/doNothingAgent.js'
-export { createNeatAgent, neatAgent } from './agents/neatAgent.js'
 export { randomAgent } from './agents/randomAgent.js'
 export type { AgentContext, AgentFn } from './agents/types.js'
 export {
@@ -21,6 +24,12 @@ export type {
 } from './curriculum/generateCurriculumScenario.js'
 export { runCurriculum } from './curriculum/runCurriculum.js'
 export {
+  type ActionDecoder,
+  binaryDecoder,
+  pairedDecoder,
+  selectDecoder,
+} from './encoding/actionDecoders.js'
+export {
   buildRockPerceptionPrecompute,
   collectObservations,
 } from './encoding/collectObservations.js'
@@ -31,7 +40,6 @@ export {
   hammingDistance,
   popcount8,
 } from './encoding/coneOccupancy.js'
-export { decodeOutputs } from './encoding/decodeOutputs.js'
 export { encodeGameState } from './encoding/encodeGameState.js'
 // Encoding
 export {
@@ -69,7 +77,13 @@ export {
 export type { MetricsCollector, RawMetrics } from './evaluation/RawMetrics.js'
 export { createMetricsCollector } from './evaluation/RawMetrics.js'
 export { computePossibleDeaths } from './evaluation/scenarioContext.js'
-export { simulateGame } from './evaluation/simulateGame.js'
+export {
+  DEFAULT_REWARD_CONFIG,
+  type RewardConfig,
+  type SimulationHooks,
+  simulateGame,
+  type TickDeltas,
+} from './evaluation/simulateGame.js'
 // Environment
 export { HexagonoidsEnvironment } from './HexagonoidsEnvironment.js'
 export type {

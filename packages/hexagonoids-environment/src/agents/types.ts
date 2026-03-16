@@ -3,10 +3,7 @@ import type {
   ManagedSpatialQueries,
   PlayerInputState,
 } from '@heygrady/hexagonoids-engine'
-import type { SyncExecutor } from '@neat-evolution/executor'
 import type { RNG } from '@neat-evolution/utils'
-
-export type { SyncExecutor } from '@neat-evolution/executor'
 
 /**
  * Agent function signature. Reads game state, returns button presses.
@@ -21,7 +18,6 @@ export type AgentFn = (
 export interface AgentContext {
   rng: RNG
   memory: Record<string, unknown>
-  executor?: SyncExecutor | undefined
   spatialQueries?: Pick<ManagedSpatialQueries, 'queryRocksNear'> | undefined
 }
 

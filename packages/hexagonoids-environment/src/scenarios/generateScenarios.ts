@@ -6,7 +6,7 @@ import {
 } from '@heygrady/hexagonoids-engine'
 
 import { randomAgent } from '../agents/randomAgent.js'
-import type { AgentContext, AgentFn, SyncExecutor } from '../agents/types.js'
+import type { AgentContext, AgentFn } from '../agents/types.js'
 import type { SimulationConfig } from '../HexagonoidsEnvironmentConfig.js'
 import { SOI_ANGULAR_RADIUS } from '../utils/constants.js'
 
@@ -26,8 +26,6 @@ export interface GenerateScenariosOptions {
   simulation?: Partial<SimulationConfig>
   /** Agent function to use. @default randomAgent */
   agent?: AgentFn
-  /** Executor for neural-network agents (passed to AgentContext). */
-  executor?: SyncExecutor
   /** Which event types to capture. @default ['death'] */
   captureTypes?: Array<'death' | 'kill'>
   /** Fraction of `count` allocated to kill scenarios (0–1). @default 0 */
@@ -98,7 +96,6 @@ export function generateScenarios(
   const maxTicks = options?.simulation?.maxTicks ?? 3000
   const dtMs = options?.simulation?.dtMs ?? 33
   const agent = options?.agent ?? randomAgent
-  const executor = options?.executor
   const captureTypes = options?.captureTypes ?? ['death']
   const killRatio = options?.killRatio ?? 0
 
@@ -126,7 +123,6 @@ export function generateScenarios(
     const context: AgentContext = {
       rng,
       memory: {},
-      executor,
       spatialQueries: engine,
     }
     const stepInputs: PlayerInputs = {

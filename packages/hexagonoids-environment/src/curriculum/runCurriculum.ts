@@ -1,8 +1,8 @@
 import { createRNG } from '@neat-evolution/utils'
 
-import type { AgentFn, SyncExecutor } from '../agents/types.js'
+import type { AgentFn } from '../agents/types.js'
 import type { RawMetrics } from '../evaluation/RawMetrics.js'
-import type { SimulationEpisodeRuntime } from '../evaluation/simulateGame.js'
+import type { SimulationHooks } from '../evaluation/simulateGame.js'
 
 import type {
   ConeIndex,
@@ -38,8 +38,7 @@ export function runCurriculum(
   seed: string,
   dtMs: number,
   count: number,
-  executor?: SyncExecutor,
-  runtimeFactory?: (index: number) => SimulationEpisodeRuntime | undefined
+  hooksFactory?: (index: number) => SimulationHooks | undefined
 ): RawMetrics[] {
   const rng = createRNG(`${seed}:curriculum`)
 
@@ -93,14 +92,13 @@ export function runCurriculum(
   const results: RawMetrics[] = []
   for (let i = 0; i < scenarios.length; i++) {
     const scenarioSeed = `${seed}:curriculum:${i}`
-    const runtime = runtimeFactory?.(i)
+    const hooks = hooksFactory?.(i)
     const metrics = simulateCurriculumScenario(
       agent,
       scenarios[i]!,
       scenarioSeed,
       dtMs,
-      executor,
-      runtime
+      hooks
     )
     results.push(metrics)
   }

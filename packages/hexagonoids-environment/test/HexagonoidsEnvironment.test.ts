@@ -3,7 +3,7 @@ import type {
   BatchOutputs,
   Inputs,
   Outputs,
-  SyncExecutor,
+  StaticExecutor,
 } from '@neat-evolution/executor'
 import { describe, expect, it } from 'vitest'
 import { createEnvironment } from '../src/createEnvironment.js'
@@ -11,25 +11,23 @@ import { INPUT_COUNT } from '../src/encoding/encodingPresets.js'
 import { HexagonoidsEnvironment } from '../src/HexagonoidsEnvironment.js'
 import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '../src/HexagonoidsEnvironmentConfig.js'
 
-/** A trivial SyncExecutor that returns 0.5 for all outputs. */
-function createMidpointExecutor(): SyncExecutor {
+/** A trivial StaticExecutor that returns 0.5 for all outputs. */
+function createMidpointExecutor(): StaticExecutor {
   return {
-    isAsync: false,
-    execute(_inputs: Inputs): Outputs {
+    forward(_inputs: Inputs): Outputs {
       return new Array(4).fill(0.5)
     },
-    executeBatch(batch: BatchInputs): BatchOutputs {
+    forwardBatch(batch: BatchInputs): BatchOutputs {
       return batch.map((_inputs) => new Array(4).fill(0.5))
     },
   }
 }
 
-/** A SyncExecutor that returns pseudo-random outputs. */
-function createRandomExecutor(): SyncExecutor {
+/** A StaticExecutor that returns pseudo-random outputs. */
+function createRandomExecutor(): StaticExecutor {
   let i = 0
   return {
-    isAsync: false,
-    execute(_inputs: Inputs): Outputs {
+    forward(_inputs: Inputs): Outputs {
       i++
       return [
         Math.sin(i * 1.1) * 0.5 + 0.5,
@@ -38,7 +36,7 @@ function createRandomExecutor(): SyncExecutor {
         Math.sin(i * 4.1) * 0.5 + 0.5,
       ]
     },
-    executeBatch(batch: BatchInputs): BatchOutputs {
+    forwardBatch(batch: BatchInputs): BatchOutputs {
       return batch.map((_inputs) => {
         i++
         return [
@@ -108,8 +106,8 @@ describe('HexagonoidsEnvironment', () => {
     }
     const executor1 = createMidpointExecutor()
     const executor2 = createMidpointExecutor()
-    const result1 = env.evaluate(executor1, makeRng())
-    const result2 = env.evaluate(executor2, makeRng())
+    const result1 = env.evaluate(executor1, { rng: makeRng() })
+    const result2 = env.evaluate(executor2, { rng: makeRng() })
     expect(result1).toBe(result2)
   })
 

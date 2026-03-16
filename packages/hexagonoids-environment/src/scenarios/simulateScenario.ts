@@ -3,24 +3,15 @@ import {
   RADIUS,
   ROCK_WAVE_SIZES,
 } from '@heygrady/hexagonoids-engine'
-import type {
-  EpisodeInfo,
-  EpisodeResult,
-  TransitionInfo,
-} from '@neat-evolution/environment'
 import { createRNG } from '@neat-evolution/utils'
 
-import type { AgentContext, AgentFn, SyncExecutor } from '../agents/types.js'
+import type { AgentContext, AgentFn } from '../agents/types.js'
 import { MEMORY_ROCK_PERCEPTION, MEMORY_SEEN_ROCKS } from '../agents/types.js'
 import { buildRockPerceptionPrecompute } from '../encoding/collectObservations.js'
-import type { EpisodeAgentBridge } from '../evaluation/EpisodeAgentBridge.js'
 import { findBucketXYZ } from '../evaluation/icosahedralBuckets.js'
 import type { RawMetrics } from '../evaluation/RawMetrics.js'
 import { createMetricsCollector } from '../evaluation/RawMetrics.js'
-import {
-  DEFAULT_REWARD_CONFIG,
-  type SimulationEpisodeRuntime,
-} from '../evaluation/simulateGame.js'
+import type { SimulationHooks } from '../evaluation/simulateGame.js'
 import {
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   type SimulationConfig,
@@ -43,27 +34,11 @@ export function simulateScenario(
   scenario: ScenarioSnapshot,
   config: Partial<SimulationConfig>,
   seed: string,
-  executor?: SyncExecutor,
-  runtime?: SimulationEpisodeRuntime
+  hooks?: SimulationHooks
 ): RawMetrics {
   const { maxTicks, dtMs } = {
     ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation,
     ...config,
-  }
-  const rewardConfig = runtime?.rewardConfig ?? DEFAULT_REWARD_CONFIG
-  const controller: EpisodeAgentBridge | undefined = runtime?.controller
-  const episodeInfo: EpisodeInfo =
-    runtime?.episodeInfo ??
-    ({
-      episodeIndex: 0,
-      type: 'scenario',
-    } as const)
-  const episodeMetadata = runtime?.metadata ?? {
-    seed,
-    scenarioId: scenario.id,
-  }
-  if (controller) {
-    controller.startEpisode(episodeInfo)
   }
 
   // 1. Restore game from snapshot
@@ -101,7 +76,6 @@ export function simulateScenario(
   const context: AgentContext = {
     rng,
     memory: {},
-    executor,
     spatialQueries: engine,
   }
   const stepInputs: PlayerInputs = {
@@ -126,7 +100,6 @@ export function simulateScenario(
   const visitedBuckets = new Set<number>()
   let prevScore = 0
   let prevLives = trackedPlayer?.lives ?? 0
-  let episodeReturn = 0
 
   // 4. Game loop
   let tick = 0
@@ -232,6 +205,7 @@ export function simulateScenario(
       collector.addShotsFired(newBullets)
     }
 
+    // Compute tick deltas for hooks
     const livePlayer = trackedPlayer ?? state.players.get(PLAYER_ID)
     const liveShip =
       livePlayer?.shipId != null
@@ -243,43 +217,23 @@ export function simulateScenario(
     const livesNow = livePlayer?.lives ?? prevLives
     const lifeDelta = livesNow - prevLives
     prevLives = livesNow
+    const waveChanged = state.wave > waveBefore
 
-    let reward = 0
-    if (liveShip?.alive) {
-      reward += rewardConfig.survivalReward
-    }
-    if (scoreDelta !== 0) {
-      reward += scoreDelta * rewardConfig.scoreScale
-    }
-    if (lifeDelta < 0) {
-      reward += rewardConfig.deathPenalty * Math.abs(lifeDelta)
-    }
-    if (newBullets > 0) {
-      reward -= newBullets * rewardConfig.shotPenalty
-    }
-    episodeReturn += reward
+    const terminated =
+      livesNow <= 0 || (state.endedAt != null && livePlayer?.alive === false)
+    const truncated = tick >= maxTicks - 1 || state.wave > baselineWave + 1
 
-    const transitionInfo: TransitionInfo = {}
-    if (runtime?.situationClass != null) {
-      transitionInfo.situationClass = runtime.situationClass
-    }
-    if (scoreDelta > 0 || lifeDelta < 0) {
-      transitionInfo.isInteresting = true
-    }
-
-    const isFinalStep =
-      state.endedAt != null ||
-      tick >= maxTicks - 1 ||
-      state.wave > baselineWave + 1 ||
-      livesNow <= 0
-    if (controller) {
-      if (
-        transitionInfo.isInteresting ||
-        transitionInfo.situationClass != null
-      ) {
-        controller.transitionInfo(transitionInfo)
-      }
-      controller.reward(reward, isFinalStep)
+    if (hooks?.onAfterTick != null) {
+      hooks.onAfterTick({
+        tick,
+        scoreDelta,
+        lifeDelta,
+        waveChanged,
+        newBullets,
+        shipAlive: liveShip?.alive === true,
+        terminated,
+        truncated,
+      })
     }
   }
 
@@ -297,7 +251,7 @@ export function simulateScenario(
   // 7. Return collected metrics
   collector.setUniqueCellsVisited(visitedBuckets.size)
 
-  const metrics = collector.getMetrics({
+  return collector.getMetrics({
     score:
       (player?.score ?? 0) - baselineScore - collector.getPreScenarioScore(),
     livesRemaining: player?.lives ?? 0,
@@ -306,24 +260,4 @@ export function simulateScenario(
     wavesSpawned: state.wave - baselineWave,
     elapsedTicks: tick,
   })
-
-  const terminated =
-    (player?.lives ?? 0) <= 0 ||
-    (state.endedAt != null && player?.alive === false)
-  const episodeResult: EpisodeResult = {
-    fitness:
-      runtime?.onEpisodeComplete?.(metrics, {
-        steps: tick,
-        terminated,
-      }) ?? 0,
-    episodeReturn,
-    totalSteps: tick,
-    terminated,
-    metadata: episodeMetadata,
-  }
-  if (controller) {
-    controller.endEpisode(episodeResult)
-  }
-
-  return metrics
 }

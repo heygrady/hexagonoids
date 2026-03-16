@@ -1,16 +1,20 @@
 import type {
-  AgentEnvironment,
   Environment,
   EnvironmentDescription,
-  EpisodicAgent,
   EpisodicEnvironment,
   RLConfig,
 } from '@neat-evolution/environment'
-import type { Executor, SyncExecutor } from '@neat-evolution/executor'
-import type { RNG } from '@neat-evolution/utils'
+import type {
+  EnvironmentInitOptions,
+  EpisodicAgent,
+  PartialEvaluationContext,
+  TransitionInfo,
+} from '@neat-evolution/execution-manager'
+import { createVanillaAgent } from '@neat-evolution/execution-manager'
+import type { StaticExecutor } from '@neat-evolution/executor'
 import { createRNG } from '@neat-evolution/utils'
 
-import { createNeatAgent } from './agents/neatAgent.js'
+import { createGameAgent, type GameAgent } from './agents/createGameAgent.js'
 import { runCurriculum } from './curriculum/runCurriculum.js'
 import { INPUT_COUNT } from './encoding/encodingPresets.js'
 import {
@@ -19,16 +23,14 @@ import {
   type FitnessContext,
   weightedFitnessSum,
 } from './evaluation/calculateFitness.js'
-import {
-  createRLEpisodeBridge,
-  type EpisodeAgentBridge,
-} from './evaluation/EpisodeAgentBridge.js'
 import type { RawMetrics } from './evaluation/RawMetrics.js'
 import { computePossibleDeaths } from './evaluation/scenarioContext.js'
 import {
   DEFAULT_REWARD_CONFIG,
-  type SimulationEpisodeRuntime,
+  type RewardConfig,
+  type SimulationHooks,
   simulateGame,
+  type TickDeltas,
 } from './evaluation/simulateGame.js'
 import type { HexagonoidsEnvironmentConfig } from './HexagonoidsEnvironmentConfig.js'
 import { mergeConfig } from './HexagonoidsEnvironmentConfig.js'
@@ -43,26 +45,26 @@ import type { ScenarioSnapshot } from './scenarios/types.js'
 const DEFAULT_OUTPUT_COUNT = 4
 
 export class HexagonoidsEnvironment
-  implements
-    Environment<HexagonoidsEnvironmentConfig>,
-    EpisodicEnvironment,
-    AgentEnvironment
+  implements Environment<HexagonoidsEnvironmentConfig>, EpisodicEnvironment
 {
   public readonly description: EnvironmentDescription
   public readonly isAsync = false
   private readonly config: HexagonoidsEnvironmentConfig
-  private readonly agent: ReturnType<typeof createNeatAgent>
   private readonly scenarioIndex?: StratifiedIndex
+  private readonly initOptions: EnvironmentInitOptions | undefined
   private agentSeedCounter = 0
 
-  constructor(config?: Partial<HexagonoidsEnvironmentConfig>) {
+  constructor(
+    config?: Partial<HexagonoidsEnvironmentConfig>,
+    initOptions?: EnvironmentInitOptions
+  ) {
     this.config = mergeConfig(config)
+    this.initOptions = initOptions
     const outputCount = this.config.outputCount ?? DEFAULT_OUTPUT_COUNT
     this.description = {
       inputs: INPUT_COUNT,
       outputs: outputCount,
     }
-    this.agent = createNeatAgent()
     if (
       this.config.scenarioBank != null &&
       this.config.scenarioBank.length > 0
@@ -71,9 +73,16 @@ export class HexagonoidsEnvironment
     }
   }
 
-  evaluate(executor: SyncExecutor, rng?: RNG): number {
-    const seed = rng != null ? String(rng.gen()) : 'default-seed'
-    return this.evaluateGauntlet({ seed, executor })
+  evaluate(
+    executor: StaticExecutor,
+    context?: PartialEvaluationContext
+  ): number {
+    const seed =
+      context?.rng != null ? String(context.rng.gen()) : 'default-seed'
+    const createAgent = this.initOptions?.createAgent ?? createVanillaAgent
+    const agent = createAgent(executor, {}, context)
+    const gameAgent = createGameAgent(agent)
+    return this.evaluateGauntlet({ seed, agent, gameAgent })
   }
 
   getRLConfig(): RLConfig {
@@ -86,23 +95,26 @@ export class HexagonoidsEnvironment
   }
 
   evaluateAgent(agent: EpisodicAgent): number {
-    const controller = createRLEpisodeBridge(agent)
+    const gameAgent = createGameAgent(agent)
     const seed = this.nextAgentSeed()
-    return this.evaluateGauntlet({ seed, controller })
+    return this.evaluateGauntlet({ seed, agent, gameAgent })
   }
 
-  evaluateBatch(executors: SyncExecutor[], rng?: RNG): number[] {
-    return executors.map((executor) => this.evaluate(executor, rng))
+  evaluateBatch(
+    executors: StaticExecutor[],
+    context?: PartialEvaluationContext
+  ): number[] {
+    return executors.map((executor) => this.evaluate(executor, context))
   }
 
   private evaluateGauntlet({
     seed,
-    executor,
-    controller,
+    agent,
+    gameAgent,
   }: {
     seed: string
-    executor?: SyncExecutor
-    controller?: EpisodeAgentBridge
+    agent: EpisodicAgent
+    gameAgent: GameAgent
   }): number {
     const bank = this.config.scenarioBank
     const hasBank = bank != null && bank.length > 0
@@ -135,10 +147,10 @@ export class HexagonoidsEnvironment
     const total = sw + fw + cw
     if (total <= 0) {
       const fitness = this.evaluateFullGameMultiSeed(
-        executor,
         seed,
         frames,
-        controller,
+        agent,
+        gameAgent,
         nextEpisodeIndex
       )
       return applyBehavioralGates(fitness, frames, this.config.gateConfig)
@@ -156,10 +168,10 @@ export class HexagonoidsEnvironment
         sw *
         this.evaluateScenariosMultiSeed(
           bank,
-          executor,
           seed,
           frames,
-          controller,
+          agent,
+          gameAgent,
           nextEpisodeIndex
         )
     }
@@ -167,10 +179,10 @@ export class HexagonoidsEnvironment
       fitness +=
         fw *
         this.evaluateFullGameMultiSeed(
-          executor,
           seed,
           frames,
-          controller,
+          agent,
+          gameAgent,
           nextEpisodeIndex
         )
     }
@@ -178,10 +190,10 @@ export class HexagonoidsEnvironment
       fitness +=
         cw *
         this.evaluateCurriculum(
-          executor,
           seed,
           frames,
-          controller,
+          agent,
+          gameAgent,
           nextEpisodeIndex
         )
     }
@@ -190,99 +202,151 @@ export class HexagonoidsEnvironment
     return applyBehavioralGates(fitness, frames, this.config.gateConfig)
   }
 
-  async evaluateAsync(_executor: Executor): Promise<number> {
+  async evaluateAsync(
+    _executor: StaticExecutor,
+    _context?: PartialEvaluationContext
+  ): Promise<number> {
     throw new Error(
       'evaluateAsync is not implemented for this synchronous environment.'
     )
   }
 
-  async evaluateBatchAsync(_executors: Executor[]): Promise<number[]> {
+  async evaluateBatchAsync(
+    _executors: StaticExecutor[],
+    _context?: PartialEvaluationContext
+  ): Promise<number[]> {
     throw new Error(
       'evaluateBatchAsync is not implemented for this synchronous environment.'
     )
   }
 
   /**
+   * Build a SimulationHooks closure that computes reward from TickDeltas,
+   * builds TransitionInfo, and calls agent.setTransitionInfo + agent.reward.
+   */
+  private buildSimulationHooks(
+    agent: EpisodicAgent,
+    rewardConfig: RewardConfig,
+    situationClass?: number
+  ): SimulationHooks {
+    return {
+      onAfterTick(deltas: TickDeltas) {
+        let reward = 0
+        if (deltas.shipAlive) {
+          reward += rewardConfig.survivalReward
+        }
+        if (deltas.scoreDelta !== 0) {
+          reward += deltas.scoreDelta * rewardConfig.scoreScale
+        }
+        if (deltas.lifeDelta < 0) {
+          reward += rewardConfig.deathPenalty * Math.abs(deltas.lifeDelta)
+        }
+        if (deltas.newBullets > 0) {
+          reward -= deltas.newBullets * rewardConfig.shotPenalty
+        }
+        if (deltas.waveChanged) {
+          reward += rewardConfig.waveBonus
+        }
+
+        const transitionInfo: TransitionInfo = {}
+        if (situationClass != null) {
+          transitionInfo.situationClass = situationClass
+        }
+        if (
+          deltas.scoreDelta > 0 ||
+          deltas.lifeDelta < 0 ||
+          deltas.waveChanged
+        ) {
+          transitionInfo.isInteresting = true
+        }
+
+        if (
+          transitionInfo.isInteresting ||
+          transitionInfo.situationClass != null
+        ) {
+          agent.setTransitionInfo(transitionInfo)
+        }
+        agent.reward(reward, deltas.terminated, deltas.truncated)
+      },
+    }
+  }
+
+  /**
    * Score curriculum micro-scenarios with weightedFitnessSum, then average.
-   *
-   * Each curriculum scenario produces full RawMetrics, which gets scored
-   * the same way as regular scenarios — providing rich gradient signal
-   * for accuracy, action diversity, turning, and rock destruction.
    */
   private evaluateCurriculum(
-    executor: SyncExecutor | undefined,
     seed: string,
     frames: ActionFrames,
-    controller: EpisodeAgentBridge | undefined,
+    agent: EpisodicAgent,
+    gameAgent: GameAgent,
     nextEpisodeIndex: () => number
   ): number {
     const { curriculumCount } = this.config.simulation
     const dtMs = this.config.simulation.dtMs
 
-    const episodeFitnessValues: number[] = []
-    const runtimeFactory = controller
-      ? (index: number): SimulationEpisodeRuntime => ({
-          controller,
-          episodeInfo: {
-            episodeIndex: nextEpisodeIndex(),
-            type: 'curriculum',
-            metadata: { index, seed: `${seed}:curriculum:${index}` },
-          },
-          metadata: { index, seed: `${seed}:curriculum:${index}` },
-          rewardConfig: DEFAULT_REWARD_CONFIG,
-          onEpisodeComplete: (metrics) => {
-            const fitness = this.scoreMetrics(metrics)
-            episodeFitnessValues[index] = fitness
-            return fitness
-          },
-        })
-      : undefined
+    const hooksFactory = (index: number): SimulationHooks => {
+      const episodeIndex = nextEpisodeIndex()
+      agent.startEpisode({
+        episodeIndex,
+        type: 'curriculum',
+        metadata: { index, seed: `${seed}:curriculum:${index}` },
+      })
+      return this.buildSimulationHooks(agent, DEFAULT_REWARD_CONFIG)
+    }
 
     const metricsArray = runCurriculum(
-      controller?.agent ?? this.agent,
+      gameAgent.agent,
       seed,
       dtMs,
       curriculumCount,
-      controller ? undefined : executor,
-      runtimeFactory
+      hooksFactory
     )
 
     if (metricsArray.length === 0) return 0
 
     let fitnessSum = 0
-    metricsArray.forEach((metrics, index) => {
+    for (const [index, metrics] of metricsArray.entries()) {
       frames.thrustFrames += metrics.thrustFrames
       frames.fireFrames += metrics.fireFrames
       frames.leftFrames += metrics.leftFrames
       frames.rightFrames += metrics.rightFrames
       frames.aliveFrames += metrics.aliveFrames
 
-      const fitness =
-        controller && episodeFitnessValues[index] !== undefined
-          ? episodeFitnessValues[index]!
-          : this.scoreMetrics(metrics)
+      const fitness = this.scoreMetrics(metrics)
       fitnessSum += fitness
-    })
+
+      const terminated =
+        metrics.livesRemaining <= 0 ||
+        metrics.elapsedTicks < this.config.simulation.maxTicks
+      agent.endEpisode({
+        fitness,
+        episodeReturn: 0,
+        totalSteps: metrics.elapsedTicks,
+        terminated,
+        metadata: { index, seed: `${seed}:curriculum:${index}` },
+      })
+      gameAgent.resetMemory()
+    }
 
     return fitnessSum / metricsArray.length
   }
 
   private evaluateScenariosMultiSeed(
     bank: ScenarioSnapshot[],
-    executor: SyncExecutor | undefined,
     seed: string,
     frames: ActionFrames,
-    controller: EpisodeAgentBridge | undefined,
+    agent: EpisodicAgent,
+    gameAgent: GameAgent,
     nextEpisodeIndex: () => number
   ): number {
     const count = this.config.scenarioSeedsPerOrganism
     if (count <= 1) {
       return this.evaluateScenarios(
         bank,
-        executor,
         seed,
         frames,
-        controller,
+        agent,
+        gameAgent,
         nextEpisodeIndex
       )
     }
@@ -290,10 +354,10 @@ export class HexagonoidsEnvironment
     for (let i = 0; i < count; i++) {
       sum += this.evaluateScenarios(
         bank,
-        executor,
         `${seed}:scenario:${i}`,
         frames,
-        controller,
+        agent,
+        gameAgent,
         nextEpisodeIndex
       )
     }
@@ -301,29 +365,29 @@ export class HexagonoidsEnvironment
   }
 
   private evaluateFullGameMultiSeed(
-    executor: SyncExecutor | undefined,
     seed: string,
     frames: ActionFrames,
-    controller: EpisodeAgentBridge | undefined,
+    agent: EpisodicAgent,
+    gameAgent: GameAgent,
     nextEpisodeIndex: () => number
   ): number {
     const count = this.config.fullGameSeedsPerOrganism
     if (count <= 1) {
       return this.evaluateFullGame(
-        executor,
         seed,
         frames,
-        controller,
+        agent,
+        gameAgent,
         nextEpisodeIndex
       )
     }
     let sum = 0
     for (let i = 0; i < count; i++) {
       sum += this.evaluateFullGame(
-        executor,
         `${seed}:fullgame:${i}`,
         frames,
-        controller,
+        agent,
+        gameAgent,
         nextEpisodeIndex
       )
     }
@@ -331,40 +395,26 @@ export class HexagonoidsEnvironment
   }
 
   private evaluateFullGame(
-    executor: SyncExecutor | undefined,
     seed: string,
     frames: ActionFrames,
-    controller: EpisodeAgentBridge | undefined,
+    agent: EpisodicAgent,
+    gameAgent: GameAgent,
     nextEpisodeIndex: () => number
   ): number {
-    let episodeFitness = 0
-    const runtimeOptions: SimulationEpisodeRuntime | undefined = controller
-      ? {
-          controller,
-          episodeInfo: {
-            episodeIndex: nextEpisodeIndex(),
-            type: 'full-game',
-            metadata: { seed },
-          },
-          metadata: { seed },
-          rewardConfig: DEFAULT_REWARD_CONFIG,
-          onEpisodeComplete: (metrics) => {
-            episodeFitness = this.scoreMetrics(metrics)
-            return episodeFitness
-          },
-        }
-      : undefined
+    const episodeIndex = nextEpisodeIndex()
+    agent.startEpisode({
+      episodeIndex,
+      type: 'full-game',
+      metadata: { seed },
+    })
 
+    const hooks = this.buildSimulationHooks(agent, DEFAULT_REWARD_CONFIG)
     const metrics = simulateGame(
-      controller?.agent ?? this.agent,
+      gameAgent.agent,
       this.config.simulation,
       seed,
-      controller ? undefined : executor,
-      runtimeOptions
+      hooks
     )
-    if (!controller) {
-      episodeFitness = this.scoreMetrics(metrics)
-    }
 
     frames.thrustFrames += metrics.thrustFrames
     frames.fireFrames += metrics.fireFrames
@@ -372,15 +422,27 @@ export class HexagonoidsEnvironment
     frames.rightFrames += metrics.rightFrames
     frames.aliveFrames += metrics.aliveFrames
 
-    return episodeFitness
+    const fitness = this.scoreMetrics(metrics)
+    const terminated = metrics.livesRemaining <= 0
+
+    agent.endEpisode({
+      fitness,
+      episodeReturn: 0,
+      totalSteps: metrics.elapsedTicks,
+      terminated,
+      metadata: { seed },
+    })
+    gameAgent.resetMemory()
+
+    return fitness
   }
 
   private evaluateScenarios(
     bank: ScenarioSnapshot[],
-    executor: SyncExecutor | undefined,
     seed: string,
     frames: ActionFrames,
-    controller: EpisodeAgentBridge | undefined,
+    agent: EpisodicAgent,
+    gameAgent: GameAgent,
     nextEpisodeIndex: () => number
   ): number {
     const { scenariosPerOrganism, scenarioMaxTicks } = this.config.simulation
@@ -401,36 +463,27 @@ export class HexagonoidsEnvironment
     }
     let fitnessSum = 0
     for (const scenario of selected) {
-      let episodeFitness = 0
+      const episodeIndex = nextEpisodeIndex()
       const scenarioSeed = `${seed}:${scenario.id}`
-      const runtimeOptions: SimulationEpisodeRuntime | undefined = controller
-        ? {
-            controller,
-            episodeInfo: {
-              episodeIndex: nextEpisodeIndex(),
-              type: 'scenario',
-              metadata: { id: scenario.id, seed: scenarioSeed },
-            },
-            situationClass: scenario.necklace ?? undefined,
-            metadata: { id: scenario.id, seed: scenarioSeed },
-            rewardConfig: DEFAULT_REWARD_CONFIG,
-            onEpisodeComplete: (metrics) => {
-              episodeFitness = this.scoreMetrics(metrics)
-              return episodeFitness
-            },
-          }
-        : undefined
+
+      agent.startEpisode({
+        episodeIndex,
+        type: 'scenario',
+        metadata: { id: scenario.id, seed: scenarioSeed },
+      })
+
+      const hooks = this.buildSimulationHooks(
+        agent,
+        DEFAULT_REWARD_CONFIG,
+        scenario.necklace ?? undefined
+      )
       const metrics = simulateScenario(
-        controller?.agent ?? this.agent,
+        gameAgent.agent,
         scenario,
         scenarioConfig,
         scenarioSeed,
-        controller ? undefined : executor,
-        runtimeOptions
+        hooks
       )
-      if (!controller) {
-        episodeFitness = this.scoreMetrics(metrics)
-      }
 
       frames.thrustFrames += metrics.thrustFrames
       frames.fireFrames += metrics.fireFrames
@@ -438,7 +491,19 @@ export class HexagonoidsEnvironment
       frames.rightFrames += metrics.rightFrames
       frames.aliveFrames += metrics.aliveFrames
 
-      fitnessSum += episodeFitness
+      const fitness = this.scoreMetrics(metrics)
+      const terminated = metrics.livesRemaining <= 0
+
+      agent.endEpisode({
+        fitness,
+        episodeReturn: 0,
+        totalSteps: metrics.elapsedTicks,
+        terminated,
+        metadata: { id: scenario.id, seed: scenarioSeed },
+      })
+      gameAgent.resetMemory()
+
+      fitnessSum += fitness
     }
 
     return fitnessSum / selected.length

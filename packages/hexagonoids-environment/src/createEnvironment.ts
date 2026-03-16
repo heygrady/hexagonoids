@@ -6,7 +6,7 @@ import { mergeConfig } from './HexagonoidsEnvironmentConfig.js'
 
 export const createEnvironment: EnvironmentFactory<
   Partial<HexagonoidsEnvironmentConfig> | undefined
-> = (options) => {
+> = (options, initOptions) => {
   const config = mergeConfig(options)
-  return new HexagonoidsEnvironment(config)
+  return new HexagonoidsEnvironment(config, initOptions)
 }

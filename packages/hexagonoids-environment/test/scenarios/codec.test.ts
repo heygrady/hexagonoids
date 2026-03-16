@@ -25,7 +25,7 @@ function createTestSnapshot(seed: string, ticks = 50): ScenarioSnapshot {
   const { state, rng } = createGame({ seed, useFastThrust: true })
   startPlayer(state, PLAYER_ID, rng)
 
-  const context: AgentContext = { rng, memory: {}, executor: undefined }
+  const context: AgentContext = { rng, memory: {} }
   const stepInputs: PlayerInputs = {
     [PLAYER_ID]: { left: false, right: false, thrust: false, fire: false },
   }
