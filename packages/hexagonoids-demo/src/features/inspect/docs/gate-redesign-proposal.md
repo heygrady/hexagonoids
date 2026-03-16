@@ -16,15 +16,15 @@ The current behavioral gate system grew organically. The action diversity gate w
 
 Each gate exists to catch a specific degenerate behavior observed during development:
 
-| Degenerate behavior | What catches it today | What should catch it |
-|---|---|---|
-| **Never thrusts** — sits in place, maybe fires | actionGate (via geometric mean) + throttleGate | A thrust-specific check |
-| **Always thrusts** — runs in a straight line | actionGate (high saturation penalty) + throttleGate | A thrust-specific check |
-| **Never fires** — dodges but never shoots | actionGate (via geometric mean) | A fire-specific check |
-| **Always fires** — fires every frame, wastes ammo | actionGate (high saturation penalty) | A fire-specific check |
-| **Never turns** — flies straight, maybe fires | actionGate (left=0, right=0 → geomean=0) + turnGate | A turn-specific check |
-| **Only turns one direction** — circles | turnBiasGate | Keep as-is |
-| **Spins in place** — turns every frame, never moves | turnGate (high saturation) + actionGate | Turn-specific high check |
+| Degenerate behavior                                 | What catches it today                               | What should catch it     |
+| --------------------------------------------------- | --------------------------------------------------- | ------------------------ |
+| **Never thrusts** — sits in place, maybe fires      | actionGate (via geometric mean) + throttleGate      | A thrust-specific check  |
+| **Always thrusts** — runs in a straight line        | actionGate (high saturation penalty) + throttleGate | A thrust-specific check  |
+| **Never fires** — dodges but never shoots           | actionGate (via geometric mean)                     | A fire-specific check    |
+| **Always fires** — fires every frame, wastes ammo   | actionGate (high saturation penalty)                | A fire-specific check    |
+| **Never turns** — flies straight, maybe fires       | actionGate (left=0, right=0 → geomean=0) + turnGate | A turn-specific check    |
+| **Only turns one direction** — circles              | turnBiasGate                                        | Keep as-is               |
+| **Spins in place** — turns every frame, never moves | turnGate (high saturation) + actionGate             | Turn-specific high check |
 
 The real purpose: ensure the agent **pilots the ship in a way that looks intentional**. Not stuck, not spinning, not button-mashing, not locked into one pattern.
 
@@ -38,14 +38,26 @@ function calculateBehavioralGate(
   config: BehavioralGateConfig
 ): number {
   // Per-action saturation gates — each polices one action independently
-  const thrust = saturationGate(metrics.thrustFrames, metrics.aliveFrames, config.thrust)
-  const fire   = saturationGate(metrics.fireFrames,   metrics.aliveFrames, config.fire)
-  const turn   = saturationGate(turnFrames(metrics),   metrics.aliveFrames, config.turn)
-  const bias   = turnBiasGate(metrics, config.turnBias)
+  const thrust = saturationGate(
+    metrics.thrustFrames,
+    metrics.aliveFrames,
+    config.thrust
+  );
+  const fire = saturationGate(
+    metrics.fireFrames,
+    metrics.aliveFrames,
+    config.fire
+  );
+  const turn = saturationGate(
+    turnFrames(metrics),
+    metrics.aliveFrames,
+    config.turn
+  );
+  const bias = turnBiasGate(metrics, config.turnBias);
 
   // Combine: geometric mean preserves the "all must be reasonable" intent
   // but each action is counted exactly once
-  return Math.max((thrust * fire * turn * bias) ** 0.25, config.floor)
+  return Math.max((thrust * fire * turn * bias) ** 0.25, config.floor);
 }
 ```
 
@@ -55,30 +67,32 @@ Each action gets its own low/high/easing thresholds:
 
 ```ts
 interface ActionGateConfig {
-  low: number       // below this fraction → penalty (not enough)
-  high: number      // above this fraction → penalty (too much)
-  easing: GateEasing
-  floor: number     // per-action minimum (softens the cliff)
+  low: number; // below this fraction → penalty (not enough)
+  high: number; // above this fraction → penalty (too much)
+  easing: GateEasing;
+  floor: number; // per-action minimum (softens the cliff)
 }
 
 interface BehavioralGateConfig {
-  thrust: ActionGateConfig    // e.g. { low: 0.15, high: 0.85, easing: 'exp', floor: 0.3 }
-  fire: ActionGateConfig      // e.g. { low: 0.05, high: 0.60, easing: 'exp', floor: 0.3 }
-  turn: ActionGateConfig      // e.g. { low: 0.15, high: 0.90, easing: 'exp', floor: 0.1 }
-  turnBias: TurnBiasConfig    // e.g. { max: 0.85, easing: 'exp', floor: 0.1 }
-  floor: number               // combined gate floor (e.g. 0.05)
+  thrust: ActionGateConfig; // e.g. { low: 0.15, high: 0.85, easing: 'exp', floor: 0.3 }
+  fire: ActionGateConfig; // e.g. { low: 0.05, high: 0.60, easing: 'exp', floor: 0.3 }
+  turn: ActionGateConfig; // e.g. { low: 0.15, high: 0.90, easing: 'exp', floor: 0.1 }
+  turnBias: TurnBiasConfig; // e.g. { max: 0.85, easing: 'exp', floor: 0.1 }
+  floor: number; // combined gate floor (e.g. 0.05)
 }
 ```
 
 ### What changes
 
-| Current | Proposed | Why |
-|---|---|---|
-| `actionDiversityGate` (4-factor geomean) | Removed — absorbed into per-action gates | Eliminates double-counting |
-| `turnGate` (standalone) | `turn` in per-action config | Now has its own low/high, not shared with thrust/fire |
-| `throttleGate` (standalone) | `thrust` in per-action config | Same — own thresholds |
-| `turnBiasGate` (standalone) | `turnBias` in per-action config | Structurally unchanged |
-| 4 separate gate calls × `applyBehavioralGates` | 1 `calculateBehavioralGate` call | Single multiplication, one combined floor |
+| Current                                        | Proposed                                 | Why                                                   |
+| ---------------------------------------------- | ---------------------------------------- | ----------------------------------------------------- |
+| `actionDiversityGate` (4-factor geomean)       | Removed — absorbed into per-action gates | Eliminates double-counting                            |
+| `turnGate` (standalone)                        | `turn` in per-action config              | Now has its own low/high, not shared with thrust/fire |
+| `throttleGate` (standalone)                    | `thrust` in per-action config            | Same — own thresholds                                 |
+| `turnBiasGate` (standalone)                    | `turnBias` in per-action config          | Structurally unchanged                                |
+| 4 separate gate calls × `applyBehavioralGates` | 1 `calculateBehavioralGate` call         | Single multiplication, one combined floor             |
+
+leftFrames and rightFrames already exist and are what we'd use for the turn gate. The current turnGate already computes turnFrames = leftFrames + rightFrames. For the redesigned gate, we'd want the combined turnFrames for the saturation check and keep leftFrames/rightFrames separate for the bias check. No new fields needed — the existing metrics already support the redesign.
 
 ### Key design choices
 
@@ -95,6 +109,7 @@ interface BehavioralGateConfig {
 This is a hexagonoids-environment change, not a neat-js core change. The gate config lives in `HexagonoidsEnvironmentConfig.gateConfig` and is applied in `calculateFitness.ts`.
 
 Steps:
+
 1. Add new `BehavioralGateConfig` type alongside existing `GateConfig`
 2. Implement `calculateBehavioralGate` in `calculateFitness.ts`
 3. Update `applyBehavioralGates` to use the new function
