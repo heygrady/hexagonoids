@@ -9,36 +9,27 @@ import { join, resolve } from 'node:path'
 
 import {
   type AgentFn,
-  actionDiversityGate,
-  applyBehavioralGates,
   computePossibleDeaths,
-  computePossibleKills,
-  createGameAgent,
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   doNothingAgent,
+  type GameAgent,
+  type GauntletBreakdown,
+  HexagonoidsEnvironment,
+  METRIC_EPISODE_FITNESS,
+  METRIC_GAUNTLET_BREAKDOWN,
   mergeConfig,
   randomAgent,
-  runCurriculum,
-  type ScenarioSnapshot,
-  simulateGame,
-  simulateScenario,
-  throttleGate,
-  turnBiasGate,
-  turnGate,
-  weightedFitnessSum,
 } from '@heygrady/hexagonoids-environment'
-import { createVanillaAgent } from '@neat-evolution/execution-manager'
-import { createExecutor } from '@neat-evolution/executor'
+import type {
+  EpisodicAgent,
+  PartialEvaluationContext,
+} from '@neat-evolution/execution-manager'
+import { createMemoryRecorder } from '@neat-evolution/stats'
 import { createRNG } from '@neat-evolution/utils'
 import { loadScenarioBank } from '../../data/scenarios.js'
-import { loadGenome } from '../persistence/loadGenome.js'
 import { defaultProfile } from '../profiles/index.js'
-import {
-  createGenomeFromSerialized,
-  createPhenotypeForGenome,
-  HEXAGONOIDS_IO,
-  type SupportedAlgorithm,
-} from '../registries/algorithmRegistry.js'
+import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
+import { hydrateToExecutor } from '../registries/hydrateGenome.js'
 
 // ── Package root for artifact discovery ──
 const PACKAGE_ROOT = resolve(new URL('.', import.meta.url).pathname, '../../..')
@@ -159,47 +150,22 @@ function discoverLabGenomes(labDir: string): LabGenome[] {
   return results
 }
 
-// ── Genome loading ──
+// ── Agent entry types ──
 
-interface AgentEntry {
+interface ExecutorEntry {
   name: string
-  agent: AgentFn
+  type: 'executor'
+  genomePath: string
+  method: SupportedAlgorithm
 }
 
-function loadGenomeAgent(
-  genomePath: string,
-  method: string,
-  label: string
-): AgentEntry {
-  const serialized = loadGenome(genomePath) as {
-    genome: {
-      genomeOptions?: { initConfig?: unknown }
-      [key: string]: unknown
-    }
-  }
-  const genomeData = serialized.genome
-  const genomeOptions = genomeData.genomeOptions
-  const isRecord = (v: unknown): v is Record<string, unknown> =>
-    v != null && typeof v === 'object'
-  const initConfig = isRecord(genomeOptions?.initConfig)
-    ? genomeOptions.initConfig
-    : HEXAGONOIDS_IO
-
-  const genome = createGenomeFromSerialized(
-    method as SupportedAlgorithm,
-    genomeData as unknown as Parameters<typeof createGenomeFromSerialized>[1],
-    initConfig
-  )
-  const phenotype = createPhenotypeForGenome(
-    method as SupportedAlgorithm,
-    genome
-  )
-  const executor = createExecutor(phenotype)
-  const episodicAgent = createVanillaAgent(executor, {})
-  const gameAgent = createGameAgent(episodicAgent)
-
-  return { name: label, agent: gameAgent.agent }
+interface BaselineEntry {
+  name: string
+  type: 'baseline'
+  agentFn: AgentFn
 }
+
+type AgentEntry = ExecutorEntry | BaselineEntry
 
 // ── Formatting helpers ──
 
@@ -211,6 +177,48 @@ function pad(str: string | number, len: number): string {
 }
 function fmtNum(n: number, decimals = 4): string {
   return n.toFixed(decimals)
+}
+
+// ── Evaluate one agent ──
+
+function evaluateWithRecorder(
+  environment: HexagonoidsEnvironment,
+  entry: AgentEntry,
+  seed: string
+): { fitness: number; breakdown: GauntletBreakdown } {
+  const recorder = createMemoryRecorder([
+    METRIC_GAUNTLET_BREAKDOWN,
+    METRIC_EPISODE_FITNESS,
+  ])
+  const rng = createRNG(seed)
+  const context: PartialEvaluationContext = { rng, stats: recorder }
+
+  let fitness: number
+  if (entry.type === 'executor') {
+    const executor = hydrateToExecutor(entry.genomePath, entry.method)
+    fitness = environment.evaluate(executor, context)
+  } else {
+    // Baseline agent: build a no-op EpisodicAgent + GameAgent
+    const noopAgent: EpisodicAgent = {
+      act: () => new Float64Array(0),
+      reward: () => {},
+      startEpisode: () => {},
+      endEpisode: () => {},
+      setTransitionInfo: () => {},
+    }
+    const gameAgent: GameAgent = {
+      agent: entry.agentFn,
+      episodicAgent: noopAgent,
+      resetMemory: () => {},
+    }
+    fitness = environment.evaluateGameAgent(gameAgent, context)
+  }
+
+  const breakdowns = recorder.get<GauntletBreakdown>(METRIC_GAUNTLET_BREAKDOWN)
+  if (breakdowns.length === 0) {
+    throw new Error(`No gauntlet breakdown recorded for agent "${entry.name}"`)
+  }
+  return { fitness, breakdown: breakdowns[0] as GauntletBreakdown }
 }
 
 // ── Main ──
@@ -230,26 +238,30 @@ export async function runInspectFitness(
   if (options.turnBiasGateFloor !== undefined)
     gateOverrides.turnBiasGateFloor = options.turnBiasGateFloor
 
-  const config = mergeConfig({
+  const envConfig = mergeConfig({
     simulation: {
       scenariosPerOrganism: options.scenariosPerOrganism,
       scenarioMaxTicks: options.scenarioMaxTicks,
       maxTicks: options.maxTicks,
       dtMs: options.dtMs,
+      curriculumEnabled: options.curriculum,
+      curriculumCount: options.curriculumCount,
     },
     fitnessWeights: pc.fitnessWeights as Record<string, number> | undefined,
     gateConfig: { ...profileGateConfig, ...gateOverrides },
+    scenarioWeight: options.scenarioWeight,
+    fullGameWeight: options.fullGameWeight,
+    curriculumWeight: options.curriculumWeight,
+    fullGameSeedsPerOrganism: options.fullGameSeeds,
   } as unknown as Parameters<typeof mergeConfig>[0])
 
   const scenarioBank = await loadScenarioBank()
 
-  const { scenariosPerOrganism, scenarioMaxTicks } = config.simulation
-  const weights = config.fitnessWeights
-  const gc = config.gateConfig
-
+  const { scenariosPerOrganism, scenarioMaxTicks } = envConfig.simulation
+  const weights = envConfig.fitnessWeights
   const fgPossibleDeaths = computePossibleDeaths(options.maxTicks, options.dtMs)
 
-  // Normalize blending weights
+  // Normalize blending weights for display
   let sw = options.scenarioWeight
   let fw = options.fullGameWeight
   let cw = options.curriculum ? options.curriculumWeight : 0
@@ -279,40 +291,15 @@ export async function runInspectFitness(
   )
   console.log()
 
-  // Select scenarios
-  const selectionRng = createRNG(options.seed)
-  const selected: ScenarioSnapshot[] = []
-  const count = Math.min(scenariosPerOrganism, scenarioBank.length)
-  if (count >= scenarioBank.length) {
-    selected.push(...scenarioBank)
-  } else {
-    const indices = Array.from({ length: scenarioBank.length }, (_, i) => i)
-    for (let i = 0; i < count; i++) {
-      const j = i + Math.floor(selectionRng.gen() * (scenarioBank.length - i))
-      const temp = indices[i] as number
-      indices[i] = indices[j] as number
-      indices[j] = temp
-      selected.push(scenarioBank[indices[i] as number] as ScenarioSnapshot)
-    }
-  }
-
-  // Lives distribution
-  const livesDistrib: Record<number, number> = {}
-  for (const sc of selected) {
-    const l = sc.player.lives ?? 3
-    livesDistrib[l] = (livesDistrib[l] ?? 0) + 1
-  }
-  console.log(`  Starting lives distribution:`)
-  for (const [lives, cnt] of Object.entries(livesDistrib).sort(
-    (a, b) => Number(a[0]) - Number(b[0])
-  )) {
-    console.log(`    lives=${lives}: ${cnt} scenarios`)
-  }
-  console.log()
+  // Create environment
+  const environment = new HexagonoidsEnvironment({
+    ...envConfig,
+    scenarioBank,
+  })
 
   const agents: AgentEntry[] = [
-    { name: 'doNothing', agent: doNothingAgent },
-    { name: 'random', agent: randomAgent },
+    { name: 'doNothing', type: 'baseline', agentFn: doNothingAgent },
+    { name: 'random', type: 'baseline', agentFn: randomAgent },
   ]
 
   // Auto-discover lab genomes
@@ -329,7 +316,12 @@ export async function runInspectFitness(
         console.log(`Lab: ${labDir}`)
         console.log(`Found ${labGenomes.length} genomes (${parts.join(' + ')})`)
         for (const g of labGenomes) {
-          agents.push(loadGenomeAgent(g.genomePath, g.method, g.label))
+          agents.push({
+            name: g.label,
+            type: 'executor',
+            genomePath: g.genomePath,
+            method: g.method as SupportedAlgorithm,
+          })
         }
         console.log()
       }
@@ -341,452 +333,178 @@ export async function runInspectFitness(
     const genomePath = resolve(options.genome)
     console.log(`Loading genome: ${genomePath}`)
     console.log(`Method: ${options.method}`)
-    const genLabel = genomePath.split('/').pop()!.replace('.json', '')
-    agents.push(loadGenomeAgent(genomePath, options.method, genLabel))
+    const genLabel =
+      genomePath.split('/').pop()?.replace('.json', '') ?? 'genome'
+    agents.push({
+      name: genLabel,
+      type: 'executor',
+      genomePath,
+      method: options.method as SupportedAlgorithm,
+    })
     console.log()
   }
 
   interface AgentResult {
     name: string
-    meanScenarioFitness: number
-    meanFgFitness: number
-    curriculumFitness: number
-    blendedFitnessRaw: number
-    blendedFitness: number
-    meanPerfScore: number
-    meanRocksNorm: number
-    meanAccuracy: number
-    meanAccuracyNorm: number
-    meanSurvival: number
-    meanActionGate: number
-    meanTurnGate: number
-    meanThrottleGate: number
-    meanTurnBias: number
-    aggActionGate: number
-    aggTurnGate: number
-    aggThrottleGate: number
-    aggTurnBiasGate: number
-    meanEffectiveMax: number
-    meanUniqueRocksSeen: number
-    meanFgSurvival: number
-    meanFgThrottleGate: number
-    meanFgPerfScore: number
+    breakdown: GauntletBreakdown
   }
 
   const agentData: AgentResult[] = []
 
-  for (const { name, agent } of agents) {
+  for (const entry of agents) {
     console.log(`${'─'.repeat(60)}`)
-    console.log(`Agent: ${name}`)
+    console.log(`Agent: ${entry.name}`)
     console.log(`${'─'.repeat(60)}`)
 
-    const aggFrames = {
-      thrustFrames: 0,
-      fireFrames: 0,
-      leftFrames: 0,
-      rightFrames: 0,
-      aliveFrames: 0,
-    }
+    const { breakdown } = evaluateWithRecorder(environment, entry, options.seed)
 
-    // ── Curriculum scoring ──
-    let curriculumFitness = 0
-    let curriculumKills = 0
-    let curriculumTotal = 0
-    if (options.curriculum) {
-      const metricsArray = runCurriculum(
-        agent,
-        options.seed,
-        options.dtMs,
-        options.curriculumCount
-      )
-      curriculumTotal = metricsArray.length
-      let currFitnessSum = 0
-      for (const m of metricsArray) {
-        aggFrames.thrustFrames += m.thrustFrames
-        aggFrames.fireFrames += m.fireFrames
-        aggFrames.leftFrames += m.leftFrames
-        aggFrames.rightFrames += m.rightFrames
-        aggFrames.aliveFrames += m.aliveFrames
-        if (m.rocksDestroyed > 0) curriculumKills++
-        currFitnessSum += weightedFitnessSum(m, weights, gc, {
-          possibleDeaths: computePossibleDeaths(m.elapsedTicks, options.dtMs),
-          dtMs: options.dtMs,
-        })
-      }
-      curriculumFitness =
-        metricsArray.length > 0 ? currFitnessSum / metricsArray.length : 0
-    }
-
-    // ── Scenario scoring ──
-    const scenarioConfig = { ...config.simulation, maxTicks: scenarioMaxTicks }
-    const perScenario: {
-      fitness: number
-      perfScore: number
-      rocksNorm: number
-      accuracy: number
-      accuracyNorm: number
-      survivalTerm: number
-      actionGateVal: number
-      turnGateVal: number
-      throttleGateVal: number
-      turnBiasVal: number
-      rocksDestroyed: number
-      uniqueRocksSeen: number
-      effectiveMaxRocks: number
-      deaths: number
-      possibleDeaths: number
-      shotsFired: number
-      shotsHit: number
-      aliveFrames: number
-    }[] = []
-
-    for (const scenario of selected) {
-      const metrics = simulateScenario(
-        agent,
-        scenario,
-        scenarioConfig,
-        options.seed
-      )
-      aggFrames.thrustFrames += metrics.thrustFrames
-      aggFrames.fireFrames += metrics.fireFrames
-      aggFrames.leftFrames += metrics.leftFrames
-      aggFrames.rightFrames += metrics.rightFrames
-      aggFrames.aliveFrames += metrics.aliveFrames
-      const possibleDeaths = computePossibleDeaths(
-        metrics.elapsedTicks,
-        options.dtMs
-      )
-
-      const targetAccuracy =
-        weights.targetAccuracy > 0 ? weights.targetAccuracy : 0.2
-      const effectiveMaxRocks = computePossibleKills(
-        metrics.elapsedTicks,
-        options.dtMs,
-        metrics.uniqueRocksSeen
-      )
-      const rocksNorm = Math.min(metrics.rocksDestroyed / effectiveMaxRocks, 1)
-
-      const survivalRaw =
-        possibleDeaths > 0
-          ? Math.max(1 - metrics.deaths / possibleDeaths, 0)
-          : 1
-      const survivalTerm = Math.max(survivalRaw, gc.survivalGateFloor)
-
-      const actionGateVal = actionDiversityGate(metrics, gc)
-      const turnGateVal = turnGate(metrics, gc)
-      const throttleGateVal = throttleGate(metrics, gc)
-      const turnBiasVal = turnBiasGate(metrics, gc)
-
-      const accuracyNorm = Math.min(metrics.accuracy / targetAccuracy, 1)
-
-      const perfScore =
-        weights.rocksDestroyed * rocksNorm + weights.accuracy * accuracyNorm
-
-      const context = { possibleDeaths, dtMs: options.dtMs }
-      const fitness = weightedFitnessSum(metrics, weights, gc, context)
-
-      perScenario.push({
-        fitness,
-        perfScore,
-        rocksNorm,
-        accuracy: metrics.accuracy,
-        accuracyNorm,
-        survivalTerm,
-        actionGateVal,
-        turnGateVal,
-        throttleGateVal,
-        turnBiasVal,
-        rocksDestroyed: metrics.rocksDestroyed,
-        uniqueRocksSeen: metrics.uniqueRocksSeen,
-        effectiveMaxRocks,
-        deaths: metrics.deaths,
-        possibleDeaths,
-        shotsFired: metrics.shotsFired,
-        shotsHit: metrics.shotsHit,
-        aliveFrames: metrics.aliveFrames,
-      })
-    }
-
-    // ── Full Game scoring ──
-    const fullGameSimConfig = {
-      ...config.simulation,
-      maxTicks: options.maxTicks,
-      useFastThrust: true,
-    }
-    const perFullGame = perScenario.slice(0, 0) // same shape, empty
-
-    for (let i = 0; i < options.fullGameSeeds; i++) {
-      const seed = `${options.seed}:fullgame:${i}`
-      const metrics = simulateGame(agent, fullGameSimConfig, seed)
-      aggFrames.thrustFrames += metrics.thrustFrames
-      aggFrames.fireFrames += metrics.fireFrames
-      aggFrames.leftFrames += metrics.leftFrames
-      aggFrames.rightFrames += metrics.rightFrames
-      aggFrames.aliveFrames += metrics.aliveFrames
-
-      const targetAccuracy =
-        weights.targetAccuracy > 0 ? weights.targetAccuracy : 0.2
-      const effectiveMaxRocks = computePossibleKills(
-        metrics.elapsedTicks,
-        options.dtMs,
-        metrics.uniqueRocksSeen
-      )
-      const rocksNorm = Math.min(metrics.rocksDestroyed / effectiveMaxRocks, 1)
-
-      const fgSeedPossibleDeaths = computePossibleDeaths(
-        metrics.elapsedTicks,
-        options.dtMs
-      )
-      const survivalRaw =
-        fgSeedPossibleDeaths > 0
-          ? Math.max(1 - metrics.deaths / fgSeedPossibleDeaths, 0)
-          : 1
-      const survivalTerm = Math.max(survivalRaw, gc.survivalGateFloor)
-
-      const actionGateVal = actionDiversityGate(metrics, gc)
-      const turnGateVal = turnGate(metrics, gc)
-      const throttleGateVal = throttleGate(metrics, gc)
-      const turnBiasVal = turnBiasGate(metrics, gc)
-
-      const accuracyNorm = Math.min(metrics.accuracy / targetAccuracy, 1)
-
-      const perfScore =
-        weights.rocksDestroyed * rocksNorm + weights.accuracy * accuracyNorm
-
-      const fitness = weightedFitnessSum(metrics, weights, gc, {
-        possibleDeaths: fgSeedPossibleDeaths,
-        dtMs: options.dtMs,
-      })
-
-      perFullGame.push({
-        fitness,
-        perfScore,
-        rocksNorm,
-        accuracy: metrics.accuracy,
-        accuracyNorm,
-        survivalTerm,
-        actionGateVal,
-        turnGateVal,
-        throttleGateVal,
-        turnBiasVal,
-        rocksDestroyed: metrics.rocksDestroyed,
-        uniqueRocksSeen: metrics.uniqueRocksSeen,
-        effectiveMaxRocks,
-        deaths: metrics.deaths,
-        possibleDeaths: fgSeedPossibleDeaths,
-        shotsFired: metrics.shotsFired,
-        shotsHit: metrics.shotsHit,
-        aliveFrames: metrics.aliveFrames,
-      })
-    }
-
-    // ── Aggregate stats ──
-    const n = perScenario.length
-    const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length
-    const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0)
-
-    const meanScenarioFitness = avg(perScenario.map((s) => s.fitness))
-    const meanPerfScore = avg(perScenario.map((s) => s.perfScore))
-    const meanRocksNorm = avg(perScenario.map((s) => s.rocksNorm))
-    const meanAccuracy = avg(perScenario.map((s) => s.accuracy))
-    const meanAccuracyNorm = avg(perScenario.map((s) => s.accuracyNorm))
-    const meanSurvival = avg(perScenario.map((s) => s.survivalTerm))
-    const meanActionGate = avg(perScenario.map((s) => s.actionGateVal))
-    const meanTurnGate = avg(perScenario.map((s) => s.turnGateVal))
-    const meanThrottleGate = avg(perScenario.map((s) => s.throttleGateVal))
-    const meanTurnBias = avg(perScenario.map((s) => s.turnBiasVal))
-    const meanEffectiveMax = avg(perScenario.map((s) => s.effectiveMaxRocks))
-    const meanUniqueRocksSeen = avg(perScenario.map((s) => s.uniqueRocksSeen))
-    const totalRocks = sum(perScenario.map((p) => p.rocksDestroyed))
-    const totalDeaths = sum(perScenario.map((p) => p.deaths))
-    const totalShots = sum(perScenario.map((p) => p.shotsFired))
-    const totalHits = sum(perScenario.map((p) => p.shotsHit))
-
-    const fg = perFullGame.length
-    const meanFgFitness = fg > 0 ? avg(perFullGame.map((s) => s.fitness)) : 0
-    const meanFgPerfScore =
-      fg > 0 ? avg(perFullGame.map((s) => s.perfScore)) : 0
-    const meanFgRocksNorm =
-      fg > 0 ? avg(perFullGame.map((s) => s.rocksNorm)) : 0
-    const meanFgAccuracyNorm =
-      fg > 0 ? avg(perFullGame.map((s) => s.accuracyNorm)) : 0
-    const meanFgSurvival =
-      fg > 0 ? avg(perFullGame.map((s) => s.survivalTerm)) : 0
-    const meanFgActionGate =
-      fg > 0 ? avg(perFullGame.map((s) => s.actionGateVal)) : 0
-    const meanFgTurnGate =
-      fg > 0 ? avg(perFullGame.map((s) => s.turnGateVal)) : 0
-    const meanFgThrottleGate =
-      fg > 0 ? avg(perFullGame.map((s) => s.throttleGateVal)) : 0
-    const meanFgTurnBias =
-      fg > 0 ? avg(perFullGame.map((s) => s.turnBiasVal)) : 0
-    const meanFgEffectiveMax =
-      fg > 0 ? avg(perFullGame.map((s) => s.effectiveMaxRocks)) : 0
-    const meanFgUniqueRocksSeen =
-      fg > 0 ? avg(perFullGame.map((s) => s.uniqueRocksSeen)) : 0
-    const totalFgRocks = sum(perFullGame.map((p) => p.rocksDestroyed))
-    const totalFgDeaths = sum(perFullGame.map((p) => p.deaths))
-    const totalFgShots = sum(perFullGame.map((p) => p.shotsFired))
-    const totalFgHits = sum(perFullGame.map((p) => p.shotsHit))
-
-    const aggMetrics = { ...aggFrames }
-    const aggActionGate = actionDiversityGate(aggMetrics, gc)
-    const aggTurnGateVal = turnGate(aggMetrics, gc)
-    const aggThrottleGateVal = throttleGate(aggMetrics, gc)
-    const aggTurnBiasGateVal = turnBiasGate(aggMetrics, gc)
-
-    const blendedFitnessRaw =
-      sw * meanScenarioFitness + fw * meanFgFitness + cw * curriculumFitness
-    const blendedFitness = applyBehavioralGates(
-      blendedFitnessRaw,
-      aggMetrics,
-      gc
-    )
+    const avg = (arr: number[]) =>
+      arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
 
     // ── Print: Scenario Fitness ──
-    console.log(`\n=== Scenario Fitness (${n} scenarios) ===`)
-    console.log(`  scenarioFitness:  ${fmtNum(meanScenarioFitness)}`)
+    const sBreakdowns = breakdown.scenarioBreakdowns
+    const sN = sBreakdowns.length
+    console.log(`\n=== Scenario Fitness (${sN} scenarios) ===`)
+    console.log(`  scenarioFitness:  ${fmtNum(breakdown.scenarioFitness)}`)
 
-    console.log(`\n  ── Performance Components ──`)
-    console.log(`  perfScore (weighted sum):   ${fmtNum(meanPerfScore)}`)
-    console.log(
-      `    rocksNorm:    ${fmtNum(meanRocksNorm)}  (w=${weights.rocksDestroyed} → ${fmtNum(weights.rocksDestroyed * meanRocksNorm)})`
-    )
-    console.log(
-      `    accuracyNorm: ${fmtNum(meanAccuracyNorm)}  (w=${weights.accuracy} → ${fmtNum(weights.accuracy * meanAccuracyNorm)})  raw=${fmtNum(meanAccuracy)} target=${weights.targetAccuracy}`
-    )
+    if (sN > 0) {
+      const meanPerfScore = avg(sBreakdowns.map((b) => b.perfScore))
+      const meanRocksNorm = avg(sBreakdowns.map((b) => b.rocksNorm))
+      const meanAccuracyNorm = avg(sBreakdowns.map((b) => b.accuracyNorm))
+      const meanAccuracy = avg(sBreakdowns.map((b) => b.accuracy))
+      const meanSurvival = avg(sBreakdowns.map((b) => b.survivalGate))
+      const meanEffectiveMax = avg(sBreakdowns.map((b) => b.effectiveMaxRocks))
+      const meanUniqueRocksSeen = avg(sBreakdowns.map((b) => b.uniqueRocksSeen))
+      const totalRocks = sBreakdowns.reduce((a, b) => a + b.rocksDestroyed, 0)
+      const totalDeaths = sBreakdowns.reduce((a, b) => a + b.deaths, 0)
 
-    console.log(`\n  ── Gates (multiplicative) ──`)
-    console.log(`  actionGate:     ${fmtNum(meanActionGate)}`)
-    console.log(`  turnGate:       ${fmtNum(meanTurnGate)}`)
-    console.log(`  throttleGate:   ${fmtNum(meanThrottleGate)}`)
-    console.log(`  turnBiasGate:   ${fmtNum(meanTurnBias)}`)
-    console.log(`  survivalGate:   ${fmtNum(meanSurvival)}`)
+      console.log(`\n  ── Performance Components ──`)
+      console.log(`  perfScore (weighted sum):   ${fmtNum(meanPerfScore)}`)
+      console.log(
+        `    rocksNorm:    ${fmtNum(meanRocksNorm)}  (w=${weights.rocksDestroyed} → ${fmtNum(weights.rocksDestroyed * meanRocksNorm)})`
+      )
+      console.log(
+        `    accuracyNorm: ${fmtNum(meanAccuracyNorm)}  (w=${weights.accuracy} → ${fmtNum(weights.accuracy * meanAccuracyNorm)})  raw=${fmtNum(meanAccuracy)} target=${weights.targetAccuracy}`
+      )
 
-    console.log(`\n  ── Rock Budget (fire-rate based) ──`)
-    console.log(
-      `  mean uniqueRocksSeen:        ${fmtNum(meanUniqueRocksSeen, 1)}`
-    )
-    console.log(`  mean possibleKills:          ${fmtNum(meanEffectiveMax, 1)}`)
-    console.log(`  mean rocksDestroyed:         ${fmtNum(totalRocks / n, 1)}`)
+      console.log(`\n  ── Gates (multiplicative) ──`)
+      console.log(`  survivalGate:   ${fmtNum(meanSurvival)}`)
 
-    console.log(`\n  ── Totals ──`)
-    console.log(
-      `  rocksDestroyed: ${totalRocks}  deaths: ${totalDeaths}  shots: ${totalShots}  hits: ${totalHits}  accuracy: ${totalShots > 0 ? pct(totalHits / totalShots) : 'n/a'}`
-    )
+      console.log(`\n  ── Rock Budget (fire-rate based) ──`)
+      console.log(
+        `  mean uniqueRocksSeen:        ${fmtNum(meanUniqueRocksSeen, 1)}`
+      )
+      console.log(
+        `  mean possibleKills:          ${fmtNum(meanEffectiveMax, 1)}`
+      )
+      console.log(
+        `  mean rocksDestroyed:         ${fmtNum(totalRocks / sN, 1)}`
+      )
+
+      console.log(`\n  ── Totals ──`)
+      console.log(`  rocksDestroyed: ${totalRocks}  deaths: ${totalDeaths}`)
+    }
 
     // ── Print: Full Game Fitness ──
+    const fgBreakdowns = breakdown.fullGameBreakdowns
+    const fgN = fgBreakdowns.length
     console.log(
-      `\n=== Full Game Fitness (${fg} seeds, maxTicks=${options.maxTicks}) ===`
+      `\n=== Full Game Fitness (${fgN} seeds, maxTicks=${options.maxTicks}) ===`
     )
     console.log(
       `  maxPossibleDeaths: ${fgPossibleDeaths} (theoretical max; actual computed per-seed from elapsedTicks)`
     )
-    console.log(`  fullGameFitness:  ${fmtNum(meanFgFitness)}`)
+    console.log(`  fullGameFitness:  ${fmtNum(breakdown.fullGameFitness)}`)
 
-    console.log(`\n  ── Performance Components ──`)
-    console.log(`  perfScore (weighted sum):   ${fmtNum(meanFgPerfScore)}`)
-    console.log(
-      `    rocksNorm:    ${fmtNum(meanFgRocksNorm)}  (w=${weights.rocksDestroyed} → ${fmtNum(weights.rocksDestroyed * meanFgRocksNorm)})`
-    )
-    console.log(
-      `    accuracyNorm: ${fmtNum(meanFgAccuracyNorm)}  (w=${weights.accuracy} → ${fmtNum(weights.accuracy * meanFgAccuracyNorm)})`
-    )
+    if (fgN > 0) {
+      const meanFgPerfScore = avg(fgBreakdowns.map((b) => b.perfScore))
+      const meanFgRocksNorm = avg(fgBreakdowns.map((b) => b.rocksNorm))
+      const meanFgAccuracyNorm = avg(fgBreakdowns.map((b) => b.accuracyNorm))
+      const meanFgSurvival = avg(fgBreakdowns.map((b) => b.survivalGate))
+      const meanFgEffectiveMax = avg(
+        fgBreakdowns.map((b) => b.effectiveMaxRocks)
+      )
+      const meanFgUniqueRocksSeen = avg(
+        fgBreakdowns.map((b) => b.uniqueRocksSeen)
+      )
+      const totalFgRocks = fgBreakdowns.reduce(
+        (a, b) => a + b.rocksDestroyed,
+        0
+      )
+      const totalFgDeaths = fgBreakdowns.reduce((a, b) => a + b.deaths, 0)
 
-    console.log(`\n  ── Gates (multiplicative) ──`)
-    console.log(`  actionGate:     ${fmtNum(meanFgActionGate)}`)
-    console.log(`  turnGate:       ${fmtNum(meanFgTurnGate)}`)
-    console.log(`  throttleGate:   ${fmtNum(meanFgThrottleGate)}`)
-    console.log(`  turnBiasGate:   ${fmtNum(meanFgTurnBias)}`)
-    console.log(`  survivalGate:   ${fmtNum(meanFgSurvival)}`)
+      console.log(`\n  ── Performance Components ──`)
+      console.log(`  perfScore (weighted sum):   ${fmtNum(meanFgPerfScore)}`)
+      console.log(
+        `    rocksNorm:    ${fmtNum(meanFgRocksNorm)}  (w=${weights.rocksDestroyed} → ${fmtNum(weights.rocksDestroyed * meanFgRocksNorm)})`
+      )
+      console.log(
+        `    accuracyNorm: ${fmtNum(meanFgAccuracyNorm)}  (w=${weights.accuracy} → ${fmtNum(weights.accuracy * meanFgAccuracyNorm)})`
+      )
 
-    console.log(`\n  ── Rock Budget (fire-rate based) ──`)
-    console.log(
-      `  mean uniqueRocksSeen:        ${fmtNum(meanFgUniqueRocksSeen, 1)}`
-    )
-    console.log(
-      `  mean possibleKills:          ${fmtNum(meanFgEffectiveMax, 1)}`
-    )
-    console.log(
-      `  mean rocksDestroyed:         ${fg > 0 ? fmtNum(totalFgRocks / fg, 1) : '0.0'}`
-    )
-    console.log(
-      `  mean deaths:                 ${fg > 0 ? fmtNum(totalFgDeaths / fg, 1) : '0.0'}`
-    )
+      console.log(`\n  ── Gates (multiplicative) ──`)
+      console.log(`  survivalGate:   ${fmtNum(meanFgSurvival)}`)
 
-    console.log(`\n  ── Totals ──`)
-    console.log(
-      `  rocksDestroyed: ${totalFgRocks}  deaths: ${totalFgDeaths}  shots: ${totalFgShots}  hits: ${totalFgHits}  accuracy: ${totalFgShots > 0 ? pct(totalFgHits / totalFgShots) : 'n/a'}`
-    )
+      console.log(`\n  ── Rock Budget (fire-rate based) ──`)
+      console.log(
+        `  mean uniqueRocksSeen:        ${fmtNum(meanFgUniqueRocksSeen, 1)}`
+      )
+      console.log(
+        `  mean possibleKills:          ${fmtNum(meanFgEffectiveMax, 1)}`
+      )
+      console.log(
+        `  mean rocksDestroyed:         ${fmtNum(totalFgRocks / fgN, 1)}`
+      )
+      console.log(
+        `  mean deaths:                 ${fmtNum(totalFgDeaths / fgN, 1)}`
+      )
+
+      console.log(`\n  ── Totals ──`)
+      console.log(`  rocksDestroyed: ${totalFgRocks}  deaths: ${totalFgDeaths}`)
+    }
 
     // ── Print: Curriculum Fitness ──
     if (options.curriculum) {
       console.log(`\n=== Curriculum Fitness ===`)
-      console.log(
-        `  ${curriculumKills}/${curriculumTotal} kills → avgFitness=${fmtNum(curriculumFitness)}`
-      )
+      console.log(`  curriculumFitness: ${fmtNum(breakdown.curriculumFitness)}`)
     }
 
     // ── Print: Blended Fitness ──
     console.log(`\n=== Blended Fitness ===`)
     console.log(
-      `  rawBlended:   ${fmtNum(blendedFitnessRaw)}  (before aggregated gates)`
+      `  rawBlended:   ${fmtNum(breakdown.blendedFitnessRaw)}  (before aggregated gates)`
     )
     console.log(
-      `  scenario × ${fmtNum(sw, 2)} + fullGame × ${fmtNum(fw, 2)} + curriculum × ${fmtNum(cw, 2)} = ${fmtNum(blendedFitnessRaw)}`
+      `  scenario × ${fmtNum(sw, 2)} + fullGame × ${fmtNum(fw, 2)} + curriculum × ${fmtNum(cw, 2)} = ${fmtNum(breakdown.blendedFitnessRaw)}`
     )
     console.log(
-      `    scenario:   ${fmtNum(meanScenarioFitness)} × ${fmtNum(sw, 2)} = ${fmtNum(sw * meanScenarioFitness)}`
+      `    scenario:   ${fmtNum(breakdown.scenarioFitness)} × ${fmtNum(sw, 2)} = ${fmtNum(sw * breakdown.scenarioFitness)}`
     )
     console.log(
-      `    fullGame:   ${fmtNum(meanFgFitness)} × ${fmtNum(fw, 2)} = ${fmtNum(fw * meanFgFitness)}`
+      `    fullGame:   ${fmtNum(breakdown.fullGameFitness)} × ${fmtNum(fw, 2)} = ${fmtNum(fw * breakdown.fullGameFitness)}`
     )
     if (options.curriculum) {
       console.log(
-        `    curriculum: ${fmtNum(curriculumFitness)} × ${fmtNum(cw, 2)} = ${fmtNum(cw * curriculumFitness)}`
+        `    curriculum: ${fmtNum(breakdown.curriculumFitness)} × ${fmtNum(cw, 2)} = ${fmtNum(cw * breakdown.curriculumFitness)}`
       )
     }
 
     // ── Print: Aggregated Behavioral Gates ──
+    const { gates, aggregatedFrames } = breakdown
     console.log(`\n=== Aggregated Behavioral Gates ===`)
-    console.log(`  totalAliveFrames: ${aggFrames.aliveFrames}`)
-    if (aggFrames.aliveFrames > 0) {
+    console.log(`  totalAliveFrames: ${aggregatedFrames.aliveFrames}`)
+    if (aggregatedFrames.aliveFrames > 0) {
       console.log(
-        `  thrust: ${pct(aggFrames.thrustFrames / aggFrames.aliveFrames)}  fire: ${pct(aggFrames.fireFrames / aggFrames.aliveFrames)}  left: ${pct(aggFrames.leftFrames / aggFrames.aliveFrames)}  right: ${pct(aggFrames.rightFrames / aggFrames.aliveFrames)}`
+        `  thrust: ${pct(aggregatedFrames.thrustFrames / aggregatedFrames.aliveFrames)}  fire: ${pct(aggregatedFrames.fireFrames / aggregatedFrames.aliveFrames)}  left: ${pct(aggregatedFrames.leftFrames / aggregatedFrames.aliveFrames)}  right: ${pct(aggregatedFrames.rightFrames / aggregatedFrames.aliveFrames)}`
       )
     }
-    console.log(`  actionGate:     ${fmtNum(aggActionGate)}`)
-    console.log(`  turnGate:       ${fmtNum(aggTurnGateVal)}`)
-    console.log(`  throttleGate:   ${fmtNum(aggThrottleGateVal)}`)
-    console.log(`  turnBiasGate:   ${fmtNum(aggTurnBiasGateVal)}`)
-    console.log(`  gatedFitness:   ${fmtNum(blendedFitness)}`)
+    console.log(`  actionGate:     ${fmtNum(gates.actionGate)}`)
+    console.log(`  turnGate:       ${fmtNum(gates.turnGate)}`)
+    console.log(`  throttleGate:   ${fmtNum(gates.throttleGate)}`)
+    console.log(`  turnBiasGate:   ${fmtNum(gates.turnBiasGate)}`)
+    console.log(`  gatedFitness:   ${fmtNum(breakdown.fitness)}`)
 
-    agentData.push({
-      name,
-      meanScenarioFitness,
-      meanFgFitness,
-      curriculumFitness,
-      blendedFitnessRaw,
-      blendedFitness,
-      meanPerfScore,
-      meanRocksNorm,
-      meanAccuracy,
-      meanAccuracyNorm,
-      meanSurvival,
-      meanActionGate,
-      meanTurnGate,
-      meanThrottleGate,
-      meanTurnBias,
-      aggActionGate,
-      aggTurnGate: aggTurnGateVal,
-      aggThrottleGate: aggThrottleGateVal,
-      aggTurnBiasGate: aggTurnBiasGateVal,
-      meanEffectiveMax,
-      meanUniqueRocksSeen,
-      meanFgSurvival,
-      meanFgThrottleGate,
-      meanFgPerfScore,
-    })
+    agentData.push({ name: entry.name, breakdown })
     console.log()
   }
 
@@ -797,32 +515,22 @@ export async function runInspectFitness(
     const columns = agentData
 
     const rowDefs: [string, (d: AgentResult) => number][] = [
-      ['scenarioFitness', (d) => d.meanScenarioFitness],
-      ['fullGameFitness', (d) => d.meanFgFitness],
+      ['scenarioFitness', (d) => d.breakdown.scenarioFitness],
+      ['fullGameFitness', (d) => d.breakdown.fullGameFitness],
       ...(options.curriculum
-        ? ([['curriculumFitness', (d: AgentResult) => d.curriculumFitness]] as [
-            string,
-            (d: AgentResult) => number,
-          ][])
+        ? ([
+            [
+              'curriculumFitness',
+              (d: AgentResult) => d.breakdown.curriculumFitness,
+            ],
+          ] as [string, (d: AgentResult) => number][])
         : []),
-      ['blendedRaw', (d) => d.blendedFitnessRaw],
-      ['blendedFitness', (d) => d.blendedFitness],
-      ['perfScore', (d) => d.meanPerfScore],
-      ['rocksNorm', (d) => d.meanRocksNorm],
-      ['accuracyNorm', (d) => d.meanAccuracyNorm],
-      ['accuracyRaw', (d) => d.meanAccuracy],
-      ['survivalGate(scn)', (d) => d.meanSurvival],
-      ['survivalGate(fg)', (d) => d.meanFgSurvival],
-      ['actionGate(avg)', (d) => d.meanActionGate],
-      ['turnGate(avg)', (d) => d.meanTurnGate],
-      ['throttleGate(avg)', (d) => d.meanThrottleGate],
-      ['turnBiasGate(avg)', (d) => d.meanTurnBias],
-      ['actionGate(agg)', (d) => d.aggActionGate],
-      ['turnGate(agg)', (d) => d.aggTurnGate],
-      ['throttleGate(agg)', (d) => d.aggThrottleGate],
-      ['turnBiasGate(agg)', (d) => d.aggTurnBiasGate],
-      ['possibleKills', (d) => d.meanEffectiveMax],
-      ['uniqueRocksSeen', (d) => d.meanUniqueRocksSeen],
+      ['blendedRaw', (d) => d.breakdown.blendedFitnessRaw],
+      ['blendedFitness', (d) => d.breakdown.fitness],
+      ['actionGate(agg)', (d) => d.breakdown.gates.actionGate],
+      ['turnGate(agg)', (d) => d.breakdown.gates.turnGate],
+      ['throttleGate(agg)', (d) => d.breakdown.gates.throttleGate],
+      ['turnBiasGate(agg)', (d) => d.breakdown.gates.turnBiasGate],
     ]
 
     const tableWidth = labelWidth + 2 + columns.length * colWidth

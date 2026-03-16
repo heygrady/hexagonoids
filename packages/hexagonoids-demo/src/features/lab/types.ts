@@ -1,4 +1,11 @@
+import type {
+  ActionProfile,
+  EngagementProfile,
+  MovementProfile,
+} from '@heygrady/hexagonoids-environment'
 import type { TrainOptions } from '../training/train.js'
+
+export type { ActionProfile, EngagementProfile, MovementProfile }
 
 export interface LabSpecificOptions {
   name?: string | undefined
@@ -13,24 +20,6 @@ export interface LabConfig {
   analysisSeedsPerGenome: number
   analysisMaxTicks: number
   trainOptions: TrainOptions
-}
-
-export interface ActionProfile {
-  thrustPct: number
-  firePct: number
-  leftPct: number
-  rightPct: number
-  entropy: number
-}
-
-export interface MovementProfile {
-  distanceTraveled: number
-  uniqueCells: number
-  idlePct: number
-}
-
-export interface EngagementProfile {
-  framesWithRocksInSOIPct: number
 }
 
 export interface ScoringProfile {
