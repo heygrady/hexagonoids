@@ -57,6 +57,7 @@
     "@neat-evolution/environment": "^0.5.8",
     "@neat-evolution/execution-manager": "^0.1.0",
     "@neat-evolution/executor": "^0.3.13",
+    "@neat-evolution/stats": "^0.1.0",
     "@neat-evolution/utils": "^0.6.0",
     "@swc/helpers": "^0.5.19",
     "quick-lru": "^7.3.0"

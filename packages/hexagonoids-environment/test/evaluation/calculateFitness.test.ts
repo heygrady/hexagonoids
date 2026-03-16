@@ -3,6 +3,8 @@ import {
   actionDiversityGate,
   applyBehavioralGates,
   calculateFitness,
+  computeFitnessBreakdown,
+  computeGateBreakdown,
   engagementGate,
   evaluateFullGameFitness,
   type FitnessContext,
@@ -799,5 +801,94 @@ describe('easing curve shape', () => {
     )
     // With survivalGateFloor=0.25, result should be > 0 even with many deaths
     expect(result).toBeGreaterThan(0)
+  })
+})
+
+describe('computeFitnessBreakdown', () => {
+  it('breakdown.fitness === weightedFitnessSum()', () => {
+    const metrics = makeMetrics({
+      score: 1200,
+      accuracy: 0.4,
+      rocksDestroyed: 12,
+      uniqueRocksSeen: 28,
+      shotsFired: 30,
+      shotsHit: 12,
+      deaths: 1,
+      aliveFrames: 2400,
+      thrustFrames: 800,
+      fireFrames: 300,
+      leftFrames: 600,
+      rightFrames: 600,
+      elapsedTicks: 3000,
+    })
+    const breakdown = computeFitnessBreakdown(
+      metrics,
+      defaultWeights,
+      defaultGateConfig,
+      defaultContext
+    )
+    const scalar = weightedFitnessSum(
+      metrics,
+      defaultWeights,
+      defaultGateConfig,
+      defaultContext
+    )
+    expect(breakdown.fitness).toBe(scalar)
+  })
+
+  it('exposes all intermediates', () => {
+    const metrics = makeMetrics({
+      accuracy: 0.3,
+      rocksDestroyed: 5,
+      uniqueRocksSeen: 20,
+      deaths: 1,
+      elapsedTicks: 500,
+    })
+    const breakdown = computeFitnessBreakdown(
+      metrics,
+      defaultWeights,
+      defaultGateConfig,
+      { dtMs: 33 }
+    )
+    expect(breakdown.rocksNorm).toBeGreaterThanOrEqual(0)
+    expect(breakdown.rocksNorm).toBeLessThanOrEqual(1)
+    expect(breakdown.accuracyNorm).toBeGreaterThanOrEqual(0)
+    expect(breakdown.survivalGate).toBeGreaterThanOrEqual(0)
+    expect(breakdown.effectiveMaxRocks).toBeGreaterThanOrEqual(1)
+    expect(breakdown.rocksDestroyed).toBe(5)
+    expect(breakdown.accuracy).toBe(0.3)
+    expect(breakdown.uniqueRocksSeen).toBe(20)
+    expect(breakdown.deaths).toBe(1)
+    expect(breakdown.elapsedTicks).toBe(500)
+  })
+})
+
+describe('computeGateBreakdown', () => {
+  it('fields multiply to combined', () => {
+    const frames = {
+      thrustFrames: 4000,
+      fireFrames: 2000,
+      leftFrames: 3000,
+      rightFrames: 3000,
+      aliveFrames: 10000,
+    }
+    const gb = computeGateBreakdown(frames, defaultGateConfig)
+    expect(gb.combined).toBeCloseTo(
+      gb.actionGate * gb.turnGate * gb.throttleGate * gb.turnBiasGate
+    )
+  })
+
+  it('combined matches applyBehavioralGates ratio', () => {
+    const frames = {
+      thrustFrames: 4000,
+      fireFrames: 2000,
+      leftFrames: 3000,
+      rightFrames: 3000,
+      aliveFrames: 10000,
+    }
+    const gb = computeGateBreakdown(frames, defaultGateConfig)
+    const gated = applyBehavioralGates(1.0, frames, defaultGateConfig)
+    // applyBehavioralGates(1.0, ...) = clamp(1.0 * combined, 0, 1) = combined (when <= 1)
+    expect(gated).toBeCloseTo(gb.combined)
   })
 })

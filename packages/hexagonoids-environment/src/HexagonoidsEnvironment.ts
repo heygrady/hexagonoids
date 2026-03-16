@@ -12,6 +12,7 @@ import type {
 } from '@neat-evolution/execution-manager'
 import { createVanillaAgent } from '@neat-evolution/execution-manager'
 import type { StaticExecutor } from '@neat-evolution/executor'
+import type { StatsRecorder } from '@neat-evolution/stats'
 import { createRNG } from '@neat-evolution/utils'
 
 import { createGameAgent, type GameAgent } from './agents/createGameAgent.js'
@@ -20,9 +21,17 @@ import { INPUT_COUNT } from './encoding/encodingPresets.js'
 import {
   type ActionFrames,
   applyBehavioralGates,
+  computeFitnessBreakdown,
+  computeGateBreakdown,
+  type FitnessBreakdown,
   type FitnessContext,
+  type GauntletBreakdown,
   weightedFitnessSum,
 } from './evaluation/calculateFitness.js'
+import {
+  METRIC_EPISODE_FITNESS,
+  METRIC_GAUNTLET_BREAKDOWN,
+} from './evaluation/metrics.js'
 import type { RawMetrics } from './evaluation/RawMetrics.js'
 import { computePossibleDeaths } from './evaluation/scenarioContext.js'
 import {
@@ -77,12 +86,9 @@ export class HexagonoidsEnvironment
     executor: StaticExecutor,
     context?: PartialEvaluationContext
   ): number {
-    const seed =
-      context?.rng != null ? String(context.rng.gen()) : 'default-seed'
     const createAgent = this.initOptions?.createAgent ?? createVanillaAgent
     const agent = createAgent(executor, {}, context)
-    const gameAgent = createGameAgent(agent)
-    return this.evaluateGauntlet({ seed, agent, gameAgent })
+    return this.evaluateAgent(agent, context)
   }
 
   getRLConfig(): RLConfig {
@@ -94,10 +100,27 @@ export class HexagonoidsEnvironment
     }
   }
 
-  evaluateAgent(agent: EpisodicAgent): number {
+  evaluateAgent(
+    agent: EpisodicAgent,
+    context?: PartialEvaluationContext
+  ): number {
     const gameAgent = createGameAgent(agent)
-    const seed = this.nextAgentSeed()
-    return this.evaluateGauntlet({ seed, agent, gameAgent })
+    return this.evaluateGameAgent(gameAgent, context)
+  }
+
+  evaluateGameAgent(
+    gameAgent: GameAgent,
+    context?: PartialEvaluationContext
+  ): number {
+    const stats = context?.stats
+    const seed =
+      context?.rng != null ? String(context.rng.gen()) : this.nextAgentSeed()
+    return this.evaluateGauntlet({
+      seed,
+      agent: gameAgent.episodicAgent,
+      gameAgent,
+      stats,
+    })
   }
 
   evaluateBatch(
@@ -111,14 +134,21 @@ export class HexagonoidsEnvironment
     seed,
     agent,
     gameAgent,
+    stats,
   }: {
     seed: string
     agent: EpisodicAgent
     gameAgent: GameAgent
+    stats?: StatsRecorder | undefined
   }): number {
     const bank = this.config.scenarioBank
     const hasBank = bank != null && bank.length > 0
     const hasCurriculum = this.config.simulation.curriculumEnabled
+
+    // Check what stats are wanted (zero-cost when no recorder)
+    const wantsBreakdown = stats?.wants(METRIC_GAUNTLET_BREAKDOWN) === true
+    const wantsEpisode = stats?.wants(METRIC_EPISODE_FITNESS) === true
+    const wantsStats = wantsBreakdown || wantsEpisode
 
     // Determine active weights — zero out unavailable evaluation modes
     let sw = hasBank ? this.config.scenarioWeight : 0
@@ -133,6 +163,11 @@ export class HexagonoidsEnvironment
       rightFrames: 0,
       aliveFrames: 0,
     }
+
+    // Collect per-episode breakdowns when stats active
+    const scenarioBreakdowns: FitnessBreakdown[] = []
+    const fullGameBreakdowns: FitnessBreakdown[] = []
+    const curriculumBreakdowns: FitnessBreakdown[] = []
 
     const nextEpisodeIndex = (() => {
       let index = 0
@@ -151,9 +186,34 @@ export class HexagonoidsEnvironment
         frames,
         agent,
         gameAgent,
-        nextEpisodeIndex
+        nextEpisodeIndex,
+        wantsStats ? fullGameBreakdowns : undefined,
+        stats
       )
-      return applyBehavioralGates(fitness, frames, this.config.gateConfig)
+      const gatedFitness = applyBehavioralGates(
+        fitness,
+        frames,
+        this.config.gateConfig
+      )
+
+      if (wantsBreakdown && stats != null) {
+        const gates = computeGateBreakdown(frames, this.config.gateConfig)
+        const breakdown: GauntletBreakdown = {
+          fitness: gatedFitness,
+          blendedFitnessRaw: fitness,
+          scenarioFitness: 0,
+          fullGameFitness: fitness,
+          curriculumFitness: 0,
+          gates,
+          scenarioBreakdowns: [],
+          fullGameBreakdowns,
+          curriculumBreakdowns: [],
+          aggregatedFrames: { ...frames },
+        }
+        stats.record(METRIC_GAUNTLET_BREAKDOWN, breakdown)
+      }
+
+      return gatedFitness
     }
 
     // Normalize weights
@@ -161,45 +221,73 @@ export class HexagonoidsEnvironment
     fw /= total
     cw /= total
 
-    let fitness = 0
+    let scenarioFitness = 0
+    let fullGameFitness = 0
+    let curriculumFitness = 0
 
     if (sw > 0 && hasBank && bank != null) {
-      fitness +=
-        sw *
-        this.evaluateScenariosMultiSeed(
-          bank,
-          seed,
-          frames,
-          agent,
-          gameAgent,
-          nextEpisodeIndex
-        )
+      scenarioFitness = this.evaluateScenariosMultiSeed(
+        bank,
+        seed,
+        frames,
+        agent,
+        gameAgent,
+        nextEpisodeIndex,
+        wantsStats ? scenarioBreakdowns : undefined,
+        stats
+      )
     }
     if (fw > 0) {
-      fitness +=
-        fw *
-        this.evaluateFullGameMultiSeed(
-          seed,
-          frames,
-          agent,
-          gameAgent,
-          nextEpisodeIndex
-        )
+      fullGameFitness = this.evaluateFullGameMultiSeed(
+        seed,
+        frames,
+        agent,
+        gameAgent,
+        nextEpisodeIndex,
+        wantsStats ? fullGameBreakdowns : undefined,
+        stats
+      )
     }
     if (cw > 0) {
-      fitness +=
-        cw *
-        this.evaluateCurriculum(
-          seed,
-          frames,
-          agent,
-          gameAgent,
-          nextEpisodeIndex
-        )
+      curriculumFitness = this.evaluateCurriculum(
+        seed,
+        frames,
+        agent,
+        gameAgent,
+        nextEpisodeIndex,
+        wantsStats ? curriculumBreakdowns : undefined,
+        stats
+      )
     }
 
+    const blendedFitnessRaw =
+      sw * scenarioFitness + fw * fullGameFitness + cw * curriculumFitness
+
     // Apply behavioral gates on aggregated frame counts
-    return applyBehavioralGates(fitness, frames, this.config.gateConfig)
+    const gatedFitness = applyBehavioralGates(
+      blendedFitnessRaw,
+      frames,
+      this.config.gateConfig
+    )
+
+    if (wantsBreakdown && stats != null) {
+      const gates = computeGateBreakdown(frames, this.config.gateConfig)
+      const breakdown: GauntletBreakdown = {
+        fitness: gatedFitness,
+        blendedFitnessRaw,
+        scenarioFitness,
+        fullGameFitness,
+        curriculumFitness,
+        gates,
+        scenarioBreakdowns,
+        fullGameBreakdowns,
+        curriculumBreakdowns,
+        aggregatedFrames: { ...frames },
+      }
+      stats.record(METRIC_GAUNTLET_BREAKDOWN, breakdown)
+    }
+
+    return gatedFitness
   }
 
   async evaluateAsync(
@@ -272,6 +360,47 @@ export class HexagonoidsEnvironment
   }
 
   /**
+   * Score a single episode's metrics. When stats are active, returns the
+   * full FitnessBreakdown; otherwise returns just the scalar fitness.
+   */
+  private scoreMetricsWithBreakdown(
+    metrics: RawMetrics,
+    breakdowns: FitnessBreakdown[] | undefined,
+    stats: StatsRecorder | undefined
+  ): number {
+    const context: FitnessContext = {
+      possibleDeaths: computePossibleDeaths(
+        metrics.elapsedTicks,
+        this.config.simulation.dtMs
+      ),
+      dtMs: this.config.simulation.dtMs,
+    }
+
+    if (breakdowns != null || stats?.wants(METRIC_EPISODE_FITNESS) === true) {
+      const breakdown = computeFitnessBreakdown(
+        metrics,
+        this.config.fitnessWeights,
+        this.config.gateConfig,
+        context
+      )
+      if (breakdowns != null) {
+        breakdowns.push(breakdown)
+      }
+      if (stats?.wants(METRIC_EPISODE_FITNESS) === true) {
+        stats.record(METRIC_EPISODE_FITNESS, breakdown)
+      }
+      return breakdown.fitness
+    }
+
+    return weightedFitnessSum(
+      metrics,
+      this.config.fitnessWeights,
+      this.config.gateConfig,
+      context
+    )
+  }
+
+  /**
    * Score curriculum micro-scenarios with weightedFitnessSum, then average.
    */
   private evaluateCurriculum(
@@ -279,7 +408,9 @@ export class HexagonoidsEnvironment
     frames: ActionFrames,
     agent: EpisodicAgent,
     gameAgent: GameAgent,
-    nextEpisodeIndex: () => number
+    nextEpisodeIndex: () => number,
+    breakdowns?: FitnessBreakdown[],
+    stats?: StatsRecorder
   ): number {
     const { curriculumCount } = this.config.simulation
     const dtMs = this.config.simulation.dtMs
@@ -312,7 +443,7 @@ export class HexagonoidsEnvironment
       frames.rightFrames += metrics.rightFrames
       frames.aliveFrames += metrics.aliveFrames
 
-      const fitness = this.scoreMetrics(metrics)
+      const fitness = this.scoreMetricsWithBreakdown(metrics, breakdowns, stats)
       fitnessSum += fitness
 
       const terminated =
@@ -337,7 +468,9 @@ export class HexagonoidsEnvironment
     frames: ActionFrames,
     agent: EpisodicAgent,
     gameAgent: GameAgent,
-    nextEpisodeIndex: () => number
+    nextEpisodeIndex: () => number,
+    breakdowns?: FitnessBreakdown[],
+    stats?: StatsRecorder
   ): number {
     const count = this.config.scenarioSeedsPerOrganism
     if (count <= 1) {
@@ -347,7 +480,9 @@ export class HexagonoidsEnvironment
         frames,
         agent,
         gameAgent,
-        nextEpisodeIndex
+        nextEpisodeIndex,
+        breakdowns,
+        stats
       )
     }
     let sum = 0
@@ -358,7 +493,9 @@ export class HexagonoidsEnvironment
         frames,
         agent,
         gameAgent,
-        nextEpisodeIndex
+        nextEpisodeIndex,
+        breakdowns,
+        stats
       )
     }
     return sum / count
@@ -369,7 +506,9 @@ export class HexagonoidsEnvironment
     frames: ActionFrames,
     agent: EpisodicAgent,
     gameAgent: GameAgent,
-    nextEpisodeIndex: () => number
+    nextEpisodeIndex: () => number,
+    breakdowns?: FitnessBreakdown[],
+    stats?: StatsRecorder
   ): number {
     const count = this.config.fullGameSeedsPerOrganism
     if (count <= 1) {
@@ -378,7 +517,9 @@ export class HexagonoidsEnvironment
         frames,
         agent,
         gameAgent,
-        nextEpisodeIndex
+        nextEpisodeIndex,
+        breakdowns,
+        stats
       )
     }
     let sum = 0
@@ -388,7 +529,9 @@ export class HexagonoidsEnvironment
         frames,
         agent,
         gameAgent,
-        nextEpisodeIndex
+        nextEpisodeIndex,
+        breakdowns,
+        stats
       )
     }
     return sum / count
@@ -399,7 +542,9 @@ export class HexagonoidsEnvironment
     frames: ActionFrames,
     agent: EpisodicAgent,
     gameAgent: GameAgent,
-    nextEpisodeIndex: () => number
+    nextEpisodeIndex: () => number,
+    breakdowns?: FitnessBreakdown[],
+    stats?: StatsRecorder
   ): number {
     const episodeIndex = nextEpisodeIndex()
     agent.startEpisode({
@@ -422,7 +567,7 @@ export class HexagonoidsEnvironment
     frames.rightFrames += metrics.rightFrames
     frames.aliveFrames += metrics.aliveFrames
 
-    const fitness = this.scoreMetrics(metrics)
+    const fitness = this.scoreMetricsWithBreakdown(metrics, breakdowns, stats)
     const terminated = metrics.livesRemaining <= 0
 
     agent.endEpisode({
@@ -443,7 +588,9 @@ export class HexagonoidsEnvironment
     frames: ActionFrames,
     agent: EpisodicAgent,
     gameAgent: GameAgent,
-    nextEpisodeIndex: () => number
+    nextEpisodeIndex: () => number,
+    breakdowns?: FitnessBreakdown[],
+    stats?: StatsRecorder
   ): number {
     const { scenariosPerOrganism, scenarioMaxTicks } = this.config.simulation
 
@@ -491,7 +638,7 @@ export class HexagonoidsEnvironment
       frames.rightFrames += metrics.rightFrames
       frames.aliveFrames += metrics.aliveFrames
 
-      const fitness = this.scoreMetrics(metrics)
+      const fitness = this.scoreMetricsWithBreakdown(metrics, breakdowns, stats)
       const terminated = metrics.livesRemaining <= 0
 
       agent.endEpisode({
@@ -507,22 +654,6 @@ export class HexagonoidsEnvironment
     }
 
     return fitnessSum / selected.length
-  }
-
-  private scoreMetrics(metrics: RawMetrics): number {
-    const context: FitnessContext = {
-      possibleDeaths: computePossibleDeaths(
-        metrics.elapsedTicks,
-        this.config.simulation.dtMs
-      ),
-      dtMs: this.config.simulation.dtMs,
-    }
-    return weightedFitnessSum(
-      metrics,
-      this.config.fitnessWeights,
-      this.config.gateConfig,
-      context
-    )
   }
 
   private nextAgentSeed(): string {

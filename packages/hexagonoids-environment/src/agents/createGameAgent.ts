@@ -15,6 +15,7 @@ import {
 
 export interface GameAgent {
   readonly agent: AgentFn
+  readonly episodicAgent: EpisodicAgent
   resetMemory(): void
 }
 
@@ -59,6 +60,7 @@ export function createGameAgent(rlAgent: EpisodicAgent): GameAgent {
 
   return {
     agent: bridgedAgent,
+    episodicAgent: rlAgent,
     resetMemory() {
       seenRocks.clear()
     },

@@ -1792,6 +1792,7 @@ __metadata:
     "@neat-evolution/execution-manager": "npm:^0.1.0"
     "@neat-evolution/executor": "npm:^0.3.13"
     "@neat-evolution/neat": "npm:^0.6.8"
+    "@neat-evolution/stats": "npm:^0.1.0"
     "@neat-evolution/utils": "npm:^0.6.0"
     "@swc/cli": "npm:^0.7.9"
     "@swc/core": "npm:^1.15.3"

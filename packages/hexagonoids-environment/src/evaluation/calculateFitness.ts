@@ -313,6 +313,68 @@ export function computePossibleKills(
   return Math.max(1, Math.min(rateCap, uniqueRocksSeen))
 }
 
+export interface FitnessBreakdown {
+  fitness: number
+  perfScore: number
+  rocksNorm: number
+  accuracyNorm: number
+  survivalGate: number
+  effectiveMaxRocks: number
+  rocksDestroyed: number
+  accuracy: number
+  uniqueRocksSeen: number
+  possibleDeaths: number
+  deaths: number
+  elapsedTicks: number
+}
+
+/**
+ * Compute the full fitness breakdown for a single episode, returning all
+ * intermediate values alongside the final fitness scalar.
+ */
+export function computeFitnessBreakdown(
+  metrics: RawMetrics,
+  weights: FitnessWeights,
+  gateConfig: GateConfig,
+  context: FitnessContext
+): FitnessBreakdown {
+  const possibleDeaths = context.possibleDeaths ?? PLAYER_STARTING_LIVES + 1
+  const dtMs =
+    context.dtMs ?? DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.dtMs
+
+  const targetAccuracy =
+    weights.targetAccuracy > 0 ? weights.targetAccuracy : 0.2
+  const effectiveMaxRocks = computePossibleKills(
+    metrics.elapsedTicks,
+    dtMs,
+    metrics.uniqueRocksSeen
+  )
+  const rocksNorm = clamp(metrics.rocksDestroyed / effectiveMaxRocks, 0, 1)
+  const accuracyNorm = clamp(metrics.accuracy / targetAccuracy, 0, 1)
+  const survivalRaw =
+    possibleDeaths > 0 ? clamp(1 - metrics.deaths / possibleDeaths, 0, 1) : 1
+  const survivalGate = Math.max(survivalRaw, gateConfig.survivalGateFloor)
+
+  const perfScore =
+    weights.rocksDestroyed * rocksNorm + weights.accuracy * accuracyNorm
+  const fitness = clamp(perfScore * survivalGate, 0, 1)
+
+  return {
+    fitness,
+    perfScore,
+    rocksNorm,
+    accuracyNorm,
+    survivalGate,
+    effectiveMaxRocks,
+    rocksDestroyed: metrics.rocksDestroyed,
+    accuracy: metrics.accuracy,
+    uniqueRocksSeen: metrics.uniqueRocksSeen,
+    possibleDeaths,
+    deaths: metrics.deaths,
+    elapsedTicks: metrics.elapsedTicks,
+  }
+}
+
 /**
  * Compute weighted-sum fitness for a single episode.
  *
@@ -334,29 +396,36 @@ export function weightedFitnessSum(
   gateConfig: GateConfig,
   context: FitnessContext
 ): number {
-  const possibleDeaths = context.possibleDeaths ?? PLAYER_STARTING_LIVES + 1
-  const dtMs =
-    context.dtMs ?? DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.dtMs
+  return computeFitnessBreakdown(metrics, weights, gateConfig, context).fitness
+}
 
-  // Performance components (all in [0, 1])
-  const targetAccuracy =
-    weights.targetAccuracy > 0 ? weights.targetAccuracy : 0.2
-  const effectiveMaxRocks = computePossibleKills(
-    metrics.elapsedTicks,
-    dtMs,
-    metrics.uniqueRocksSeen
-  )
-  const rocksNorm = clamp(metrics.rocksDestroyed / effectiveMaxRocks, 0, 1)
-  const accuracyTerm = clamp(metrics.accuracy / targetAccuracy, 0, 1)
-  const survivalRaw =
-    possibleDeaths > 0 ? clamp(1 - metrics.deaths / possibleDeaths, 0, 1) : 1
-  const survivalGate = Math.max(survivalRaw, gateConfig.survivalGateFloor)
+export interface GateBreakdown {
+  actionGate: number
+  turnGate: number
+  throttleGate: number
+  turnBiasGate: number
+  combined: number
+}
 
-  // Weighted sum of performance components
-  const perfScore =
-    weights.rocksDestroyed * rocksNorm + weights.accuracy * accuracyTerm
-
-  return clamp(perfScore * survivalGate, 0, 1)
+/**
+ * Compute the full gate breakdown for aggregated frame counts, returning
+ * individual gate values and their combined product.
+ */
+export function computeGateBreakdown(
+  aggregatedMetrics: ActionFrames,
+  gateConfig: GateConfig
+): GateBreakdown {
+  const actionGateVal = actionDiversityGate(aggregatedMetrics, gateConfig)
+  const turnGateVal = turnGate(aggregatedMetrics, gateConfig)
+  const throttleGateVal = throttleGate(aggregatedMetrics, gateConfig)
+  const turnBiasGateVal = turnBiasGate(aggregatedMetrics, gateConfig)
+  return {
+    actionGate: actionGateVal,
+    turnGate: turnGateVal,
+    throttleGate: throttleGateVal,
+    turnBiasGate: turnBiasGateVal,
+    combined: actionGateVal * turnGateVal * throttleGateVal * turnBiasGateVal,
+  }
 }
 
 /**
@@ -372,11 +441,34 @@ export function applyBehavioralGates(
   aggregatedMetrics: ActionFrames,
   gateConfig: GateConfig
 ): number {
-  const action = actionDiversityGate(aggregatedMetrics, gateConfig)
-  const turn = turnGate(aggregatedMetrics, gateConfig)
-  const throttle = throttleGate(aggregatedMetrics, gateConfig)
-  const turnBias = turnBiasGate(aggregatedMetrics, gateConfig)
-  return clamp(fitness * action * turn * throttle * turnBias, 0, 1)
+  return clamp(
+    fitness * computeGateBreakdown(aggregatedMetrics, gateConfig).combined,
+    0,
+    1
+  )
+}
+
+export interface GauntletBreakdown {
+  /** Final gated fitness (same as evaluate() return). */
+  fitness: number
+  /** Blended fitness before aggregated behavioral gates. */
+  blendedFitnessRaw: number
+  /** Weighted scenario component. */
+  scenarioFitness: number
+  /** Weighted full-game component. */
+  fullGameFitness: number
+  /** Weighted curriculum component. */
+  curriculumFitness: number
+  /** Behavioral gate breakdown. */
+  gates: GateBreakdown
+  /** Per-episode breakdowns for scenarios. */
+  scenarioBreakdowns: FitnessBreakdown[]
+  /** Per-episode breakdowns for full games. */
+  fullGameBreakdowns: FitnessBreakdown[]
+  /** Per-episode breakdowns for curriculum. */
+  curriculumBreakdowns: FitnessBreakdown[]
+  /** Aggregated action frames across all episodes. */
+  aggregatedFrames: ActionFrames
 }
 
 /**

@@ -54,16 +54,32 @@ export {
 } from './encoding/encodingPresets.js'
 // Evaluation
 export { aggregateMetrics } from './evaluation/aggregateMetrics.js'
+// Behavioral profiling
+export type {
+  ActionProfile,
+  BehavioralProfile,
+  EngagementProfile,
+  MovementProfile,
+} from './evaluation/behavioralProfile.js'
+export {
+  computeBehavioralProfile,
+  shannonEntropy,
+} from './evaluation/behavioralProfile.js'
 export {
   type ActionFrames,
   actionDiversityGate,
   applyBehavioralGates,
   calculateFitness,
+  computeFitnessBreakdown,
+  computeGateBreakdown,
   computeKillCycleTicks,
   computePossibleKills,
   engagementGate,
   evaluateFullGameFitness,
+  type FitnessBreakdown,
   type FitnessContext,
+  type GateBreakdown,
+  type GauntletBreakdown,
   throttleGate,
   turnBiasGate,
   turnGate,
@@ -74,6 +90,10 @@ export {
   BUCKET_SYSTEM,
   findBucketXYZ,
 } from './evaluation/icosahedralBuckets.js'
+export {
+  METRIC_EPISODE_FITNESS,
+  METRIC_GAUNTLET_BREAKDOWN,
+} from './evaluation/metrics.js'
 export type { MetricsCollector, RawMetrics } from './evaluation/RawMetrics.js'
 export { createMetricsCollector } from './evaluation/RawMetrics.js'
 export { computePossibleDeaths } from './evaluation/scenarioContext.js'
