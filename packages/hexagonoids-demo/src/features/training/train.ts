@@ -10,34 +10,24 @@ import {
   randomAgent,
 } from '@heygrady/hexagonoids-environment'
 import { createEnvironment } from '@heygrady/hexagonoids-environment/node'
-import { ACPlugin } from '@neat-evolution/actor-critic-plugin'
-import {
-  Activation,
-  type AnyErasedAlgorithm,
-  type OutputActivationSpec,
-} from '@neat-evolution/core'
+import type { ACAgentConfig } from '@neat-evolution/actor-critic'
+import { Activation, type OutputActivationSpec } from '@neat-evolution/core'
 import { CPPNAlgorithm } from '@neat-evolution/cppn'
 import {
   DESHyperNEATAlgorithm,
   defaultTopologyConfigOptions,
 } from '@neat-evolution/des-hyperneat'
-import type { Environment } from '@neat-evolution/environment'
 import { ESHyperNEATAlgorithm } from '@neat-evolution/es-hyperneat'
-import {
-  type EvaluationStrategy,
-  PluginStrategy,
-} from '@neat-evolution/evaluation-strategy'
-import type { AnyAlgorithm } from '@neat-evolution/evaluator'
 import { defaultEvolutionOptions } from '@neat-evolution/evolution'
 import {
+  type EvaluatorConfig,
   EvolutionManager,
   type EvolutionManagerConfig,
-  type WorkerConfig,
 } from '@neat-evolution/evolution-manager'
+import type { RolloutBufferConfig } from '@neat-evolution/execution-manager'
 import { HyperNEATAlgorithm } from '@neat-evolution/hyperneat'
 import { NEATAlgorithm } from '@neat-evolution/neat'
-import { QLPlugin } from '@neat-evolution/q-learning-plugin'
-import { threadRNG } from '@neat-evolution/utils'
+import type { QLAgentConfig } from '@neat-evolution/q-learning'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 import {
   appendGenerationLog,
@@ -68,8 +58,6 @@ const CREATE_ENVIRONMENT_PATHNAME = resolve(
   DEFAULT_OUTPUT_DIR,
   '../hexagonoids-environment/dist/esm/node.js'
 )
-const CREATE_EXECUTOR_PATHNAME = '@neat-evolution/executor'
-
 const toRunConfig = (options: TrainOptions) => {
   return {
     method: options.method ?? DEFAULT_METHOD,
@@ -305,9 +293,10 @@ const ACTION_COUNT = 4
 
 /**
  * Determine genome output count and activation based on RL mode.
- * - Vanilla: 4 outputs, Sigmoid (game actions only)
- * - AC: 5 outputs (4 actor Softmax + 1 critic Linear)
+ * - Vanilla: 8 outputs, 4 × [2, Softmax] (paired softmax per action)
+ * - AC: 9 outputs (4 × [2, Softmax] + [1, Linear])
  * - QL multiDiscrete: 8 outputs (2 Q-values per action), Linear
+ * - QL flat: 4 outputs, Linear
  */
 function rlOutputConfig(
   rlMode: string,
@@ -318,9 +307,12 @@ function rlOutputConfig(
 } {
   if (rlMode === 'actor-critic') {
     return {
-      outputCount: ACTION_COUNT + 1,
+      outputCount: ACTION_COUNT * 2 + 1,
       outputActivation: [
-        [ACTION_COUNT, Activation.Softmax],
+        [2, Activation.Softmax],
+        [2, Activation.Softmax],
+        [2, Activation.Softmax],
+        [2, Activation.Softmax],
         [1, Activation.Linear],
       ],
     }
@@ -337,62 +329,85 @@ function rlOutputConfig(
       outputActivation: Activation.Linear,
     }
   }
+  // Vanilla: paired softmax (4 actions × 2 outputs each)
   return {
-    outputCount: ACTION_COUNT,
-    outputActivation: Activation.Sigmoid,
+    outputCount: ACTION_COUNT * 2,
+    outputActivation: [
+      [2, Activation.Softmax],
+      [2, Activation.Softmax],
+      [2, Activation.Softmax],
+      [2, Activation.Softmax],
+    ],
   }
 }
 
-function buildStrategy(
-  config: ReturnType<typeof toRunConfig>,
-  algorithm: AnyAlgorithm,
-  environment: Environment
-): EvaluationStrategy | undefined {
+/**
+ * Build RL evaluator config with pathname-based agent factory injection.
+ * Workers dynamically import the agent factory and wire it into the environment.
+ */
+function buildRLEvaluatorConfig(
+  config: ReturnType<typeof toRunConfig>
+): Partial<EvaluatorConfig> {
+  const rolloutConfig: RolloutBufferConfig = {
+    rolloutLength: 'episode',
+    rewardThreshold: config.rlRewardThreshold,
+  }
+
   if (config.rlMode === 'actor-critic') {
-    return new PluginStrategy(
-      [
-        new ACPlugin(
-          algorithm,
-          {
-            learningRate: config.rlLearningRate,
-            isLamarckian: config.rlIsLamarckian,
-            rolloutLength: 'episode',
-            rewardThreshold: config.rlRewardThreshold,
-          },
-          Math.random
-        ),
-      ],
-      {
-        algorithm: algorithm as unknown as AnyErasedAlgorithm,
-        environment,
-      }
-    )
+    const acConfig: ACAgentConfig = {
+      learningRate: config.rlLearningRate,
+      actionCount: ACTION_COUNT,
+      gradientConfig: {
+        discountFactor: 0.99,
+        entropyCoefficient: 0.01,
+        clipGradients: false,
+        gradientClipValue: 1.0,
+      },
+      rolloutConfig,
+      multiDiscrete: true,
+    }
+    return {
+      createExecutorPathname: '@neat-evolution/executor/backprop',
+      hydrateEnvironmentOptions: {
+        createAgent: '@neat-evolution/actor-critic/plugin',
+      },
+      environmentRuntimeData: {
+        agentFactoryOptions: {
+          config: acConfig,
+          rngSeed: config.baseSeed,
+          isLamarckian: config.rlIsLamarckian,
+        },
+      },
+    }
   }
+
   if (config.rlMode === 'q-learning') {
-    return new PluginStrategy(
-      [
-        new QLPlugin(
-          algorithm,
-          {
-            learningRate: config.rlLearningRate,
-            isLamarckian: config.rlIsLamarckian,
-            rolloutLength: 'episode',
-            rewardThreshold: config.rlRewardThreshold,
-            epsilonInitial: config.rlEpsilon,
-            epsilonDecayPerEpisode: config.rlEpsilonDecay,
-            epsilonMinimum: config.rlEpsilonMin,
-            multiDiscrete: config.rlMultiDiscrete,
-          },
-          threadRNG()
-        ),
-      ],
-      {
-        algorithm: algorithm as unknown as AnyErasedAlgorithm,
-        environment,
-      }
-    )
+    const qlConfig: QLAgentConfig = {
+      learningRate: config.rlLearningRate,
+      actionCount: ACTION_COUNT,
+      discountFactor: 0.99,
+      rolloutConfig,
+      epsilonInitial: config.rlEpsilon,
+      epsilonDecayPerEpisode: config.rlEpsilonDecay,
+      epsilonMinimum: config.rlEpsilonMin,
+      multiDiscrete: config.rlMultiDiscrete,
+    }
+    return {
+      createExecutorPathname: '@neat-evolution/executor/backprop',
+      hydrateEnvironmentOptions: {
+        createAgent: '@neat-evolution/q-learning/plugin',
+      },
+      environmentRuntimeData: {
+        agentFactoryOptions: {
+          config: qlConfig,
+          rngSeed: config.baseSeed,
+          isLamarckian: config.rlIsLamarckian,
+        },
+      },
+    }
   }
-  return undefined
+
+  return {}
 }
 
 export async function train(options: TrainOptions = {}): Promise<TrainResult> {
@@ -474,27 +489,20 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     const genomeOpts = algorithmDetails.genomeOptions as Record<string, unknown>
     genomeOpts.outputActivation = rlOutputs.outputActivation
   }
-  const workerConfig: WorkerConfig = {
-    createEnvironmentPathname: CREATE_ENVIRONMENT_PATHNAME,
-    createExecutorPathname: CREATE_EXECUTOR_PATHNAME,
+  const evaluatorConfig: EvaluatorConfig = {
     taskCount: config.populationSize,
     threadCount: config.threadCount,
-    ...(config.rlMode !== 'none'
-      ? { pluginPaths: ['@neat-evolution/worker-rl/workerPlugin'] }
-      : {}),
+    ...buildRLEvaluatorConfig(config),
   }
 
-  const strategy =
-    buildStrategy(
-      config,
-      algorithmDetails.algorithm as AnyAlgorithm,
-      environment as Environment
-    ) ?? new GenerationSeededStrategy(config.baseSeed)
+  const strategy = new GenerationSeededStrategy(config.baseSeed)
 
   const manager = new EvolutionManager({
     ...algorithmDetails,
     environment,
+    createEnvironmentPathname: CREATE_ENVIRONMENT_PATHNAME,
     strategy,
+    evaluatorConfig,
     evolutionOptions: {
       iterations: config.iterations,
       secondsLimit: config.secondsLimit,
@@ -549,7 +557,6 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     populationOptions: {
       populationSize: config.populationSize,
     },
-    workerConfig,
     ...(config.signal != null && { signal: config.signal }),
   })
 

@@ -7,10 +7,11 @@ import type { Environment } from '@neat-evolution/environment'
 import { createPopulation as createESHyperNEATPopulation } from '@neat-evolution/es-hyperneat'
 import type { Evaluator } from '@neat-evolution/evaluator'
 import { defaultPopulationOptions } from '@neat-evolution/evolution'
-import type { Executor, SyncExecutor } from '@neat-evolution/executor'
+import type { PartialEvaluationContext } from '@neat-evolution/execution-manager'
+import type { StaticExecutor } from '@neat-evolution/executor'
 import { createPopulation as createHyperNEATPopulation } from '@neat-evolution/hyperneat'
 import { createPopulation as createNEATPopulation } from '@neat-evolution/neat'
-import type { RNG } from '@neat-evolution/utils'
+
 import { describe, expect, it } from 'vitest'
 import {
   type AlgorithmIO,
@@ -34,10 +35,22 @@ const createEvaluatorStub = (
   const environment = {
     description: io,
     isAsync: false,
-    evaluate: (_executor: SyncExecutor, _rng?: RNG) => 0,
-    evaluateBatch: (_executors: SyncExecutor[], _rng?: RNG) => [],
-    evaluateAsync: async (_executor: Executor, _rng?: RNG) => 0,
-    evaluateBatchAsync: async (_executors: Executor[], _rng?: RNG) => [],
+    evaluate: (
+      _executor: StaticExecutor,
+      _context?: PartialEvaluationContext
+    ) => 0,
+    evaluateBatch: (
+      _executors: StaticExecutor[],
+      _context?: PartialEvaluationContext
+    ) => [] as number[],
+    evaluateAsync: async (
+      _executor: StaticExecutor,
+      _context?: PartialEvaluationContext
+    ) => 0,
+    evaluateBatchAsync: async (
+      _executors: StaticExecutor[],
+      _context?: PartialEvaluationContext
+    ) => [] as number[],
     toFactoryOptions: () => ({}),
   } satisfies Environment<Record<string, never>>
 

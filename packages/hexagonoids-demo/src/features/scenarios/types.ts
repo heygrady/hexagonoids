@@ -3,11 +3,16 @@ import type {
   ScenarioSnapshot as EnvironmentScenarioSnapshot,
   FitnessContext,
   FitnessWeights,
+  GameAgent,
   GateConfig,
   HexagonoidsEnvironmentConfig,
   RawMetrics,
 } from '@heygrady/hexagonoids-environment'
-import type { SyncExecutor } from '@neat-evolution/executor'
+import type {
+  AgentFactory,
+  EpisodicAgent,
+} from '@neat-evolution/execution-manager'
+import type { StaticExecutor } from '@neat-evolution/executor'
 
 import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
 
@@ -136,7 +141,7 @@ export interface AgentHandle {
   label: string
   source: SourceGenome
   agent: AgentFn
-  executor: SyncExecutor
+  executor: StaticExecutor
 }
 
 export interface PanelAgentScore {
@@ -199,7 +204,7 @@ export interface ScenarioRunCounts {
 
 interface EvolutionManager {
   createOrganism(method: SupportedAlgorithm, serialized: unknown): unknown
-  organismToExecutor(organism: unknown): SyncExecutor
+  organismToExecutor(organism: unknown): StaticExecutor
 }
 
 export interface ScenarioRuntime {
@@ -213,19 +218,17 @@ export interface ScenarioRuntime {
     rewindFrames: number
     maxGames: number
     agent: AgentFn
-    executor: SyncExecutor
     captureTypes?: Array<'death' | 'kill'>
     killRatio?: number
   }): ScenarioSnapshot[]
-  createNeatAgent(): AgentFn
-  neatAgent: AgentFn
+  createVanillaAgent: AgentFactory
+  createGameAgent(agent: EpisodicAgent): GameAgent
   randomAgent: AgentFn
   simulateScenario(
     agent: AgentFn,
     scenario: ScenarioSnapshot,
     simConfig: { maxTicks: number; dtMs: number },
-    seed: string,
-    executor?: SyncExecutor
+    seed: string
   ): RawMetrics
   weightedFitnessSum(
     metrics: RawMetrics,

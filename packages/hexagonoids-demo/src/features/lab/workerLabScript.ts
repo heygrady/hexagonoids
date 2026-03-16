@@ -15,7 +15,8 @@ interface LabRuntime {
   createPhenotypeForGenome: typeof import('../registries/algorithmRegistry.js').createPhenotypeForGenome
   HEXAGONOIDS_IO: typeof import('../registries/algorithmRegistry.js').HEXAGONOIDS_IO
   createExecutor: typeof import('@neat-evolution/executor').createExecutor
-  createNeatAgent: typeof import('@heygrady/hexagonoids-environment').createNeatAgent
+  createVanillaAgent: typeof import('@neat-evolution/execution-manager').createVanillaAgent
+  createGameAgent: typeof import('@heygrady/hexagonoids-environment').createGameAgent
   simulateGame: typeof import('@heygrady/hexagonoids-environment').simulateGame
   aggregateMetrics: typeof import('@heygrady/hexagonoids-environment').aggregateMetrics
   evaluateFullGameFitness: typeof import('@heygrady/hexagonoids-environment').evaluateFullGameFitness
@@ -46,6 +47,9 @@ handler.register(init, async (_payload, _context) => {
   const demoNode = await import('@heygrady/hexagonoids-demo/node')
   const env = await import('@heygrady/hexagonoids-environment')
   const { createExecutor } = await import('@neat-evolution/executor')
+  const { createVanillaAgent } = await import(
+    '@neat-evolution/execution-manager'
+  )
   const { isSerializedOrganism } = await import(
     '../training/serialization/serializedOrganism.js'
   )
@@ -65,7 +69,8 @@ handler.register(init, async (_payload, _context) => {
     createPhenotypeForGenome,
     HEXAGONOIDS_IO,
     createExecutor,
-    createNeatAgent: env.createNeatAgent,
+    createVanillaAgent,
+    createGameAgent: env.createGameAgent,
     simulateGame: env.simulateGame,
     aggregateMetrics: env.aggregateMetrics,
     evaluateFullGameFitness: env.evaluateFullGameFitness,
@@ -95,7 +100,6 @@ handler.register(
     } = payload
 
     const simConfig = { maxTicks, dtMs, useFastThrust: true }
-    const agent = runtime.createNeatAgent()
     const entries: AnalyzeBatchResultEntry[] = []
 
     for (const ref of genomeRefs) {
@@ -119,6 +123,8 @@ handler.register(
       )
       const phenotype = runtime.createPhenotypeForGenome(method, genome)
       const executor = runtime.createExecutor(phenotype)
+      const episodicAgent = runtime.createVanillaAgent(executor, {})
+      const gameAgent = runtime.createGameAgent(episodicAgent)
 
       // Run simulations
       const seeds = runtime.generationSeedPack(
@@ -130,7 +136,7 @@ handler.register(
         []
 
       for (const seed of seeds) {
-        const metrics = runtime.simulateGame(agent, simConfig, seed, executor)
+        const metrics = runtime.simulateGame(gameAgent.agent, simConfig, seed)
         allMetrics.push(metrics)
       }
 

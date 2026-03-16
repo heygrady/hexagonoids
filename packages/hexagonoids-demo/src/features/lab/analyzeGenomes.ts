@@ -1,7 +1,7 @@
 import {
   aggregateMetrics,
   computePossibleDeaths,
-  createNeatAgent,
+  createGameAgent,
   evaluateFullGameFitness,
   type FitnessWeights,
   type GateConfig,
@@ -10,6 +10,7 @@ import {
   weightedFitnessSum,
 } from '@heygrady/hexagonoids-environment'
 import type { AnyErasedGenome } from '@neat-evolution/evaluator'
+import { createVanillaAgent } from '@neat-evolution/execution-manager'
 import { createExecutor } from '@neat-evolution/executor'
 import { loadGenome } from '../persistence/loadGenome.js'
 import {
@@ -96,7 +97,6 @@ export async function analyzeGenomes(
 
   const simConfig = { maxTicks, dtMs, useFastThrust: true }
   const behaviors: GenomeBehavior[] = []
-  const agent = createNeatAgent()
 
   for (const [i, genomePath] of genomePaths.entries()) {
     const serialized = loadGenome(genomePath)
@@ -107,12 +107,14 @@ export async function analyzeGenomes(
 
     const genome = hydrateGenome(method, serialized)
     const executor = createExecutorForGenome(method, genome)
+    const episodicAgent = createVanillaAgent(executor, {})
+    const gameAgent = createGameAgent(episodicAgent)
 
     const seeds = generationSeedPack(i, seedsPerGenome, `${baseSeed}:analysis`)
     const allMetrics: RawMetrics[] = []
 
     for (const seed of seeds) {
-      const metrics = simulateGame(agent, simConfig, seed, executor)
+      const metrics = simulateGame(gameAgent.agent, simConfig, seed)
       allMetrics.push(metrics)
     }
 

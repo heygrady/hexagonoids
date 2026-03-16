@@ -1,6 +1,6 @@
 import type { AnyErasedGenome } from '@neat-evolution/evaluator'
 import { Organism } from '@neat-evolution/evolution'
-import { createExecutor, type SyncExecutor } from '@neat-evolution/executor'
+import { createExecutor, type StaticExecutor } from '@neat-evolution/executor'
 
 import {
   createGenomeFromSerialized,
@@ -147,7 +147,7 @@ export class HexagonoidsEvolutionManager {
     })
   }
 
-  organismToExecutor(organism: unknown): SyncExecutor {
+  organismToExecutor(organism: unknown): StaticExecutor {
     const candidate = isSerializedOrganism(organism)
       ? this.createOrganism(this.method, organism)
       : organism

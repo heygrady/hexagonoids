@@ -77,7 +77,6 @@ handler.register(
       rewindFrames: rewind,
       maxGames,
       agent: handle.agent,
-      executor: handle.executor,
       captureTypes,
       killRatio,
     })
@@ -147,8 +146,7 @@ handler.register(
         handle.agent,
         scenario,
         simConfig,
-        `${handle.id}:${scenario.wave}:${scenario.difficulty}`,
-        handle.executor
+        `${handle.id}:${scenario.wave}:${scenario.difficulty}`
       )
       return metrics.deaths > 0 ? 1 : 0
     })

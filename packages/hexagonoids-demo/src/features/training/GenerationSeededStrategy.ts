@@ -4,8 +4,8 @@ import type {
   GenomeEntries,
 } from '@neat-evolution/core'
 import type {
-  EvaluationContext,
   EvaluationStrategy,
+  ParentEvaluationContext,
 } from '@neat-evolution/evaluation-strategy'
 
 import { generationSeedPack } from './evaluation/seedSchedule.js'
@@ -23,7 +23,7 @@ export class GenerationSeededStrategy<G extends AnyGenome = AnyGenome>
   constructor(private readonly baseSeed: string) {}
 
   async *evaluate(
-    context: EvaluationContext<G>,
+    context: ParentEvaluationContext<G>,
     genomeEntries: GenomeEntries<G>
   ): AsyncIterable<FitnessData> {
     const seed = generationSeedPack(this.generation, 1, this.baseSeed)[0]

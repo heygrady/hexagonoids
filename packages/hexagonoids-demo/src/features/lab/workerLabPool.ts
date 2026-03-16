@@ -48,7 +48,6 @@ export async function createLabWorkerPool(options?: {
 }): Promise<LabWorkerPool> {
   const threadCount =
     options?.threadCount ?? Math.max(1, hardwareConcurrency - 2)
-  const verbose = options?.verbose ?? false
 
   const workerScriptUrl = new URL('./workerLabScript.js', import.meta.url)
 
@@ -60,10 +59,9 @@ export async function createLabWorkerPool(options?: {
       name: 'LabWorker',
       type: 'module',
     },
-    verbose,
   })
 
-  const dispatcher = new Dispatcher(pool, { verbose })
+  const dispatcher = new Dispatcher(pool)
 
   await pool.ready()
   await dispatcher.broadcast(init({}))

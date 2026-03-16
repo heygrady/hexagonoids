@@ -1,9 +1,10 @@
 import {
+  createGameAgent,
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   evaluateFullGameFitness,
-  neatAgent,
   simulateGame,
 } from '@heygrady/hexagonoids-environment'
+import { createVanillaAgent } from '@neat-evolution/execution-manager'
 import { loadGenome } from '../persistence/loadGenome.js'
 import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
 import {
@@ -62,7 +63,9 @@ export async function replayGenome(
     dtMs: options.dtMs,
     useFastThrust: options.useFastThrust,
   }
-  const metrics = simulateGame(neatAgent, simulation, options.seed, executor)
+  const agent = createVanillaAgent(executor, {})
+  const gameAgent = createGameAgent(agent)
+  const metrics = simulateGame(gameAgent.agent, simulation, options.seed)
   const fitness = evaluateFullGameFitness(metrics)
 
   return {

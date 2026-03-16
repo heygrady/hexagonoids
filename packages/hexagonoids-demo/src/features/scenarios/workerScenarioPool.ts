@@ -66,7 +66,6 @@ export async function createScenarioWorkerPool(options?: {
 }): Promise<ScenarioWorkerPool> {
   const threadCount =
     options?.threadCount ?? Math.max(1, hardwareConcurrency - 2)
-  const verbose = options?.verbose ?? false
 
   const workerScriptUrl = new URL('./workerScenarioScript.js', import.meta.url)
 
@@ -78,10 +77,9 @@ export async function createScenarioWorkerPool(options?: {
       name: 'ScenarioWorker',
       type: 'module',
     },
-    verbose,
   })
 
-  const dispatcher = new Dispatcher(pool, { verbose })
+  const dispatcher = new Dispatcher(pool)
 
   // Wait for workers to be ready, then initialize runtimes
   await pool.ready()

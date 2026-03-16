@@ -70,8 +70,7 @@ function evaluateScenarioWithAgent(
     handle.agent,
     scenario,
     simConfig,
-    `${handle.id}:${scenario.wave}:${scenario.difficulty}`,
-    handle.executor
+    `${handle.id}:${scenario.wave}:${scenario.difficulty}`
   )
 
   return {

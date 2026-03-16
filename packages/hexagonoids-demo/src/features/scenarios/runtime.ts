@@ -18,12 +18,16 @@ export async function loadScenarioRuntime(): Promise<ScenarioRuntime> {
   const envNode = await import('@heygrady/hexagonoids-environment/node')
   const env = await import('@heygrady/hexagonoids-environment')
 
+  const { createVanillaAgent } = await import(
+    '@neat-evolution/execution-manager'
+  )
+
   return {
     createNodeEvolutionManager: demoNode.createNodeEvolutionManager,
     loadGenome: demoNode.loadGenome,
     generateScenarios: envNode.generateScenarios,
-    createNeatAgent: env.createNeatAgent,
-    neatAgent: env.neatAgent,
+    createVanillaAgent,
+    createGameAgent: env.createGameAgent,
     randomAgent: env.randomAgent,
     simulateScenario: env.simulateScenario,
     weightedFitnessSum: env.weightedFitnessSum,
@@ -45,11 +49,14 @@ export async function createAgentHandle(
   const organism = manager.createOrganism(source.method, serialized)
   const executor = manager.organismToExecutor(organism)
 
+  const episodicAgent = runtime.createVanillaAgent(executor, {})
+  const gameAgent = runtime.createGameAgent(episodicAgent)
+
   return {
     id: source.id,
     label: `${source.kind}:${source.labId}:${basename(source.genomePath)}`,
     source,
-    agent: runtime.createNeatAgent(),
+    agent: gameAgent.agent,
     executor,
   }
 }
@@ -73,7 +80,6 @@ export async function collectCandidateScenarios(
       rewindFrames: options.rewind,
       maxGames: options.maxGames,
       agent: handle.agent,
-      executor: handle.executor,
     })
 
     for (const [index, scenario] of scenarios.entries()) {

@@ -13,7 +13,7 @@ import {
   applyBehavioralGates,
   computePossibleDeaths,
   computePossibleKills,
-  createNeatAgent,
+  createGameAgent,
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   doNothingAgent,
   mergeConfig,
@@ -27,7 +27,8 @@ import {
   turnGate,
   weightedFitnessSum,
 } from '@heygrady/hexagonoids-environment'
-import { createExecutor, type SyncExecutor } from '@neat-evolution/executor'
+import { createVanillaAgent } from '@neat-evolution/execution-manager'
+import { createExecutor } from '@neat-evolution/executor'
 import { createRNG } from '@neat-evolution/utils'
 import { loadScenarioBank } from '../../data/scenarios.js'
 import { loadGenome } from '../persistence/loadGenome.js'
@@ -163,7 +164,6 @@ function discoverLabGenomes(labDir: string): LabGenome[] {
 interface AgentEntry {
   name: string
   agent: AgentFn
-  executor: SyncExecutor | undefined
 }
 
 function loadGenomeAgent(
@@ -195,9 +195,10 @@ function loadGenomeAgent(
     genome
   )
   const executor = createExecutor(phenotype)
-  const agent = createNeatAgent()
+  const episodicAgent = createVanillaAgent(executor, {})
+  const gameAgent = createGameAgent(episodicAgent)
 
-  return { name: label, agent, executor }
+  return { name: label, agent: gameAgent.agent }
 }
 
 // ── Formatting helpers ──
@@ -310,8 +311,8 @@ export async function runInspectFitness(
   console.log()
 
   const agents: AgentEntry[] = [
-    { name: 'doNothing', agent: doNothingAgent, executor: undefined },
-    { name: 'random', agent: randomAgent, executor: undefined },
+    { name: 'doNothing', agent: doNothingAgent },
+    { name: 'random', agent: randomAgent },
   ]
 
   // Auto-discover lab genomes
@@ -374,7 +375,7 @@ export async function runInspectFitness(
 
   const agentData: AgentResult[] = []
 
-  for (const { name, agent, executor } of agents) {
+  for (const { name, agent } of agents) {
     console.log(`${'─'.repeat(60)}`)
     console.log(`Agent: ${name}`)
     console.log(`${'─'.repeat(60)}`)
@@ -396,8 +397,7 @@ export async function runInspectFitness(
         agent,
         options.seed,
         options.dtMs,
-        options.curriculumCount,
-        executor
+        options.curriculumCount
       )
       curriculumTotal = metricsArray.length
       let currFitnessSum = 0
@@ -445,8 +445,7 @@ export async function runInspectFitness(
         agent,
         scenario,
         scenarioConfig,
-        options.seed,
-        executor
+        options.seed
       )
       aggFrames.thrustFrames += metrics.thrustFrames
       aggFrames.fireFrames += metrics.fireFrames
@@ -518,7 +517,7 @@ export async function runInspectFitness(
 
     for (let i = 0; i < options.fullGameSeeds; i++) {
       const seed = `${options.seed}:fullgame:${i}`
-      const metrics = simulateGame(agent, fullGameSimConfig, seed, executor)
+      const metrics = simulateGame(agent, fullGameSimConfig, seed)
       aggFrames.thrustFrames += metrics.thrustFrames
       aggFrames.fireFrames += metrics.fireFrames
       aggFrames.leftFrames += metrics.leftFrames
