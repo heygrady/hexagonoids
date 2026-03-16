@@ -1,5 +1,16 @@
+import type {
+  BehavioralProfile,
+  FitnessContext,
+  FitnessWeights,
+  GameAgent,
+  GateConfig,
+  RawMetrics,
+} from '@heygrady/hexagonoids-environment'
+import type { EpisodicAgent } from '@neat-evolution/execution-manager'
+import type { StaticExecutor } from '@neat-evolution/executor'
 import { Handler } from '@neat-evolution/worker-actions'
 
+import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
 import {
   type AnalyzeBatchResult,
   type AnalyzeBatchResultEntry,
@@ -9,17 +20,17 @@ import {
 } from './workerLabActions.js'
 
 interface LabRuntime {
-  loadTrainingFitness: typeof import('../registries/hydrateGenome.js').loadTrainingFitness
-  hydrateToExecutor: typeof import('../registries/hydrateGenome.js').hydrateToExecutor
-  createVanillaAgent: typeof import('@neat-evolution/execution-manager').createVanillaAgent
-  createGameAgent: typeof import('@heygrady/hexagonoids-environment').createGameAgent
-  simulateGame: typeof import('@heygrady/hexagonoids-environment').simulateGame
-  aggregateMetrics: typeof import('@heygrady/hexagonoids-environment').aggregateMetrics
-  evaluateFullGameFitness: typeof import('@heygrady/hexagonoids-environment').evaluateFullGameFitness
-  computePossibleDeaths: typeof import('@heygrady/hexagonoids-environment').computePossibleDeaths
-  weightedFitnessSum: typeof import('@heygrady/hexagonoids-environment').weightedFitnessSum
-  computeBehavioralProfile: typeof import('@heygrady/hexagonoids-environment').computeBehavioralProfile
-  generationSeedPack: typeof import('../training/evaluation/seedSchedule.js').generationSeedPack
+  hydrateToExecutor(genomePath: string, method: SupportedAlgorithm): StaticExecutor
+  loadTrainingFitness(genomePath: string): number
+  createVanillaAgent(executor: StaticExecutor, options: Record<string, never>): EpisodicAgent
+  createGameAgent(agent: EpisodicAgent): GameAgent
+  simulateGame(agent: GameAgent['agent'], config: { maxTicks: number; dtMs: number; useFastThrust: boolean }, seed: string): RawMetrics
+  aggregateMetrics(metrics: RawMetrics[]): RawMetrics
+  evaluateFullGameFitness(metrics: RawMetrics, dtMs?: number): number
+  computePossibleDeaths(elapsedTicks: number, dtMs: number): number
+  weightedFitnessSum(metrics: RawMetrics, weights: FitnessWeights, gateConfig: GateConfig, context: FitnessContext): number
+  computeBehavioralProfile(aggregated: RawMetrics, seedCount: number): BehavioralProfile
+  generationSeedPack(generation: number, seedsPerGenome: number, baseSeed: string): string[]
 }
 
 let runtime: LabRuntime | null = null
@@ -87,8 +98,7 @@ handler.register(
         seedsPerGenome,
         `${baseSeed}:analysis`
       )
-      const allMetrics: import('@heygrady/hexagonoids-environment').RawMetrics[] =
-        []
+      const allMetrics: RawMetrics[] = []
 
       for (const seed of seeds) {
         const metrics = runtime.simulateGame(gameAgent.agent, simConfig, seed)
