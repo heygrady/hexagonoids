@@ -223,17 +223,27 @@ export function simulateScenario(
       livesNow <= 0 || (state.endedAt != null && livePlayer?.alive === false)
     const truncated = tick >= maxTicks - 1 || state.wave > baselineWave + 1
 
+    const tickRocks = collector.getTickRocksDestroyed()
+
     if (hooks?.onAfterTick != null) {
-      hooks.onAfterTick({
-        tick,
-        scoreDelta,
-        lifeDelta,
-        waveChanged,
-        newBullets,
-        shipAlive: liveShip?.alive === true,
-        terminated,
-        truncated,
-      })
+      hooks.onAfterTick(
+        {
+          tick,
+          scoreDelta,
+          lifeDelta,
+          rocksDestroyed: tickRocks,
+          waveChanged,
+          newBullets,
+          shipAlive: liveShip?.alive === true,
+          terminated,
+          truncated,
+        },
+        {
+          state,
+          playerId: PLAYER_ID,
+          context,
+        }
+      )
     }
   }
 

@@ -43,6 +43,8 @@ export interface MetricsCollector {
   setUniqueCellsVisited: (count: number) => void
   /** Score earned by pre-scenario bullets (to subtract from score delta). */
   getPreScenarioScore: () => number
+  /** Get rocks destroyed since last call (resets the tick counter). */
+  getTickRocksDestroyed: () => number
   /** Finalize and return metrics. */
   getMetrics: (final: {
     score: number
@@ -78,6 +80,7 @@ export function createMetricsCollector(
 ): MetricsCollector {
   let shotsHit = 0
   let rocksDestroyed = 0
+  let tickRocksDestroyed = 0
   let deaths = 0
   let shotsFired = 0
   let preScenarioScore = 0
@@ -102,7 +105,7 @@ export function createMetricsCollector(
           if (
             bullet != null &&
             bullet.firedAt != null &&
-            bullet.firedAt < bulletFiredCutoff
+            bullet.firedAt <= bulletFiredCutoff
           ) {
             // Pre-scenario bullet — track score but don't count in metrics
             const rock = state.rocks.get(b.id)
@@ -114,6 +117,7 @@ export function createMetricsCollector(
         }
         shotsHit++
         rocksDestroyed++
+        tickRocksDestroyed++
       }
     },
     onPlayerDied: (diedPlayerId) => {
@@ -151,6 +155,11 @@ export function createMetricsCollector(
       uniqueCellsVisited = count
     },
     getPreScenarioScore: () => preScenarioScore,
+    getTickRocksDestroyed: () => {
+      const count = tickRocksDestroyed
+      tickRocksDestroyed = 0
+      return count
+    },
     getMetrics: (final) => ({
       score: final.score,
       livesRemaining: final.livesRemaining,

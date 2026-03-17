@@ -1,262 +1,174 @@
 # Worker Evaluation Pipeline
 
-How worker-evaluator hydrates environments in workers and drives genome evaluation. The source of truth for how environments receive runtime configuration.
+How worker-evaluator hydrates environments in workers and drives genome evaluation today. This doc reflects the current phase-11 seam:
+
+- environment init-time configuration is delivered through `EnvironmentInitOptions`
+- worker evaluation calls `environment.evaluate(executor, context)` or `evaluateAsync(...)`
+- environments own their local execution-manager narrowing through `createExecutionManager`
 
 ---
 
-## 1. The two-phase lifecycle
+## 1. Worker init
 
-Environment setup happens in two phases, both inside the worker thread.
+Each worker handles `INIT_EVALUATOR` once.
 
-### Phase 1: Worker init (once per worker)
+`handleInitEvaluator(...)` does four things:
 
-The main thread broadcasts `INIT_EVALUATOR` with all configuration. Each worker runs `handleInitEvaluator`:
+1. Dynamically imports the algorithm package, environment factory, and executor factory.
+2. Builds an `initOptions` object for the environment.
+3. Merges `environmentRuntimeData` into that object.
+4. Hydrates each pathname in `hydrateEnvironmentOptions` and stores the imported function under the requested field.
 
-```
-handleInitEvaluator(payload, threadContext):
-  // 1. Dynamic imports from pathnames
-  { createConfig, createGenome, createPhenotype, createState } = import(algorithmPathname)
-  { createEnvironment } = import(createEnvironmentPathname)
-  { createExecutor } = import(createExecutorPathname)
+The worker then creates the environment once:
 
-  // 2. Build base runtime options (persists across evaluations)
-  runtimeOptions: EnvironmentRuntimeOptions = {}
+```ts
+const initOptions: EnvironmentInitOptions = {}
 
-  if statsConfig:
-    runtimeOptions.stats = createWorkerStatsRecorder(statsConfig, sendToMain)
+if (environmentRuntimeData != null) {
+  Object.assign(initOptions, environmentRuntimeData)
+}
 
-  // 3. Merge serializable blobs (config objects, agentFactoryOptions, etc.)
-  Object.assign(runtimeOptions, environmentRuntimeData)
+for (const [field, path] of Object.entries(hydrateEnvironmentOptions ?? {})) {
+  const mod = await import(path)
+  initOptions[field] = mod.default ?? mod[field]
+}
 
-  // 4. Hydrate pathnames → live functions
-  for [field, path] of hydrateEnvironmentOptions:
-    mod = import(path)
-    runtimeOptions[field] = mod.default ?? mod[field]
-  // e.g., runtimeOptions.createAgent = imported agent factory
-
-  // 5. Create environment — factory receives runtimeOptions as 2nd arg
-  environment = createEnvironment(environmentData, runtimeOptions)
-
-  // 6. Store for phase 2
-  threadContext.threadInfo = { environment, createExecutor, ... }
-  threadContext.baseRuntimeOptions = runtimeOptions
+const environment = createEnvironment(environmentData, initOptions)
 ```
 
-After this, the worker has:
-- A live `environment` instance
-- A `baseRuntimeOptions` object containing `stats`, `createAgent`, `agentFactoryOptions`, and any other hydrated fields
-- Factory functions for genomes and executors
+At this point the worker has:
 
-### Phase 2: Per-genome evaluation (once per genome per generation)
+- a live environment instance
+- algorithm factories for genome/config/state creation
+- an executor factory
 
-The main thread dispatches `REQUEST_EVALUATE_GENOME`. The worker runs `handleEvaluateGenome`:
-
-```
-handleEvaluateGenome(payload, threadContext):
-  { environment } = threadContext.threadInfo
-
-  // 1. Create a fresh BoundContext for this evaluation
-  boundContext = createBoundContext({ send, call, stats })
-  //   implements WorkerEvaluationContext:
-  //     send(message)            — fire-and-forget to main thread
-  //     call<R>(message)         — RPC to main thread
-  //     scheduleWriteback(exec)  — mark executor for Lamarckian writeback
-  //     onFitness(callback)      — cleanup hook
-  //     executorMap              — executor → index mapping
-
-  // 2. Hydrate genome → executor
-  executor = createCachedExecutorEntry(genomeFactoryOptions, context)
-  boundContext.executorMap.set(executor, 0)
-
-  // 3. Push per-genome runtime options
-  if isRuntimeConfigurable(environment):
-    environment.setRuntimeOptions({
-      ...threadContext.baseRuntimeOptions,   // ← agent factory, agentFactoryOptions, stats
-      evaluationContext: boundContext,        // ← fresh per-genome context
-    })
-
-  // 4. Evaluate
-  fitness = environment.evaluate(executor, rng)
-
-  // 5. Extract side effects
-  writebacks = boundContext.flush()          // Lamarckian weight updates
-  boundContext.fireFitnessCallbacks(fitness)  // cleanup hooks
-
-  return { fitness, updatedActions? }
-```
+There is no follow-up runtime mutation step for the environment.
 
 ---
 
-## 2. How the environment receives configuration
+## 2. Per-genome evaluation
 
-There are **two delivery mechanisms** and they happen at different times:
+For each `REQUEST_EVALUATE_GENOME`, the worker:
 
-### Mechanism A: Factory argument (init time)
+1. creates a fresh bound evaluation context
+2. hydrates the genome into an executor
+3. registers that executor in the bound context for Lamarckian writeback correlation
+4. calls the environment directly
 
-```typescript
-type EnvironmentFactory<EFO> = (
-  options: EFO,                                  // environment-specific config
-  runtimeOptions?: EnvironmentRuntimeOptions     // runtime hooks + factories
-) => Environment<EFO>
+Current shape:
+
+```ts
+const boundContext = createBoundContext({
+  send: context.send,
+  call: context.call,
+  stats: context.stats,
+  rng,
+})
+
+const { executor } = createCachedExecutorEntry(genomeFactoryOptions, context, {
+  cache: false,
+})
+
+boundContext.executorMap.set(executor, 0)
+
+const fitness = environment.isAsync
+  ? await environment.evaluateAsync(executor, boundContext)
+  : environment.evaluate(executor, boundContext)
 ```
 
-`handleInitEvaluator` calls `createEnvironment(environmentData, runtimeOptions)`. The factory can pass `runtimeOptions` into the constructor:
+After evaluation, the worker flushes writebacks and fitness callbacks from the bound context.
 
-```typescript
-// How BanditEnvironment's factory could work:
-export const createEnvironment: EnvironmentFactory<BanditFactoryOptions> = (options, runtimeOptions) => {
-  const env = new BanditEnvironment(options.outputCount)
-  if (runtimeOptions) env.setRuntimeOptions(runtimeOptions)
-  return env
+---
+
+## 3. Environment contract
+
+This is the only worker-facing environment contract that matters:
+
+```ts
+interface Environment<EFO = unknown> {
+  evaluate(executor: StaticExecutor, context?: PartialEvaluationContext): number
+  evaluateAsync(
+    executor: StaticExecutor,
+    context?: PartialEvaluationContext
+  ): Promise<number>
 }
 ```
 
-This is a **one-time** setup. The `runtimeOptions` at init time contain everything from `hydrateEnvironmentOptions` and `environmentRuntimeData` — including `createAgent` and `agentFactoryOptions`. But they do **not** contain `evaluationContext` yet — that's per-genome.
+`worker-evaluator` does not know about `EpisodicEnvironment`, `StepEnvironment`, `SupervisedEnvironment`, or environment-internal helper methods. Those may exist for consumer ergonomics, but the worker only drives `evaluate(...)`.
 
-### Mechanism B: setRuntimeOptions (per-genome)
+---
 
-```typescript
-interface RuntimeConfigurable {
-  setRuntimeOptions(options: EnvironmentRuntimeOptions): void
+## 4. Init-time runtime seam
+
+The generic init-time seam is:
+
+```ts
+interface EnvironmentInitOptions<EMF, EMFO> {
+  createExecutionManager?: EMF
+  executionManagerFactoryOptions?: EMFO
+  [key: string]: unknown
 }
 ```
 
-`handleEvaluateGenome` calls `environment.setRuntimeOptions({ ...baseRuntimeOptions, evaluationContext: boundContext })` before every `evaluate()` call. This merges the base options (from init) with a fresh `evaluationContext` for this specific genome evaluation.
+This is intentionally generic. The environment narrows it locally to the execution-manager shape it expects:
 
-The `evaluationContext` (a `WorkerEvaluationContext`) is what provides:
-- `scheduleWriteback(executor)` — Lamarckian writeback
-- `send(message)` / `call<R>(message)` — worker ↔ main thread RPC
-- `stats` — metrics recording
-- `executorMap` — executor correlation for writebacks
+- supervised environments narrow to trainer factories
+- legacy episodic environments narrow to agent factories where they still exist
+- step environments narrow to `StepAgentFactory`
 
-### The problem with two mechanisms
-
-The factory argument and `setRuntimeOptions` deliver overlapping content. `baseRuntimeOptions` is built once at init and re-delivered on every `setRuntimeOptions` call, merged with the fresh `evaluationContext`. This means:
-
-1. The environment sees `createAgent` twice — once via factory arg, once via `setRuntimeOptions`
-2. `setRuntimeOptions` is called N times per generation (once per genome), but only `evaluationContext` changes
-3. The environment stores mutable runtime state that gets overwritten before every evaluation
-4. `RuntimeConfigurable` exists solely to support this pattern — extra interface plumbing on every environment
-
-The fix is in section 7: init options go through the constructor, evaluation context goes on `evaluate()`. `RuntimeConfigurable` goes away.
+The worker does not care which one it is. It only hydrates fields onto `initOptions`.
 
 ---
 
-## 3. What the environment does with it
+## 5. Current consumer pattern
 
-BanditEnvironment shows the canonical pattern:
+A modern RL environment follows this pattern:
 
-```typescript
-class BanditEnvironment implements Environment, EpisodicEnvironment, RuntimeConfigurable {
-  private runtimeOptions?: EnvironmentRuntimeOptions
-
-  setRuntimeOptions(options: EnvironmentRuntimeOptions): void {
-    this.runtimeOptions = options
-  }
-
-  evaluate(executor: StaticExecutor): number {
-    // Get agent factory from runtime options (injected at init)
-    const factory = this.runtimeOptions?.createAgent ?? createVanillaAgent
-    const options = this.runtimeOptions?.agentFactoryOptions ?? {}
-
-    // Create agent — factory receives evaluationContext (injected per-genome)
-    const agent = factory(executor, options, this.runtimeOptions?.evaluationContext)
-
-    // Agent is fully configured: vanilla for NEAT, AC/QL for RL
-    return this.evaluateAgent(agent)
-  }
+```ts
+evaluate(executor: StaticExecutor, context?: PartialEvaluationContext): number {
+  const createExecutionManager =
+    this.initOptions?.createExecutionManager ?? createVanillaStepAgent
+  const options = this.initOptions?.executionManagerFactoryOptions ?? {}
+  const agent = createExecutionManager(executor, options, context)
+  return this.evaluateStepAgent(agent, context)
 }
 ```
 
-The agent factory (e.g., `@neat-evolution/actor-critic/plugin`) receives the `evaluationContext` and uses it to:
-- Call `context.scheduleWriteback(executor)` for Lamarckian training
-- Attach telemetry via `context.stats`
-- Wire up `onFitness` callbacks
+Important details:
+
+- the environment owns the fallback factory
+- the environment owns the narrowing of `executionManagerFactoryOptions`
+- the environment may have local helpers such as `evaluateStepAgent(...)`, but those are not part of the worker contract
+
+Hexagonoids now follows this pattern.
 
 ---
 
-## 4. Hexagonoids today vs. the canonical pattern
+## 6. Batch evaluation
 
-### Hexagonoids `createEnvironment`
+`handleEvaluateBatch(...)` mirrors the same design:
 
-```typescript
-export const createEnvironment: EnvironmentFactory<...> = (options) => {
-  const config = mergeConfig(options)
-  return new HexagonoidsEnvironment(config)
-}
-```
+- build one bound context for the batch
+- hydrate all executors
+- register each executor in `boundContext.executorMap`
+- call `environment.evaluateBatch(executors, boundContext)` or `evaluateBatchAsync(...)`
 
-**Problem:** Ignores the `initOptions` second argument entirely. Even if the worker passes init options, they're dropped on the floor.
+The important point is the same as single evaluation: the context is passed as an argument to the environment method, not pushed by mutable runtime injection.
 
-### Hexagonoids `HexagonoidsEnvironment`
-
-Does not accept init options. Has no agent factory. In `evaluate()`, it hardcodes `createVanillaAgent(executor, {})` — ignoring any injected agent factory. RL agents created by the worker pipeline have no way in.
-
-### BanditEnvironment (current)
-
-Uses `RuntimeConfigurable` + `setRuntimeOptions` to receive init options and per-genome context as a blended bag. Works end-to-end but with the re-delivery hack described in section 7.
+Whether a specific environment should support RL training in batch mode is a separate environment-level decision.
 
 ---
 
-## 5. Batch evaluation gap
+## 7. Boundary summary
 
-`handleEvaluateBatch` creates a `BoundContext` and hydrates executors, but does **not** call `setRuntimeOptions` before `evaluateBatch()`. This means:
+The stable boundary is:
 
-- Batch evaluation doesn't inject `evaluationContext` per-batch
-- RL agent factories won't receive the evaluation context
-- Lamarckian writeback won't work in batch mode
+- `worker-evaluator` hydrates functions and config blobs into `EnvironmentInitOptions`
+- the environment is constructed once with those init options
+- each evaluation call receives a fresh `PartialEvaluationContext`
+- the environment decides how to use `createExecutionManager`
 
-This is likely intentional for tournament-style batch evaluation (tictactoe) where RL training doesn't apply. But it's a gap to be aware of if hexagonoids ever uses batch evaluation with RL.
-
----
-
-## 6. The full call chain
-
-### Current (with setRuntimeOptions hack)
-
-```
-Worker thread:
-  handleEvaluateGenome(payload, threadContext)
-    → boundContext = createBoundContext(...)
-    → executor = createCachedExecutorEntry(...)
-    → environment.setRuntimeOptions({ ...base, evaluationContext: boundContext })   ← re-delivers init options
-    → fitness = environment.evaluate(executor, rng)
-      → agent = createAgent(executor, options, evaluationContext)                   ← env pulls context from mutable state
-      → evaluateAgent(agent)
-    → writebacks = boundContext.flush()
-    → return { fitness, updatedActions }
-```
-
-### Proposed (context on evaluate)
-
-```
-Worker thread:
-  handleEvaluateGenome(payload, threadContext)
-    → boundContext = createBoundContext(...)
-    → executor = createCachedExecutorEntry(...)
-    → fitness = environment.evaluate(executor, rng, boundContext)                   ← context is an argument
-      → agent = this.initOptions.createAgent(executor, options, boundContext)       ← env uses init options + eval context
-      → evaluateAgent(agent)
-    → writebacks = boundContext.flush()
-    → return { fitness, updatedActions }
-```
-
-No `setRuntimeOptions`. No re-delivery. No mutation.
-
----
-
-## 7. Decision: eliminate RuntimeConfigurable, pass context on evaluate()
-
-### The problem
-
-`setRuntimeOptions` exists to thread `evaluationContext` into the environment per-genome. But it re-delivers the entire init bag every time, and it requires mutable state on the environment. This is a hack. Init-time options and per-evaluation context are different lifetimes:
-
-| Concern | Lifetime | Delivery |
-|---------|----------|----------|
-| `createAgent` | Environment lifetime (set at init) | Factory 2nd arg → constructor |
-| `agentFactoryOptions` | Environment lifetime (set at init) | Factory 2nd arg → constructor |
-| `stats` | Environment lifetime (set at init) | Factory 2nd arg → constructor |
-| `evaluationContext` | Single `evaluate()` call | Should be an argument to `evaluate()` |
+That keeps the worker generic and keeps environment-specific routing inside the environment implementation where it belongs.
 
 ### The fix
 

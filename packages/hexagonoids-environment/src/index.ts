@@ -1,5 +1,6 @@
 // Agents
 export {
+  type ActionController,
   createGameAgent,
   type GameAgent,
 } from './agents/createGameAgent.js'

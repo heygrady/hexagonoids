@@ -1,17 +1,18 @@
 import type {
   Environment,
   EnvironmentDescription,
-  EpisodicEnvironment,
-  RLConfig,
 } from '@neat-evolution/environment'
 import type {
   EnvironmentInitOptions,
-  EpisodicAgent,
   PartialEvaluationContext,
-  TransitionInfo,
 } from '@neat-evolution/execution-manager'
-import { createVanillaAgent } from '@neat-evolution/execution-manager'
 import type { StaticExecutor } from '@neat-evolution/executor'
+import {
+  createVanillaStepAgent,
+  type StepAgent,
+  type StepAgentFactory,
+  type StepAgentFactoryOptions,
+} from '@neat-evolution/rl-core'
 import type { StatsRecorder } from '@neat-evolution/stats'
 import { createRNG } from '@neat-evolution/utils'
 
@@ -52,15 +53,29 @@ import {
 import type { ScenarioSnapshot } from './scenarios/types.js'
 
 const DEFAULT_OUTPUT_COUNT = 4
+const PLAYER_ID = 'player-1'
+
+function createNoopStepAgent(): StepAgent {
+  return {
+    act(): Float64Array {
+      throw new Error('No-op step agent act() should not be called')
+    },
+    completeStep(): void {},
+    startEpisode(): void {},
+    endEpisode(): void {},
+  }
+}
 
 export class HexagonoidsEnvironment
-  implements Environment<HexagonoidsEnvironmentConfig>, EpisodicEnvironment
+  implements Environment<HexagonoidsEnvironmentConfig>
 {
   public readonly description: EnvironmentDescription
   public readonly isAsync = false
   private readonly config: HexagonoidsEnvironmentConfig
   private readonly scenarioIndex?: StratifiedIndex
-  private readonly initOptions: EnvironmentInitOptions | undefined
+  private readonly initOptions:
+    | EnvironmentInitOptions<StepAgentFactory, StepAgentFactoryOptions>
+    | undefined
   private agentSeedCounter = 0
 
   constructor(
@@ -68,7 +83,9 @@ export class HexagonoidsEnvironment
     initOptions?: EnvironmentInitOptions
   ) {
     this.config = mergeConfig(config)
-    this.initOptions = initOptions
+    this.initOptions = initOptions as
+      | EnvironmentInitOptions<StepAgentFactory, StepAgentFactoryOptions>
+      | undefined
     const outputCount = this.config.outputCount ?? DEFAULT_OUTPUT_COUNT
     this.description = {
       inputs: INPUT_COUNT,
@@ -86,29 +103,36 @@ export class HexagonoidsEnvironment
     executor: StaticExecutor,
     context?: PartialEvaluationContext
   ): number {
-    const createAgent = this.initOptions?.createAgent ?? createVanillaAgent
-    const agent = createAgent(executor, {}, context)
-    return this.evaluateAgent(agent, context)
+    const createExecutionManager =
+      this.initOptions?.createExecutionManager ?? createVanillaStepAgent
+    const options = (this.initOptions?.executionManagerFactoryOptions ??
+      {}) as StepAgentFactoryOptions
+    const agent = createExecutionManager(executor, options, context)
+    return this.evaluateStepAgent(agent, context)
   }
 
-  getRLConfig(): RLConfig {
-    return {
-      actionSize: DEFAULT_OUTPUT_COUNT,
-      discountFactor: 0.99,
-      maxStepsPerEpisode: this.config.simulation.maxTicks,
-      suggestedRolloutLength: 32,
-    }
-  }
-
-  evaluateAgent(
-    agent: EpisodicAgent,
+  evaluateStepAgent(
+    agent: StepAgent,
     context?: PartialEvaluationContext
   ): number {
     const gameAgent = createGameAgent(agent)
-    return this.evaluateGameAgent(gameAgent, context)
+    return this.evaluateControlledGameAgent(agent, gameAgent, context)
   }
 
   evaluateGameAgent(
+    gameAgent: GameAgent,
+    context?: PartialEvaluationContext,
+    agent?: StepAgent
+  ): number {
+    return this.evaluateControlledGameAgent(
+      agent ?? createNoopStepAgent(),
+      gameAgent,
+      context
+    )
+  }
+
+  private evaluateControlledGameAgent(
+    agent: StepAgent,
     gameAgent: GameAgent,
     context?: PartialEvaluationContext
   ): number {
@@ -117,7 +141,7 @@ export class HexagonoidsEnvironment
       context?.rng != null ? String(context.rng.gen()) : this.nextAgentSeed()
     return this.evaluateGauntlet({
       seed,
-      agent: gameAgent.episodicAgent,
+      agent,
       gameAgent,
       stats,
     })
@@ -137,7 +161,7 @@ export class HexagonoidsEnvironment
     stats,
   }: {
     seed: string
-    agent: EpisodicAgent
+    agent: StepAgent
     gameAgent: GameAgent
     stats?: StatsRecorder | undefined
   }): number {
@@ -309,19 +333,23 @@ export class HexagonoidsEnvironment
   }
 
   /**
-   * Build a SimulationHooks closure that computes reward from TickDeltas,
-   * builds TransitionInfo, and calls agent.setTransitionInfo + agent.reward.
+   * Build a SimulationHooks closure that computes reward from TickDeltas and
+   * finalizes the current step with the next observation.
    */
   private buildSimulationHooks(
-    agent: EpisodicAgent,
+    agent: StepAgent,
+    gameAgent: GameAgent,
     rewardConfig: RewardConfig,
     situationClass?: number
   ): SimulationHooks {
     return {
-      onAfterTick(deltas: TickDeltas) {
+      onAfterTick(deltas: TickDeltas, snapshot) {
         let reward = 0
         if (deltas.shipAlive) {
           reward += rewardConfig.survivalReward
+        }
+        if (deltas.rocksDestroyed > 0) {
+          reward += rewardConfig.rockReward * deltas.rocksDestroyed
         }
         if (deltas.scoreDelta !== 0) {
           reward += deltas.scoreDelta * rewardConfig.scoreScale
@@ -336,15 +364,11 @@ export class HexagonoidsEnvironment
           reward += rewardConfig.waveBonus
         }
 
-        const transitionInfo: TransitionInfo = {}
+        const transitionInfo: Record<string, unknown> = {}
         if (situationClass != null) {
           transitionInfo.situationClass = situationClass
         }
-        if (
-          deltas.scoreDelta > 0 ||
-          deltas.lifeDelta < 0 ||
-          deltas.waveChanged
-        ) {
+        if (deltas.rocksDestroyed > 0 || deltas.lifeDelta < 0) {
           transitionInfo.isInteresting = true
         }
 
@@ -352,9 +376,23 @@ export class HexagonoidsEnvironment
           transitionInfo.isInteresting ||
           transitionInfo.situationClass != null
         ) {
-          agent.setTransitionInfo(transitionInfo)
+          transitionInfo.tick = deltas.tick
         }
-        agent.reward(reward, deltas.terminated, deltas.truncated)
+
+        const nextState = gameAgent.observe(
+          snapshot.state,
+          PLAYER_ID,
+          snapshot.context
+        )
+        agent.completeStep({
+          reward,
+          nextState,
+          terminated: deltas.terminated,
+          truncated: deltas.truncated,
+          ...(Object.keys(transitionInfo).length > 0
+            ? { info: transitionInfo }
+            : {}),
+        })
       },
     }
   }
@@ -406,7 +444,7 @@ export class HexagonoidsEnvironment
   private evaluateCurriculum(
     seed: string,
     frames: ActionFrames,
-    agent: EpisodicAgent,
+    agent: StepAgent,
     gameAgent: GameAgent,
     nextEpisodeIndex: () => number,
     breakdowns?: FitnessBreakdown[],
@@ -422,7 +460,7 @@ export class HexagonoidsEnvironment
         type: 'curriculum',
         metadata: { index, seed: `${seed}:curriculum:${index}` },
       })
-      return this.buildSimulationHooks(agent, DEFAULT_REWARD_CONFIG)
+      return this.buildSimulationHooks(agent, gameAgent, DEFAULT_REWARD_CONFIG)
     }
 
     const metricsArray = runCurriculum(
@@ -466,7 +504,7 @@ export class HexagonoidsEnvironment
     bank: ScenarioSnapshot[],
     seed: string,
     frames: ActionFrames,
-    agent: EpisodicAgent,
+    agent: StepAgent,
     gameAgent: GameAgent,
     nextEpisodeIndex: () => number,
     breakdowns?: FitnessBreakdown[],
@@ -504,7 +542,7 @@ export class HexagonoidsEnvironment
   private evaluateFullGameMultiSeed(
     seed: string,
     frames: ActionFrames,
-    agent: EpisodicAgent,
+    agent: StepAgent,
     gameAgent: GameAgent,
     nextEpisodeIndex: () => number,
     breakdowns?: FitnessBreakdown[],
@@ -540,7 +578,7 @@ export class HexagonoidsEnvironment
   private evaluateFullGame(
     seed: string,
     frames: ActionFrames,
-    agent: EpisodicAgent,
+    agent: StepAgent,
     gameAgent: GameAgent,
     nextEpisodeIndex: () => number,
     breakdowns?: FitnessBreakdown[],
@@ -553,7 +591,11 @@ export class HexagonoidsEnvironment
       metadata: { seed },
     })
 
-    const hooks = this.buildSimulationHooks(agent, DEFAULT_REWARD_CONFIG)
+    const hooks = this.buildSimulationHooks(
+      agent,
+      gameAgent,
+      DEFAULT_REWARD_CONFIG
+    )
     const metrics = simulateGame(
       gameAgent.agent,
       this.config.simulation,
@@ -586,7 +628,7 @@ export class HexagonoidsEnvironment
     bank: ScenarioSnapshot[],
     seed: string,
     frames: ActionFrames,
-    agent: EpisodicAgent,
+    agent: StepAgent,
     gameAgent: GameAgent,
     nextEpisodeIndex: () => number,
     breakdowns?: FitnessBreakdown[],
@@ -621,6 +663,7 @@ export class HexagonoidsEnvironment
 
       const hooks = this.buildSimulationHooks(
         agent,
+        gameAgent,
         DEFAULT_REWARD_CONFIG,
         scenario.necklace ?? undefined
       )

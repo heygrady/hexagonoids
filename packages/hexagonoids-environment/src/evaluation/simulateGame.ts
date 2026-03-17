@@ -1,5 +1,6 @@
 import {
   createGame,
+  type GameState,
   type PlayerInputs,
   RADIUS,
   ROCK_WAVE_SIZES,
@@ -25,20 +26,23 @@ export interface RewardConfig {
   shotPenalty: number
   deathPenalty: number
   waveBonus: number
+  rockReward: number
 }
 
 export const DEFAULT_REWARD_CONFIG: RewardConfig = {
-  survivalReward: 0.005,
-  scoreScale: 0.001,
-  shotPenalty: 0.002,
+  survivalReward: 0,
+  scoreScale: 0,
+  shotPenalty: 0,
   deathPenalty: -1,
-  waveBonus: 0.05,
+  waveBonus: 0,
+  rockReward: 1,
 }
 
 export interface TickDeltas {
   tick: number
   scoreDelta: number
   lifeDelta: number
+  rocksDestroyed: number
   waveChanged: boolean
   newBullets: number
   shipAlive: boolean
@@ -47,7 +51,14 @@ export interface TickDeltas {
 }
 
 export interface SimulationHooks {
-  onAfterTick?(deltas: TickDeltas): void
+  onAfterTick?(
+    deltas: TickDeltas,
+    snapshot: {
+      state: GameState
+      playerId: string
+      context: AgentContext
+    }
+  ): void
 }
 
 const PLAYER_ID = 'player-1'
@@ -215,17 +226,28 @@ export function simulateGame(
       livesNow <= 0 || (state.endedAt != null && livePlayer?.alive === false)
     const truncated = tick >= maxTicks - 1
 
+    // Get rocks destroyed this tick (resets counter)
+    const tickRocks = collector.getTickRocksDestroyed()
+
     if (hooks?.onAfterTick != null) {
-      hooks.onAfterTick({
-        tick,
-        scoreDelta,
-        lifeDelta,
-        waveChanged,
-        newBullets,
-        shipAlive: liveShip?.alive === true,
-        terminated,
-        truncated,
-      })
+      hooks.onAfterTick(
+        {
+          tick,
+          scoreDelta,
+          lifeDelta,
+          rocksDestroyed: tickRocks,
+          waveChanged,
+          newBullets,
+          shipAlive: liveShip?.alive === true,
+          terminated,
+          truncated,
+        },
+        {
+          state,
+          playerId: PLAYER_ID,
+          context,
+        }
+      )
     }
   }
 

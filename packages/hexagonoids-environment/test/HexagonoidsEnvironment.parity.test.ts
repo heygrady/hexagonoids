@@ -1,14 +1,11 @@
 import type {
-  EpisodicAgent,
-  TransitionInfo,
-} from '@neat-evolution/execution-manager'
-import type {
   BatchInputs,
   BatchOutputs,
   Inputs,
   Outputs,
   StaticExecutor,
 } from '@neat-evolution/executor'
+import { createVanillaStepAgent } from '@neat-evolution/rl-core'
 import type { RNG } from '@neat-evolution/utils'
 import { describe, expect, it } from 'vitest'
 
@@ -30,31 +27,6 @@ describe('HexagonoidsEnvironment parity', () => {
       return batch.map(() => new Array(4).fill(0.5))
     },
   })
-
-  class ExecutorBackedAgent implements EpisodicAgent {
-    constructor(private readonly executor: StaticExecutor) {}
-
-    act(inputs: Float64Array): Float64Array {
-      const outputs = this.executor.forward(Array.from(inputs))
-      return Float64Array.from(outputs)
-    }
-
-    reward(): void {
-      // no-op for deterministic parity verification
-    }
-
-    startEpisode(): void {
-      // no-op
-    }
-
-    endEpisode(): void {
-      // no-op
-    }
-
-    setTransitionInfo(_info: TransitionInfo): void {
-      // no-op
-    }
-  }
 
   const createAgentSeedRng = (): RNG => {
     let next = 0
@@ -80,11 +52,11 @@ describe('HexagonoidsEnvironment parity', () => {
     })
 
     const executor = createMidpointExecutor()
-    const agent = new ExecutorBackedAgent(executor)
+    const agent = createVanillaStepAgent(executor)
     const rng = createAgentSeedRng()
 
     const executorFitness = environment.evaluate(executor, { rng })
-    const agentFitness = environment.evaluateAgent(agent)
+    const agentFitness = environment.evaluateStepAgent(agent)
 
     expect(executorFitness).toBeCloseTo(agentFitness, 10)
   })

@@ -176,17 +176,27 @@ export function simulateCurriculumScenario(
       livesNow <= 0 || (state.endedAt != null && livePlayer?.alive === false)
     const truncated = state.rocks.size === 0 || tick >= maxTicks - 1
 
+    const tickRocks = collector.getTickRocksDestroyed()
+
     if (hooks?.onAfterTick != null) {
-      hooks.onAfterTick({
-        tick,
-        scoreDelta,
-        lifeDelta,
-        waveChanged: false, // Curriculum scenarios suppress waves
-        newBullets,
-        shipAlive: liveShip?.alive === true,
-        terminated,
-        truncated,
-      })
+      hooks.onAfterTick(
+        {
+          tick,
+          scoreDelta,
+          lifeDelta,
+          rocksDestroyed: tickRocks,
+          waveChanged: false, // Curriculum scenarios suppress waves
+          newBullets,
+          shipAlive: liveShip?.alive === true,
+          terminated,
+          truncated,
+        },
+        {
+          state,
+          playerId: PLAYER_ID,
+          context,
+        }
+      )
     }
   }
 
