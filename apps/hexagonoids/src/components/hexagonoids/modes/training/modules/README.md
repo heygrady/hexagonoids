@@ -51,13 +51,18 @@ The resolved pathname strings are passed to `EvolutionManager` which forwards th
 createObserveTrainingAdapter.ts
   → createBrowserWorkerConfig(modules, method, threadCount, 'Observe training')
   → EvolutionManager({
-      createEnvironmentPathname,     // ← top-level config field
-      evaluatorConfig: {
-        algorithmPathname,           // ← resolved URL, not bare specifier
-        createExecutorPathname,
-        evaluatorWorkerScriptUrl,
-        reproducerWorkerScriptUrl,
-        threadCount,
+      environment: {
+        config,
+        pathname: createEnvironmentPathname,
+      },
+      evaluation: {
+        options: {
+          algorithmPathname,         // ← resolved URL, not bare specifier
+          createExecutorPathname,
+          evaluatorWorkerScriptUrl,
+          reproducerWorkerScriptUrl,
+          threadCount,
+        },
       },
     })
 ```
@@ -76,24 +81,28 @@ The `@vite-ignore` comment prevents Vite from trying to statically analyze the i
 
 ## EvolutionManager config shape
 
-**This is the #1 source of breakage.** The adapter must match `EvolutionManagerConfig`:
+**This is the #1 source of breakage.** The adapter must match `EvolutionManagerOptions`:
 
 ```typescript
 new EvolutionManager({
   algorithm: ...,
-  environment: { description, toFactoryOptions },
-  createEnvironmentPathname,          // REQUIRED — top-level, not nested
-  evaluatorConfig: {                  // NOT "workerConfig"
-    algorithmPathname,                // Vite-resolved URL string
-    createExecutorPathname,           // Vite-resolved URL string
-    threadCount,
-    evaluatorWorkerScriptUrl,         // imported with ?worker&url suffix
-    reproducerWorkerScriptUrl,        // imported with ?worker&url suffix
+  environment: {
+    config: { description, toFactoryOptions },
+    pathname: createEnvironmentPathname,
+  },
+  evaluation: {
+    options: {
+      algorithmPathname,              // Vite-resolved URL string
+      createExecutorPathname,         // Vite-resolved URL string
+      threadCount,
+      evaluatorWorkerScriptUrl,       // imported with ?worker&url suffix
+      reproducerWorkerScriptUrl,      // imported with ?worker&url suffix
+    },
   },
 })
 ```
 
-If `evaluatorConfig` is missing or misnamed, pathnames silently fall back to bare specifiers (`@neat-evolution/cppn`) which fail in the browser with:
+If `evaluation.options` is missing or misnamed, pathnames silently fall back to bare specifiers (`@neat-evolution/cppn`) which fail in the browser with:
 
 ```
 Failed to resolve module specifier '@neat-evolution/cppn'
@@ -186,14 +195,14 @@ import workerEvaluatorScriptUrl from '@neat-evolution/worker-evaluator/workerEva
 import workerReproducerScriptUrl from '@neat-evolution/worker-reproducer/workerReproducerScript?worker&url'
 ```
 
-The `?worker&url` suffix tells Vite to treat these as worker entry points and return their resolved URLs as strings. These are passed via `evaluatorConfig.evaluatorWorkerScriptUrl` and `evaluatorConfig.reproducerWorkerScriptUrl`.
+The `?worker&url` suffix tells Vite to treat these as worker entry points and return their resolved URLs as strings. These are passed via `evaluation.options.evaluatorWorkerScriptUrl` and `evaluation.options.reproducerWorkerScriptUrl`.
 
 ## Diagnostic checklist
 
 When the worker integration breaks:
 
 1. **Check browser console** for the real error (not just `[OBSERVE] training error`)
-2. **"Failed to resolve module specifier '@neat-evolution/...'"** → pathname not reaching the worker. Check that `evaluatorConfig` (not `workerConfig` or other names) is passed to `EvolutionManager`, and that `createEnvironmentPathname` is a top-level field
+2. **"Failed to resolve module specifier '@neat-evolution/...'"** → pathname not reaching the worker. Check that `evaluation.options` (not `workerConfig` or other names) is passed to `EvolutionManager`, and that `environment.pathname` is populated
 3. **Module not found in dev only** → check `optimizeDeps.exclude` in `astro.config.js`
 4. **Module not found in prod only** → check `manualChunks` in `astro.config.js`; the chunk may have been merged with incompatible code
 5. **New package not working** → follow the "New packages require multi-file updates" checklist above
