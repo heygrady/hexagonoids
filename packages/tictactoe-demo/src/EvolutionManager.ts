@@ -21,7 +21,7 @@ import {
   type PopulationOptions,
   type ReproducerFactory,
 } from '@neat-evolution/evolution'
-import { createExecutor, type SyncExecutor } from '@neat-evolution/executor'
+import { createExecutor, type Executor } from '@neat-evolution/executor'
 import { createEvaluator } from '@neat-evolution/worker-evaluator'
 import {
   createReproducerFactory,
@@ -325,18 +325,18 @@ export class EvolutionManager {
   /**
    * Convert an organism to an executor.
    * @param {any} organism - The organism to convert
-   * @returns {SyncExecutor} A SyncExecutor that can execute the organism's neural network
+   * @returns {Executor} A Executor that can execute the organism's neural network
    */
-  organismToExecutor(organism: any): SyncExecutor {
+  organismToExecutor(organism: any): Executor {
     return createExecutor(this.algorithm.createPhenotype(organism.genome))
   }
 
   /**
    * Get the best executor from the current population.
-   * @returns {SyncExecutor} The best executor from the population
+   * @returns {Executor} The best executor from the population
    * @throws {Error} if no best genome found (shouldn't happen after first evaluation)
    */
-  getBestExecutor(): SyncExecutor {
+  getBestExecutor(): Executor {
     const best = this.population.best()
     if (best == null) {
       throw new Error('No best genome found')

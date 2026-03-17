@@ -5,7 +5,7 @@ import {
   neatAI,
   type Player,
 } from '@heygrady/tictactoe-game'
-import type { SyncExecutor } from '@neat-evolution/executor'
+import type { Executor } from '@neat-evolution/executor'
 
 export type BoardChangedCallback = (board: Board) => void
 export type MovePlayedCallback = (board: Board, move: number) => void
@@ -24,7 +24,7 @@ export class InteractiveGame {
   private currentPlayer: Player = 1
   private gameOver: boolean = false
   private humanPlayer: Player = -1 // AI goes first
-  private aiExecutor: SyncExecutor | null = null
+  private aiExecutor: Executor | null = null
 
   private readonly onBoardChangedListeners = new Set<BoardChangedCallback>()
   private readonly onMovePlayedListeners = new Set<MovePlayedCallback>()
@@ -35,9 +35,9 @@ export class InteractiveGame {
 
   /**
    * Set the AI executor to be used for the game.
-   * @param {SyncExecutor} executor - The AI executor
+   * @param {Executor} executor - The AI executor
    */
-  public setAIExecutor(executor: SyncExecutor) {
+  public setAIExecutor(executor: Executor) {
     this.aiExecutor = executor
   }
 

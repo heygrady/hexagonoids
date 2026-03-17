@@ -28,7 +28,7 @@ import {
   createPhenotype as createESHyperNEATPhenotype,
   createState as createESHyperNEATState,
 } from '@neat-evolution/es-hyperneat'
-import { createExecutor, type SyncExecutor } from '@neat-evolution/executor'
+import { createExecutor, type Executor } from '@neat-evolution/executor'
 import {
   createConfig as createHyperNEATConfig,
   createGenome as createHyperNEATGenome,
@@ -60,7 +60,7 @@ const bestPath = path.join(dirname, '..', '..', `./${bestFileName}`)
 const xMark = '😻' // '❌'
 const oMark = '🌈' // '⭕'
 
-let bestExecutor: SyncExecutor
+let bestExecutor: Executor
 
 function createHyperNEATExecutor(json: any) {
   return createExecutor(
