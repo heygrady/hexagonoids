@@ -129,7 +129,6 @@ const manager = new EvolutionManager({
       ],
     },
   }),
-  createEnvironmentPathname: "@heygrady/tictactoe-environment",
 });
 
 const best = await manager.evolve({ iterations: 1000, earlyStop: true });

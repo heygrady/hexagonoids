@@ -9,7 +9,9 @@ import {
 import { Activation, defaultNEATConfigOptions } from '@neat-evolution/core'
 import { defaultTopologyConfigOptions } from '@neat-evolution/des-hyperneat'
 import { defaultPopulationOptions, type PopulationOptions } from '@neat-evolution/evolution'
-import type { EvolutionManagerConfig } from '@neat-evolution/evolution-manager'
+import type {
+  EvolutionManagerOptions,
+} from '@neat-evolution/evolution-manager'
 
 import {
   allActivations,
@@ -23,39 +25,32 @@ import {
 } from './configDefaults.js'
 
 export const DEFAULT_POPULATION_SIZE = defaultPopulationOptions.populationSize
+const DEFAULT_ENVIRONMENT_PATHNAME = '@heygrady/tictactoe-environment'
 
 export interface CreateTictactoeManagerConfigOptions {
   algorithm: SupportedAlgorithm
+  createEnvironmentPathname?: string | undefined
   environmentConfig?: Partial<TicTacToeEnvironmentConfig>
   populationOptions?: Partial<PopulationOptions>
   genomeOptions?: Record<string, unknown>
   neatOptions?: Record<string, unknown>
   strategyOptions?: Partial<GlickoStrategyOptions<any>>
-  populationFactoryOptions?: EvolutionManagerConfig['populationFactoryOptions']
+  populationFactoryOptions?: NonNullable<
+    EvolutionManagerOptions['population']
+  >['factoryOptions']
 }
 
-type TictactoeManagerBaseConfig = Pick<
-  EvolutionManagerConfig,
-  | 'algorithm'
-  | 'configData'
-  | 'genomeOptions'
-  | 'environment'
-  | 'strategy'
-  | 'populationOptions'
-  | 'populationFactoryOptions'
->
-
-type ErasedAlgorithmConfig = Pick<
-  EvolutionManagerConfig,
-  'algorithm' | 'configData' | 'genomeOptions'
->
+type TictactoeAlgorithmOptions = EvolutionManagerOptions['algorithm']
 
 export function buildTictactoeGenomeOptions(
   algorithmName: SupportedAlgorithm,
   userOptions?: Record<string, unknown>
 ): unknown {
   const definition = getAlgorithmDefinition(algorithmName)
-  const defaults = definition.defaultGenomeOptions as Record<string, unknown>
+  const defaults = definition.createDefaultGenomeOptions() as Record<
+    string,
+    unknown
+  >
 
   const activationOptions = definition.usesCPPNActivations
     ? {
@@ -74,15 +69,15 @@ export function buildTictactoeGenomeOptions(
   return { ...defaults, ...activationOptions, ...userOptions }
 }
 
-function createAlgorithmConfig(
+function createAlgorithmOptions(
   algorithmName: SupportedAlgorithm,
   userGenomeOptions?: Record<string, unknown>,
   savedNeatOptions?: Record<string, unknown>
-): ErasedAlgorithmConfig {
+): TictactoeAlgorithmOptions {
   const genomeOptions = buildTictactoeGenomeOptions(
     algorithmName,
     userGenomeOptions
-  )
+  ) as TictactoeAlgorithmOptions['genomeOptions']
   const neatOptions = {
     ...defaultNEATConfigOptions,
     mutateOnlyOneLink: false,
@@ -91,44 +86,29 @@ function createAlgorithmConfig(
 
   switch (algorithmName) {
     case 'NEAT':
-      return {
-        algorithm: getAlgorithmDefinition('NEAT').algorithm,
-        configData: { neat: neatOptions },
-        genomeOptions,
-      } as unknown as ErasedAlgorithmConfig
     case 'CPPN':
-      return {
-        algorithm: getAlgorithmDefinition('CPPN').algorithm,
-        configData: { neat: neatOptions },
-        genomeOptions,
-      } as unknown as ErasedAlgorithmConfig
     case 'HyperNEAT':
-      return {
-        algorithm: getAlgorithmDefinition('HyperNEAT').algorithm,
-        configData: { neat: neatOptions },
-        genomeOptions,
-      } as unknown as ErasedAlgorithmConfig
     case 'ES-HyperNEAT':
       return {
-        algorithm: getAlgorithmDefinition('ES-HyperNEAT').algorithm,
+        name: algorithmName,
         configData: { neat: neatOptions },
-        genomeOptions,
-      } as unknown as ErasedAlgorithmConfig
+        ...(genomeOptions != null ? { genomeOptions } : {}),
+      }
     case 'DES-HyperNEAT':
       return {
-        algorithm: getAlgorithmDefinition('DES-HyperNEAT').algorithm,
+        name: algorithmName,
         configData: {
           neat: { ...defaultTopologyConfigOptions },
           cppn: neatOptions,
-        },
-        genomeOptions,
-      } as unknown as ErasedAlgorithmConfig
+        } as never,
+        ...(genomeOptions != null ? { genomeOptions } : {}),
+      }
   }
 }
 
 export function createTictactoeManagerConfig(
   options: CreateTictactoeManagerConfigOptions
-): TictactoeManagerBaseConfig {
+): EvolutionManagerOptions {
   const environment = createEnvironment({
     ...defaultEnvironmentConfig,
     ...options.environmentConfig,
@@ -142,21 +122,29 @@ export function createTictactoeManagerConfig(
   })
 
   return {
-    ...createAlgorithmConfig(
+    algorithm: createAlgorithmOptions(
       options.algorithm,
       options.genomeOptions,
       options.neatOptions
     ),
-    environment,
-    strategy,
-    populationOptions: {
-      populationSize: DEFAULT_POPULATION_SIZE,
-      ...options.populationOptions,
+    environment: {
+      config: environment,
+      pathname:
+        options.createEnvironmentPathname ?? DEFAULT_ENVIRONMENT_PATHNAME,
     },
-    ...(options.populationFactoryOptions != null
-      ? {
-          populationFactoryOptions: options.populationFactoryOptions,
-        }
-      : {}),
-  } as unknown as TictactoeManagerBaseConfig
+    population: {
+      options: {
+        populationSize: DEFAULT_POPULATION_SIZE,
+        ...options.populationOptions,
+      },
+      ...(options.populationFactoryOptions != null
+        ? {
+            factoryOptions: options.populationFactoryOptions,
+          }
+        : {}),
+    },
+    evaluation: {
+      strategy,
+    },
+  }
 }

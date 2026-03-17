@@ -32,6 +32,10 @@ import { writeJsonFile } from './utils/writeJsonFile.js'
 
 const workerThreadLimit = Math.ceil(hardwareConcurrency - 1)
 const method: SupportedAlgorithm = 'NEAT'
+const createEnvironmentPathname = new URL(
+  '../../../tictactoe-environment/dist/esm/index.js',
+  import.meta.url
+).href
 
 export const demo = async () => {
   await initializeHeroesLog()
@@ -128,19 +132,24 @@ export const demo = async () => {
     earlyStopPatience: 150,
   }
 
+  const managerConfig = createTictactoeManagerConfig({
+    algorithm: method,
+    createEnvironmentPathname,
+    environmentConfig: environmentOptions,
+    populationOptions: { populationSize: DEFAULT_POPULATION_SIZE },
+    strategyOptions,
+  })
+
   const manager = new EvolutionManager({
-    ...createTictactoeManagerConfig({
-      algorithm: method,
-      environmentConfig: environmentOptions,
-      populationOptions: { populationSize: DEFAULT_POPULATION_SIZE },
-      strategyOptions,
-    }),
-    createEnvironmentPathname: '@heygrady/tictactoe-environment',
-    evolutionOptions,
-    evaluatorConfig: {
-      algorithmPathname: getAlgorithmDefinition(method).algorithm.pathname,
-      threadCount: workerThreadLimit,
-      taskCount: DEFAULT_POPULATION_SIZE,
+    ...managerConfig,
+    evolution: evolutionOptions,
+    evaluation: {
+      ...managerConfig.evaluation,
+      options: {
+        algorithmPathname: getAlgorithmDefinition(method).algorithm.pathname,
+        threadCount: workerThreadLimit,
+        taskCount: DEFAULT_POPULATION_SIZE,
+      },
     },
   })
 
