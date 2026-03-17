@@ -63,9 +63,17 @@ export function createTictactoeEvolutionManager(
     'TicTacToe browser'
   )
 
+  const managerConfig = createTictactoeManagerConfig({
+    ...options,
+    createEnvironmentPathname: workerConfig.createEnvironmentPathname,
+  })
+
   return new EvolutionManager({
-    ...createTictactoeManagerConfig(options),
-    ...workerConfig,
+    ...managerConfig,
+    evaluation: {
+      ...managerConfig.evaluation,
+      options: workerConfig.evaluatorConfig,
+    },
   })
 }
 

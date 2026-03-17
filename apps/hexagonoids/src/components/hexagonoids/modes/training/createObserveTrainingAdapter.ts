@@ -16,21 +16,14 @@ import {
   mergeConfig,
   type ScenarioSnapshot,
 } from '@heygrady/hexagonoids-environment'
-import { CPPNAlgorithm } from '@neat-evolution/cppn'
-import {
-  DESHyperNEATAlgorithm,
-  defaultTopologyConfigOptions,
-} from '@neat-evolution/des-hyperneat'
+import { defaultTopologyConfigOptions } from '@neat-evolution/des-hyperneat'
 import type { EnvironmentDescription } from '@neat-evolution/environment'
-import { ESHyperNEATAlgorithm } from '@neat-evolution/es-hyperneat'
 import type { AnyErasedGenome } from '@neat-evolution/evaluator'
 import {
   EvolutionManager,
-  type EvolutionManagerConfig,
+  type EvolutionManagerOptions,
 } from '@neat-evolution/evolution-manager'
 import { createExecutor } from '@neat-evolution/executor'
-import { HyperNEATAlgorithm } from '@neat-evolution/hyperneat'
-import { NEATAlgorithm } from '@neat-evolution/neat'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 import { createBrowserWorkerConfig } from '../../../shared/neatWorkers/createBrowserWorkerConfig.js'
 
@@ -89,45 +82,55 @@ function buildEnvironmentConfig(
 }
 
 type ErasedManagerConfig = Pick<
-  EvolutionManagerConfig,
-  'algorithm' | 'configData' | 'genomeOptions'
+  EvolutionManagerOptions,
+  'algorithm'
 >
 
 function algorithmConfig(method: SupportedAlgorithm): ErasedManagerConfig {
   switch (method) {
     case 'NEAT':
       return {
-        algorithm: NEATAlgorithm,
-        configData: { neat: createHexagonoidsNEATConfigOptions() },
-        genomeOptions: createHexagonoidsNEATGenomeOptions(),
-      } as unknown as ErasedManagerConfig
+        algorithm: {
+          name: 'NEAT',
+          configData: { neat: createHexagonoidsNEATConfigOptions() },
+          genomeOptions: createHexagonoidsNEATGenomeOptions(),
+        },
+      }
     case 'CPPN':
       return {
-        algorithm: CPPNAlgorithm,
-        configData: { neat: createHexagonoidsNEATConfigOptions() },
-        genomeOptions: createHexagonoidsCPPNGenomeOptions(),
-      } as unknown as ErasedManagerConfig
+        algorithm: {
+          name: 'CPPN',
+          configData: { neat: createHexagonoidsNEATConfigOptions() },
+          genomeOptions: createHexagonoidsCPPNGenomeOptions(),
+        },
+      }
     case 'HyperNEAT':
       return {
-        algorithm: HyperNEATAlgorithm,
-        configData: { neat: createHexagonoidsNEATConfigOptions() },
-        genomeOptions: createHexagonoidsHyperNEATGenomeOptions(),
-      } as unknown as ErasedManagerConfig
+        algorithm: {
+          name: 'HyperNEAT',
+          configData: { neat: createHexagonoidsNEATConfigOptions() },
+          genomeOptions: createHexagonoidsHyperNEATGenomeOptions(),
+        },
+      }
     case 'ES-HyperNEAT':
       return {
-        algorithm: ESHyperNEATAlgorithm,
-        configData: { neat: createHexagonoidsNEATConfigOptions() },
-        genomeOptions: createHexagonoidsESHyperNEATGenomeOptions(),
-      } as unknown as ErasedManagerConfig
+        algorithm: {
+          name: 'ES-HyperNEAT',
+          configData: { neat: createHexagonoidsNEATConfigOptions() },
+          genomeOptions: createHexagonoidsESHyperNEATGenomeOptions(),
+        },
+      }
     case 'DES-HyperNEAT':
       return {
-        algorithm: DESHyperNEATAlgorithm,
-        configData: {
-          neat: defaultTopologyConfigOptions,
-          cppn: createHexagonoidsNEATConfigOptions(),
+        algorithm: {
+          name: 'DES-HyperNEAT',
+          configData: {
+            neat: defaultTopologyConfigOptions,
+            cppn: createHexagonoidsNEATConfigOptions(),
+          } as never,
+          genomeOptions: createHexagonoidsDESHyperNEATGenomeOptions(),
         },
-        genomeOptions: createHexagonoidsDESHyperNEATGenomeOptions(),
-      } as unknown as ErasedManagerConfig
+      }
   }
 }
 
@@ -216,11 +219,13 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
       const manager = new EvolutionManager({
         ...algorithmConfig(method),
         environment: {
-          description,
-          toFactoryOptions: () => envConfig,
+          config: {
+            description,
+            toFactoryOptions: () => envConfig,
+          },
+          pathname: workerConfig.createEnvironmentPathname,
         },
-        createEnvironmentPathname: workerConfig.createEnvironmentPathname,
-        evolutionOptions: {
+        evolution: {
           iterations,
           afterEvaluateInterval: 1,
           afterEvaluate: (activePopulation, iteration) => {
@@ -239,8 +244,12 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
             })
           },
         },
-        populationOptions: { populationSize },
-        evaluatorConfig: workerConfig.evaluatorConfig,
+        population: {
+          options: { populationSize },
+        },
+        evaluation: {
+          options: workerConfig.evaluatorConfig,
+        },
         signal: abortController.signal,
       })
       currentManager = manager
