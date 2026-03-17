@@ -101,10 +101,10 @@ export function neatAI(
   if (validMoves.length === 9) {
     // special layout for empty board
     const input = [...new Array(9).fill(0), ...new Array(9).fill(1)]
-    prediction = toOutputArray(executor.execute(input))
+    prediction = toOutputArray(executor.forward(input))
   } else {
     const [input, transform] = boardToInput(board, player)
-    prediction = transform(toBoard(executor.execute(input)))
+    prediction = transform(toBoard(executor.forward(input)))
   }
 
   // --- Start of Softmax Logic ---
