@@ -1717,7 +1717,6 @@ __metadata:
     "@biomejs/biome": "npm:^2.4.2"
     "@heygrady/hexagonoids-environment": "workspace:^"
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
-    "@neat-evolution/actor-critic-plugin": "npm:^0.0.1"
     "@neat-evolution/core": "npm:^0.5.0"
     "@neat-evolution/cppn": "npm:^0.6.8"
     "@neat-evolution/des-hyperneat": "npm:^0.6.8"
@@ -1728,7 +1727,7 @@ __metadata:
     "@neat-evolution/executor": "npm:^0.3.13"
     "@neat-evolution/hyperneat": "npm:^0.6.8"
     "@neat-evolution/neat": "npm:^0.6.8"
-    "@neat-evolution/q-learning-plugin": "npm:^0.0.1"
+    "@neat-evolution/rl-core": "npm:^0.0.1"
     "@neat-evolution/worker-actions": "npm:^0.6.0"
     "@neat-evolution/worker-pool": "npm:^0.4.6"
     "@neat-evolution/worker-threads": "npm:^0.4.6"
@@ -1792,6 +1791,7 @@ __metadata:
     "@neat-evolution/execution-manager": "npm:^0.1.0"
     "@neat-evolution/executor": "npm:^0.3.13"
     "@neat-evolution/neat": "npm:^0.6.8"
+    "@neat-evolution/rl-core": "npm:^0.0.1"
     "@neat-evolution/stats": "npm:^0.1.0"
     "@neat-evolution/utils": "npm:^0.6.0"
     "@swc/cli": "npm:^0.7.9"
@@ -1891,6 +1891,7 @@ __metadata:
     "@heygrady/tsconfig-bases": "npm:^1.0.7"
     "@neat-evolution/core": "npm:^0.5.0"
     "@neat-evolution/environment": "npm:^0.5.8"
+    "@neat-evolution/execution-manager": "npm:^0.4.0"
     "@neat-evolution/executor": "npm:^0.3.13"
     "@neat-evolution/neat": "npm:^0.6.8"
     "@neat-evolution/utils": "npm:^0.6.0"
@@ -2616,26 +2617,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@neat-evolution/actor-critic-plugin@portal:../../packages/actor-critic::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@neat-evolution/actor-critic-plugin@portal:../../packages/actor-critic::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
-  dependencies:
-    "@neat-evolution/execution-manager": "workspace:*"
-    "@neat-evolution/executor": "workspace:*"
-    "@neat-evolution/utils": "workspace:*"
-  languageName: node
-  linkType: soft
-
-"@neat-evolution/actor-critic@portal:../../packages/actor-critic::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@neat-evolution/actor-critic@portal:../../packages/actor-critic::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
-  dependencies:
-    "@neat-evolution/execution-manager": "workspace:*"
-    "@neat-evolution/executor": "workspace:*"
-    "@neat-evolution/utils": "workspace:*"
-  languageName: node
-  linkType: soft
-
 "@neat-evolution/core@portal:../../packages/core::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@neat-evolution/core@portal:../../packages/core::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
@@ -2816,14 +2797,14 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@neat-evolution/q-learning-plugin@portal:../../packages/q-learning::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
+"@neat-evolution/rl-core@portal:../../packages/rl-core::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@neat-evolution/q-learning-plugin@portal:../../packages/q-learning::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
+  resolution: "@neat-evolution/rl-core@portal:../../packages/rl-core::locator=%40heygrady%2Fhexagonoids-repo%40workspace%3A."
   dependencies:
-    "@neat-evolution/actor-critic": "workspace:*"
-    "@neat-evolution/execution-manager": "workspace:*"
     "@neat-evolution/executor": "workspace:*"
+    "@neat-evolution/stats": "workspace:*"
     "@neat-evolution/utils": "workspace:*"
+    "@swc/helpers": "npm:^0.5.19"
   languageName: node
   linkType: soft
 
