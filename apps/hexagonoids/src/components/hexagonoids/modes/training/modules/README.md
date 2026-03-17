@@ -24,9 +24,22 @@ createEnvironmentPathname.ts   → exports createEnvironment factory
 createExecutorPathname.ts      → exports createExecutor
 ```
 
-### 2. Pathname discovery (`getModulePathnamesForAlgorithm.ts`)
+### 2. Pathname discovery (`createBrowserWorkerConfig.ts`)
 
-Uses `import.meta.glob('./modules/*.ts')` to get Vite-generated import functions for every bridge file. Each import function's `.toString()` contains the resolved URL (e.g., `/src/components/.../modules/CPPNAlgorithmPathname.ts` in dev, or a hashed chunk path in production).
+Uses the shared worktree helper at:
+
+`src/components/shared/neatWorkers/createBrowserWorkerConfig.ts`
+
+Each feature still provides its own local `import.meta.glob('./modules/*.ts')`
+map, but the shared helper owns:
+
+- parsing resolved URLs from Vite's glob import functions
+- validating required algorithm/environment/executor pathnames
+- attaching worker script URLs to `evaluatorConfig`
+
+The underlying import functions still contain the resolved URL (e.g.,
+`/src/components/.../modules/CPPNAlgorithmPathname.ts` in dev, or a hashed
+chunk path in production).
 
 `extractModulePath()` parses the URL from the stringified function and returns it as an absolute URL string.
 
@@ -36,7 +49,7 @@ The resolved pathname strings are passed to `EvolutionManager` which forwards th
 
 ```
 createObserveTrainingAdapter.ts
-  → getModulePathnamesForAlgorithm(method)
+  → createBrowserWorkerConfig(modules, method, threadCount, 'Observe training')
   → EvolutionManager({
       createEnvironmentPathname,     // ← top-level config field
       evaluatorConfig: {
@@ -134,7 +147,9 @@ Must include the repo root so Vite's dev server can serve files from portal-link
 
 ### 1. Errors don't surface properly
 
-Worker errors are caught in `createObserveTrainingAdapter.ts` as generic strings. The original stack trace is lost because errors cross the worker boundary as `message` strings. You'll see:
+Worker errors are caught in `createObserveTrainingAdapter.ts` as generic
+strings. The original stack trace is lost because errors cross the worker
+boundary as `message` strings. You'll see:
 
 ```
 [OBSERVE] training error: Unknown training error

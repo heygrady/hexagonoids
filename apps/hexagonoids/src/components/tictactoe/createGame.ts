@@ -1,45 +1,20 @@
 import {
-  allActivations,
-  defaultEnvironmentConfig,
-  defaultStrategyOptions,
-  getAlgorithmDefinition,
   InteractiveGame,
-  normalizationRanges,
+  createTictactoeManagerConfig,
+  DEFAULT_POPULATION_SIZE,
+  type CreateTictactoeManagerConfigOptions,
   type SupportedAlgorithm,
 } from '@heygrady/tictactoe-demo'
+import type { TicTacToeEnvironmentConfig } from '@heygrady/tictactoe-environment'
 import {
-  createEnvironment,
-  type TicTacToeEnvironmentConfig,
-} from '@heygrady/tictactoe-environment'
-import {
-  GlickoStrategy,
   type GlickoStrategyOptions,
 } from '@heygrady/tournament-strategy'
-import {
-  Activation,
-  type AnyGenome,
-  defaultNEATConfigOptions,
-} from '@neat-evolution/core'
-import { CPPNAlgorithm } from '@neat-evolution/cppn'
-import {
-  DESHyperNEATAlgorithm,
-  defaultTopologyConfigOptions,
-} from '@neat-evolution/des-hyperneat'
-import { ESHyperNEATAlgorithm } from '@neat-evolution/es-hyperneat'
+import type { AnyGenome } from '@neat-evolution/core'
 import type { PopulationOptions } from '@neat-evolution/evolution'
-import {
-  EvolutionManager,
-  type EvolutionManagerConfig,
-} from '@neat-evolution/evolution-manager'
-import { HyperNEATAlgorithm } from '@neat-evolution/hyperneat'
-import { NEATAlgorithm } from '@neat-evolution/neat'
-// Vite worker URL imports - must use ?worker&url suffix for Vite to bundle correctly
-// eslint-disable-next-line import/default
-import workerEvaluatorScriptUrl from '@neat-evolution/worker-evaluator/workerEvaluatorScript?worker&url'
-// eslint-disable-next-line import/default
-import workerReproducerScriptUrl from '@neat-evolution/worker-reproducer/workerReproducerScript?worker&url'
+import { EvolutionManager } from '@neat-evolution/evolution-manager'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
+import { createBrowserWorkerConfig } from '../shared/neatWorkers/createBrowserWorkerConfig.js'
 import { GLICKO_MAX_HISTORY } from './constants/glickoSettings.js'
 import { resetBoard } from './stores/board/BoardSetters.js'
 import { bindGameActions, type GameActions } from './stores/game/GameActions.js'
@@ -56,187 +31,21 @@ import { PlayerToken } from './stores/player/PlayerState.js'
 import { createPlayerStore } from './stores/player/PlayerStore.js'
 import { createSettingsStore } from './stores/settings/SettingsStore.js'
 
-// Default population size (matches NEAT-JS defaultPopulationOptions)
-const DEFAULT_POPULATION_SIZE = 100
-
 const workerEvaluatorThreadLimit = Math.max(
   1,
   Math.floor(hardwareConcurrency - 1)
 )
-
-// Vite glob import pattern for resolving module pathnames for worker threads.
-// Workers need absolute pathnames, not package names, so we use import.meta.glob()
-// to discover modules at build time and convert them to absolute paths.
-// See: devlogs/vite-glob-import.md
 const modules = import.meta.glob('./modules/*.ts')
-
-/**
- * Extract the bundled module path from a glob import function.
- * In dev mode, the key itself is the path. In production builds,
- * the function contains an import() call with the bundled filename.
- * @param {string} key - The original module key (e.g., './modules/NEATAlgorithmPathname.ts')
- * @param {() => Promise<unknown>} importFn - The dynamic import function from import.meta.glob
- * @returns {string} The resolved pathname for the module
- */
-const extractModulePath = (
-  key: string,
-  importFn: () => Promise<unknown>
-): string => {
-  const fnString = importFn.toString()
-
-  // The function looks like this (in both prod and dev):
-  // () => __vitePreload(() => import("./NEATAlgorithmPathname.bf49d966.js"), [...])
-  // We need to extract the path from the import() call
-  const importMatch = fnString.match(/import\(["']([^"']+)["']\)/)
-  if (importMatch != null) {
-    // use the bundled filename as the href
-    return new URL(importMatch[1], import.meta.url).href
-  }
-  // Fallback: use the original key as the href
-  return new URL(key, import.meta.url).href
-}
-
-interface ModulePathnames {
-  algorithmPathname: string
-  createEnvironmentPathname: string
-  createExecutorPathname: string
-}
-
-/**
- * Get module pathnames for a specific algorithm.
- * @param {SupportedAlgorithm} algorithmName - The algorithm name (NEAT, CPPN, etc.)
- * @returns {ModulePathnames} Module pathnames object
- */
-export const getModulePathnamesForAlgorithm = (
-  algorithmName: SupportedAlgorithm
-): ModulePathnames => {
-  const modulePathnames: ModulePathnames = {
-    algorithmPathname: '',
-    createEnvironmentPathname: '',
-    createExecutorPathname: '',
-  }
-
-  const algorithmPathnameKey = `${algorithmName}AlgorithmPathname`
-
-  for (const [key, importFn] of Object.entries(modules)) {
-    if (key.includes(algorithmPathnameKey)) {
-      modulePathnames.algorithmPathname = extractModulePath(key, importFn)
-    } else if (key.includes('createEnvironmentPathname')) {
-      modulePathnames.createEnvironmentPathname = extractModulePath(
-        key,
-        importFn
-      )
-    } else if (key.includes('createExecutorPathname')) {
-      modulePathnames.createExecutorPathname = extractModulePath(key, importFn)
-    }
-  }
-
-  // Validate that all required pathnames were resolved
-  for (const [name, value] of Object.entries(modulePathnames)) {
-    if (value === '') {
-      throw new Error(`Module pathname '${name}' was not resolved`)
-    }
-  }
-
-  return modulePathnames
-}
-
-// --- Algorithm config for EvolutionManager ---
-
-type ErasedManagerConfig = Pick<
-  EvolutionManagerConfig,
-  'algorithm' | 'configData' | 'genomeOptions'
->
-
-/**
- * Build genome options for a given algorithm, merging algorithm defaults
- * with tictactoe-specific activation overrides and user-provided options.
- */
-function buildGenomeOptions(
-  algorithmName: SupportedAlgorithm,
-  userOptions?: Record<string, unknown>
-): unknown {
-  const definition = getAlgorithmDefinition(algorithmName)
-  const defaults = definition.defaultGenomeOptions as Record<string, unknown>
-
-  let activationOptions: Record<string, unknown>
-  if (definition.usesCPPNActivations) {
-    activationOptions = {
-      hiddenActivations: allActivations,
-      outputActivations: [Activation.Softmax],
-    }
-  } else {
-    activationOptions = {
-      hiddenActivation:
-        (userOptions?.hiddenActivation as Activation | undefined) ??
-        Activation.GELU,
-      outputActivation:
-        (userOptions?.outputActivation as Activation | undefined) ??
-        Activation.Softmax,
-    }
-  }
-
-  return { ...defaults, ...activationOptions, ...userOptions }
-}
-
-function algorithmConfig(
-  algorithmName: SupportedAlgorithm,
-  userGenomeOptions?: Record<string, unknown>,
-  savedNeatOptions?: Record<string, unknown>
-): ErasedManagerConfig {
-  const genomeOptions = buildGenomeOptions(algorithmName, userGenomeOptions)
-  const neatOptions = {
-    ...defaultNEATConfigOptions,
-    mutateOnlyOneLink: false,
-    ...savedNeatOptions,
-  }
-
-  switch (algorithmName) {
-    case 'NEAT':
-      return {
-        algorithm: NEATAlgorithm,
-        configData: { neat: neatOptions },
-        genomeOptions,
-      } as unknown as ErasedManagerConfig
-    case 'CPPN':
-      return {
-        algorithm: CPPNAlgorithm,
-        configData: { neat: neatOptions },
-        genomeOptions,
-      } as unknown as ErasedManagerConfig
-    case 'HyperNEAT':
-      return {
-        algorithm: HyperNEATAlgorithm,
-        configData: { neat: neatOptions },
-        genomeOptions,
-      } as unknown as ErasedManagerConfig
-    case 'ES-HyperNEAT':
-      return {
-        algorithm: ESHyperNEATAlgorithm,
-        configData: { neat: neatOptions },
-        genomeOptions,
-      } as unknown as ErasedManagerConfig
-    case 'DES-HyperNEAT':
-      return {
-        algorithm: DESHyperNEATAlgorithm,
-        configData: {
-          neat: { ...defaultTopologyConfigOptions },
-          cppn: neatOptions,
-        },
-        genomeOptions,
-      } as unknown as ErasedManagerConfig
-  }
-}
 
 // --- EvolutionManager factory ---
 
-export interface CreateManagerOptions {
+export interface CreateManagerOptions
+  extends CreateTictactoeManagerConfigOptions {
   algorithm: SupportedAlgorithm
   environmentConfig?: Partial<TicTacToeEnvironmentConfig>
   populationOptions?: Partial<PopulationOptions>
   genomeOptions?: Record<string, unknown>
   neatOptions?: Record<string, unknown>
-  populationFactoryOptions?: unknown
   strategyOptions?: Partial<GlickoStrategyOptions<AnyGenome>>
 }
 
@@ -247,47 +56,16 @@ export interface CreateManagerOptions {
 export function createTictactoeEvolutionManager(
   options: CreateManagerOptions
 ): EvolutionManager {
-  const modulePathnames = getModulePathnamesForAlgorithm(options.algorithm)
-
-  const finalEnvironmentConfig = {
-    ...defaultEnvironmentConfig,
-    ...options.environmentConfig,
-  }
-  const environment = createEnvironment(finalEnvironmentConfig)
-
-  const strategy = new GlickoStrategy({
-    ...defaultStrategyOptions,
-    normalizationRanges,
-    onHeroesUpdated: () => {},
-    ...options.strategyOptions,
-  })
+  const workerConfig = createBrowserWorkerConfig(
+    modules,
+    options.algorithm,
+    workerEvaluatorThreadLimit,
+    'TicTacToe browser'
+  )
 
   return new EvolutionManager({
-    ...algorithmConfig(
-      options.algorithm,
-      options.genomeOptions,
-      options.neatOptions
-    ),
-    environment,
-    strategy,
-    populationOptions: {
-      populationSize: DEFAULT_POPULATION_SIZE,
-      ...options.populationOptions,
-    },
-    ...(options.populationFactoryOptions != null
-      ? {
-          populationFactoryOptions:
-            options.populationFactoryOptions as EvolutionManagerConfig['populationFactoryOptions'],
-        }
-      : {}),
-    createEnvironmentPathname: modulePathnames.createEnvironmentPathname,
-    evaluatorConfig: {
-      algorithmPathname: modulePathnames.algorithmPathname,
-      createExecutorPathname: modulePathnames.createExecutorPathname,
-      evaluatorWorkerScriptUrl: workerEvaluatorScriptUrl,
-      reproducerWorkerScriptUrl: workerReproducerScriptUrl,
-      threadCount: workerEvaluatorThreadLimit,
-    },
+    ...createTictactoeManagerConfig(options),
+    ...workerConfig,
   })
 }
 

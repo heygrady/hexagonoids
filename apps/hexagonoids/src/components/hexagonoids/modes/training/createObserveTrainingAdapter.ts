@@ -31,12 +31,8 @@ import {
 import { createExecutor } from '@neat-evolution/executor'
 import { HyperNEATAlgorithm } from '@neat-evolution/hyperneat'
 import { NEATAlgorithm } from '@neat-evolution/neat'
-// eslint-disable-next-line import/default
-import workerEvaluatorScriptUrl from '@neat-evolution/worker-evaluator/workerEvaluatorScript?worker&url'
-// eslint-disable-next-line import/default
-import workerReproducerScriptUrl from '@neat-evolution/worker-reproducer/workerReproducerScript?worker&url'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
-import { getModulePathnamesForAlgorithm } from './getModulePathnamesForAlgorithm'
+import { createBrowserWorkerConfig } from '../../../shared/neatWorkers/createBrowserWorkerConfig.js'
 
 export interface ObserveGenerationBestEvent {
   generation: number
@@ -64,6 +60,7 @@ export interface ObserveTrainingAdapter {
 }
 
 const DEFAULT_OBSERVE_METHOD: SupportedAlgorithm = 'HyperNEAT'
+const modules = import.meta.glob('./modules/*.ts')
 
 function hasGenome(value: unknown): value is { genome: AnyErasedGenome } {
   return value != null && typeof value === 'object' && 'genome' in value
@@ -182,11 +179,12 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
       const iterations = config.iterations ?? 500
       const threadCount = normalizeThreadCount(config.threadCount)
       const populationSize = config.populationSize ?? 64
-      const {
-        algorithmPathname,
-        createEnvironmentPathname,
-        createExecutorPathname,
-      } = getModulePathnamesForAlgorithm(method)
+      const workerConfig = createBrowserWorkerConfig(
+        modules,
+        method,
+        threadCount,
+        'Observe training'
+      )
 
       abortController = new AbortController()
       statusIntervalId = window.setInterval(() => {
@@ -221,7 +219,7 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
           description,
           toFactoryOptions: () => envConfig,
         },
-        createEnvironmentPathname,
+        createEnvironmentPathname: workerConfig.createEnvironmentPathname,
         evolutionOptions: {
           iterations,
           afterEvaluateInterval: 1,
@@ -242,13 +240,7 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
           },
         },
         populationOptions: { populationSize },
-        evaluatorConfig: {
-          algorithmPathname,
-          createExecutorPathname,
-          threadCount,
-          evaluatorWorkerScriptUrl: workerEvaluatorScriptUrl,
-          reproducerWorkerScriptUrl: workerReproducerScriptUrl,
-        },
+        evaluatorConfig: workerConfig.evaluatorConfig,
         signal: abortController.signal,
       })
       currentManager = manager
