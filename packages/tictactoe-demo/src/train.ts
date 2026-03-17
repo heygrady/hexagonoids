@@ -1,59 +1,26 @@
 import {
   calculateNormalizationBounds,
-  createEnvironment,
   type TicTacToeEnvironmentConfig,
 } from '@heygrady/tictactoe-environment'
 import {
   type GlickoObservedRanges,
-  // SwissTournamentStrategy,
-  GlickoStrategy,
   type HeroGenome,
-  // type FitnessCalculator,
 } from '@heygrady/tournament-strategy'
-import { Activation, defaultNEATConfigOptions } from '@neat-evolution/core'
-import {
-  CPPNAlgorithm,
-  cppn,
-  defaultCPPNGenomeOptions,
-} from '@neat-evolution/cppn'
-import {
-  DESHyperNEATAlgorithm,
-  defaultDESHyperNEATGenomeOptions,
-  defaultTopologyConfigOptions,
-  deshyperneat,
-} from '@neat-evolution/des-hyperneat'
-import {
-  defaultESHyperNEATGenomeOptions,
-  ESHyperNEATAlgorithm,
-  eshyperneat,
-} from '@neat-evolution/es-hyperneat'
 import {
   defaultEvolutionOptions,
-  defaultPopulationOptions,
   type EvolutionOptions,
-  type ReproducerFactory,
 } from '@neat-evolution/evolution'
-import {
-  defaultHyperNEATGenomeOptions,
-  HyperNEATAlgorithm,
-  hyperneat,
-} from '@neat-evolution/hyperneat'
-import {
-  defaultNEATGenomeOptions,
-  NEATAlgorithm,
-  neat,
-} from '@neat-evolution/neat'
-import { WorkerEvaluator } from '@neat-evolution/worker-evaluator'
-import {
-  createReproducerFactory,
-  type Terminable,
-} from '@neat-evolution/worker-reproducer'
+import { EvolutionManager } from '@neat-evolution/evolution-manager'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
+import { getAlgorithmDefinition, type SupportedAlgorithm } from './algorithmRegistry.js'
+import {
+  createTictactoeManagerConfig,
+  DEFAULT_POPULATION_SIZE,
+} from './createManagerConfig.js'
 import {
   handleHeroesUpdated,
   initializeHeroesLog,
-  // loadInitialHeroes,
   saveHeroesLog,
 } from './utils/initialHeroes.js'
 import {
@@ -64,26 +31,7 @@ import {
 import { writeJsonFile } from './utils/writeJsonFile.js'
 
 const workerThreadLimit = Math.ceil(hardwareConcurrency - 1)
-
-const terminables = new Set<Terminable>()
-
-enum Methods {
-  NEAT = 'NEAT',
-  CPPN = 'CPPN',
-  HyperNEAT = 'HyperNEAT',
-  ES_HyperNEAT = 'ES-HyperNEAT',
-  DES_HyperNEAT = 'DES-HyperNEAT',
-}
-
-const method = Methods.NEAT
-
-const createReproducer: ReproducerFactory<any> = createReproducerFactory(
-  {
-    threadCount: workerThreadLimit,
-    enableCustomState: (method as unknown) === Methods.DES_HyperNEAT,
-  },
-  terminables
-)
+const method: SupportedAlgorithm = 'NEAT'
 
 export const demo = async () => {
   await initializeHeroesLog()
@@ -127,7 +75,6 @@ export const demo = async () => {
       // },
     ],
   }
-  const environment = createEnvironment(environmentOptions)
   await clearObservedRanges()
   const observedRanges = await readObservedRanges()
   const environmentFitnessBounds = calculateNormalizationBounds(
@@ -147,7 +94,7 @@ export const demo = async () => {
     },
   }
   let bestHeroRating = -Infinity
-  const strategy = new GlickoStrategy<any>({
+  const strategyOptions = {
     matchPlayerSize: 2,
     individualSeeding: true, // Evaluate individually for better first-round pairings
     numSeedTournaments: 10,
@@ -157,9 +104,7 @@ export const demo = async () => {
       glickoWeight: 0.6, // tournament play
       conservativeWeight: 0.0,
     },
-    // initialHeroes: await loadInitialHeroes(),
     normalizationRanges,
-    // heroPoolRatio: 0.0,
     onHeroesUpdated: (heroes: Array<HeroGenome<any>>) => {
       const [bestHero] = heroes
       if (bestHero == null) return
@@ -173,7 +118,7 @@ export const demo = async () => {
     onObservedRangeUpdate: (newObservedRanges: GlickoObservedRanges) => {
       handleObservedRangeUpdate(newObservedRanges, observedRanges)
     },
-  })
+  }
 
   const evolutionOptions: EvolutionOptions<any, any> = {
     ...defaultEvolutionOptions,
@@ -181,183 +126,31 @@ export const demo = async () => {
     secondsLimit: 10_800,
     earlyStop: true,
     earlyStopPatience: 150,
-    // afterEvaluate,
-    // afterEvaluateInterval: 100,
-  }
-  const neatOptions = {
-    ...defaultNEATConfigOptions,
-    mutateOnlyOneLink: false,
-  }
-  const populationOptions = {
-    ...defaultPopulationOptions,
-  }
-  const allActivations: Activation[] = [
-    Activation.Linear,
-    Activation.Step,
-    Activation.ReLU,
-    Activation.LeakyReLU,
-    Activation.ELU,
-    Activation.Sigmoid,
-    Activation.Swish,
-    Activation.HardSigmoid,
-    Activation.Tanh,
-    Activation.HardTanh,
-    Activation.Gaussian,
-    Activation.OffsetGaussian,
-    Activation.GELU,
-    Activation.Square,
-    Activation.Abs,
-    Activation.Softsign,
-    Activation.Exp,
-    Activation.ClippedExp,
-    Activation.Softplus,
-    Activation.Mish,
-  ]
-
-  const cppnActivationOptions = {
-    hiddenActivations: allActivations,
-    outputActivations: [Activation.Softmax],
   }
 
-  const activationOptions = {
-    hiddenActivation: Activation.GELU, // Gaussian
-    outputActivation: Activation.Softmax,
+  const manager = new EvolutionManager({
+    ...createTictactoeManagerConfig({
+      algorithm: method,
+      environmentConfig: environmentOptions,
+      populationOptions: { populationSize: DEFAULT_POPULATION_SIZE },
+      strategyOptions,
+    }),
+    createEnvironmentPathname: '@heygrady/tictactoe-environment',
+    evolutionOptions,
+    evaluatorConfig: {
+      algorithmPathname: getAlgorithmDefinition(method).algorithm.pathname,
+      threadCount: workerThreadLimit,
+      taskCount: DEFAULT_POPULATION_SIZE,
+    },
+  })
+
+  let best: any
+  try {
+    best = await manager.evolve()
+  } finally {
+    await manager.terminate()
   }
 
-  const evolve = async (method: Methods) => {
-    switch (method) {
-      case Methods.NEAT: {
-        const evaluator = new WorkerEvaluator(NEATAlgorithm, environment, {
-          createEnvironmentPathname: '@heygrady/tictactoe-environment',
-          createExecutorPathname: '@neat-evolution/executor',
-          taskCount: defaultPopulationOptions.populationSize,
-          threadCount: workerThreadLimit,
-          strategy,
-        })
-
-        const genomeOptions = {
-          ...defaultNEATGenomeOptions,
-          ...activationOptions,
-        }
-        terminables.add(evaluator)
-        return await neat(
-          createReproducer,
-          evaluator,
-          evolutionOptions,
-          neatOptions,
-          populationOptions,
-          genomeOptions
-        )
-      }
-      case Methods.CPPN: {
-        const evaluator = new WorkerEvaluator(CPPNAlgorithm, environment, {
-          createEnvironmentPathname: '@heygrady/tictactoe-environment',
-          createExecutorPathname: '@neat-evolution/executor',
-          taskCount: defaultPopulationOptions.populationSize,
-          threadCount: workerThreadLimit,
-          strategy,
-        })
-
-        const genomeOptions = {
-          ...defaultCPPNGenomeOptions,
-          ...activationOptions,
-          ...cppnActivationOptions,
-        }
-        terminables.add(evaluator)
-        return await cppn(
-          createReproducer,
-          evaluator,
-          evolutionOptions,
-          neatOptions,
-          populationOptions,
-          genomeOptions
-        )
-      }
-      case Methods.HyperNEAT: {
-        const evaluator = new WorkerEvaluator(HyperNEATAlgorithm, environment, {
-          createEnvironmentPathname: '@heygrady/tictactoe-environment',
-          createExecutorPathname: '@neat-evolution/executor',
-          taskCount: populationOptions.populationSize,
-          threadCount: workerThreadLimit,
-          strategy,
-        })
-        const genomeOptions = {
-          ...defaultHyperNEATGenomeOptions,
-          ...activationOptions,
-          ...cppnActivationOptions,
-        }
-        terminables.add(evaluator)
-        return await hyperneat(
-          createReproducer,
-          evaluator,
-          evolutionOptions,
-          neatOptions,
-          populationOptions,
-          genomeOptions
-        )
-      }
-      case Methods.ES_HyperNEAT: {
-        const evaluator = new WorkerEvaluator(
-          ESHyperNEATAlgorithm,
-          environment,
-          {
-            createEnvironmentPathname: '@heygrady/tictactoe-environment',
-            createExecutorPathname: '@neat-evolution/executor',
-            taskCount: populationOptions.populationSize,
-            threadCount: workerThreadLimit,
-            strategy,
-          }
-        )
-        const genomeOptions = {
-          ...defaultESHyperNEATGenomeOptions,
-          ...cppnActivationOptions,
-          ...activationOptions,
-        }
-        terminables.add(evaluator)
-        return await eshyperneat(
-          createReproducer,
-          evaluator,
-          evolutionOptions,
-          neatOptions,
-          populationOptions,
-          genomeOptions
-        )
-      }
-      case Methods.DES_HyperNEAT: {
-        const evaluator = new WorkerEvaluator(
-          DESHyperNEATAlgorithm,
-          environment,
-          {
-            createEnvironmentPathname: '@heygrady/tictactoe-environment',
-            createExecutorPathname: '@neat-evolution/executor',
-            taskCount: populationOptions.populationSize,
-            threadCount: workerThreadLimit,
-            strategy,
-          }
-        )
-        const genomeOptions = {
-          ...defaultDESHyperNEATGenomeOptions,
-          ...cppnActivationOptions,
-          ...activationOptions,
-        }
-        const topologyOptions = {
-          ...defaultTopologyConfigOptions,
-          mutateOnlyOneLink: false,
-        }
-        terminables.add(evaluator)
-        return await deshyperneat(
-          createReproducer,
-          evaluator,
-          evolutionOptions,
-          topologyOptions,
-          neatOptions,
-          populationOptions,
-          genomeOptions
-        )
-      }
-    }
-  }
-  const best = await evolve(method)
   const data = best?.toJSON() ?? null
   await writeJsonFile(
     new URL(`../../best-${method}.json`, import.meta.url).pathname,
@@ -369,7 +162,3 @@ export const demo = async () => {
 await demo()
 
 await saveHeroesLog()
-
-for (const terminable of terminables) {
-  await terminable.terminate()
-}

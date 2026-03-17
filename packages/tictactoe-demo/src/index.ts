@@ -10,9 +10,10 @@ export {
   normalizationRanges,
 } from './configDefaults.js'
 export {
-  EvolutionManager,
-  type EvolutionManagerConfig,
-} from './EvolutionManager.js'
+  buildTictactoeGenomeOptions,
+  createTictactoeManagerConfig,
+  DEFAULT_POPULATION_SIZE,
+  type CreateTictactoeManagerConfigOptions,
+} from './createManagerConfig.js'
 export * from './InteractiveGame.js'
-export * from './modulePathnames.js'
 export * from './types.js'

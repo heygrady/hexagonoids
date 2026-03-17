@@ -92,10 +92,11 @@ Play against a trained agent in your terminal. You'll be prompted for moves
 
 ## Key Components
 
-### Exported Classes
+### Exported Helpers
 
-- **`EvolutionManager`**: High-level manager for running evolution with
-  configuration
+- **`createTictactoeManagerConfig`**: Builds the shared
+  `@neat-evolution/evolution-manager` config for tictactoe environments,
+  strategy defaults, and algorithm-specific genome/config data
 - **`InteractiveGame`**: Utilities for playing games with trained agents
 
 ### Training Configuration
@@ -113,62 +114,27 @@ The `train.ts` script configures:
 ### Running Custom Training
 
 ```typescript
-import {
-  createEnvironment,
-  type TicTacToeEnvironmentConfig,
-} from "@heygrady/tictactoe-environment";
-import { GlickoStrategy } from "@heygrady/tournament-strategy";
-import { defaultNEATGenomeOptions, neat } from "@neat-evolution/neat";
-import {
-  NEATAlgorithm,
-  WorkerEvaluator,
-} from "@neat-evolution/worker-evaluator";
+import { createTictactoeManagerConfig } from "@heygrady/tictactoe-demo";
+import { EvolutionManager } from "@neat-evolution/evolution-manager";
 
-// 1. Configure environment
-const environmentOptions: Partial<TicTacToeEnvironmentConfig> = {
-  gameOutcomeScores: { win: 1, draw: 0.5, loss: -0.1 },
-  gauntletOpponents: [
-    { opponent: "minimaxAI", numGames: 5, weight: 0.33 },
-    { opponent: "heuristicAI", numGames: 5, weight: 0.33 },
-    { opponent: "sleeperAI", numGames: 25, weight: 0.34 },
-  ],
-};
-
-const environment = createEnvironment(environmentOptions);
-
-// 2. Configure tournament strategy
-const strategy = new GlickoStrategy({
-  matchPlayerSize: 2,
-  individualSeeding: true,
-  numSeedTournaments: 10,
-  fitnessWeights: {
-    seedWeight: 0.4, // Weight for AI opponent performance
-    envWeight: 0.0,
-    glickoWeight: 0.6, // Weight for tournament performance
-    conservativeWeight: 0.0,
-  },
-});
-
-// 3. Create evaluator with worker threads
-const evaluator = new WorkerEvaluator(NEATAlgorithm, environment, {
+const manager = new EvolutionManager({
+  ...createTictactoeManagerConfig({
+    algorithm: "NEAT",
+    environmentConfig: {
+      gameOutcomeScores: { win: 1, draw: 0.5, loss: -0.1 },
+      gauntletOpponents: [
+        { opponent: "minimaxAI", numGames: 5, weight: 0.33 },
+        { opponent: "heuristicAI", numGames: 5, weight: 0.33 },
+        { opponent: "sleeperAI", numGames: 25, weight: 0.34 },
+      ],
+    },
+  }),
   createEnvironmentPathname: "@heygrady/tictactoe-environment",
-  createExecutorPathname: "@neat-evolution/executor",
-  taskCount: 150,
-  threadCount: 4,
-  strategy,
 });
 
-// 4. Run evolution
-const best = await neat(
-  createReproducer,
-  evaluator,
-  { iterations: 1000, earlyStop: true },
-  neatOptions,
-  populationOptions,
-  genomeOptions,
-);
-
+const best = await manager.evolve({ iterations: 1000, earlyStop: true });
 console.log(`Best fitness: ${best?.fitness}`);
+await manager.terminate();
 ```
 
 ### Loading and Using a Trained Agent
