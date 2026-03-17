@@ -5,12 +5,8 @@ import {
   simulateGame,
 } from '@heygrady/hexagonoids-environment'
 import { createVanillaStepAgent } from '@neat-evolution/rl-core'
-import { loadGenome } from '../persistence/loadGenome.js'
 import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
-import {
-  HexagonoidsEvolutionManager,
-  type HexagonoidsEvolutionManagerOptions,
-} from './EvolutionManager.js'
+import { hydrateToExecutor } from '../registries/hydrateGenome.js'
 
 export interface ReplayOptions {
   pathname: string
@@ -45,19 +41,9 @@ export interface ReplayResult {
 }
 
 export async function replayGenome(
-  options: ReplayOptions,
-  managerOptions: HexagonoidsEvolutionManagerOptions = {}
+  options: ReplayOptions
 ): Promise<ReplayResult> {
-  const manager = new HexagonoidsEvolutionManager({
-    ...managerOptions,
-    method: options.method,
-    maxTicks: options.maxTicks,
-    dtMs: options.dtMs,
-  })
-
-  const serialized = loadGenome(options.pathname)
-  const organism = manager.createOrganism(options.method, serialized)
-  const executor = manager.organismToExecutor(organism)
+  const executor = hydrateToExecutor(options.pathname, options.method)
   const simulation = {
     maxTicks: options.maxTicks,
     dtMs: options.dtMs,

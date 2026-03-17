@@ -65,7 +65,7 @@ async function main() {
   console.log()
 
   // Load genome + create executor
-  const { createNodeEvolutionManager, loadGenome } = await import(
+  const { hydrateToExecutor } = await import(
     '@heygrady/hexagonoids-demo/node'
   )
   const {
@@ -81,10 +81,7 @@ async function main() {
   const scenarios = decodeScenarioBankDocument(readScenarioBank(scenariosPath))
   console.log(`Loaded ${scenarios.length} scenarios`)
 
-  const manager = createNodeEvolutionManager({ method: 'HyperNEAT' })
-  const serialized = loadGenome(genomePath)
-  const organism = manager.createOrganism('HyperNEAT', serialized)
-  const executor = manager.organismToExecutor(organism)
+  const executor = hydrateToExecutor(genomePath, 'HyperNEAT')
 
   const { fitnessWeights, gateConfig, simulation } =
     DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG

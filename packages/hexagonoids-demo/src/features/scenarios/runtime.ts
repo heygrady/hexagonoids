@@ -14,15 +14,14 @@ import type {
 } from './types.js'
 
 export async function loadScenarioRuntime(): Promise<ScenarioRuntime> {
-  const demoNode = await import('@heygrady/hexagonoids-demo/node')
+  const demoNode = await import('../../node/index.js')
   const envNode = await import('@heygrady/hexagonoids-environment/node')
   const env = await import('@heygrady/hexagonoids-environment')
 
   const { createVanillaStepAgent } = await import('@neat-evolution/rl-core')
 
   return {
-    createNodeEvolutionManager: demoNode.createNodeEvolutionManager,
-    loadGenome: demoNode.loadGenome,
+    hydrateToExecutor: demoNode.hydrateToExecutor,
     generateScenarios: envNode.generateScenarios,
     createVanillaController: (executor) => createVanillaStepAgent(executor),
     createGameAgent: env.createGameAgent,
@@ -42,10 +41,7 @@ export async function createAgentHandle(
   if (source.method == null) {
     throw new Error(`Source "${source.id}" is missing a training method`)
   }
-  const manager = runtime.createNodeEvolutionManager({ method: source.method })
-  const serialized = runtime.loadGenome(source.genomePath)
-  const organism = manager.createOrganism(source.method, serialized)
-  const executor = manager.organismToExecutor(organism)
+  const executor = runtime.hydrateToExecutor(source.genomePath, source.method)
 
   const controller = runtime.createVanillaController(executor, {})
   const gameAgent = runtime.createGameAgent(controller)

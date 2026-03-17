@@ -200,15 +200,13 @@ export interface ScenarioRunCounts {
 }
 
 interface EvolutionManager {
-  createOrganism(method: SupportedAlgorithm, serialized: unknown): unknown
-  organismToExecutor(organism: unknown): StaticExecutor
+  hydrateToExecutor(
+    genomePath: string,
+    method: SupportedAlgorithm
+  ): StaticExecutor
 }
 
-export interface ScenarioRuntime {
-  createNodeEvolutionManager(config: {
-    method: SupportedAlgorithm
-  }): EvolutionManager
-  loadGenome(pathname: string): unknown
+export interface ScenarioRuntime extends EvolutionManager {
   generateScenarios(config: {
     count: number
     baseSeed: string
