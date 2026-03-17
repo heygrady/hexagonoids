@@ -10,20 +10,12 @@ import {
 } from '@heygrady/hexagonoids-environment'
 import { createEnvironment } from '@heygrady/hexagonoids-environment/node'
 import { Activation, type OutputActivationSpec } from '@neat-evolution/core'
-import { CPPNAlgorithm } from '@neat-evolution/cppn'
-import {
-  DESHyperNEATAlgorithm,
-  defaultTopologyConfigOptions,
-} from '@neat-evolution/des-hyperneat'
-import { ESHyperNEATAlgorithm } from '@neat-evolution/es-hyperneat'
 import { defaultEvolutionOptions } from '@neat-evolution/evolution'
 import {
   type EvaluatorConfig,
   EvolutionManager,
-  type EvolutionManagerConfig,
+  type EvolutionManagerOptions,
 } from '@neat-evolution/evolution-manager'
-import { HyperNEATAlgorithm } from '@neat-evolution/hyperneat'
-import { NEATAlgorithm } from '@neat-evolution/neat'
 import type {
   ActorCriticStepAgentConfig,
   QLearningStepAgentConfig,
@@ -252,45 +244,55 @@ async function writeWorkerCpuProfiles(
 // --- Algorithm config for EvolutionManager ---
 
 type ErasedManagerConfig = Pick<
-  EvolutionManagerConfig,
-  'algorithm' | 'configData' | 'genomeOptions'
+  EvolutionManagerOptions,
+  'algorithm'
 >
 
 function algorithmConfig(method: SupportedAlgorithm): ErasedManagerConfig {
   switch (method) {
     case 'NEAT':
       return {
-        algorithm: NEATAlgorithm,
-        configData: { neat: createHexagonoidsNEATConfigOptions() },
-        genomeOptions: createHexagonoidsNEATGenomeOptions(),
-      } as unknown as ErasedManagerConfig
+        algorithm: {
+          name: 'NEAT',
+          configData: { neat: createHexagonoidsNEATConfigOptions() },
+          genomeOptions: createHexagonoidsNEATGenomeOptions(),
+        },
+      }
     case 'CPPN':
       return {
-        algorithm: CPPNAlgorithm,
-        configData: { neat: createHexagonoidsNEATConfigOptions() },
-        genomeOptions: createHexagonoidsCPPNGenomeOptions(),
-      } as unknown as ErasedManagerConfig
+        algorithm: {
+          name: 'CPPN',
+          configData: { neat: createHexagonoidsNEATConfigOptions() },
+          genomeOptions: createHexagonoidsCPPNGenomeOptions(),
+        },
+      }
     case 'HyperNEAT':
       return {
-        algorithm: HyperNEATAlgorithm,
-        configData: { neat: createHexagonoidsNEATConfigOptions() },
-        genomeOptions: createHexagonoidsHyperNEATGenomeOptions(),
-      } as unknown as ErasedManagerConfig
+        algorithm: {
+          name: 'HyperNEAT',
+          configData: { neat: createHexagonoidsNEATConfigOptions() },
+          genomeOptions: createHexagonoidsHyperNEATGenomeOptions(),
+        },
+      }
     case 'ES-HyperNEAT':
       return {
-        algorithm: ESHyperNEATAlgorithm,
-        configData: { neat: createHexagonoidsNEATConfigOptions() },
-        genomeOptions: createHexagonoidsESHyperNEATGenomeOptions(),
-      } as unknown as ErasedManagerConfig
+        algorithm: {
+          name: 'ES-HyperNEAT',
+          configData: { neat: createHexagonoidsNEATConfigOptions() },
+          genomeOptions: createHexagonoidsESHyperNEATGenomeOptions(),
+        },
+      }
     case 'DES-HyperNEAT':
       return {
-        algorithm: DESHyperNEATAlgorithm,
-        configData: {
-          neat: defaultTopologyConfigOptions,
-          cppn: createHexagonoidsNEATConfigOptions(),
+        algorithm: {
+          name: 'DES-HyperNEAT',
+          configData: {
+            neat: {},
+            cppn: createHexagonoidsNEATConfigOptions(),
+          } as never,
+          genomeOptions: createHexagonoidsDESHyperNEATGenomeOptions(),
         },
-        genomeOptions: createHexagonoidsDESHyperNEATGenomeOptions(),
-      } as unknown as ErasedManagerConfig
+      }
   }
 }
 
@@ -352,7 +354,13 @@ function rlOutputConfig(
  */
 function buildRLEvaluatorConfig(
   config: ReturnType<typeof toRunConfig>
-): Partial<EvaluatorConfig> {
+): {
+  evaluation?: Partial<EvaluatorConfig>
+  execution?: {
+    createExecutionManager: string
+    executionManagerFactoryOptions: Record<string, unknown>
+  }
+} {
   const rolloutConfig: StepRolloutBufferConfig = {
     rolloutLength: 32,
   }
@@ -371,11 +379,11 @@ function buildRLEvaluatorConfig(
       rolloutConfig,
     }
     return {
-      createExecutorPathname: '@neat-evolution/executor/backprop',
-      hydrateEnvironmentOptions: {
-        createExecutionManager: '@neat-evolution/rl-core/actor-critic',
+      evaluation: {
+        createExecutorPathname: '@neat-evolution/executor/backprop',
       },
-      environmentRuntimeData: {
+      execution: {
+        createExecutionManager: '@neat-evolution/rl-core/actor-critic',
         executionManagerFactoryOptions: {
           config: acConfig,
           rngSeed: config.baseSeed,
@@ -397,11 +405,11 @@ function buildRLEvaluatorConfig(
       multiDiscrete: config.rlMultiDiscrete,
     }
     return {
-      createExecutorPathname: '@neat-evolution/executor/backprop',
-      hydrateEnvironmentOptions: {
-        createExecutionManager: '@neat-evolution/rl-core/q-learning',
+      evaluation: {
+        createExecutorPathname: '@neat-evolution/executor/backprop',
       },
-      environmentRuntimeData: {
+      execution: {
+        createExecutionManager: '@neat-evolution/rl-core/q-learning',
         executionManagerFactoryOptions: {
           config: qlConfig,
           rngSeed: config.baseSeed,
@@ -489,25 +497,37 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
 
   const algorithmDetails = algorithmConfig(method)
   // Override genomeOptions with RL-specific output activation
-  if (config.rlMode !== 'none' && algorithmDetails.genomeOptions != null) {
-    const genomeOpts = algorithmDetails.genomeOptions as Record<string, unknown>
+  if (
+    config.rlMode !== 'none' &&
+    algorithmDetails.algorithm.genomeOptions != null
+  ) {
+    const genomeOpts = algorithmDetails.algorithm.genomeOptions as Record<
+      string,
+      unknown
+    >
     genomeOpts.outputActivation = rlOutputs.outputActivation
   }
+  const runtimeConfig = buildRLEvaluatorConfig(config)
   const evaluatorConfig: EvaluatorConfig = {
     taskCount: config.populationSize,
     threadCount: config.threadCount,
-    ...buildRLEvaluatorConfig(config),
+    ...(runtimeConfig.evaluation ?? {}),
   }
 
   const strategy = new GenerationSeededStrategy(config.baseSeed)
 
   const manager = new EvolutionManager({
     ...algorithmDetails,
-    environment,
-    createEnvironmentPathname: CREATE_ENVIRONMENT_PATHNAME,
-    strategy,
-    evaluatorConfig,
-    evolutionOptions: {
+    environment: {
+      config: environment,
+      pathname: CREATE_ENVIRONMENT_PATHNAME,
+    },
+    population: {
+      options: {
+        populationSize: config.populationSize,
+      },
+    },
+    evolution: {
       iterations: config.iterations,
       secondsLimit: config.secondsLimit,
       earlyStop: true,
@@ -558,10 +578,16 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
         pendingGenerationWrites.push(genomeWrite)
       },
     },
-    populationOptions: {
-      populationSize: config.populationSize,
+    evaluation: {
+      strategy,
+      options: evaluatorConfig,
     },
-    ...(config.signal != null && { signal: config.signal }),
+    ...(runtimeConfig.execution != null
+      ? {
+          execution: runtimeConfig.execution,
+        }
+      : {}),
+    ...(config.signal != null ? { signal: config.signal } : {}),
   })
 
   // Initialize the manager to create workers before starting CPU profiles
