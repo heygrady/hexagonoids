@@ -1,4 +1,5 @@
 import type {
+  ActionController,
   AgentFn,
   ScenarioSnapshot as EnvironmentScenarioSnapshot,
   FitnessContext,
@@ -8,10 +9,6 @@ import type {
   HexagonoidsEnvironmentConfig,
   RawMetrics,
 } from '@heygrady/hexagonoids-environment'
-import type {
-  AgentFactory,
-  EpisodicAgent,
-} from '@neat-evolution/execution-manager'
 import type { StaticExecutor } from '@neat-evolution/executor'
 
 import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
@@ -221,8 +218,11 @@ export interface ScenarioRuntime {
     captureTypes?: Array<'death' | 'kill'>
     killRatio?: number
   }): ScenarioSnapshot[]
-  createVanillaAgent: AgentFactory
-  createGameAgent(agent: EpisodicAgent): GameAgent
+  createVanillaController(
+    executor: StaticExecutor,
+    options: Record<string, unknown>
+  ): ActionController
+  createGameAgent(agent: ActionController): GameAgent
   randomAgent: AgentFn
   simulateScenario(
     agent: AgentFn,

@@ -10,7 +10,7 @@ import {
   simulateGame,
   weightedFitnessSum,
 } from '@heygrady/hexagonoids-environment'
-import { createVanillaAgent } from '@neat-evolution/execution-manager'
+import { createVanillaStepAgent } from '@neat-evolution/rl-core'
 import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
 import {
   hydrateToExecutor,
@@ -54,8 +54,8 @@ export async function analyzeGenomes(
   for (const [i, genomePath] of genomePaths.entries()) {
     const executor = hydrateToExecutor(genomePath, method)
     const trainingFitness = loadTrainingFitness(genomePath)
-    const episodicAgent = createVanillaAgent(executor, {})
-    const gameAgent = createGameAgent(episodicAgent)
+    const controller = createVanillaStepAgent(executor)
+    const gameAgent = createGameAgent(controller)
 
     const seeds = generationSeedPack(i, seedsPerGenome, `${baseSeed}:analysis`)
     const allMetrics: RawMetrics[] = []

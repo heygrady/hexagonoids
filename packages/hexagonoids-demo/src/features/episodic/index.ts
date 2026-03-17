@@ -79,7 +79,7 @@ function buildVariants(options: EpisodicOptions): VariantConfig[] {
         ...shared,
         rlMode: 'actor-critic',
         rlIsLamarckian: true,
-        rlLearningRate: 0.1,
+        rlLearningRate: 0.001,
       },
     },
     {
@@ -88,9 +88,7 @@ function buildVariants(options: EpisodicOptions): VariantConfig[] {
         ...shared,
         rlMode: 'q-learning',
         rlIsLamarckian: true,
-        rlLearningRate: 0.1,
-        rlEpsilonDecay: 0.1,
-        rlMultiDiscrete: true,
+        rlLearningRate: 0.001,
       },
     },
   ]
@@ -128,7 +126,13 @@ export async function runEpisodic(
   for (const variant of variants) {
     console.log(`Running: ${variant.name}...`)
     const start = performance.now()
-    const result = await train(variant.trainOptions)
+    let result: TrainResult
+    try {
+      result = await train(variant.trainOptions)
+    } catch (error) {
+      console.error(`  ERROR in ${variant.name}:`, error)
+      continue
+    }
     const elapsedMs = performance.now() - start
 
     if (isTrainingResult(result)) {

@@ -1,6 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 import {
   doNothingAgent,
@@ -10,7 +9,6 @@ import {
   randomAgent,
 } from '@heygrady/hexagonoids-environment'
 import { createEnvironment } from '@heygrady/hexagonoids-environment/node'
-import type { ACAgentConfig } from '@neat-evolution/actor-critic'
 import { Activation, type OutputActivationSpec } from '@neat-evolution/core'
 import { CPPNAlgorithm } from '@neat-evolution/cppn'
 import {
@@ -24,10 +22,13 @@ import {
   EvolutionManager,
   type EvolutionManagerConfig,
 } from '@neat-evolution/evolution-manager'
-import type { RolloutBufferConfig } from '@neat-evolution/execution-manager'
 import { HyperNEATAlgorithm } from '@neat-evolution/hyperneat'
 import { NEATAlgorithm } from '@neat-evolution/neat'
-import type { QLAgentConfig } from '@neat-evolution/q-learning'
+import type {
+  ActorCriticStepAgentConfig,
+  QLearningStepAgentConfig,
+  StepRolloutBufferConfig,
+} from '@neat-evolution/rl-core'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 import {
   appendGenerationLog,
@@ -35,6 +36,10 @@ import {
   resolveGenerationsLogPath,
   saveGenerationGenome,
 } from '../persistence/appendGenerationLog.js'
+import {
+  DEFAULT_ARTIFACTS_DIR,
+  PACKAGE_ROOT,
+} from '../persistence/artifactPaths.js'
 import { saveGenome } from '../persistence/saveGenome.js'
 import {
   createHexagonoidsCPPNGenomeOptions,
@@ -51,11 +56,11 @@ import { mean, median } from './evaluation/metrics.js'
 import { generationSeedPack } from './evaluation/seedSchedule.js'
 import { GenerationSeededStrategy } from './GenerationSeededStrategy.js'
 
-const DEFAULT_OUTPUT_DIR = fileURLToPath(new URL('../../../', import.meta.url))
+const DEFAULT_OUTPUT_DIR = DEFAULT_ARTIFACTS_DIR
 const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
 const DEFAULT_BASE_SEED = 'hexagonoids-phase03'
 const CREATE_ENVIRONMENT_PATHNAME = resolve(
-  DEFAULT_OUTPUT_DIR,
+  PACKAGE_ROOT,
   '../hexagonoids-environment/dist/esm/node.js'
 )
 const toRunConfig = (options: TrainOptions) => {
@@ -348,15 +353,15 @@ function rlOutputConfig(
 function buildRLEvaluatorConfig(
   config: ReturnType<typeof toRunConfig>
 ): Partial<EvaluatorConfig> {
-  const rolloutConfig: RolloutBufferConfig = {
-    rolloutLength: 'episode',
-    rewardThreshold: config.rlRewardThreshold,
+  const rolloutConfig: StepRolloutBufferConfig = {
+    rolloutLength: 32,
   }
 
   if (config.rlMode === 'actor-critic') {
-    const acConfig: ACAgentConfig = {
+    const acConfig: ActorCriticStepAgentConfig = {
       learningRate: config.rlLearningRate,
       actionCount: ACTION_COUNT,
+      multiDiscrete: true,
       gradientConfig: {
         discountFactor: 0.99,
         entropyCoefficient: 0.01,
@@ -364,15 +369,14 @@ function buildRLEvaluatorConfig(
         gradientClipValue: 1.0,
       },
       rolloutConfig,
-      multiDiscrete: true,
     }
     return {
       createExecutorPathname: '@neat-evolution/executor/backprop',
       hydrateEnvironmentOptions: {
-        createAgent: '@neat-evolution/actor-critic/plugin',
+        createExecutionManager: '@neat-evolution/rl-core/actor-critic',
       },
       environmentRuntimeData: {
-        agentFactoryOptions: {
+        executionManagerFactoryOptions: {
           config: acConfig,
           rngSeed: config.baseSeed,
           isLamarckian: config.rlIsLamarckian,
@@ -382,7 +386,7 @@ function buildRLEvaluatorConfig(
   }
 
   if (config.rlMode === 'q-learning') {
-    const qlConfig: QLAgentConfig = {
+    const qlConfig: QLearningStepAgentConfig = {
       learningRate: config.rlLearningRate,
       actionCount: ACTION_COUNT,
       discountFactor: 0.99,
@@ -395,10 +399,10 @@ function buildRLEvaluatorConfig(
     return {
       createExecutorPathname: '@neat-evolution/executor/backprop',
       hydrateEnvironmentOptions: {
-        createAgent: '@neat-evolution/q-learning/plugin',
+        createExecutionManager: '@neat-evolution/rl-core/q-learning',
       },
       environmentRuntimeData: {
-        agentFactoryOptions: {
+        executionManagerFactoryOptions: {
           config: qlConfig,
           rngSeed: config.baseSeed,
           isLamarckian: config.rlIsLamarckian,

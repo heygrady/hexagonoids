@@ -18,15 +18,13 @@ export async function loadScenarioRuntime(): Promise<ScenarioRuntime> {
   const envNode = await import('@heygrady/hexagonoids-environment/node')
   const env = await import('@heygrady/hexagonoids-environment')
 
-  const { createVanillaAgent } = await import(
-    '@neat-evolution/execution-manager'
-  )
+  const { createVanillaStepAgent } = await import('@neat-evolution/rl-core')
 
   return {
     createNodeEvolutionManager: demoNode.createNodeEvolutionManager,
     loadGenome: demoNode.loadGenome,
     generateScenarios: envNode.generateScenarios,
-    createVanillaAgent,
+    createVanillaController: (executor) => createVanillaStepAgent(executor),
     createGameAgent: env.createGameAgent,
     randomAgent: env.randomAgent,
     simulateScenario: env.simulateScenario,
@@ -49,8 +47,8 @@ export async function createAgentHandle(
   const organism = manager.createOrganism(source.method, serialized)
   const executor = manager.organismToExecutor(organism)
 
-  const episodicAgent = runtime.createVanillaAgent(executor, {})
-  const gameAgent = runtime.createGameAgent(episodicAgent)
+  const controller = runtime.createVanillaController(executor, {})
+  const gameAgent = runtime.createGameAgent(controller)
 
   return {
     id: source.id,

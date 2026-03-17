@@ -1,4 +1,5 @@
 import type {
+  ActionController,
   BehavioralProfile,
   FitnessContext,
   FitnessWeights,
@@ -6,7 +7,6 @@ import type {
   GateConfig,
   RawMetrics,
 } from '@heygrady/hexagonoids-environment'
-import type { EpisodicAgent } from '@neat-evolution/execution-manager'
 import type { StaticExecutor } from '@neat-evolution/executor'
 import { Handler } from '@neat-evolution/worker-actions'
 
@@ -20,17 +20,39 @@ import {
 } from './workerLabActions.js'
 
 interface LabRuntime {
-  hydrateToExecutor(genomePath: string, method: SupportedAlgorithm): StaticExecutor
+  hydrateToExecutor(
+    genomePath: string,
+    method: SupportedAlgorithm
+  ): StaticExecutor
   loadTrainingFitness(genomePath: string): number
-  createVanillaAgent(executor: StaticExecutor, options: Record<string, never>): EpisodicAgent
-  createGameAgent(agent: EpisodicAgent): GameAgent
-  simulateGame(agent: GameAgent['agent'], config: { maxTicks: number; dtMs: number; useFastThrust: boolean }, seed: string): RawMetrics
+  createVanillaController(
+    executor: StaticExecutor,
+    options: Record<string, never>
+  ): ActionController
+  createGameAgent(agent: ActionController): GameAgent
+  simulateGame(
+    agent: GameAgent['agent'],
+    config: { maxTicks: number; dtMs: number; useFastThrust: boolean },
+    seed: string
+  ): RawMetrics
   aggregateMetrics(metrics: RawMetrics[]): RawMetrics
   evaluateFullGameFitness(metrics: RawMetrics, dtMs?: number): number
   computePossibleDeaths(elapsedTicks: number, dtMs: number): number
-  weightedFitnessSum(metrics: RawMetrics, weights: FitnessWeights, gateConfig: GateConfig, context: FitnessContext): number
-  computeBehavioralProfile(aggregated: RawMetrics, seedCount: number): BehavioralProfile
-  generationSeedPack(generation: number, seedsPerGenome: number, baseSeed: string): string[]
+  weightedFitnessSum(
+    metrics: RawMetrics,
+    weights: FitnessWeights,
+    gateConfig: GateConfig,
+    context: FitnessContext
+  ): number
+  computeBehavioralProfile(
+    aggregated: RawMetrics,
+    seedCount: number
+  ): BehavioralProfile
+  generationSeedPack(
+    generation: number,
+    seedsPerGenome: number,
+    baseSeed: string
+  ): string[]
 }
 
 let runtime: LabRuntime | null = null
@@ -39,9 +61,7 @@ const handler = new Handler()
 
 handler.register(init, async (_payload, _context) => {
   const env = await import('@heygrady/hexagonoids-environment')
-  const { createVanillaAgent } = await import(
-    '@neat-evolution/execution-manager'
-  )
+  const { createVanillaStepAgent } = await import('@neat-evolution/rl-core')
   const { hydrateToExecutor, loadTrainingFitness } = await import(
     '../registries/hydrateGenome.js'
   )
@@ -52,7 +72,7 @@ handler.register(init, async (_payload, _context) => {
   runtime = {
     loadTrainingFitness,
     hydrateToExecutor,
-    createVanillaAgent,
+    createVanillaController: (executor) => createVanillaStepAgent(executor),
     createGameAgent: env.createGameAgent,
     simulateGame: env.simulateGame,
     aggregateMetrics: env.aggregateMetrics,
@@ -89,8 +109,8 @@ handler.register(
     for (const ref of genomeRefs) {
       const executor = runtime.hydrateToExecutor(ref.genomePath, method)
       const trainingFitness = runtime.loadTrainingFitness(ref.genomePath)
-      const episodicAgent = runtime.createVanillaAgent(executor, {})
-      const gameAgent = runtime.createGameAgent(episodicAgent)
+      const controller = runtime.createVanillaController(executor, {})
+      const gameAgent = runtime.createGameAgent(controller)
 
       // Run simulations
       const seeds = runtime.generationSeedPack(

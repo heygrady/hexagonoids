@@ -20,10 +20,7 @@ import {
   mergeConfig,
   randomAgent,
 } from '@heygrady/hexagonoids-environment'
-import type {
-  EpisodicAgent,
-  PartialEvaluationContext,
-} from '@neat-evolution/execution-manager'
+import type { PartialEvaluationContext } from '@neat-evolution/execution-manager'
 import { createMemoryRecorder } from '@neat-evolution/stats'
 import { createRNG } from '@neat-evolution/utils'
 import { loadScenarioBank } from '../../data/scenarios.js'
@@ -198,17 +195,9 @@ function evaluateWithRecorder(
     const executor = hydrateToExecutor(entry.genomePath, entry.method)
     fitness = environment.evaluate(executor, context)
   } else {
-    // Baseline agent: build a no-op EpisodicAgent + GameAgent
-    const noopAgent: EpisodicAgent = {
-      act: () => new Float64Array(0),
-      reward: () => {},
-      startEpisode: () => {},
-      endEpisode: () => {},
-      setTransitionInfo: () => {},
-    }
     const gameAgent: GameAgent = {
       agent: entry.agentFn,
-      episodicAgent: noopAgent,
+      observe: () => new Float64Array(0),
       resetMemory: () => {},
     }
     fitness = environment.evaluateGameAgent(gameAgent, context)

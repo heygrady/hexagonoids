@@ -1,13 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
 import { ensureSerializedOrganismMarker } from '../training/serialization/serializedOrganism.js'
+import { DEFAULT_ARTIFACTS_DIR } from './artifactPaths.js'
 
-const DEFAULT_OUTPUT_DIR = fileURLToPath(
-  new URL('../../../../', import.meta.url)
-)
+const DEFAULT_OUTPUT_DIR = DEFAULT_ARTIFACTS_DIR
 
 const toSerializable = (value: unknown): unknown => {
   if (value == null || typeof value !== 'object') {
