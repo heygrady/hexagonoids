@@ -9,14 +9,16 @@ import { MAX_DELTA, restartGame } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import {
   type AgentContext,
+  type AgentFn,
   buildCurriculumParams,
+  createGameAgent,
   CURRICULUM_SCENARIO_COUNT,
-  createNeatAgent,
   generateCurriculumSnapshot,
   restoreSnapshot,
   type ScenarioSnapshot,
 } from '@heygrady/hexagonoids-environment'
-import type { SyncExecutor } from '@neat-evolution/executor'
+import type { Executor } from '@neat-evolution/executor'
+import { createVanillaStepAgent } from '@neat-evolution/rl-core'
 import { createRNG } from '@neat-evolution/utils'
 import { onCleanup } from 'solid-js'
 import { useScene } from '../../solid-babylon/hooks/useScene'
@@ -57,7 +59,7 @@ export function ObserveController() {
 
   let disposed = false
   let shouldTick = true
-  let currentExecutor: SyncExecutor | null = null
+  let currentExecutor: Executor | null = null
   let currentGeneration: number | null = null
   let currentRunBoundaryPassed = false
   let currentRunDeadlineAt = 0
@@ -83,9 +85,10 @@ export function ObserveController() {
   const aiContext: AgentContext = {
     rng: createRNG(`${OBSERVE_SEED}:agent`),
     memory: {},
-    executor: undefined,
     spatialQueries: engine,
   }
+
+  let observeAgent: AgentFn | null = null
 
   const adapter = createObserveTrainingAdapter()
 
@@ -119,7 +122,7 @@ export function ObserveController() {
     )
   }
 
-  const observeAgent = createNeatAgent()
+  // observeAgent is set in startGeneration when a new executor arrives
 
   const agentMode = searchParams.get('agent') === 'best' ? 'best' : 'hero'
 
@@ -203,7 +206,7 @@ export function ObserveController() {
     currentExecutor = null
     currentGeneration = null
     currentRunBoundaryPassed = false
-    aiContext.executor = undefined
+    observeAgent = null
     aiContext.memory = {}
     setObserveRunningGeneration(null)
     setObserveRunningFitness(null)
@@ -240,7 +243,7 @@ export function ObserveController() {
     organism: unknown
   ) => {
     if (disposed) return
-    let executor: SyncExecutor
+    let executor: Executor
     try {
       executor = organismToExecutor(observeMethod, organism)
     } catch (error) {
@@ -271,7 +274,10 @@ export function ObserveController() {
     shouldTick = true
     setObserveSummary(null)
 
-    aiContext.executor = executor
+    // Create a new GameAgent wrapping the executor for this generation
+    const stepAgent = createVanillaStepAgent(executor)
+    const gameAgent = createGameAgent(stepAgent)
+    observeAgent = gameAgent.agent
     aiContext.memory = {}
     replayCounter++
     const gameSeed = `${OBSERVE_SEED}:g${generation}:r${replayCounter}`
@@ -511,7 +517,7 @@ export function ObserveController() {
     if (!shouldTick) return
 
     const dtMs = Math.min(scene.getEngine().getDeltaTime(), MAX_DELTA)
-    aiContext.executor = currentExecutor
+    if (observeAgent == null) return
     const aiInput = observeAgent(engine.state, DEFAULT_PLAYER_ID, aiContext)
     engine.tick({ [DEFAULT_PLAYER_ID]: aiInput }, dtMs)
 

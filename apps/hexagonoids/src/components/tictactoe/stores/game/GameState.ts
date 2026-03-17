@@ -1,6 +1,6 @@
 import type { InteractiveGame } from '@heygrady/tictactoe-demo'
 import type { EvolutionManager } from '@neat-evolution/evolution-manager'
-import type { SyncExecutor } from '@neat-evolution/executor'
+import type { Executor } from '@neat-evolution/executor'
 import type { Glicko2 } from 'glicko2'
 
 import type { BoardStore } from '../board/BoardStore.js'
@@ -74,7 +74,7 @@ export interface SerializableGenerationSnapshot {
  */
 export interface RuntimeGenerationSnapshot
   extends SerializableGenerationSnapshot {
-  executor: SyncExecutor
+  executor: Executor
 }
 
 /**

@@ -280,8 +280,8 @@ export function createTictactoeEvolutionManager(
             options.populationFactoryOptions as EvolutionManagerConfig['populationFactoryOptions'],
         }
       : {}),
-    workerConfig: {
-      createEnvironmentPathname: modulePathnames.createEnvironmentPathname,
+    createEnvironmentPathname: modulePathnames.createEnvironmentPathname,
+    evaluatorConfig: {
       algorithmPathname: modulePathnames.algorithmPathname,
       createExecutorPathname: modulePathnames.createExecutorPathname,
       evaluatorWorkerScriptUrl: workerEvaluatorScriptUrl,

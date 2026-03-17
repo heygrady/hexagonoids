@@ -221,6 +221,7 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
           description,
           toFactoryOptions: () => envConfig,
         },
+        createEnvironmentPathname,
         evolutionOptions: {
           iterations,
           afterEvaluateInterval: 1,
@@ -241,8 +242,7 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
           },
         },
         populationOptions: { populationSize },
-        workerConfig: {
-          createEnvironmentPathname,
+        evaluatorConfig: {
           algorithmPathname,
           createExecutorPathname,
           threadCount,
