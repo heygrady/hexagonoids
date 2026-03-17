@@ -1,9 +1,9 @@
+import type { PartialEvaluationContext } from '@neat-evolution/execution-manager'
 import type {
   Environment,
   EnvironmentDescription,
 } from '@neat-evolution/environment'
-import type { Executor, SyncExecutor } from '@neat-evolution/executor'
-import type { RNG } from '@neat-evolution/utils'
+import type { Executor } from '@neat-evolution/executor'
 
 import { evaluateGauntlet } from './evaluation/gauntletEvaluation.js'
 import { playMatch } from './evaluation/playMatch.js'
@@ -15,10 +15,10 @@ import { calculateNormalizationBounds } from './types/scoring.js'
 import { createPlayerFromExecutor } from './utils/createPlayerFromExecutor.js'
 
 /**
- * Wraps a SyncExecutor in the PlayerFn interface.
+ * Wraps a Executor in the PlayerFn interface.
  * This binds the executor to the neatAI function and adapts its
  * return type from [Board, number, number] to [Board, number].
- * @param {SyncExecutor} executor - The SyncExecutor to wrap
+ * @param {Executor} executor - The Executor to wrap
  * @returns {import('@heygrady/tictactoe-game').PlayerFn} A PlayerFn that uses the provided executor
  */
 
@@ -39,11 +39,11 @@ export class TicTacToeEnvironment
 
   /**
    * Evaluates a single head-to-head match (the executors) provided by the EvaluationStrategy.
-   * @param {SyncExecutor[]} executors - A list of executors for a *single match*. This environment assumes executors.length === 2.
-   * @param {RNG} [rng] - Optional random number generator
+   * @param {Executor[]} executors - A list of executors for a *single match*. This environment assumes executors.length === 2.
+   * @param {PartialEvaluationContext} [context] - Optional evaluation context (provides rng)
    * @returns {number[]} Array of scores for each executor
    */
-  evaluateBatch(executors: SyncExecutor[], rng?: RNG): number[] {
+  evaluateBatch(executors: Executor[], context?: PartialEvaluationContext): number[] {
     // This environment only supports 2-player matches.
     // The EvaluationStrategy should be configured with matchPlayerSize = 2.
     if (executors.length !== 2) {
@@ -52,7 +52,7 @@ export class TicTacToeEnvironment
       )
     }
 
-    const [execA, execB] = executors as [SyncExecutor, SyncExecutor]
+    const [execA, execB] = executors as [Executor, Executor]
 
     const playerA = createPlayerFromExecutor(execA)
     const playerB = createPlayerFromExecutor(execB)
@@ -71,7 +71,7 @@ export class TicTacToeEnvironment
       this.config.gameOutcomeScores,
       this.config.confidenceMultiplier,
       this.config.moveWeighting,
-      { rng }
+      { rng: context?.rng }
     )
 
     // Return scores in the *same order* as the executors were received.
@@ -82,11 +82,11 @@ export class TicTacToeEnvironment
    * Evaluates a single genome against a gauntlet of built-in AI opponents.
    * Uses soft min-max normalization to scale scores to approximately 0-1 range
    * while allowing outliers to exceed bounds.
-   * @param {SyncExecutor} executor - The executor to evaluate
-   * @param {RNG} [rng] - Optional random number generator
+   * @param {Executor} executor - The executor to evaluate
+   * @param {PartialEvaluationContext} [context] - Optional evaluation context (provides rng)
    * @returns {number} Final weighted fitness score
    */
-  evaluate(executor: SyncExecutor, rng?: RNG): number {
+  evaluate(executor: Executor, context?: PartialEvaluationContext): number {
     const player = createPlayerFromExecutor(executor)
 
     return evaluateGauntlet(
@@ -96,7 +96,7 @@ export class TicTacToeEnvironment
       this.config.gameOutcomeScores,
       this.config.confidenceMultiplier,
       this.config.moveWeighting,
-      { rng }
+      { rng: context?.rng }
     )
   }
 

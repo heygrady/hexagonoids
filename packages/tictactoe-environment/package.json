@@ -49,6 +49,7 @@
   "dependencies": {
     "@heygrady/tictactoe-game": "workspace:^",
     "@neat-evolution/environment": "^0.5.8",
+    "@neat-evolution/execution-manager": "^0.4.0",
     "@neat-evolution/executor": "^0.3.13",
     "@neat-evolution/utils": "^0.6.0",
     "@swc/helpers": "^0.5.19"

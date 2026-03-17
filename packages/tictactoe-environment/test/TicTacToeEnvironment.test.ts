@@ -1,17 +1,17 @@
-import type { SyncExecutor } from '@neat-evolution/executor'
+import type { Executor } from '@neat-evolution/executor'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { TicTacToeEnvironment } from '../src/TicTacToeEnvironment.js'
 
 // Helper to create a mock executor. We only need a unique instance for Map keys.
-const mockExecutor = (_name: string): SyncExecutor => {
+const mockExecutor = (_name: string): Executor => {
   return {
     isAsync: false as const,
     execute: vi.fn(() => Array(9).fill(0.1)),
     executeBatch: vi.fn((batch: number[][]) =>
       batch.map(() => Array(9).fill(0.1))
     ),
-  } as unknown as SyncExecutor
+  } as unknown as Executor
 }
 
 describe('TicTacToeEnvironment', () => {
