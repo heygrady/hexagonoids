@@ -94,7 +94,8 @@ interface Environment<EFO = unknown> {
 }
 ```
 
-`worker-evaluator` does not know about `EpisodicEnvironment`, `StepEnvironment`, `SupervisedEnvironment`, or environment-internal helper methods. Those may exist for consumer ergonomics, but the worker only drives `evaluate(...)`.
+`worker-evaluator` does not know about environment subtypes or environment-internal
+helper methods. It only drives `evaluate(...)`.
 
 ---
 
@@ -113,8 +114,7 @@ interface EnvironmentInitOptions<EMF, EMFO> {
 This is intentionally generic. The environment narrows it locally to the execution-manager shape it expects:
 
 - supervised environments narrow to trainer factories
-- legacy episodic environments narrow to agent factories where they still exist
-- step environments narrow to `StepAgentFactory`
+- step RL environments narrow to `StepAgentFactory`
 
 The worker does not care which one it is. It only hydrates fields onto `initOptions`.
 
@@ -169,86 +169,3 @@ The stable boundary is:
 - the environment decides how to use `createExecutionManager`
 
 That keeps the worker generic and keeps environment-specific routing inside the environment implementation where it belongs.
-
-### The fix
-
-**1. Init options come through the factory and stay in the constructor.**
-
-```typescript
-type EnvironmentFactory<EFO> = (
-  options: EFO,
-  initOptions?: EnvironmentInitOptions      // renamed from EnvironmentRuntimeOptions
-) => Environment<EFO>
-```
-
-```typescript
-interface EnvironmentInitOptions {
-  stats?: StatsRecorder
-  createAgent?: AgentFactory
-  agentFactoryOptions?: AgentFactoryOptions
-  [key: string]: unknown                    // hydrated pathnames
-}
-```
-
-The environment stores these immutably:
-
-```typescript
-class HexagonoidsEnvironment {
-  private readonly initOptions: EnvironmentInitOptions
-
-  constructor(config: HexagonoidsEnvironmentConfig, initOptions?: EnvironmentInitOptions) {
-    this.config = mergeConfig(config)
-    this.initOptions = initOptions ?? {}
-  }
-}
-```
-
-**2. Evaluation context is an argument to `evaluate()`.**
-
-```typescript
-interface Environment<EFO = unknown> {
-  evaluate(executor: StaticExecutor, rng?: RNG, context?: WorkerEvaluationContext): number
-  evaluateAsync(executor: StaticExecutor, rng?: RNG, context?: WorkerEvaluationContext): Promise<number>
-  // ...
-}
-```
-
-The environment passes it through to the agent factory:
-
-```typescript
-evaluate(executor: StaticExecutor, rng?: RNG, context?: WorkerEvaluationContext): number {
-  const factory = this.initOptions.createAgent ?? createVanillaAgent
-  const options = this.initOptions.agentFactoryOptions ?? {}
-  const agent = factory(executor, options, context)
-  // ...
-}
-```
-
-**3. `RuntimeConfigurable` goes away.**
-
-No `setRuntimeOptions`. No mutable runtime state. No re-delivery of init options. The worker simplifies to:
-
-```typescript
-// handleInitEvaluator — once per worker
-environment = createEnvironment(environmentData, initOptions)
-
-// handleEvaluateGenome — once per genome
-boundContext = createBoundContext(...)
-fitness = environment.evaluate(executor, rng, boundContext)
-```
-
-**4. `baseRuntimeOptions` on ThreadContext goes away.**
-
-The worker no longer needs to store and re-merge base options. Init options are in the environment. The bound context is a direct argument.
-
-### What this changes in neat-js
-
-- `Environment.evaluate()` signature gains optional `context` parameter
-- `EnvironmentFactory` second arg renamed from `runtimeOptions` to `initOptions`
-- `EnvironmentRuntimeOptions` split into `EnvironmentInitOptions` (init-time) — `WorkerEvaluationContext` is already its own type
-- `RuntimeConfigurable` interface deleted
-- `isRuntimeConfigurable` guard deleted
-- `handleEvaluateGenome` drops the `setRuntimeOptions` call, passes `boundContext` to `evaluate()`
-- `handleEvaluateBatch` can optionally pass `boundContext` to `evaluateBatch()` — closing the batch gap from section 5
-- `BanditEnvironment` drops `implements RuntimeConfigurable`, stores init options in constructor, reads `context` from `evaluate()` arg
-- `ThreadContext.baseRuntimeOptions` field deleted

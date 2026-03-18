@@ -1,9 +1,9 @@
 # Hexagonoids Reward Model
 
-The Phase 4 RL refactor gives the real hexagonoids gauntlet the same standard
-semantics as the contrived demo. Every episode (scenario, full game, curriculum
-micro-scenario) emits shaped rewards alongside the long-horizon fitness score so
-Actor-Critic and Q-learning agents can train on meaningful rollout segments.
+Hexagonoids uses the phase-11 step substrate: the environment drives the game
+loop, computes per-tick rewards, and finalizes each transition through
+`StepAgent.completeStep(...)`. Vanilla executors and step-learning agents still
+share the same gauntlet and final fitness calculation.
 
 ## Per-step rewards
 
@@ -23,8 +23,9 @@ computing the delta so agents only see domain progress they actually produced.
 
 ## Transition metadata (`info`)
 
-Episodes emit standard `TransitionInfo` data ahead of each reward so the RL
-agents can drive event-triggered rollout capture:
+The environment attaches an optional `info` object to step outcomes so step
+agents can consume event-level hints without changing the base transition
+contract:
 
 - `isInteresting = true` when the agent destroys a rock, dies, or advances a
   wave. These events align with the live reward spikes and correspond to the
@@ -37,17 +38,16 @@ agents can drive event-triggered rollout capture:
 
 ## Episode lifecycle
 
-`HexagonoidsEnvironment` now implements both `EpisodicEnvironment` and
-`AgentEnvironment`. Each evaluation path uses the same gauntlet:
+Each evaluation path uses the same gauntlet:
 
 - Scenario evaluation samples the same bank/seed combinations for both vanilla
   executors and RL agents.
 - Full games and curriculum segments run the same number of seeds as before.
-- Every episode reports the final `weightedFitnessSum` via the standard
-  `EpisodeResult` metadata, so RL plugins and telemetry hooks can report the
-  same fitness humans read in the generation logs.
+- Every episode reports the final `weightedFitnessSum` through the environment's
+  normal fitness path, so generation logs and step-learning telemetry stay
+  aligned.
 
 The reward model is intentionally modest—values stay in a small range so they
-align with the rollout-segment reward threshold defaults (`abs(reward) > 0.1`).
-Tuning the constants allows future parts to balance curriculum vs scenario bias
-without changing the RL plugins.
+remain numerically stable across short scenarios and full games. Tuning the
+constants allows future parts to balance curriculum vs scenario bias without
+changing the step agent interface.
