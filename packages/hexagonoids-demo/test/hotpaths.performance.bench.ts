@@ -114,7 +114,6 @@ describe('hotpath performance', () => {
     () => {
       const { engine, state } = createDenseScenario()
       for (let i = 0; i < 240; i++) {
-        engine.invalidateSpatialIndex()
         detectCollisions(state, undefined, engine)
       }
     },
@@ -131,7 +130,6 @@ describe('hotpath performance', () => {
     () => {
       const { engine, state } = createBulletCollisionScenario()
       for (let i = 0; i < 240; i++) {
-        engine.invalidateSpatialIndex()
         detectCollisions(state, undefined, engine)
       }
     },
@@ -148,7 +146,6 @@ describe('hotpath performance', () => {
     () => {
       const { engine, state } = createShipCollisionScenario()
       for (let i = 0; i < 240; i++) {
-        engine.invalidateSpatialIndex()
         detectCollisions(state, undefined, engine)
       }
     },

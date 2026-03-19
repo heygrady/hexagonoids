@@ -48,9 +48,20 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
       typeof flags.profile === 'string' ? flags.profile : undefined
     const profile = await this.resolveProfile(profileRef)
     const flagOptions = this.flagsToTrainOptions(flags)
-    const options = this.mergeTrainOptions(profile.config, flagOptions, {
-      baselineOnly: false,
-    })
+    // When --iterations is explicitly provided, disable early stop and time
+    // limit so the diagnostic always runs the requested number of generations.
+    const iterations =
+      typeof flags.iterations === 'number' ? flags.iterations : undefined
+    const disableEarlyStop =
+      iterations != null
+        ? { earlyStopPatience: iterations + 1, secondsLimit: 0 }
+        : {}
+    const options = this.mergeTrainOptions(
+      profile.config,
+      flagOptions,
+      { baselineOnly: false },
+      disableEarlyStop
+    )
 
     const rlMode = options.rlMode ?? 'none'
     if (rlMode === 'none') {
