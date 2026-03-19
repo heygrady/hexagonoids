@@ -80,7 +80,7 @@ export function createReactiveEngine(
         step(draft, inputs, dtMs, rng, hooks, spatialQueries)
       })
     )
-    spatialQueries.invalidateSpatialIndex()
+    // Queries always read fresh state — no invalidation needed
     syncPoolSignals()
   }
 
@@ -96,7 +96,7 @@ export function createReactiveEngine(
         fn(draft)
       })
     )
-    spatialQueries.invalidateSpatialIndex()
+    // Queries always read fresh state — no invalidation needed
     syncPoolSignals()
   }
 
@@ -112,7 +112,7 @@ export function createReactiveEngine(
         reseedGame(draft, playerId, rng)
       })
     )
-    spatialQueries.invalidateSpatialIndex()
+    // Queries always read fresh state — no invalidation needed
     syncPoolSignals()
   }
 

@@ -8,6 +8,11 @@ import type { GameState } from '../types.js'
 
 import type { CollisionPair } from './detectCollisions.js'
 
+// Pre-allocated dedup Sets — cleared per tick instead of re-created.
+const processedBullets = new Set<string>()
+const processedRocks = new Set<string>()
+const processedShips = new Set<string>()
+
 /**
  * Dispatch collision pairs to the appropriate handlers.
  * Mutates game state in response to collisions.
@@ -18,10 +23,9 @@ export function handleCollisions(
   rng: RNG,
   hooks?: EngineHooks
 ): void {
-  // Track already-processed entities to avoid double processing
-  const processedBullets = new Set<string>()
-  const processedRocks = new Set<string>()
-  const processedShips = new Set<string>()
+  processedBullets.clear()
+  processedRocks.clear()
+  processedShips.clear()
 
   for (const pair of collisions) {
     if (pair.type === 'bullet-rock') {

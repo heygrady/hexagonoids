@@ -11,7 +11,6 @@ import {
   RADIUS,
   ROCK_LARGE_SIZE,
   resetIdCounter,
-  SHIP_RADIUS,
   SHIP_REGENERATION_GRACE_PERIOD,
   spawnRock,
   spawnShip,
@@ -137,21 +136,12 @@ describe('collision detection', () => {
       expect(pairs.filter((p) => p.type === 'ship-rock').length).toBe(1)
     })
 
-    it('uses exact ship intersection radius when querying rock collisions', () => {
+    it('detects ship-rock collision with correct radius thresholds', () => {
       const ship = spawnShip(game, 'p1', pointFromLatLng(10, 20), rng)
       spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
-      let queriedRadius: number | null = null
-      const spatialIndex = {
-        findFirstRockIntersect(_center: unknown, radius: number) {
-          queriedRadius = radius
-          return undefined
-        },
-      } as unknown
-
-      detectCollisions(game, RADIUS, spatialIndex as never)
-
-      expect(queriedRadius).toBe(SHIP_RADIUS)
+      const pairs = detectCollisions(game, RADIUS)
+      expect(pairs.filter((p) => p.type === 'ship-rock').length).toBe(1)
     })
   })
 

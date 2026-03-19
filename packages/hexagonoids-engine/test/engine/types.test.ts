@@ -29,18 +29,13 @@ describe('createGame', () => {
     expect(b.ships.size).toBe(0)
   })
 
-  it('manages a cached spatial index and invalidates it after engine mutations', () => {
+  it('queries rocks near a point after spawning a wave', () => {
     const engine = createGame({ seed: 'test-seed' })
-
-    const before = engine.getSpatialIndex()
-    expect(engine.getSpatialIndex()).toBe(before)
 
     engine.mutate((state) => {
       spawnWave(state, pointFromLatLng(0, 0), engine.rng)
     })
 
-    const after = engine.getSpatialIndex()
-    expect(after).not.toBe(before)
     expect(
       engine.queryRocksNear(pointFromLatLng(0, 0), Math.PI).length
     ).toBeGreaterThan(0)

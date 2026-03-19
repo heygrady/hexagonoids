@@ -26,23 +26,20 @@ describe('createReactiveEngine', () => {
       expect(engine.state.wave).toBe(0)
       expect(engine.state.endedAt).toBeNull()
       expect(engine.tick).toBeInstanceOf(Function)
-      expect(engine.getSpatialIndex).toBeInstanceOf(Function)
+      expect(engine.queryRocksNear).toBeInstanceOf(Function)
       expect(engine.rng).toBeDefined()
       dispose()
     })
   })
 
-  it('invalidates the cached spatial index after reactive mutations', () => {
+  it('queries rocks after reactive mutations', () => {
     createRoot((dispose) => {
       const engine = createReactiveEngine({ seed: 'test' })
-      const before = engine.getSpatialIndex()
 
       engine.mutate((state) =>
         spawnWave(state, pointFromLatLng(0, 0), engine.rng)
       )
 
-      const after = engine.getSpatialIndex()
-      expect(after).not.toBe(before)
       expect(
         engine.queryRocksNear(pointFromLatLng(0, 0), Math.PI).length
       ).toBeGreaterThan(0)

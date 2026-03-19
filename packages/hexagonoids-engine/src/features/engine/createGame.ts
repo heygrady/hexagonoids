@@ -34,11 +34,9 @@ export function createGame(options?: EngineOptions): EngineInstance {
     rng,
     tick(inputs: PlayerInputs, dtMs: number, hooks?: EngineHooks): void {
       step(state, inputs, dtMs, rng, hooks, spatialQueries)
-      spatialQueries.invalidateSpatialIndex()
     },
     mutate(fn: (draft: GameState) => void): void {
       fn(state)
-      spatialQueries.invalidateSpatialIndex()
     },
     ...spatialQueries,
   }
