@@ -173,7 +173,10 @@ export function simulateScenario(
       }
     }
 
-    // Early stop: agent previously saw rocks but now has zero known rocks
+    // Early stop: agent previously saw rocks but now has zero known rocks.
+    // Deferred to after the tick so the step agent's act→completeStep cycle
+    // finishes before the episode ends.
+    let earlyStop = false
     if (hasSeenRock && ship?.alive) {
       const hasVisibleRocks =
         rockPerception != null &&
@@ -182,7 +185,7 @@ export function simulateScenario(
         const seenRocks = context.memory[MEMORY_SEEN_ROCKS] as
           | Set<string>
           | undefined
-        if (seenRocks == null || seenRocks.size === 0) break
+        if (seenRocks == null || seenRocks.size === 0) earlyStop = true
       }
     }
 
@@ -221,7 +224,8 @@ export function simulateScenario(
 
     const terminated =
       livesNow <= 0 || (state.endedAt != null && livePlayer?.alive === false)
-    const truncated = tick >= maxTicks - 1 || state.wave > baselineWave + 1
+    const truncated =
+      earlyStop || tick >= maxTicks - 1 || state.wave > baselineWave + 1
 
     const tickRocks = collector.getTickRocksDestroyed()
 
@@ -245,6 +249,8 @@ export function simulateScenario(
         }
       )
     }
+
+    if (earlyStop) break
   }
 
   // Final distance update

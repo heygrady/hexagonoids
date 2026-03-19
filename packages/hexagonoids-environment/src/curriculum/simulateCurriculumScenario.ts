@@ -65,7 +65,8 @@ export function simulateCurriculumScenario(
   for (; tick < maxTicks; tick++) {
     if (state.endedAt != null) break
 
-    // Early stop: all rocks destroyed or player died
+    // Early stop conditions checked before act() — these are safe because
+    // no step is open yet at the top of the loop.
     if (state.rocks.size === 0) break
     if (trackedPlayer != null && !trackedPlayer.alive) break
 
@@ -137,7 +138,10 @@ export function simulateCurriculumScenario(
       }
     }
 
-    // Early stop: agent previously saw rocks but now has zero known rocks
+    // Early stop: agent previously saw rocks but now has zero known rocks.
+    // Deferred to after the tick so the step agent's act→completeStep cycle
+    // finishes before the episode ends.
+    let earlyStop = false
     if (hasSeenRock && ship?.alive) {
       const hasVisibleRocks =
         rockPerception != null &&
@@ -146,7 +150,7 @@ export function simulateCurriculumScenario(
         const seenRocks = context.memory[MEMORY_SEEN_ROCKS] as
           | Set<string>
           | undefined
-        if (seenRocks == null || seenRocks.size === 0) break
+        if (seenRocks == null || seenRocks.size === 0) earlyStop = true
       }
     }
 
@@ -174,7 +178,8 @@ export function simulateCurriculumScenario(
 
     const terminated =
       livesNow <= 0 || (state.endedAt != null && livePlayer?.alive === false)
-    const truncated = state.rocks.size === 0 || tick >= maxTicks - 1
+    const truncated =
+      earlyStop || state.rocks.size === 0 || tick >= maxTicks - 1
 
     const tickRocks = collector.getTickRocksDestroyed()
 
@@ -198,6 +203,8 @@ export function simulateCurriculumScenario(
         }
       )
     }
+
+    if (earlyStop) break
   }
 
   // Final distance update

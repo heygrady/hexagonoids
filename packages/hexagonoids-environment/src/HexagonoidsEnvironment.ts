@@ -339,29 +339,33 @@ export class HexagonoidsEnvironment
   private buildSimulationHooks(
     agent: StepAgent,
     gameAgent: GameAgent,
-    rewardConfig: RewardConfig,
+    rewardConfig?: Partial<RewardConfig>,
     situationClass?: number
   ): SimulationHooks {
+    const resolvedRewardConfig: RewardConfig = {
+      ...DEFAULT_REWARD_CONFIG,
+      ...rewardConfig,
+    }
     return {
       onAfterTick(deltas: TickDeltas, snapshot) {
         let reward = 0
         if (deltas.shipAlive) {
-          reward += rewardConfig.survivalReward
+          reward += resolvedRewardConfig.survivalReward
         }
         if (deltas.rocksDestroyed > 0) {
-          reward += rewardConfig.rockReward * deltas.rocksDestroyed
+          reward += resolvedRewardConfig.rockReward * deltas.rocksDestroyed
         }
         if (deltas.scoreDelta !== 0) {
-          reward += deltas.scoreDelta * rewardConfig.scoreScale
+          reward += deltas.scoreDelta * resolvedRewardConfig.scoreScale
         }
         if (deltas.lifeDelta < 0) {
-          reward += rewardConfig.deathPenalty * Math.abs(deltas.lifeDelta)
+          reward += resolvedRewardConfig.deathPenalty * Math.abs(deltas.lifeDelta)
         }
         if (deltas.newBullets > 0) {
-          reward -= deltas.newBullets * rewardConfig.shotPenalty
+          reward -= deltas.newBullets * resolvedRewardConfig.shotPenalty
         }
         if (deltas.waveChanged) {
-          reward += rewardConfig.waveBonus
+          reward += resolvedRewardConfig.waveBonus
         }
 
         const transitionInfo: Record<string, unknown> = {}
@@ -460,7 +464,7 @@ export class HexagonoidsEnvironment
         type: 'curriculum',
         metadata: { index, seed: `${seed}:curriculum:${index}` },
       })
-      return this.buildSimulationHooks(agent, gameAgent, DEFAULT_REWARD_CONFIG)
+      return this.buildSimulationHooks(agent, gameAgent, this.config.rewardConfig)
     }
 
     const metricsArray = runCurriculum(
@@ -594,7 +598,7 @@ export class HexagonoidsEnvironment
     const hooks = this.buildSimulationHooks(
       agent,
       gameAgent,
-      DEFAULT_REWARD_CONFIG
+      this.config.rewardConfig
     )
     const metrics = simulateGame(
       gameAgent.agent,
@@ -664,7 +668,7 @@ export class HexagonoidsEnvironment
       const hooks = this.buildSimulationHooks(
         agent,
         gameAgent,
-        DEFAULT_REWARD_CONFIG,
+        this.config.rewardConfig,
         scenario.necklace ?? undefined
       )
       const metrics = simulateScenario(

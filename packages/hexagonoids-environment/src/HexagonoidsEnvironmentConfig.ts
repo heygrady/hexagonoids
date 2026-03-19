@@ -1,3 +1,4 @@
+import type { RewardConfig } from './evaluation/simulateGame.js'
 import type { ScenarioSnapshot } from './scenarios/types.js'
 
 export interface SimulationConfig {
@@ -82,6 +83,8 @@ export interface HexagonoidsEnvironmentConfig {
   curriculumWeight: number
   scenarioSeedsPerOrganism: number
   fullGameSeedsPerOrganism: number
+  /** Per-tick reward config for RL step agents. Falls back to DEFAULT_REWARD_CONFIG when omitted. */
+  rewardConfig?: Partial<RewardConfig> | undefined
   /**
    * Total number of genome outputs reported in description.outputs.
    * Defaults to 4 (the 4 game actions). RL modes may need more:
@@ -186,6 +189,7 @@ export function mergeConfig(
     fullGameSeedsPerOrganism:
       partial.fullGameSeedsPerOrganism ??
       DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fullGameSeedsPerOrganism,
+    ...(partial.rewardConfig != null && { rewardConfig: partial.rewardConfig }),
     ...(partial.outputCount != null && { outputCount: partial.outputCount }),
   }
 }
