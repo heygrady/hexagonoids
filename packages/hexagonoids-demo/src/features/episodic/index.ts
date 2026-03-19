@@ -1,5 +1,5 @@
 /**
- * Runs the Vanilla, AC-Lamarck, and QL-Lamarck comparison and prints a table.
+ * Runs the Vanilla, AC-Lamarck, QL-Lamarck, A2C-Lamarck, DQL-Lamarck, and PPO-Lamarck comparison and prints a table.
  *
  * The command layer is responsible for parsing flags and translating them into
  * `EpisodicOptions` before calling this handler.
@@ -91,6 +91,33 @@ function buildVariants(options: EpisodicOptions): VariantConfig[] {
         rlLearningRate: 0.001,
       },
     },
+    {
+      name: 'A2C-Lamarck',
+      trainOptions: {
+        ...shared,
+        rlMode: 'a2c',
+        rlIsLamarckian: true,
+        rlLearningRate: 0.001,
+      },
+    },
+    {
+      name: 'DQL-Lamarck',
+      trainOptions: {
+        ...shared,
+        rlMode: 'dql',
+        rlIsLamarckian: true,
+        rlLearningRate: 0.001,
+      },
+    },
+    {
+      name: 'PPO-Lamarck',
+      trainOptions: {
+        ...shared,
+        rlMode: 'ppo',
+        rlIsLamarckian: true,
+        rlLearningRate: 0.0003,
+      },
+    },
   ]
 }
 
@@ -115,7 +142,9 @@ export async function runEpisodic(
   const populationSize = first?.trainOptions.populationSize ?? 100
   const maxTicks = first?.trainOptions.maxTicks ?? 2048
 
-  console.log('=== Hexagonoids Episodic: Vanilla vs AC vs QL ===')
+  console.log(
+    '=== Hexagonoids Episodic: Vanilla vs AC vs QL vs A2C vs DQL vs PPO ==='
+  )
   console.log(
     `Iterations: ${iterations}, Population: ${populationSize}, MaxTicks: ${maxTicks}`
   )

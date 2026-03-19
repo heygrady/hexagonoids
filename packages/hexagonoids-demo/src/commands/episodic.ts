@@ -7,7 +7,7 @@ export default class EpisodicCommand extends BaseCommand {
   static override summary = 'Run the episodic comparison workflow.'
 
   static override description =
-    'Runs the Vanilla, AC-Lamarck, and QL-Lamarck comparison with a standard flag-only command surface.'
+    'Runs the Vanilla, AC-Lamarck, QL-Lamarck, A2C-Lamarck, DQL-Lamarck, and PPO-Lamarck comparison with a standard flag-only command surface.'
 
   static override examples = [
     '<%= config.bin %> episodic --iterations 20 --populationSize 64',

@@ -101,7 +101,7 @@ export async function runInspectInputs(
   const baseAgent = options.agent === 'doNothing' ? doNothingAgent : randomAgent
 
   // ── Run scenario gauntlet ──
-  const allInputs: number[][] = []
+  const allInputs: Array<ArrayLike<number>> = []
   let totalFrames = 0
 
   for (const scenario of selected) {
@@ -387,7 +387,7 @@ function printPerConeFeatureStats(
   }
 }
 
-function printSampleFrames(allInputs: number[][], totalFrames: number): void {
+function printSampleFrames(allInputs: Array<ArrayLike<number>>, totalFrames: number): void {
   console.log('\n── Sample Frames (first 5 with LIDAR activity) ──')
   let shown = 0
   for (let f = 0; f < totalFrames && shown < 5; f++) {
@@ -430,7 +430,7 @@ function printSampleFrames(allInputs: number[][], totalFrames: number): void {
 
 function printHistogram(
   title: string,
-  allInputs: number[][],
+  allInputs: Array<ArrayLike<number>>,
   totalFrames: number,
   baseOffset: number,
   slotCount: number,

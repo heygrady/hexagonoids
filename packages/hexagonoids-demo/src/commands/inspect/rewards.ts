@@ -5,7 +5,7 @@ import { inspectFitnessFlags } from '../../command-base/shared-flags.js'
 import {
   defaultInspectRewardsOptions,
   runInspectRewards,
-} from '../../features/inspect/inspectRewards.js'
+} from '../../features/inspect/inspectStepRewards.js'
 
 export default class InspectRewardsCommand extends BaseCommand {
   static override summary = 'Inspect the reward signal for RL training.'
