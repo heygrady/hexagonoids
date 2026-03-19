@@ -24,15 +24,17 @@ import type { ObservationFrame } from './observationTypes.js'
  * [2..65]  8 cones × 2 rocks × 4: proximity, bearing, velocityX, velocityY
  * [66..89] 6 bullet slots × 4: proximity, bearing, velocityX, velocityY
  */
+export type InputsBuffer = number[] | Float64Array
+
 export function encodeGameState(
   state: GameState,
   playerId: string,
-  inputsBuffer?: number[],
+  inputsBuffer?: InputsBuffer,
   observationsBuffer?: ObservationFrame,
   rockPerceptionBuffer?: RockPerceptionPrecompute,
   spatialQueries?: Pick<ManagedSpatialQueries, 'queryRocksNear'>,
   seenRocks?: Set<string>
-): number[] {
+): InputsBuffer {
   const obs = collectObservations(
     state,
     playerId,

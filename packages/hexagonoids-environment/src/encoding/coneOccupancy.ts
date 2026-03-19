@@ -12,7 +12,7 @@ import {
  * positive proximity (within bullet range) or negative proximity
  * (beyond bullet range but within SOI).
  */
-export function coneOccupancyMask(inputs: number[]): number {
+export function coneOccupancyMask(inputs: ArrayLike<number>): number {
   let mask = 0
   for (let cone = 0; cone < CONE_COUNT; cone++) {
     const proximityIndex = GLOBAL_FEATURES + cone * FEATURES_PER_CONE

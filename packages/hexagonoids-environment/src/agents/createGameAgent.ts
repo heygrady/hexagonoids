@@ -36,7 +36,6 @@ export function createGameAgent(controller: ActionController): GameAgent {
   const floatInputs = new Float64Array(INPUT_COUNT)
   const observationBuffer = createObservationFrameBuffer()
   const seenRocks = new Set<string>()
-  let inputBuffer: number[] | undefined
 
   const observe = (
     state: GameState,
@@ -46,24 +45,25 @@ export function createGameAgent(controller: ActionController): GameAgent {
     const rockPerception = context.memory[MEMORY_ROCK_PERCEPTION] as
       | RockPerceptionPrecompute
       | undefined
-    inputBuffer = encodeGameState(
+    // Write directly into the pre-allocated Float64Array — no intermediate
+    // number[] buffer. Returns the reusable buffer; callers that need a
+    // durable copy (PPO act/completeStep) use Float64Array.from().
+    // NOTE: returning a fresh array per call causes V8 JIT deoptimization
+    // in downstream executor code due to allocation-site type instability.
+    encodeGameState(
       state,
       playerId,
-      inputBuffer,
+      floatInputs,
       observationBuffer,
       rockPerception,
       context.spatialQueries,
       seenRocks
     )
-    context.memory[MEMORY_INPUT_BUFFER] = inputBuffer
+    context.memory[MEMORY_INPUT_BUFFER] = floatInputs
     context.memory[MEMORY_OBSERVATION_BUFFER] = observationBuffer
     context.memory[MEMORY_SEEN_ROCKS] = seenRocks
 
-    for (let i = 0; i < INPUT_COUNT; i++) {
-      floatInputs[i] = inputBuffer[i] ?? 0
-    }
-
-    return Float64Array.from(floatInputs)
+    return floatInputs
   }
 
   const bridgedAgent: AgentFn = (state, playerId, context) => {
