@@ -65,5 +65,25 @@ export function buildEnvironmentOptions(
       fullGameSeedsPerOrganism: options.fullGameSeedsPerOrganism,
     }),
     ...(outputCount != null && { outputCount }),
+    ...buildRewardConfig(options),
   }
+}
+
+function buildRewardConfig(
+  options: Partial<TrainOptions>
+): { rewardConfig: Record<string, number> } | Record<string, never> {
+  const overrides: Record<string, number> = {}
+  if (options.rlRewardRock != null) overrides.rockReward = options.rlRewardRock
+  if (options.rlRewardDeath != null)
+    overrides.deathPenalty = options.rlRewardDeath
+  if (options.rlRewardSurvival != null)
+    overrides.survivalReward = options.rlRewardSurvival
+  if (options.rlRewardScoreScale != null)
+    overrides.scoreScale = options.rlRewardScoreScale
+  if (options.rlRewardShotPenalty != null)
+    overrides.shotPenalty = options.rlRewardShotPenalty
+  if (options.rlRewardWaveBonus != null)
+    overrides.waveBonus = options.rlRewardWaveBonus
+  if (Object.keys(overrides).length === 0) return {}
+  return { rewardConfig: overrides }
 }

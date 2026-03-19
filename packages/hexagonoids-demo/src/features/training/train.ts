@@ -17,9 +17,13 @@ import {
   type EvolutionManagerOptions,
 } from '@neat-evolution/evolution-manager'
 import type {
+  A2CStepAgentConfig,
   ActorCriticStepAgentConfig,
+  DeepQLearningStepAgentConfig,
+  PPOStepAgentConfig,
   QLearningStepAgentConfig,
   StepRolloutBufferConfig,
+  TrajectoryBatchCollectorConfig,
 } from '@neat-evolution/rl-core'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 import {
@@ -84,6 +88,9 @@ const toRunConfig = (options: TrainOptions) => {
     rlEpsilonDecay: options.rlEpsilonDecay ?? 0.95,
     rlEpsilonMin: options.rlEpsilonMin ?? 0.01,
     rlMultiDiscrete: options.rlMultiDiscrete ?? true,
+    rlReplayCapacity: options.rlReplayCapacity ?? 10000,
+    rlReplayBatchSize: options.rlReplayBatchSize ?? 32,
+    rlTargetSyncInterval: options.rlTargetSyncInterval ?? 100,
   }
 }
 
@@ -104,6 +111,7 @@ export interface TrainOptions {
   logInterval?: number | undefined
   threadCount?: number | undefined
   workerCpuProfiles?: boolean | undefined
+  workerHeapProfiles?: boolean | undefined
   workerCpuProfileDir?: string | undefined
   signal?: AbortSignal | undefined
   scenarioMode?: boolean | undefined
@@ -118,7 +126,7 @@ export interface TrainOptions {
   fullGameWeight?: number | undefined
   scenarioSeedsPerOrganism?: number | undefined
   fullGameSeedsPerOrganism?: number | undefined
-  rlMode?: 'none' | 'actor-critic' | 'q-learning'
+  rlMode?: 'none' | 'actor-critic' | 'q-learning' | 'a2c' | 'dql' | 'ppo'
   rlLearningRate?: number | undefined
   rlIsLamarckian?: boolean | undefined
   rlRewardThreshold?: number | undefined
@@ -126,6 +134,15 @@ export interface TrainOptions {
   rlEpsilonDecay?: number | undefined
   rlEpsilonMin?: number | undefined
   rlMultiDiscrete?: boolean | undefined
+  rlReplayCapacity?: number | undefined
+  rlReplayBatchSize?: number | undefined
+  rlTargetSyncInterval?: number | undefined
+  rlRewardRock?: number | undefined
+  rlRewardDeath?: number | undefined
+  rlRewardSurvival?: number | undefined
+  rlRewardScoreScale?: number | undefined
+  rlRewardShotPenalty?: number | undefined
+  rlRewardWaveBonus?: number | undefined
 }
 
 export interface BaselineRunResult {
@@ -153,19 +170,24 @@ export interface TrainingRunResult {
 
 export type TrainResult = BaselineRunResult | TrainingRunResult
 
-interface ActiveWorkerCpuProfile {
+interface ActiveWorkerProfile {
   kind: string
+  type: 'cpu' | 'heap'
   threadId: number
   stop: () => Promise<unknown>
 }
 
-interface CpuProfileHandleLike {
+// Keep the old name as alias for compatibility within this file
+type ActiveWorkerCpuProfile = ActiveWorkerProfile
+
+interface ProfileHandleLike {
   stop: () => Promise<unknown>
 }
 
 interface ProfilableNodeWorkerLike {
   threadId: number
-  startCpuProfile: () => Promise<CpuProfileHandleLike>
+  startCpuProfile: () => Promise<ProfileHandleLike>
+  startHeapProfile?: () => Promise<ProfileHandleLike>
 }
 
 function isObjectLike(value: unknown): value is Record<PropertyKey, unknown> {
@@ -205,7 +227,7 @@ function getOwnedNodeWorkers(owner: unknown): ProfilableNodeWorkerLike[] {
 async function startWorkerCpuProfilesForOwner(
   owner: unknown,
   kind: string
-): Promise<ActiveWorkerCpuProfile[]> {
+): Promise<ActiveWorkerProfile[]> {
   await waitForWorkerOwnerReady(owner)
   const workers = getOwnedNodeWorkers(owner)
   return await Promise.all(
@@ -213,6 +235,7 @@ async function startWorkerCpuProfilesForOwner(
       const handle = await worker.startCpuProfile()
       return {
         kind,
+        type: 'cpu' as const,
         threadId: worker.threadId,
         stop: () => handle.stop(),
       }
@@ -220,22 +243,43 @@ async function startWorkerCpuProfilesForOwner(
   )
 }
 
-async function writeWorkerCpuProfiles(
-  profiles: ActiveWorkerCpuProfile[],
+async function startWorkerHeapProfilesForOwner(
+  owner: unknown,
+  kind: string
+): Promise<ActiveWorkerProfile[]> {
+  await waitForWorkerOwnerReady(owner)
+  const workers = getOwnedNodeWorkers(owner)
+  const results: ActiveWorkerProfile[] = []
+  for (const worker of workers) {
+    if (typeof worker.startHeapProfile !== 'function') continue
+    const handle = await worker.startHeapProfile()
+    results.push({
+      kind,
+      type: 'heap',
+      threadId: worker.threadId,
+      stop: () => handle.stop(),
+    })
+  }
+  return results
+}
+
+async function writeWorkerProfiles(
+  profiles: ActiveWorkerProfile[],
   outputDir: string
 ): Promise<void> {
   if (profiles.length === 0) return
   mkdirSync(outputDir, { recursive: true })
 
   const writes = profiles.map(async (profile) => {
-    const cpuProfile = await profile.stop()
+    const data = await profile.stop()
+    const ext = profile.type === 'heap' ? 'heapprofile' : 'cpuprofile'
     const pathname = join(
       outputDir,
-      `${profile.kind}-worker-${profile.threadId}.cpuprofile`
+      `${profile.kind}-worker-${profile.threadId}.${ext}`
     )
     writeFileSync(
       pathname,
-      typeof cpuProfile === 'string' ? cpuProfile : JSON.stringify(cpuProfile)
+      typeof data === 'string' ? data : JSON.stringify(data)
     )
   })
   await Promise.all(writes)
@@ -324,6 +368,19 @@ function rlOutputConfig(
       ],
     }
   }
+  if (rlMode === 'a2c' || rlMode === 'ppo') {
+    // Same layout as actor-critic: paired softmax + value head
+    return {
+      outputCount: ACTION_COUNT * 2 + 1,
+      outputActivation: [
+        [2, Activation.Softmax],
+        [2, Activation.Softmax],
+        [2, Activation.Softmax],
+        [2, Activation.Softmax],
+        [1, Activation.Linear],
+      ],
+    }
+  }
   if (rlMode === 'q-learning' && rlMultiDiscrete) {
     return {
       outputCount: ACTION_COUNT * 2,
@@ -331,6 +388,18 @@ function rlOutputConfig(
     }
   }
   if (rlMode === 'q-learning') {
+    return {
+      outputCount: ACTION_COUNT,
+      outputActivation: Activation.Linear,
+    }
+  }
+  if (rlMode === 'dql') {
+    if (rlMultiDiscrete) {
+      return {
+        outputCount: ACTION_COUNT * 2,
+        outputActivation: Activation.Linear,
+      }
+    }
     return {
       outputCount: ACTION_COUNT,
       outputActivation: Activation.Linear,
@@ -393,6 +462,40 @@ function buildRLEvaluatorConfig(
     }
   }
 
+  if (config.rlMode === 'a2c') {
+    const trajectoryConfig: TrajectoryBatchCollectorConfig = {
+      rolloutLength: 32,
+      batchTransitions: 64,
+    }
+    const a2cConfig: A2CStepAgentConfig = {
+      learningRate: config.rlLearningRate,
+      actionCount: ACTION_COUNT,
+      multiDiscrete: true,
+      discountFactor: 0.99,
+      gaeLambda: 0.95,
+      normalizeAdvantages: true,
+      gradientConfig: {
+        entropyCoefficient: 0.01,
+        clipGradients: false,
+        gradientClipValue: 1.0,
+      },
+      trajectoryConfig,
+    }
+    return {
+      evaluation: {
+        createExecutorPathname: '@neat-evolution/executor/backprop',
+      },
+      execution: {
+        createExecutionManager: '@neat-evolution/rl-core/a2c',
+        executionManagerFactoryOptions: {
+          config: a2cConfig,
+          rngSeed: config.baseSeed,
+          isLamarckian: config.rlIsLamarckian,
+        },
+      },
+    }
+  }
+
   if (config.rlMode === 'q-learning') {
     const qlConfig: QLearningStepAgentConfig = {
       learningRate: config.rlLearningRate,
@@ -412,6 +515,73 @@ function buildRLEvaluatorConfig(
         createExecutionManager: '@neat-evolution/rl-core/q-learning',
         executionManagerFactoryOptions: {
           config: qlConfig,
+          rngSeed: config.baseSeed,
+          isLamarckian: config.rlIsLamarckian,
+        },
+      },
+    }
+  }
+
+  if (config.rlMode === 'dql') {
+    const dqlConfig: DeepQLearningStepAgentConfig = {
+      learningRate: config.rlLearningRate,
+      actionCount: ACTION_COUNT,
+      multiDiscrete: config.rlMultiDiscrete,
+      discountFactor: 0.99,
+      epsilonInitial: config.rlEpsilon,
+      epsilonDecayPerEpisode: config.rlEpsilonDecay,
+      epsilonMinimum: config.rlEpsilonMin,
+      replayCapacity: config.rlReplayCapacity,
+      replayBatchSize: config.rlReplayBatchSize,
+      replayWarmupSize: config.rlReplayBatchSize, // warm up = 1 batch
+      targetSyncInterval: config.rlTargetSyncInterval,
+    }
+    return {
+      evaluation: {
+        createExecutorPathname: '@neat-evolution/executor/backprop',
+      },
+      execution: {
+        createExecutionManager: '@neat-evolution/rl-core/dql',
+        executionManagerFactoryOptions: {
+          config: dqlConfig,
+          rngSeed: config.baseSeed,
+          isLamarckian: config.rlIsLamarckian,
+        },
+      },
+    }
+  }
+
+  if (config.rlMode === 'ppo') {
+    // Trajectory config: episode-aligned rollouts with large batches.
+    // batchTransitions=2048 means training after ~32 scenarios or 1 full game.
+    // Larger batches produce better GAE advantage estimates and allow more
+    // epochs to extract signal without overfitting to small samples.
+    const trajectoryConfig: TrajectoryBatchCollectorConfig = {
+      rolloutLength: 'episode',
+      batchTransitions: 2048,
+    }
+    const ppoConfig: PPOStepAgentConfig = {
+      learningRate: config.rlLearningRate,
+      actionCount: ACTION_COUNT,
+      multiDiscrete: true,
+      discountFactor: 0.99,
+      clipEpsilon: 0.2,
+      entropyCoefficient: 0.01,
+      valueLossCoefficient: 0.5,
+      gaeLambda: 0.95,
+      normalizeAdvantages: true,
+      minibatchSize: 128,
+      epochs: 1,
+      trajectoryConfig,
+    }
+    return {
+      evaluation: {
+        createExecutorPathname: '@neat-evolution/executor/backprop',
+      },
+      execution: {
+        createExecutionManager: '@neat-evolution/rl-core/ppo',
+        executionManagerFactoryOptions: {
+          config: ppoConfig,
           rngSeed: config.baseSeed,
           isLamarckian: config.rlIsLamarckian,
         },
@@ -593,14 +763,26 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   // Initialize the manager to create workers before starting CPU profiles
   await manager.init()
 
-  if (options.workerCpuProfiles) {
+  if (options.workerCpuProfiles || options.workerHeapProfiles) {
     const population = manager.currentPopulation
     const evaluator = population != null ? population.evaluator : null
     const reproducer = population != null ? population.reproducer : null
-    const profiledWorkers = await Promise.all([
-      startWorkerCpuProfilesForOwner(evaluator, 'evaluator'),
-      startWorkerCpuProfilesForOwner(reproducer, 'reproducer'),
-    ])
+    const profileStarts: Array<Promise<ActiveWorkerProfile[]>> = []
+    if (options.workerCpuProfiles) {
+      profileStarts.push(startWorkerCpuProfilesForOwner(evaluator, 'evaluator'))
+      profileStarts.push(
+        startWorkerCpuProfilesForOwner(reproducer, 'reproducer')
+      )
+    }
+    if (options.workerHeapProfiles) {
+      profileStarts.push(
+        startWorkerHeapProfilesForOwner(evaluator, 'evaluator')
+      )
+      profileStarts.push(
+        startWorkerHeapProfilesForOwner(reproducer, 'reproducer')
+      )
+    }
+    const profiledWorkers = await Promise.all(profileStarts)
     workerProfiles = profiledWorkers.flat()
   }
 
@@ -667,7 +849,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
       const outputDir =
         options.workerCpuProfileDir ??
         join(config.outputDir ?? DEFAULT_OUTPUT_DIR, 'worker-cpu-profiles')
-      await writeWorkerCpuProfiles(workerProfiles, outputDir)
+      await writeWorkerProfiles(workerProfiles, outputDir)
       workerProfiles = []
     }
     await manager.terminate()

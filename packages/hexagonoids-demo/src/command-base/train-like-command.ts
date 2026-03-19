@@ -76,6 +76,15 @@ interface TrainLikeNumberFlags {
   rlEpsilon?: number
   rlEpsilonDecay?: number
   rlEpsilonMin?: number
+  rlReplayCapacity?: number
+  rlReplayBatchSize?: number
+  rlTargetSyncInterval?: number
+  rlRewardRock?: number
+  rlRewardDeath?: number
+  rlRewardSurvival?: number
+  rlRewardScoreScale?: number
+  rlRewardShotPenalty?: number
+  rlRewardWaveBonus?: number
 }
 
 type TrainLikeFlags = TrainLikeBooleanFlags &
@@ -217,6 +226,9 @@ export abstract class TrainLikeCommand extends BaseCommand {
   ): void {
     if (flags.rl === 'ac') options.rlMode = 'actor-critic'
     if (flags.rl === 'ql') options.rlMode = 'q-learning'
+    if (flags.rl === 'a2c') options.rlMode = 'a2c'
+    if (flags.rl === 'dql') options.rlMode = 'dql'
+    if (flags.rl === 'ppo') options.rlMode = 'ppo'
     if (flags.rl === 'none') options.rlMode = 'none'
     if (isNumber(flags.rlLearningRate)) {
       options.rlLearningRate = flags.rlLearningRate
@@ -229,6 +241,30 @@ export abstract class TrainLikeCommand extends BaseCommand {
       options.rlEpsilonDecay = flags.rlEpsilonDecay
     }
     if (isNumber(flags.rlEpsilonMin)) options.rlEpsilonMin = flags.rlEpsilonMin
+    if (isNumber(flags.rlReplayCapacity)) {
+      options.rlReplayCapacity = flags.rlReplayCapacity
+    }
+    if (isNumber(flags.rlReplayBatchSize)) {
+      options.rlReplayBatchSize = flags.rlReplayBatchSize
+    }
+    if (isNumber(flags.rlTargetSyncInterval)) {
+      options.rlTargetSyncInterval = flags.rlTargetSyncInterval
+    }
+    if (isNumber(flags.rlRewardRock)) options.rlRewardRock = flags.rlRewardRock
+    if (isNumber(flags.rlRewardDeath))
+      options.rlRewardDeath = flags.rlRewardDeath
+    if (isNumber(flags.rlRewardSurvival)) {
+      options.rlRewardSurvival = flags.rlRewardSurvival
+    }
+    if (isNumber(flags.rlRewardScoreScale)) {
+      options.rlRewardScoreScale = flags.rlRewardScoreScale
+    }
+    if (isNumber(flags.rlRewardShotPenalty)) {
+      options.rlRewardShotPenalty = flags.rlRewardShotPenalty
+    }
+    if (isNumber(flags.rlRewardWaveBonus)) {
+      options.rlRewardWaveBonus = flags.rlRewardWaveBonus
+    }
 
     if (flags.rlLamarckian === true && flags.rlDarwinian === true) {
       this.error('Use only one of --rlLamarckian or --rlDarwinian.')

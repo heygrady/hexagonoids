@@ -3,7 +3,7 @@ import { Flags } from '@oclif/core'
 import { SUPPORTED_ALGORITHMS } from '../features/registries/algorithmRegistry.js'
 
 const GATE_EASINGS = ['linear', 'quad', 'cubic', 'exp', 'circle'] as const
-const RL_MODES = ['none', 'ac', 'ql'] as const
+const RL_MODES = ['none', 'ac', 'ql', 'a2c', 'dql', 'ppo'] as const
 const THRUST_MATH_OPTIONS = ['fast', 'quaternion'] as const
 const AGENT_OPTIONS = ['random', 'doNothing'] as const
 
@@ -150,6 +150,54 @@ export const trainLikeFlags = {
   rlEpsilon: floatFlag('rlEpsilon', 'Initial epsilon for Q-learning')(),
   rlEpsilonDecay: floatFlag('rlEpsilonDecay', 'Epsilon decay for Q-learning')(),
   rlEpsilonMin: floatFlag('rlEpsilonMin', 'Minimum epsilon for Q-learning')(),
+  rlRewardRock: floatFlag(
+    'rlRewardRock',
+    'Step reward per rock destroyed',
+    -10,
+    10
+  )(),
+  rlRewardDeath: floatFlag(
+    'rlRewardDeath',
+    'Step penalty per death (negative)',
+    -10,
+    10
+  )(),
+  rlRewardSurvival: floatFlag(
+    'rlRewardSurvival',
+    'Step reward per alive tick',
+    -1,
+    1
+  )(),
+  rlRewardScoreScale: floatFlag(
+    'rlRewardScoreScale',
+    'Step reward multiplier for engine score delta',
+    -1,
+    1
+  )(),
+  rlRewardShotPenalty: floatFlag(
+    'rlRewardShotPenalty',
+    'Step penalty per bullet fired',
+    0,
+    1
+  )(),
+  rlRewardWaveBonus: floatFlag(
+    'rlRewardWaveBonus',
+    'Step bonus for wave clear',
+    -10,
+    10
+  )(),
+  rlReplayCapacity: Flags.integer({
+    min: 1,
+    summary: 'DQL replay buffer capacity',
+  }),
+  rlReplayBatchSize: Flags.integer({
+    min: 1,
+    summary: 'DQL replay mini-batch size',
+  }),
+  rlTargetSyncInterval: Flags.integer({
+    min: 1,
+    summary: 'DQL target network sync interval',
+  }),
   rlLamarckian: Flags.boolean({
     summary: 'Enable Lamarckian write-back',
   }),
