@@ -361,13 +361,12 @@ export function buildRockPerceptionPrecompute(
   const rocks = new Array<RockPerceptionEntry>(rockCount)
 
   for (let index = 0; index < rockCount; index++) {
-    const entry = candidateRocks[index]!
-    const point = entry.point
-    const entity = entry.entity
+    const rock = candidateRocks[index]!
 
-    const rx = point.x
-    const ry = point.z
-    const rz = point.y
+    // Remap y↔z (engine y-up → projection z-up)
+    const rx = rock.x
+    const ry = rock.z
+    const rz = rock.y
 
     const dot = shipX * rx + shipY * ry + shipZ * rz
 
@@ -383,13 +382,13 @@ export function buildRockPerceptionPrecompute(
     }
 
     // Remap angular velocity y↔z (engine y-up → projection z-up)
-    const av = entity.angularVelocity
+    const av = rock.angularVelocity
     rocks[index] = {
-      id: entity.id,
+      id: rock.id,
       localX,
       localY,
       inVisionRange,
-      radius: rockRadiusBySize(entity.size),
+      radius: rockRadiusBySize(rock.size),
       avx: av.x,
       avy: av.z,
       avz: av.y,
@@ -499,17 +498,17 @@ function scanMemoryRocks(
   shipAV: { x: number; y: number; z: number },
   lidar: ConeHit[]
 ): void {
-  // Step 1: Add visible rocks to memory
-  const visibleIds = new Set<string>()
+  // Step 1: Add visible rocks to memory and count them
+  let visibleCount = 0
   for (const rock of currentPerception.rocks) {
     if (rock.inVisionRange) {
       seenRocks.add(rock.id)
-      visibleIds.add(rock.id)
+      visibleCount++
     }
   }
 
   // Nothing in memory beyond visible rocks — early out
-  if (seenRocks.size === visibleIds.size) return
+  if (seenRocks.size === visibleCount) return
 
   // Reuse precomputed basis from buildRockPerceptionPrecompute
   const {
@@ -525,10 +524,20 @@ function scanMemoryRocks(
   const shipY = shipCenter.z
   const shipZ = shipCenter.y
 
+  // Build a quick lookup for visible rock IDs to avoid re-scanning perception
+  // This reuses the perception array (already allocated) instead of creating a Set
+  const visibleRockIds = currentPerception.rocks
+  const isVisible = (id: string): boolean => {
+    for (const rock of visibleRockIds) {
+      if (rock.id === id && rock.inVisionRange) return true
+    }
+    return false
+  }
+
   // Step 2 & 3: Prune and fill
   for (const rockId of seenRocks) {
     // Skip currently visible rocks (already filled by scanRocks)
-    if (visibleIds.has(rockId)) continue
+    if (isVisible(rockId)) continue
 
     // Check if rock still exists
     const rock: RockState | undefined = state.rocks.get(rockId)
@@ -603,6 +612,16 @@ function scanMemoryRocks(
   }
 }
 
+// Pre-allocated bullet buffers — avoids per-tick object array + sort allocation.
+// Max bullets a player can have active simultaneously is small (BULLET_SLOTS=6).
+const _bulletX = new Float64Array(16)
+const _bulletY = new Float64Array(16)
+const _bulletZ = new Float64Array(16)
+const _bulletAVX = new Float64Array(16)
+const _bulletAVY = new Float64Array(16)
+const _bulletAVZ = new Float64Array(16)
+const _bulletFiredAt = new Float64Array(16)
+
 function scanBullets(
   state: GameState,
   playerId: string,
@@ -627,42 +646,70 @@ function scanBullets(
   const shipY = shipCenter.z
   const shipZ = shipCenter.y
 
-  // Collect own bullets and sort by firedAt ascending (oldest first)
-  const ownBullets: {
-    x: number
-    y: number
-    z: number
-    avx: number
-    avy: number
-    avz: number
-    firedAt: number
-  }[] = []
+  // Collect own bullets into pre-allocated parallel arrays
+  let bulletCount = 0
   for (const bullet of state.bullets.values()) {
     if (bullet.ownerId !== shipId) continue
-    ownBullets.push({
-      x: bullet.x,
-      y: bullet.z, // remap y↔z (engine y-up → projection z-up)
-      z: bullet.y,
-      avx: bullet.angularVelocity.x,
-      avy: bullet.angularVelocity.z, // remap y↔z
-      avz: bullet.angularVelocity.y,
-      firedAt: bullet.firedAt ?? 0,
-    })
+    const idx = bulletCount
+    _bulletX[idx] = bullet.x
+    _bulletY[idx] = bullet.z // remap y↔z (engine y-up → projection z-up)
+    _bulletZ[idx] = bullet.y
+    _bulletAVX[idx] = bullet.angularVelocity.x
+    _bulletAVY[idx] = bullet.angularVelocity.z // remap y↔z
+    _bulletAVZ[idx] = bullet.angularVelocity.y
+    _bulletFiredAt[idx] = bullet.firedAt ?? 0
+    bulletCount++
   }
-  ownBullets.sort((a, b) => a.firedAt - b.firedAt)
 
-  const count = Math.min(ownBullets.length, BULLET_SLOTS)
+  // Sort by firedAt ascending using insertion sort (max ~6 elements).
+  // Sorts indices in the pre-allocated _bulletFiredAt array directly.
+  // Simple swap-based insertion sort — no array allocation or splice.
+  for (let i = 1; i < bulletCount; i++) {
+    let j = i
+    while (
+      j > 0 &&
+      (_bulletFiredAt[j - 1] as number) > (_bulletFiredAt[j] as number)
+    ) {
+      // Swap all parallel arrays at positions j-1 and j
+      const tmpF = _bulletFiredAt[j] as number
+      _bulletFiredAt[j] = _bulletFiredAt[j - 1] as number
+      _bulletFiredAt[j - 1] = tmpF
+      const tmpX = _bulletX[j] as number
+      _bulletX[j] = _bulletX[j - 1] as number
+      _bulletX[j - 1] = tmpX
+      const tmpY = _bulletY[j] as number
+      _bulletY[j] = _bulletY[j - 1] as number
+      _bulletY[j - 1] = tmpY
+      const tmpZ = _bulletZ[j] as number
+      _bulletZ[j] = _bulletZ[j - 1] as number
+      _bulletZ[j - 1] = tmpZ
+      const tmpAVX = _bulletAVX[j] as number
+      _bulletAVX[j] = _bulletAVX[j - 1] as number
+      _bulletAVX[j - 1] = tmpAVX
+      const tmpAVY = _bulletAVY[j] as number
+      _bulletAVY[j] = _bulletAVY[j - 1] as number
+      _bulletAVY[j - 1] = tmpAVY
+      const tmpAVZ = _bulletAVZ[j] as number
+      _bulletAVZ[j] = _bulletAVZ[j - 1] as number
+      _bulletAVZ[j - 1] = tmpAVZ
+      j--
+    }
+  }
+
+  const count = Math.min(bulletCount, BULLET_SLOTS)
   for (let i = 0; i < count; i++) {
-    const b = ownBullets[i]!
     const slot = bullets[i]!
+    const bx = _bulletX[i] as number
+    const by = _bulletY[i] as number
+    const bz = _bulletZ[i] as number
 
     // Dot product for hemisphere check
-    const dot = shipX * b.x + shipY * b.y + shipZ * b.z
+    const dot = shipX * bx + shipY * by + shipZ * bz
     if (dot <= 0) continue
 
     // Orthographic projection onto ship's tangent plane
-    const localX = b.x * rightX + b.y * rightY + b.z * rightZ
-    const localY = b.x * forwardX + b.y * forwardY + b.z * forwardZ
+    const localX = bx * rightX + by * rightY + bz * rightZ
+    const localY = bx * forwardX + by * forwardY + bz * forwardZ
 
     // Orthographic distance on tangent plane
     const orthoDist = Math.sqrt(localX * localX + localY * localY)
@@ -686,9 +733,12 @@ function scanBullets(
     const bearing = Math.atan2(localX, localY) / Math.PI
 
     // Relative velocity: bullet - ship, projected onto tangent plane
-    const dvx = b.avx - shipAV.x
-    const dvy = b.avy - shipAV.y
-    const dvz = b.avz - shipAV.z
+    const bavx = _bulletAVX[i] as number
+    const bavy = _bulletAVY[i] as number
+    const bavz = _bulletAVZ[i] as number
+    const dvx = bavx - shipAV.x
+    const dvy = bavy - shipAV.y
+    const dvz = bavz - shipAV.z
     const relVelRight = dvx * rightX + dvy * rightY + dvz * rightZ
     const relVelForward = dvx * forwardX + dvy * forwardY + dvz * forwardZ
 
