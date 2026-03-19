@@ -140,6 +140,9 @@ export const clampAngularVelocity = (
 /**
  * Convert a local heading to world-space angular velocity.
  * Transforms a heading angle in the tangent plane into an angular velocity vector.
+ *
+ * Pure scalar math — zero BabylonJS allocations. Returns a Vector3 for API
+ * compatibility, but all computation uses raw x/y/z/w locals.
  */
 export const headingToAngularVelocity = (
   positionQuaternion: Quaternion,
@@ -150,23 +153,44 @@ export const headingToAngularVelocity = (
     return Vector3.Zero()
   }
 
-  const worldUp = Vector3.Up().applyRotationQuaternion(positionQuaternion)
+  const qx = positionQuaternion.x
+  const qy = positionQuaternion.y
+  const qz = positionQuaternion.z
+  const qw = positionQuaternion.w
 
-  const localHeadingRotation = Quaternion.RotationAxis(
-    Vector3.Up(),
-    localHeading
-  )
-  const localHeading3D =
-    Vector3.Forward().applyRotationQuaternion(localHeadingRotation)
-  const worldHeading =
-    localHeading3D.applyRotationQuaternion(positionQuaternion)
+  // worldUp = rotate (0,1,0) by positionQuaternion
+  const upX = 2 * (qx * qy - qz * qw)
+  const upY = 1 - 2 * (qx * qx + qz * qz)
+  const upZ = 2 * (qy * qz + qx * qw)
 
-  const rotationAxis = Vector3.Cross(worldUp, worldHeading)
-  const axisLen = rotationAxis.length()
+  // Local heading direction: rotate (0,0,1) by Y-axis rotation
+  // = (sin(heading), 0, cos(heading))
+  const ldx = Math.sin(localHeading)
+  const ldy = 0
+  const ldz = Math.cos(localHeading)
+
+  // worldHeading = rotate localHeading3D by positionQuaternion
+  // v' = q * v * q^-1, expanded for unit quaternion:
+  // t = 2 * cross(q.xyz, v)
+  // v' = v + q.w * t + cross(q.xyz, t)
+  const tx = 2 * (qy * ldz - qz * ldy)
+  const ty = 2 * (qz * ldx - qx * ldz)
+  const tz = 2 * (qx * ldy - qy * ldx)
+
+  const whx = ldx + qw * tx + (qy * tz - qz * ty)
+  const why = ldy + qw * ty + (qz * tx - qx * tz)
+  const whz = ldz + qw * tz + (qx * ty - qy * tx)
+
+  // rotationAxis = cross(worldUp, worldHeading)
+  const ax = upY * whz - upZ * why
+  const ay = upZ * whx - upX * whz
+  const az = upX * why - upY * whx
+
+  const axisLen = Math.sqrt(ax * ax + ay * ay + az * az)
   if (axisLen < 0.00001) {
     return Vector3.Zero()
   }
 
-  rotationAxis.scaleInPlace(1 / axisLen)
-  return rotationAxis.scale(speed)
+  const scale = speed / axisLen
+  return new Vector3(ax * scale, ay * scale, az * scale)
 }

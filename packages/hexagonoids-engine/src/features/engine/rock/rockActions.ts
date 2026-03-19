@@ -96,33 +96,90 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
   }
 
   const newSize = (rock.size - 1) as 0 | 1
-  const parentWorldUp = Vector3.Up().applyRotationQuaternion(rock.orientation)
-  const parentSpeed = rock.angularVelocity.length()
+
+  // Parent world-up: rotate (0,1,0) by parent orientation — scalar math
+  const pqx = rock.orientation.x
+  const pqy = rock.orientation.y
+  const pqz = rock.orientation.z
+  const pqw = rock.orientation.w
+  const parentUpX = 2 * (pqx * pqy - pqz * pqw)
+  const parentUpY = 1 - 2 * (pqx * pqx + pqz * pqz)
+  const parentUpZ = 2 * (pqy * pqz + pqx * pqw)
+
+  // Parent speed (vector magnitude)
+  const pvx = rock.angularVelocity.x
+  const pvy = rock.angularVelocity.y
+  const pvz = rock.angularVelocity.z
+  const parentSpeed = Math.sqrt(pvx * pvx + pvy * pvy + pvz * pvz)
   const childBaseSpeed = rockSpeedForSize(newSize)
 
   for (const side of [-1, 1] as const) {
-    // Always push siblings apart with a minimum roll offset.
+    // Roll quaternion: RotationYawPitchRoll(0, 0, roll) = rotation around Z
     const roll = side * SPLIT_ROLL_DISTANCE * (1 + rng.gen() * 0.5)
-    const childOrientation = rock.orientation.multiply(
-      Quaternion.RotationYawPitchRoll(0, 0, roll)
-    )
-    childOrientation.normalize()
+    const rollHalf = roll * 0.5
+    const rollSin = Math.sin(rollHalf)
+    const rollCos = Math.cos(rollHalf)
+    // Roll quat = (0, 0, sin(roll/2), cos(roll/2))
 
-    // Perturb heading around parent-relative velocity.
+    // Child orientation = parent * rollQuat (quaternion multiply)
+    let cqx = pqw * 0 + pqx * rollCos + pqy * rollSin - pqz * 0
+    let cqy = pqw * 0 - pqx * rollSin + pqy * rollCos + pqz * 0
+    let cqz = pqw * rollSin + pqx * 0 - pqy * 0 + pqz * rollCos
+    let cqw = pqw * rollCos - pqx * 0 - pqy * 0 - pqz * rollSin
+
+    // Normalize child orientation
+    let cqLen = Math.sqrt(cqx * cqx + cqy * cqy + cqz * cqz + cqw * cqw)
+    if (cqLen > 0.00001) {
+      const inv = 1 / cqLen
+      cqx *= inv
+      cqy *= inv
+      cqz *= inv
+      cqw *= inv
+    }
+
+    // Heading offset: axis-angle rotation around parentWorldUp
     const headingOffset =
       side * SPLIT_HEADING_OFFSET * (0.45 + rng.gen() * 0.55)
-    const offsetRotation = Quaternion.RotationAxis(parentWorldUp, headingOffset)
-    const childVelocity = rock.angularVelocity
-      .clone()
-      .applyRotationQuaternion(offsetRotation)
+    const hHalf = headingOffset * 0.5
+    const hSin = Math.sin(hHalf)
+    const hCos = Math.cos(hHalf)
+    // offsetQuat = (upX*sin, upY*sin, upZ*sin, cos)
+    const oqx = parentUpX * hSin
+    const oqy = parentUpY * hSin
+    const oqz = parentUpZ * hSin
+    const oqw = hCos
 
-    const normalizedVelocity =
-      childVelocity.lengthSquared() > 0.000001
-        ? childVelocity.normalize()
-        : Vector3.Forward()
-            .applyRotationQuaternion(childOrientation)
-            .normalize()
+    // Rotate parent velocity by offsetQuat: v' = q * v * q^-1
+    // Using the formula: t = 2 * cross(q.xyz, v); v' = v + q.w * t + cross(q.xyz, t)
+    const tx = 2 * (oqy * pvz - oqz * pvy)
+    const ty = 2 * (oqz * pvx - oqx * pvz)
+    const tz = 2 * (oqx * pvy - oqy * pvx)
+    let cvx = pvx + oqw * tx + (oqy * tz - oqz * ty)
+    let cvy = pvy + oqw * ty + (oqz * tx - oqx * tz)
+    let cvz = pvz + oqw * tz + (oqx * ty - oqy * tx)
 
+    // Normalize child velocity (or use forward direction as fallback)
+    let cvLenSq = cvx * cvx + cvy * cvy + cvz * cvz
+    if (cvLenSq > 0.000001) {
+      const invLen = 1 / Math.sqrt(cvLenSq)
+      cvx *= invLen
+      cvy *= invLen
+      cvz *= invLen
+    } else {
+      // Fallback: rotate (0,0,1) by child orientation
+      cvx = 2 * (cqx * cqz + cqy * cqw)
+      cvy = 2 * (cqy * cqz - cqx * cqw)
+      cvz = 1 - 2 * (cqx * cqx + cqy * cqy)
+      cvLenSq = cvx * cvx + cvy * cvy + cvz * cvz
+      if (cvLenSq > 0.000001) {
+        const invLen = 1 / Math.sqrt(cvLenSq)
+        cvx *= invLen
+        cvy *= invLen
+        cvz *= invLen
+      }
+    }
+
+    // Speed calculation
     const inherited =
       parentSpeed * SPLIT_PARENT_INHERITANCE +
       childBaseSpeed * SPLIT_BASE_SPEED_WEIGHT
@@ -134,6 +191,8 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
       Math.min(maxSpeed, inherited + jitter)
     )
 
+    const childOrientation = new Quaternion(cqx, cqy, cqz, cqw)
+
     const id = generateId('rock')
     const child: RockState = {
       ...defaultRockState,
@@ -142,7 +201,11 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
       x: 0,
       y: 0,
       z: 0,
-      angularVelocity: normalizedVelocity.scale(clampedSpeed),
+      angularVelocity: new Vector3(
+        cvx * clampedSpeed,
+        cvy * clampedSpeed,
+        cvz * clampedSpeed
+      ),
       size: newSize,
       value: rockValueForSize(newSize),
     }
