@@ -1,6 +1,6 @@
 import type {
-  EvaluationContext,
   EvaluationStrategy,
+  ParentEvaluationContext,
 } from '@neat-evolution/evaluation-strategy'
 import type {
   AnyGenome,
@@ -38,7 +38,7 @@ export class SwissTournamentStrategy<G extends AnyGenome>
   }
 
   async *evaluate(
-    context: EvaluationContext<G>,
+    context: ParentEvaluationContext<G>,
     genomeEntries: GenomeEntries<G>
   ): AsyncIterable<FitnessData> {
     let entries = Array.from(genomeEntries)

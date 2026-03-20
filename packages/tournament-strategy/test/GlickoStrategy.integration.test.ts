@@ -1,4 +1,4 @@
-import type { EvaluationContext } from '@neat-evolution/evaluation-strategy'
+import type { ParentEvaluationContext } from '@neat-evolution/evaluation-strategy'
 import type {
   AnyGenome,
   FitnessData,
@@ -25,7 +25,7 @@ describe('GlickoStrategy Integration - Multi-Component Scoring', () => {
   }
 
   // Create deterministic mock context (win = 1.0, loss = 0)
-  const createMockContext = (): EvaluationContext<AnyGenome<any>> => {
+  const createMockContext = (): ParentEvaluationContext<AnyGenome<any>> => {
     return {
       evaluateGenomeEntry: vi.fn(async (entry: GenomeEntry<AnyGenome<any>>) => {
         // Simple fitness: higher organism index = better
@@ -58,7 +58,7 @@ describe('GlickoStrategy Integration - Multi-Component Scoring', () => {
       broadcast: vi.fn(),
       addActionHandler: vi.fn(),
       removeActionHandler: vi.fn(),
-    } as unknown as EvaluationContext<AnyGenome<any>>
+    } as unknown as ParentEvaluationContext<AnyGenome<any>>
   }
 
   const createMockGenomes = (

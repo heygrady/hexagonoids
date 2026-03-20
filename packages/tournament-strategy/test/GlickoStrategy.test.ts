@@ -1,4 +1,4 @@
-import type { EvaluationContext } from '@neat-evolution/evaluation-strategy'
+import type { ParentEvaluationContext } from '@neat-evolution/evaluation-strategy'
 import type {
   AnyGenome,
   FitnessData,
@@ -8,7 +8,7 @@ import { describe, expect, test, vi } from 'vitest'
 import { GlickoStrategy } from '../src/GlickoStrategy.js'
 
 describe('GlickoStrategy', () => {
-  const mockContext: EvaluationContext<AnyGenome<any>> = {
+  const mockContext: ParentEvaluationContext<AnyGenome<any>> = {
     evaluateGenomeEntry: vi.fn(
       async (entry: GenomeEntry<AnyGenome<any>>, _seed?: string) =>
         [entry[0], entry[1], Math.random()] as FitnessData
@@ -27,7 +27,7 @@ describe('GlickoStrategy', () => {
     broadcast: vi.fn(),
     addActionHandler: vi.fn(),
     removeActionHandler: vi.fn(),
-  } as unknown as EvaluationContext<AnyGenome<any>>
+  } as unknown as ParentEvaluationContext<AnyGenome<any>>
 
   const mockGenomes: Array<GenomeEntry<AnyGenome<any>>> = Array.from(
     { length: 20 },

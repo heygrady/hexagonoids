@@ -1,4 +1,4 @@
-import type { EvaluationContext } from '@neat-evolution/evaluation-strategy'
+import type { ParentEvaluationContext } from '@neat-evolution/evaluation-strategy'
 import type {
   AnyGenome,
   FitnessData,
@@ -10,13 +10,13 @@ import { toId } from '../entities/toId.js'
 /**
  * Evaluates all genomes individually in parallel.
  * @template G - The genome type
- * @param {EvaluationContext<G>} context - The evaluation context.
+ * @param {ParentEvaluationContext<G>} context - The evaluation context.
  * @param {Array<GenomeEntry<G>>} entries - The genome entries to evaluate.
  * @param {string} [seed] - Optional seed for the evaluation.
  * @returns {Promise<Array<[number, number]>>} A promise that resolves to an array of [entryId, fitness] tuples.
  */
 export async function evaluateIndividually<G extends AnyGenome>(
-  context: EvaluationContext<G>,
+  context: ParentEvaluationContext<G>,
   entries: Array<GenomeEntry<G>>,
   seed?: string | undefined
 ): Promise<Array<[number, number]>> {

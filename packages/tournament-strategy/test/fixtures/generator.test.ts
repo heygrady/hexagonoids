@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import type { EvaluationContext } from '@neat-evolution/evaluation-strategy'
+import type { ParentEvaluationContext } from '@neat-evolution/evaluation-strategy'
 import type {
   AnyGenome,
   FitnessData,
@@ -84,7 +84,7 @@ test.skip('generate fixture: 1 generation evaluation', async () => {
         return entries.map((e): FitnessData => [e[0], e[1], 0])
       }
     ),
-  } as unknown as EvaluationContext<AnyGenome<any>>
+  } as unknown as ParentEvaluationContext<AnyGenome<any>>
 
   const genomes: Array<GenomeEntry<AnyGenome<any>>> = Array.from(
     { length: populationSize },
@@ -206,7 +206,7 @@ test.skip('generate fixture: 3 generation progression', async () => {
         return entries.map((e): FitnessData => [e[0], e[1], 0])
       }
     ),
-  } as unknown as EvaluationContext<AnyGenome<any>>
+  } as unknown as ParentEvaluationContext<AnyGenome<any>>
 
   let finalResults: GlickoResultData[] = []
   let finalHeroes: GlickoHeroData[] = []

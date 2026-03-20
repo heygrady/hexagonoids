@@ -1,4 +1,4 @@
-import type { EvaluationContext } from '@neat-evolution/evaluation-strategy'
+import type { ParentEvaluationContext } from '@neat-evolution/evaluation-strategy'
 import type {
   FitnessData,
   GenomeEntries,
@@ -10,7 +10,7 @@ import { SwissTournamentStrategy } from '../src/index.js'
 
 describe('SwissTournamentStrategy', () => {
   let strategy: SwissTournamentStrategy<any>
-  let mockContext: EvaluationContext<any>
+  let mockContext: ParentEvaluationContext<any>
   let mockGenomeEntries: GenomeEntries<any>
 
   beforeEach(() => {
@@ -33,7 +33,7 @@ describe('SwissTournamentStrategy', () => {
       broadcast: vi.fn(),
       addActionHandler: vi.fn(),
       removeActionHandler: vi.fn(),
-    } as unknown as EvaluationContext<any>
+    } as unknown as ParentEvaluationContext<any>
     mockGenomeEntries = [
       [1, 1, {}] as GenomeEntry<any>,
       [1, 2, {}] as GenomeEntry<any>,
@@ -93,7 +93,7 @@ describe('SwissTournamentStrategy', () => {
       broadcast: vi.fn(),
       addActionHandler: vi.fn(),
       removeActionHandler: vi.fn(),
-    } as unknown as EvaluationContext<any>
+    } as unknown as ParentEvaluationContext<any>
 
     const yieldedFitnessData: FitnessData[] = []
     for await (const fitnessData of seedingStrategy.evaluate(
@@ -140,7 +140,7 @@ describe('SwissTournamentStrategy', () => {
       broadcast: vi.fn(),
       addActionHandler: vi.fn(),
       removeActionHandler: vi.fn(),
-    } as unknown as EvaluationContext<any>
+    } as unknown as ParentEvaluationContext<any>
 
     const entries: Array<GenomeEntry<any>> = [
       [0, 0, {}],

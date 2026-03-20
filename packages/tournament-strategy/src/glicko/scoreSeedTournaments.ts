@@ -1,4 +1,4 @@
-import type { EvaluationContext } from '@neat-evolution/evaluation-strategy'
+import type { ParentEvaluationContext } from '@neat-evolution/evaluation-strategy'
 import type { AnyGenome, GenomeEntry } from '@neat-evolution/evaluator'
 import type { Glicko2, Player as GlickoPlayer } from 'glicko2'
 
@@ -16,7 +16,7 @@ export interface SeedTournamentOptions {
  * Each tournament consists of multiple rounds where entries are evaluated individually
  * against built-in AI, then matched based on Glicko ratings.
  * @template G - The genome type
- * @param {EvaluationContext<G>} context - The evaluation context
+ * @param {ParentEvaluationContext<G>} context - The evaluation context
  * @param {Array<GenomeEntry<G>>} allEntries - All entries including heroes and fillers
  * @param {number} numEvaluations - Number of individual evaluations to run
  * @param {Glicko2} glicko - Glicko2 instance for rating updates
@@ -25,7 +25,7 @@ export interface SeedTournamentOptions {
  * @returns {Promise<{ rawScores: Map<number, number>; normalizedScores: Map<number, number>; seedAIPlayer: GlickoPlayer }>} Object with raw and normalized seed scores for each entry
  */
 export async function scoreSeedTournaments<G extends AnyGenome>(
-  context: EvaluationContext<G>,
+  context: ParentEvaluationContext<G>,
   allEntries: Array<GenomeEntry<G>>,
   numEvaluations: number,
   glicko: Glicko2,

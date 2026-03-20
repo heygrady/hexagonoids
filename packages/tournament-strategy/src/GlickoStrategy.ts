@@ -1,6 +1,6 @@
 import type {
-  EvaluationContext,
   EvaluationStrategy,
+  ParentEvaluationContext,
 } from '@neat-evolution/evaluation-strategy'
 import type {
   AnyGenome,
@@ -141,7 +141,7 @@ export class GlickoStrategy<G extends AnyGenome>
   }
 
   async *evaluate(
-    context: EvaluationContext<G>,
+    context: ParentEvaluationContext<G>,
     genomeEntries: GenomeEntries<G>
   ): AsyncIterable<FitnessData> {
     // --- 1. State Initialization ---
