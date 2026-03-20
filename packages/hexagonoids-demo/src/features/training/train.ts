@@ -50,7 +50,8 @@ import { buildEnvironmentOptions } from '../runtime/buildEnvironmentOptions.js'
 import { summarizeBaselineAgent } from './evaluation/baselines.js'
 import { mean, median } from './evaluation/metrics.js'
 import { generationSeedPack } from './evaluation/seedSchedule.js'
-import { GenerationSeededStrategy } from './GenerationSeededStrategy.js'
+import { IndividualStrategy } from '@neat-evolution/evaluation-strategy'
+import { createRNG } from '@neat-evolution/utils'
 
 const DEFAULT_OUTPUT_DIR = DEFAULT_ARTIFACTS_DIR
 const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
@@ -680,7 +681,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
     ...(runtimeConfig.evaluation ?? {}),
   }
 
-  const strategy = new GenerationSeededStrategy(config.baseSeed)
+  const strategy = new IndividualStrategy()
 
   const manager = new EvolutionManager({
     ...algorithmDetails,
@@ -754,6 +755,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
         }
       : {}),
     ...(config.signal != null ? { signal: config.signal } : {}),
+    rng: createRNG(config.baseSeed),
   })
 
   // Initialize the manager to create workers before starting CPU profiles
