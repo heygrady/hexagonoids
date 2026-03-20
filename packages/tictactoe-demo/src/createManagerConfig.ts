@@ -8,10 +8,11 @@ import {
 } from '@heygrady/tournament-strategy'
 import { Activation, defaultNEATConfigOptions } from '@neat-evolution/core'
 import { defaultTopologyConfigOptions } from '@neat-evolution/des-hyperneat'
-import { defaultPopulationOptions, type PopulationOptions } from '@neat-evolution/evolution'
-import type {
-  EvolutionManagerOptions,
-} from '@neat-evolution/evolution-manager'
+import {
+  defaultPopulationOptions,
+  type PopulationOptions,
+} from '@neat-evolution/evolution'
+import type { EvolutionManagerOptions } from '@neat-evolution/evolution-manager'
 
 import {
   allActivations,

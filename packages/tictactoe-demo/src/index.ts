@@ -11,9 +11,9 @@ export {
 } from './configDefaults.js'
 export {
   buildTictactoeGenomeOptions,
+  type CreateTictactoeManagerConfigOptions,
   createTictactoeManagerConfig,
   DEFAULT_POPULATION_SIZE,
-  type CreateTictactoeManagerConfigOptions,
 } from './createManagerConfig.js'
 export * from './InteractiveGame.js'
 export * from './types.js'

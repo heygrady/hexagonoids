@@ -2,9 +2,9 @@ import {
   calculateNormalizationBounds,
   type TicTacToeEnvironmentConfig,
 } from '@heygrady/tictactoe-environment'
-import {
-  type GlickoObservedRanges,
-  type HeroGenome,
+import type {
+  GlickoObservedRanges,
+  HeroGenome,
 } from '@heygrady/tournament-strategy'
 import {
   defaultEvolutionOptions,
@@ -13,7 +13,10 @@ import {
 import { EvolutionManager } from '@neat-evolution/evolution-manager'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
-import { getAlgorithmDefinition, type SupportedAlgorithm } from './algorithmRegistry.js'
+import {
+  getAlgorithmDefinition,
+  type SupportedAlgorithm,
+} from './algorithmRegistry.js'
 import {
   createTictactoeManagerConfig,
   DEFAULT_POPULATION_SIZE,

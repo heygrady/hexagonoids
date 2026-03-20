@@ -1,8 +1,8 @@
 import {
   ALL_CPPN_ACTIVATIONS,
-  getBuiltInEvolutionAlgorithmDefinition,
   type BuiltInEvolutionAlgorithmDefinition,
   type BuiltInEvolutionAlgorithmName,
+  getBuiltInEvolutionAlgorithmDefinition,
 } from '@neat-evolution/evolution-manager'
 
 export type SupportedAlgorithm = BuiltInEvolutionAlgorithmName
