@@ -1,39 +1,40 @@
 import { INPUT_COUNT } from '@heygrady/hexagonoids-environment'
-import { Activation, type Phenotype } from '@neat-evolution/core'
 import {
-  defaultDESHyperNEATGenomeOptions,
+  Activation,
+  defaultNEATConfigOptions,
+  type NEATConfigOptions,
+  type Phenotype,
+} from '@neat-evolution/core'
+import {
+  type CPPNGenomeOptions,
+  defaultCPPNGenomeOptions,
+} from '@neat-evolution/cppn'
+import {
   type DESHyperNEATGenomeOptions,
+  defaultDESHyperNEATGenomeOptions,
 } from '@neat-evolution/des-hyperneat'
+import {
+  defaultESHyperNEATGenomeOptions,
+  type ESHyperNEATGenomeOptions,
+} from '@neat-evolution/es-hyperneat'
 import type {
   AnyErasedAlgorithm,
   AnyErasedGenome,
 } from '@neat-evolution/evaluator'
 import {
+  type BuiltInEvolutionAlgorithmDefinition,
+  type BuiltInEvolutionAlgorithmName,
   createBuiltInGenomeFromSerialized,
   createBuiltInPhenotypeForGenome,
   getBuiltInEvolutionAlgorithmDefinition,
   getBuiltInEvolutionAlgorithmDefinitions,
-  SUPPORTED_EVOLUTION_ALGORITHMS,
-  type BuiltInEvolutionAlgorithmDefinition,
-  type BuiltInEvolutionAlgorithmName,
   type SerializedGenomeData,
+  SUPPORTED_EVOLUTION_ALGORITHMS,
 } from '@neat-evolution/evolution-manager'
-import {
-  defaultCPPNGenomeOptions,
-  type CPPNGenomeOptions,
-} from '@neat-evolution/cppn'
-import {
-  defaultESHyperNEATGenomeOptions,
-  type ESHyperNEATGenomeOptions,
-} from '@neat-evolution/es-hyperneat'
 import {
   defaultHyperNEATGenomeOptions,
   type HyperNEATGenomeOptions,
 } from '@neat-evolution/hyperneat'
-import {
-  defaultNEATConfigOptions,
-  type NEATConfigOptions,
-} from '@neat-evolution/core'
 import {
   defaultNEATGenomeOptions,
   type NEATGenomeOptions,

@@ -76,6 +76,9 @@ interface TrainLikeNumberFlags {
   rlEpsilon?: number
   rlEpsilonDecay?: number
   rlEpsilonMin?: number
+  rlEpochs?: number
+  rlMinibatchSize?: number
+  rlBatchTransitions?: number
   rlReplayCapacity?: number
   rlReplayBatchSize?: number
   rlTargetSyncInterval?: number
@@ -241,6 +244,13 @@ export abstract class TrainLikeCommand extends BaseCommand {
       options.rlEpsilonDecay = flags.rlEpsilonDecay
     }
     if (isNumber(flags.rlEpsilonMin)) options.rlEpsilonMin = flags.rlEpsilonMin
+    if (isNumber(flags.rlEpochs)) options.rlEpochs = flags.rlEpochs
+    if (isNumber(flags.rlMinibatchSize)) {
+      options.rlMinibatchSize = flags.rlMinibatchSize
+    }
+    if (isNumber(flags.rlBatchTransitions)) {
+      options.rlBatchTransitions = flags.rlBatchTransitions
+    }
     if (isNumber(flags.rlReplayCapacity)) {
       options.rlReplayCapacity = flags.rlReplayCapacity
     }

@@ -6,16 +6,14 @@ import { Flags } from '@oclif/core'
 import { formatNumber } from '../command-base/output.js'
 import { trainLikeFlags } from '../command-base/shared-flags.js'
 import { TrainLikeCommand } from '../command-base/train-like-command.js'
-import {
-  DEFAULT_ARTIFACTS_DIR,
-} from '../features/persistence/artifactPaths.js'
+import { DEFAULT_ARTIFACTS_DIR } from '../features/persistence/artifactPaths.js'
 import {
   analyzeHeapProfile,
   analyzeProfile,
   type BottleneckRecord,
   type HeapRecord,
 } from '../features/profiling/analyzeProfile.js'
-import { train, type TrainOptions } from '../features/training/train.js'
+import { type TrainOptions, train } from '../features/training/train.js'
 
 export default class RlDiagnosticCommand extends TrainLikeCommand {
   static override summary =
@@ -215,10 +213,7 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
     return this.aggregateCpuRecords(allRecords, files.length, 15)
   }
 
-  private mergeHeapProfiles(
-    profileDir: string,
-    files: string[]
-  ): HeapRecord[] {
+  private mergeHeapProfiles(profileDir: string, files: string[]): HeapRecord[] {
     const allRecords: HeapRecord[] = []
     for (const file of files) {
       const content = readFileSync(join(profileDir, file), 'utf8')
@@ -270,8 +265,7 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
       const avgSelfMs = selfMsSum / workerCount
       const avgTotalMs = totalMsSum / workerCount
       const exclusivePct = avgTotalMs > 0 ? avgSelfMs / avgTotalMs : 0
-      const score =
-        Math.round(avgSelfMs * (0.35 + exclusivePct) * 10) / 10
+      const score = Math.round(avgSelfMs * (0.35 + exclusivePct) * 10) / 10
       merged.push({
         ...record,
         selfMs: Math.round(avgSelfMs * 100) / 100,
@@ -331,8 +325,7 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
       const avgSelfKB = selfKBSum / workerCount
       const avgTotalKB = totalKBSum / workerCount
       const exclusivePct = avgTotalKB > 0 ? avgSelfKB / avgTotalKB : 0
-      const score =
-        Math.round(avgSelfKB * (0.35 + exclusivePct) * 10) / 10
+      const score = Math.round(avgSelfKB * (0.35 + exclusivePct) * 10) / 10
       merged.push({
         ...record,
         selfKB: Math.round(avgSelfKB * 10) / 10,
@@ -353,8 +346,7 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
 
   private logRewardConfig(options: TrainOptions): void {
     const parts: string[] = []
-    if (options.rlRewardRock != null)
-      parts.push(`rock=${options.rlRewardRock}`)
+    if (options.rlRewardRock != null) parts.push(`rock=${options.rlRewardRock}`)
     if (options.rlRewardDeath != null)
       parts.push(`death=${options.rlRewardDeath}`)
     if (options.rlRewardSurvival != null)

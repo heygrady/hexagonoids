@@ -4,6 +4,7 @@ import {
   spawnBullet,
   spawnRock,
   startPlayer,
+  vec3,
 } from '@heygrady/hexagonoids-engine'
 import {
   collectObservations,
@@ -20,11 +21,11 @@ function latLngToPoint(lat: number, lng: number) {
   const latRad = (lat * Math.PI) / 180
   const lngRad = (lng * Math.PI) / 180
   const cosLat = Math.cos(latRad)
-  return {
-    x: cosLat * Math.cos(lngRad),
-    y: Math.sin(latRad),
-    z: cosLat * Math.sin(lngRad),
-  }
+  return vec3(
+    cosLat * Math.cos(lngRad),
+    Math.sin(latRad),
+    cosLat * Math.sin(lngRad)
+  )
 }
 
 function createDenseScenario() {
@@ -70,9 +71,9 @@ function createInVisionRingScenario() {
 
   // Place ship at (0,0) in lat/lng space
   const origin = latLngToPoint(0, 0)
-  ship.x = origin.x
-  ship.y = origin.y
-  ship.z = origin.z
+  ship.position[0] = origin[0]
+  ship.position[1] = origin[1]
+  ship.position[2] = origin[2]
   ship.yaw = 0
 
   for (let ring = 0; ring < 3; ring++) {
@@ -266,7 +267,7 @@ describe('hotpath performance', () => {
     () => {
       simulateGame(
         doNothingAgent,
-        { maxTicks: 400, dtMs: 33, useFastThrust: true },
+        { maxTicks: 400, dtMs: 33 },
         'hotpath-sim-v1'
       )
     },

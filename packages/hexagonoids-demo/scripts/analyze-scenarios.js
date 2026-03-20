@@ -65,9 +65,7 @@ async function main() {
   console.log()
 
   // Load genome + create executor
-  const { hydrateToExecutor } = await import(
-    '@heygrady/hexagonoids-demo/node'
-  )
+  const { hydrateToExecutor } = await import('@heygrady/hexagonoids-demo/node')
   const {
     decodeScenarioBankDocument,
     neatAgent,

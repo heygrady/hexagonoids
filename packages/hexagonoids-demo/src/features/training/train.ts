@@ -88,6 +88,9 @@ const toRunConfig = (options: TrainOptions) => {
     rlEpsilonDecay: options.rlEpsilonDecay ?? 0.95,
     rlEpsilonMin: options.rlEpsilonMin ?? 0.01,
     rlMultiDiscrete: options.rlMultiDiscrete ?? true,
+    rlEpochs: options.rlEpochs ?? 1,
+    rlMinibatchSize: options.rlMinibatchSize ?? 128,
+    rlBatchTransitions: options.rlBatchTransitions ?? 2048,
     rlReplayCapacity: options.rlReplayCapacity ?? 10000,
     rlReplayBatchSize: options.rlReplayBatchSize ?? 32,
     rlTargetSyncInterval: options.rlTargetSyncInterval ?? 100,
@@ -134,6 +137,9 @@ export interface TrainOptions {
   rlEpsilonDecay?: number | undefined
   rlEpsilonMin?: number | undefined
   rlMultiDiscrete?: boolean | undefined
+  rlEpochs?: number | undefined
+  rlMinibatchSize?: number | undefined
+  rlBatchTransitions?: number | undefined
   rlReplayCapacity?: number | undefined
   rlReplayBatchSize?: number | undefined
   rlTargetSyncInterval?: number | undefined
@@ -287,10 +293,7 @@ async function writeWorkerProfiles(
 
 // --- Algorithm config for EvolutionManager ---
 
-type ErasedManagerConfig = Pick<
-  EvolutionManagerOptions,
-  'algorithm'
->
+type ErasedManagerConfig = Pick<EvolutionManagerOptions, 'algorithm'>
 
 function algorithmConfig(method: SupportedAlgorithm): ErasedManagerConfig {
   switch (method) {
@@ -421,9 +424,7 @@ function rlOutputConfig(
  * Build RL evaluator config with pathname-based agent factory injection.
  * Workers dynamically import the agent factory and wire it into the environment.
  */
-function buildRLEvaluatorConfig(
-  config: ReturnType<typeof toRunConfig>
-): {
+function buildRLEvaluatorConfig(config: ReturnType<typeof toRunConfig>): {
   evaluation?: Partial<EvaluatorConfig>
   execution?: {
     createExecutionManager: string
@@ -455,7 +456,6 @@ function buildRLEvaluatorConfig(
         createExecutionManager: '@neat-evolution/rl-core/actor-critic',
         executionManagerFactoryOptions: {
           config: acConfig,
-          rngSeed: config.baseSeed,
           isLamarckian: config.rlIsLamarckian,
         },
       },
@@ -465,7 +465,7 @@ function buildRLEvaluatorConfig(
   if (config.rlMode === 'a2c') {
     const trajectoryConfig: TrajectoryBatchCollectorConfig = {
       rolloutLength: 32,
-      batchTransitions: 64,
+      batchTransitions: config.rlBatchTransitions,
     }
     const a2cConfig: A2CStepAgentConfig = {
       learningRate: config.rlLearningRate,
@@ -489,7 +489,6 @@ function buildRLEvaluatorConfig(
         createExecutionManager: '@neat-evolution/rl-core/a2c',
         executionManagerFactoryOptions: {
           config: a2cConfig,
-          rngSeed: config.baseSeed,
           isLamarckian: config.rlIsLamarckian,
         },
       },
@@ -515,7 +514,6 @@ function buildRLEvaluatorConfig(
         createExecutionManager: '@neat-evolution/rl-core/q-learning',
         executionManagerFactoryOptions: {
           config: qlConfig,
-          rngSeed: config.baseSeed,
           isLamarckian: config.rlIsLamarckian,
         },
       },
@@ -544,7 +542,6 @@ function buildRLEvaluatorConfig(
         createExecutionManager: '@neat-evolution/rl-core/dql',
         executionManagerFactoryOptions: {
           config: dqlConfig,
-          rngSeed: config.baseSeed,
           isLamarckian: config.rlIsLamarckian,
         },
       },
@@ -558,7 +555,7 @@ function buildRLEvaluatorConfig(
     // epochs to extract signal without overfitting to small samples.
     const trajectoryConfig: TrajectoryBatchCollectorConfig = {
       rolloutLength: 'episode',
-      batchTransitions: 2048,
+      batchTransitions: config.rlBatchTransitions,
     }
     const ppoConfig: PPOStepAgentConfig = {
       learningRate: config.rlLearningRate,
@@ -570,8 +567,8 @@ function buildRLEvaluatorConfig(
       valueLossCoefficient: 0.5,
       gaeLambda: 0.95,
       normalizeAdvantages: true,
-      minibatchSize: 128,
-      epochs: 1,
+      minibatchSize: config.rlMinibatchSize,
+      epochs: config.rlEpochs,
       trajectoryConfig,
     }
     return {
@@ -582,7 +579,6 @@ function buildRLEvaluatorConfig(
         createExecutionManager: '@neat-evolution/rl-core/ppo',
         executionManagerFactoryOptions: {
           config: ppoConfig,
-          rngSeed: config.baseSeed,
           isLamarckian: config.rlIsLamarckian,
         },
       },

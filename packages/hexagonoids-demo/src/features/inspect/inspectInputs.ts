@@ -387,7 +387,10 @@ function printPerConeFeatureStats(
   }
 }
 
-function printSampleFrames(allInputs: Array<ArrayLike<number>>, totalFrames: number): void {
+function printSampleFrames(
+  allInputs: Array<ArrayLike<number>>,
+  totalFrames: number
+): void {
   console.log('\n── Sample Frames (first 5 with LIDAR activity) ──')
   let shown = 0
   for (let f = 0; f < totalFrames && shown < 5; f++) {

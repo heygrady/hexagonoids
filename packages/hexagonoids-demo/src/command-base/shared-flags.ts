@@ -186,6 +186,18 @@ export const trainLikeFlags = {
     -10,
     10
   )(),
+  rlEpochs: Flags.integer({
+    min: 1,
+    summary: 'PPO training epochs per batch',
+  }),
+  rlMinibatchSize: Flags.integer({
+    min: 1,
+    summary: 'PPO minibatch size',
+  }),
+  rlBatchTransitions: Flags.integer({
+    min: 1,
+    summary: 'Transitions per training batch (PPO/A2C)',
+  }),
   rlReplayCapacity: Flags.integer({
     min: 1,
     summary: 'DQL replay buffer capacity',

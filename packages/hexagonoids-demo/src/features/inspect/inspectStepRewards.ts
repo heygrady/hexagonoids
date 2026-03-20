@@ -231,9 +231,7 @@ function createRecordingWrapper(
   return { agent, getEpisodes: () => state.episodes }
 }
 
-function createBaselineRecordingWrapper(
-  rewardConfig: RewardConfig
-): {
+function createBaselineRecordingWrapper(rewardConfig: RewardConfig): {
   agent: StepAgent
   getEpisodes(): EpisodeRewardData[]
   recordObservation(observation: Float64Array): void
