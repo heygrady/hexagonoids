@@ -24,7 +24,12 @@ export const EntityVisualSync: Component = () => {
       if (entry == null) continue
 
       const o = ship.orientation
-      entry.originNode.rotationQuaternion?.copyFromFloats(o.x, o.y, o.z, o.w)
+      entry.originNode.rotationQuaternion?.copyFromFloats(
+        o[0],
+        o[1],
+        o[2],
+        o[3]
+      )
 
       if (entry.orientationNode?.rotationQuaternion != null) {
         const halfYaw = ship.yaw * 0.5
@@ -69,7 +74,12 @@ export const EntityVisualSync: Component = () => {
       const entry = registry.get(`rock:${rock.id}`)
       if (entry == null) continue
       const o = rock.orientation
-      entry.originNode.rotationQuaternion?.copyFromFloats(o.x, o.y, o.z, o.w)
+      entry.originNode.rotationQuaternion?.copyFromFloats(
+        o[0],
+        o[1],
+        o[2],
+        o[3]
+      )
 
       if (entry.needsInit) {
         entry.originNode.setEnabled(true)
@@ -82,7 +92,12 @@ export const EntityVisualSync: Component = () => {
       const entry = registry.get(`bullet:${bullet.id}`)
       if (entry == null) continue
       const o = bullet.orientation
-      entry.originNode.rotationQuaternion?.copyFromFloats(o.x, o.y, o.z, o.w)
+      entry.originNode.rotationQuaternion?.copyFromFloats(
+        o[0],
+        o[1],
+        o[2],
+        o[3]
+      )
 
       if (entry.needsInit) {
         entry.originNode.setEnabled(true)

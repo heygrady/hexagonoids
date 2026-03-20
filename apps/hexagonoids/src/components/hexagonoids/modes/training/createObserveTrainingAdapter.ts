@@ -81,10 +81,7 @@ function buildEnvironmentConfig(
   }
 }
 
-type ErasedManagerConfig = Pick<
-  EvolutionManagerOptions,
-  'algorithm'
->
+type ErasedManagerConfig = Pick<EvolutionManagerOptions, 'algorithm'>
 
 function algorithmConfig(method: SupportedAlgorithm): ErasedManagerConfig {
   switch (method) {

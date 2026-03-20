@@ -93,9 +93,9 @@ export const EndScreen: Component = () => {
       const ship = engine.state.ships.get(player.shipId)
       if (ship != null) {
         const pos = new Vector3(
-          ship.x * RADIUS,
-          ship.y * RADIUS,
-          ship.z * RADIUS
+          ship.position[0] * RADIUS,
+          ship.position[1] * RADIUS,
+          ship.position[2] * RADIUS
         )
         const [yaw, pitch] = getYawPitch(pos)
         moveNodeTo(cameraOriginNode, yaw, pitch)

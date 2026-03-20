@@ -11,6 +11,7 @@ import {
   ROCK_MEDIUM_SIZE,
   ROCK_WAVE_GRACE_PERIOD,
   spawnWave,
+  vec3,
 } from '@heygrady/hexagonoids-engine'
 import { useGameState } from '@heygrady/hexagonoids-engine/solid'
 import type { Component, JSX } from 'solid-js'
@@ -95,7 +96,7 @@ function EngineGameLoop() {
     const pos = cameraPosition.getAbsolutePosition()
     if (pos.lengthSquared() === 0) return undefined
     const point = pos.normalizeToNew()
-    return { x: point.x, y: point.y, z: point.z }
+    return vec3(point.x, point.y, point.z)
   }
   hooks.getRegenerationPosition = getRegenerationPosition
 
@@ -133,14 +134,14 @@ function EngineGameLoop() {
     const syncEntry = (
       key: string,
       entry: CullableEntry,
-      orientation: { x: number; y: number; z: number; w: number }
+      orientation: Float64Array
     ) => {
       if (narrowPhaseSyncedAt.get(key) === now) return
       entry.originNode.rotationQuaternion?.copyFromFloats(
-        orientation.x,
-        orientation.y,
-        orientation.z,
-        orientation.w
+        orientation[0],
+        orientation[1],
+        orientation[2],
+        orientation[3]
       )
       entry.visualNode.computeWorldMatrix(true)
       narrowPhaseSyncedAt.set(key, now)
@@ -164,7 +165,7 @@ function EngineGameLoop() {
       if (rock == null) return
 
       const o = rock.orientation
-      const orientation = new Quaternion(o.x, o.y, o.z, o.w)
+      const orientation = new Quaternion(o[0], o[1], o[2], o[3])
 
       const speed =
         rock.size === ROCK_LARGE_SIZE
@@ -186,7 +187,7 @@ function EngineGameLoop() {
       if (ship == null) return
 
       const o = ship.orientation
-      const orientation = new Quaternion(o.x, o.y, o.z, o.w)
+      const orientation = new Quaternion(o[0], o[1], o[2], o[3])
 
       spawnExplosion(scene, orientation, ship.yaw, globe)
     }
@@ -201,20 +202,14 @@ function EngineGameLoop() {
     if (state.players.size > 0) return
     if (state.now < attractNextWaveAt) return
 
-    const gate = evaluateWaveSpawnGate(
-      state,
-      { x: 1, y: 0, z: 0 },
-      0,
-      null,
-      engine
-    )
+    const gate = evaluateWaveSpawnGate(state, vec3(1, 0, 0), 0, null, engine)
     if (!gate.canSpawn) {
       attractNextWaveAt = state.now + gate.deferMs
       return
     }
 
     engine.mutate((s) => {
-      spawnWave(s, { x: 1, y: 0, z: 0 }, engine.rng)
+      spawnWave(s, vec3(1, 0, 0), engine.rng)
     })
     attractNextWaveAt = state.now + nextWaveDelayMs(0)
   })

@@ -1,14 +1,12 @@
 import {
-  InteractiveGame,
+  type CreateTictactoeManagerConfigOptions,
   createTictactoeManagerConfig,
   DEFAULT_POPULATION_SIZE,
-  type CreateTictactoeManagerConfigOptions,
+  InteractiveGame,
   type SupportedAlgorithm,
 } from '@heygrady/tictactoe-demo'
 import type { TicTacToeEnvironmentConfig } from '@heygrady/tictactoe-environment'
-import {
-  type GlickoStrategyOptions,
-} from '@heygrady/tournament-strategy'
+import type { GlickoStrategyOptions } from '@heygrady/tournament-strategy'
 import type { AnyGenome } from '@neat-evolution/core'
 import type { PopulationOptions } from '@neat-evolution/evolution'
 import { EvolutionManager } from '@neat-evolution/evolution-manager'

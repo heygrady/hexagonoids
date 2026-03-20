@@ -84,14 +84,18 @@ export function SpawnDebugController() {
   // Snap camera to player at mode start.
   const cameraOriginNode = scene.getTransformNodeByName('shipCameraOrigin')
   if (cameraOriginNode instanceof TransformNode) {
-    const pos = new Vector3(ship.x * RADIUS, ship.y * RADIUS, ship.z * RADIUS)
+    const pos = new Vector3(
+      ship.position[0] * RADIUS,
+      ship.position[1] * RADIUS,
+      ship.position[2] * RADIUS
+    )
     const [yaw, pitch] = getYawPitch(pos)
     moveNodeTo(cameraOriginNode, yaw, pitch)
   }
 
   // Spawn the first wave immediately to inspect the initial spawn result.
   engine.mutate((state) => {
-    spawnWave(state, { x: ship.x, y: ship.y, z: ship.z }, engine.rng)
+    spawnWave(state, ship.position, engine.rng)
   })
 
   const spawnedRocks = Array.from(engine.state.rocks.values())
@@ -101,14 +105,14 @@ export function SpawnDebugController() {
   }
 
   const [shipLat, shipLng] = vector3ToLatLng(
-    new Vector3(ship.x, ship.y, ship.z)
+    new Vector3(ship.position[0], ship.position[1], ship.position[2])
   )
   const playerCell = latLngToCell(shipLat, shipLng, MARKER_RESOLUTION)
 
   console.log('[SPAWN-DEBUG] Player start marker', {
-    x: ship.x,
-    y: ship.y,
-    z: ship.z,
+    x: ship.position[0],
+    y: ship.position[1],
+    z: ship.position[2],
     lat: shipLat,
     lng: shipLng,
     cellRes3: playerCell,
@@ -117,21 +121,22 @@ export function SpawnDebugController() {
     '[SPAWN-DEBUG] First wave rock spawn markers',
     spawnedRocks.map((rock) => {
       const [rockLat, rockLng] = vector3ToLatLng(
-        new Vector3(rock.x, rock.y, rock.z)
+        new Vector3(rock.position[0], rock.position[1], rock.position[2])
       )
+      const av = rock.angularVelocity
       return {
         rockId: rock.id,
-        x: rock.x,
-        y: rock.y,
-        z: rock.z,
+        x: rock.position[0],
+        y: rock.position[1],
+        z: rock.position[2],
         lat: rockLat,
         lng: rockLng,
         cellRes3: latLngToCell(rockLat, rockLng, MARKER_RESOLUTION),
         direction: {
-          x: rock.angularVelocity.x,
-          y: rock.angularVelocity.y,
-          z: rock.angularVelocity.z,
-          speed: rock.angularVelocity.length(),
+          x: av[0],
+          y: av[1],
+          z: av[2],
+          speed: Math.hypot(av[0], av[1], av[2]),
         },
       }
     })
@@ -148,7 +153,7 @@ export function SpawnDebugController() {
   // Marker for every rock in the first spawned wave.
   spawnedRocks.forEach((rock, index) => {
     const [rockLat, rockLng] = vector3ToLatLng(
-      new Vector3(rock.x, rock.y, rock.z)
+      new Vector3(rock.position[0], rock.position[1], rock.position[2])
     )
     const rockCell = latLngToCell(rockLat, rockLng, MARKER_RESOLUTION)
     disposables.add(createMarker(globe, rockCell, `spawnDebugRock_${index}`))
@@ -158,7 +163,7 @@ export function SpawnDebugController() {
   const borderCells = new Set<string>()
   for (let i = 0; i < BORDER_SAMPLE_POINTS; i++) {
     const t = i / BORDER_SAMPLE_POINTS
-    const p = sampleSpawnBorderPoint({ x: ship.x, y: ship.y, z: ship.z }, t)
+    const p = sampleSpawnBorderPoint(ship.position, t)
     const [lat, lng] = vector3ToLatLng(new Vector3(p.x, p.y, p.z))
     borderCells.add(latLngToCell(lat, lng, MARKER_RESOLUTION))
   }

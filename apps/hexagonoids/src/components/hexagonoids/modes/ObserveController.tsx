@@ -11,8 +11,8 @@ import {
   type AgentContext,
   type AgentFn,
   buildCurriculumParams,
-  createGameAgent,
   CURRICULUM_SCENARIO_COUNT,
+  createGameAgent,
   generateCurriculumSnapshot,
   restoreSnapshot,
   type ScenarioSnapshot,
@@ -348,7 +348,11 @@ export function ObserveController() {
       player?.shipId != null ? engine.state.ships.get(player.shipId) : undefined
     const cameraOriginNode = scene.getTransformNodeByName('shipCameraOrigin')
     if (ship != null && cameraOriginNode instanceof TransformNode) {
-      const pos = new Vector3(ship.x * RADIUS, ship.y * RADIUS, ship.z * RADIUS)
+      const pos = new Vector3(
+        ship.position[0] * RADIUS,
+        ship.position[1] * RADIUS,
+        ship.position[2] * RADIUS
+      )
       const [yaw, pitch] = getYawPitch(pos)
       moveNodeTo(cameraOriginNode, yaw, pitch)
     }
