@@ -1,8 +1,8 @@
-import type { PartialEvaluationContext } from '@neat-evolution/execution-manager'
 import type {
   Environment,
   EnvironmentDescription,
 } from '@neat-evolution/environment'
+import type { PartialEvaluationContext } from '@neat-evolution/execution-manager'
 import type { Executor } from '@neat-evolution/executor'
 
 import { evaluateGauntlet } from './evaluation/gauntletEvaluation.js'
@@ -43,7 +43,10 @@ export class TicTacToeEnvironment
    * @param {PartialEvaluationContext} [context] - Optional evaluation context (provides rng)
    * @returns {number[]} Array of scores for each executor
    */
-  evaluateBatch(executors: Executor[], context?: PartialEvaluationContext): number[] {
+  evaluateBatch(
+    executors: Executor[],
+    context?: PartialEvaluationContext
+  ): number[] {
     // This environment only supports 2-player matches.
     // The EvaluationStrategy should be configured with matchPlayerSize = 2.
     if (executors.length !== 2) {
