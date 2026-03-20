@@ -1,33 +1,40 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
-
 import { RADIUS } from '../constants.js'
-
-import { getPositionFromQuaternion } from './quaternionPhysics.js'
+import { vec3 } from '../math/create.js'
+import { quatFromUnitPoint } from '../math/quat.js'
+import type { Quat, Vec3 } from '../math/types.js'
 
 const DEG_TO_RAD = Math.PI / 180
 const RAD_TO_DEG = 180 / Math.PI
 
 /**
- * Convert Vector3 position to [lat, lng] in degrees.
+ * Convert a Vec3 position to [lat, lng] in degrees.
  * lat = asin(y), lng = atan2(z, x) on a normalized vector.
  */
-export const vector3ToLatLng = (
-  position: Vector3
-): [lat: number, lng: number] => {
-  const { x, y, z } = position.normalizeToNew()
-  const lat = Math.asin(y) * RAD_TO_DEG
-  const lng = Math.atan2(z, x) * RAD_TO_DEG
+export const vec3ToLatLng = (position: Vec3): [lat: number, lng: number] => {
+  // Normalize without allocating
+  let px = position[0],
+    py = position[1],
+    pz = position[2]
+  const lenSq = px * px + py * py + pz * pz
+  if (lenSq > 0 && Math.abs(lenSq - 1) > 1e-7) {
+    const inv = 1 / Math.sqrt(lenSq)
+    px *= inv
+    py *= inv
+    pz *= inv
+  }
+  const lat = Math.asin(py) * RAD_TO_DEG
+  const lng = Math.atan2(pz, px) * RAD_TO_DEG
   return [lat, lng]
 }
 
 /**
- * Convert [lat, lng] in degrees to a Vector3 on a sphere of given radius.
+ * Convert [lat, lng] in degrees to a Vec3 on a sphere of given radius.
  */
-export const latLngToVector3 = (
+export const latLngToVec3 = (
   lat: number,
   lng: number,
   radius: number = RADIUS
-): Vector3 => {
+): Vec3 => {
   const latRad = lat * DEG_TO_RAD
   const lngRad = lng * DEG_TO_RAD
 
@@ -35,7 +42,7 @@ export const latLngToVector3 = (
   const z = radius * Math.cos(latRad) * Math.sin(lngRad)
   const y = radius * Math.sin(latRad)
 
-  return new Vector3(x, y, z)
+  return vec3(x, y, z)
 }
 
 export const latLngToUnitPoint = (
@@ -54,31 +61,38 @@ export const latLngToUnitPoint = (
 
 /**
  * Convert a quaternion orientation to [lat, lng] in degrees.
- * Uses getPositionFromQuaternion then vector3ToLatLng.
+ * Scalar — extracts unit point from quaternion then converts to lat/lng.
  */
 export const quaternionToLatLng = (
-  orientation: Quaternion,
-  radius: number = RADIUS
+  orientation: Quat,
+  _radius: number = RADIUS
 ): [lat: number, lng: number] => {
-  const position = getPositionFromQuaternion(orientation, radius)
-  return vector3ToLatLng(position)
+  const qx = orientation[0],
+    qy = orientation[1],
+    qz = orientation[2],
+    qw = orientation[3]
+  const py = 1 - 2 * (qx * qx + qz * qz)
+  const pz = 2 * (qy * qz + qx * qw)
+  const px = 2 * (qx * qy - qz * qw)
+  const lat = Math.asin(Math.max(-1, Math.min(1, py))) * RAD_TO_DEG
+  const lng = Math.atan2(pz, px) * RAD_TO_DEG
+  return [lat, lng]
 }
 
 /**
  * Fast scalar conversion from quaternion to [lat, lng] in degrees.
- * Equivalent to quaternionToLatLng but avoids Vector3 allocations.
  */
 export const quaternionToLatLngFast = (
-  orientation: Quaternion,
+  orientation: Quat,
   _radius: number = RADIUS
 ): [lat: number, lng: number] => {
-  const { x, y, z, w } = orientation
-
-  // Rotate local up (0,1,0) by quaternion.
-  const px = 2 * (x * y - z * w)
-  const py = 1 - 2 * (x * x + z * z)
-  const pz = 2 * (y * z + x * w)
-
+  const qx = orientation[0],
+    qy = orientation[1],
+    qz = orientation[2],
+    qw = orientation[3]
+  const px = 2 * (qx * qy - qz * qw)
+  const py = 1 - 2 * (qx * qx + qz * qz)
+  const pz = 2 * (qy * qz + qx * qw)
   const lat = Math.asin(Math.max(-1, Math.min(1, py))) * RAD_TO_DEG
   const lng = Math.atan2(pz, px) * RAD_TO_DEG
   return [lat, lng]
@@ -86,39 +100,25 @@ export const quaternionToLatLngFast = (
 
 /**
  * Fast scalar conversion that writes lat/lng into an existing target object.
- * Avoids allocating a tuple in hot movement loops.
  */
 export const quaternionToLatLngFastInPlace = (
-  orientation: Quaternion,
+  orientation: Quat,
   target: { lat: number; lng: number; x?: number; y?: number; z?: number },
   _radius: number = RADIUS
 ): void => {
-  const { x, y, z, w } = orientation
-  const px = 2 * (x * y - z * w)
-  const py = 1 - 2 * (x * x + z * z)
-  const pz = 2 * (y * z + x * w)
+  const qx = orientation[0],
+    qy = orientation[1],
+    qz = orientation[2],
+    qw = orientation[3]
+  const px = 2 * (qx * qy - qz * qw)
+  const py = 1 - 2 * (qx * qx + qz * qz)
+  const pz = 2 * (qy * qz + qx * qw)
 
   target.lat = Math.asin(Math.max(-1, Math.min(1, py))) * RAD_TO_DEG
   target.lng = Math.atan2(pz, px) * RAD_TO_DEG
   if ('x' in target) target.x = px
   if ('y' in target) target.y = py
   if ('z' in target) target.z = pz
-}
-
-/**
- * Fast scalar conversion that writes only the unit-sphere position into an
- * existing target object. Use this in hot simulation loops where lat/lng is
- * not needed.
- */
-export const quaternionToUnitPointFastInPlace = (
-  orientation: Quaternion,
-  target: { x?: number; y?: number; z?: number },
-  _radius: number = RADIUS
-): void => {
-  const { x, y, z, w } = orientation
-  target.x = 2 * (x * y - z * w)
-  target.y = 1 - 2 * (x * x + z * z)
-  target.z = 2 * (y * z + x * w)
 }
 
 export const unitPointToLatLng = (
@@ -143,72 +143,25 @@ export const unitPointToLatLngInPlace = (
 
 /**
  * Convert [lat, lng] in degrees to an orientation quaternion.
- * Aligns local +Y with the surface normal and local +Z (forward) with
- * geographic east so yaw=0 is always east, regardless of longitude.
+ * Writes into a new Quat.
  */
-export const latLngToQuaternion = (lat: number, lng: number): Quaternion => {
-  const position = latLngToVector3(lat, lng, 1).normalize()
-  const lngRad = lng * DEG_TO_RAD
-  const east = new Vector3(-Math.sin(lngRad), 0, Math.cos(lngRad)).normalize()
-
-  return unitVectorToQuaternion(position, east)
+export const latLngToQuaternion = (lat: number, lng: number): Quat => {
+  const [x, y, z] = latLngToUnitPoint(lat, lng)
+  const q = new Float64Array(4) as Quat
+  quatFromUnitPoint(q, x, y, z)
+  return q
 }
 
 /**
  * Convert a unit-sphere point to an orientation quaternion.
- * Aligns local +Y with the point and local +Z with a stable tangent direction.
+ * Delegates to quatFromUnitPoint from the math library.
  */
 export const unitPointToQuaternion = (
   x: number,
   y: number,
   z: number
-): Quaternion => {
-  const position = new Vector3(x, y, z)
-  if (position.lengthSquared() < 0.0000001) {
-    return Quaternion.Identity()
-  }
-  position.normalize()
-
-  const eastSeed = new Vector3(-position.z, 0, position.x)
-  const east =
-    eastSeed.lengthSquared() < 0.0000001
-      ? new Vector3(0, 0, 1)
-      : eastSeed.normalize()
-
-  return unitVectorToQuaternion(position, east)
-}
-
-function unitVectorToQuaternion(position: Vector3, east: Vector3): Quaternion {
-  const normalizedEast =
-    east.lengthSquared() < 0.0000001 ? new Vector3(0, 0, 1) : east.normalize()
-
-  const up = Vector3.Up()
-  const axis = Vector3.Cross(up, position)
-  const axisLen = axis.length()
-  let upAligned: Quaternion
-  if (axisLen < 0.00001) {
-    upAligned =
-      position.y > 0
-        ? Quaternion.Identity()
-        : Quaternion.RotationAxis(new Vector3(1, 0, 0), Math.PI)
-  } else {
-    axis.scaleInPlace(1 / axisLen)
-    const dot = Vector3.Dot(up, position)
-    const angle = Math.acos(Math.max(-1, Math.min(1, dot)))
-    upAligned = Quaternion.RotationAxis(axis, angle)
-  }
-
-  // Resolve the twist around the normal so forward matches geographic east.
-  const forwardAfterUpAlign = Vector3.Forward()
-    .applyRotationQuaternion(upAligned)
-    .normalize()
-  const cross = Vector3.Cross(forwardAfterUpAlign, normalizedEast)
-  const signedSin = Vector3.Dot(position, cross)
-  const signedCos = Vector3.Dot(forwardAfterUpAlign, normalizedEast)
-  const twist = Math.atan2(signedSin, signedCos)
-
-  const twistQuaternion = Quaternion.RotationAxis(position, twist)
-  const result = twistQuaternion.multiply(upAligned)
-  result.normalize()
-  return result
+): Quat => {
+  const q = new Float64Array(4) as Quat
+  quatFromUnitPoint(q, x, y, z)
+  return q
 }

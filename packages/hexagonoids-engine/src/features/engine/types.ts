@@ -1,4 +1,4 @@
-import type { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
+import type { Quat, Vec3 } from './math/types.js'
 
 // ── Union types ──────────────────────────────────────────────────────────────
 
@@ -28,19 +28,17 @@ export interface ShipState {
   playerId: string
 
   /** Quaternion encoding the entity's position/orientation on the sphere */
-  orientation: Quaternion
+  orientation: Quat
 
-  /** Cached unit-sphere position for fast spatial queries. */
-  x: number
-  y: number
-  z: number
+  /** Cached unit-sphere position derived from orientation. */
+  position: Vec3
 
   /**
    * Angular velocity of the ship as a 3D vector.
    * Direction: axis of rotation on the sphere.
    * Magnitude: angular speed in radians per second.
    */
-  angularVelocity: Vector3
+  angularVelocity: Vec3
 
   /** Rotation of the ship relative to the heading in radians */
   yaw: number
@@ -56,19 +54,17 @@ export interface RockState {
   id: string
 
   /** Quaternion encoding the entity's position/orientation on the sphere */
-  orientation: Quaternion
+  orientation: Quat
 
-  /** Cached unit-sphere position for fast spatial queries. */
-  x: number
-  y: number
-  z: number
+  /** Cached unit-sphere position derived from orientation. */
+  position: Vec3
 
   /**
    * Angular velocity of the rock as a 3D vector.
    * Direction: axis of rotation on the sphere.
    * Magnitude: angular speed in radians per second.
    */
-  angularVelocity: Vector3
+  angularVelocity: Vec3
 
   /** Size of the rock: 2 = large, 1 = medium, 0 = small */
   size: 0 | 1 | 2
@@ -81,19 +77,17 @@ export interface BulletState {
   id: string
 
   /** Quaternion encoding the entity's position/orientation on the sphere */
-  orientation: Quaternion
+  orientation: Quat
 
-  /** Cached unit-sphere position for fast spatial queries. */
-  x: number
-  y: number
-  z: number
+  /** Cached unit-sphere position derived from orientation. */
+  position: Vec3
 
   /**
    * Angular velocity of the bullet as a 3D vector.
    * Direction: axis of rotation on the sphere.
    * Magnitude: angular speed in radians per second.
    */
-  angularVelocity: Vector3
+  angularVelocity: Vec3
 
   /** Timestamp (game time ms) when the bullet was fired */
   firedAt: number | null

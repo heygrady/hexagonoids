@@ -1,141 +1,98 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
+/**
+ * Movement parity tests -- verify that moveShip, moveRock, moveBullet produce
+ * correct results over many frames.
+ *
+ * The old "fast vs slow" parity tests are no longer needed since there is only
+ * one code path now. These tests verify that movement over many steps stays
+ * numerically stable and on the unit sphere.
+ */
 import { describe, expect, it } from 'vitest'
+import { vec3Zero } from '../../../src/features/engine/math/create.js'
+import { vec3Length } from '../../../src/features/engine/math/vec3.js'
 import { latLngToQuaternion } from '../../../src/features/engine/physics/latLng.js'
-import type { BulletState, RockState, ShipState } from '../../../src/index.js'
 import {
   headingToAngularVelocity,
   moveBullet,
   moveRock,
   moveShip,
-  RADIUS,
 } from '../../../src/index.js'
+import { makeBullet, makeRock, makeShip } from '../../helpers/entities.js'
 import { pointFromLatLng } from '../../helpers/points.js'
 
-function orientationAlignment(a: Quaternion, b: Quaternion): number {
-  const dot = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w
-  return Math.abs(dot)
-}
-
-function makeShip(overrides: Partial<ShipState> = {}): ShipState {
-  return {
-    id: 'ship-1',
-    playerId: 'p1',
-    orientation: Quaternion.Identity(),
-    ...pointFromLatLng(0, 0),
-    angularVelocity: Vector3.Zero(),
-    yaw: 0,
-    alive: true,
-    firedAt: null,
-    ...overrides,
-  }
-}
-
-function makeRock(overrides: Partial<RockState> = {}): RockState {
-  return {
-    id: 'rock-1',
-    orientation: Quaternion.Identity(),
-    ...pointFromLatLng(0, 0),
-    angularVelocity: Vector3.Zero(),
-    size: 2,
-    value: 50,
-    ...overrides,
-  }
-}
-
-function makeBullet(overrides: Partial<BulletState> = {}): BulletState {
-  return {
-    id: 'bullet-1',
-    ownerId: 'ship-1',
-    orientation: Quaternion.Identity(),
-    ...pointFromLatLng(0, 0),
-    angularVelocity: Vector3.Zero(),
-    firedAt: null,
-    ...overrides,
-  }
-}
-
-describe('movement fast math parity', () => {
-  it('moveShip fast and quaternion paths remain aligned over many steps', () => {
+describe('movement stability over many steps', () => {
+  it('moveShip stays on unit sphere over 120 frames', () => {
     const orientation = latLngToQuaternion(27, 61)
-    const angularVelocity = headingToAngularVelocity(orientation, 0.85, 0.23)
+    const angularVelocity = vec3Zero()
+    headingToAngularVelocity(angularVelocity, orientation, 0.85, 0.23)
     const startPoint = pointFromLatLng(27, 61)
-    const fast = makeShip({
+    const ship = makeShip({
       orientation,
-      ...startPoint,
-      angularVelocity: angularVelocity.clone(),
-    })
-    const slow = makeShip({
-      orientation: orientation.clone(),
-      ...startPoint,
-      angularVelocity: angularVelocity.clone(),
+      position: startPoint,
+      angularVelocity,
     })
 
     for (let i = 0; i < 120; i++) {
-      moveShip(fast, 16, RADIUS, true)
-      moveShip(slow, 16, RADIUS, false)
+      moveShip(ship, 16)
     }
 
-    expect(fast.x ?? 0).toBeCloseTo(slow.x ?? 0, 5)
-    expect(fast.y ?? 1).toBeCloseTo(slow.y ?? 1, 5)
-    expect(fast.z ?? 0).toBeCloseTo(slow.z ?? 0, 5)
-    expect(
-      orientationAlignment(fast.orientation, slow.orientation)
-    ).toBeCloseTo(1, 5)
+    expect(vec3Length(ship.position)).toBeCloseTo(1, 5)
+    // Orientation should still be normalized
+    const qLen = Math.sqrt(
+      ship.orientation[0] ** 2 +
+        ship.orientation[1] ** 2 +
+        ship.orientation[2] ** 2 +
+        ship.orientation[3] ** 2
+    )
+    expect(qLen).toBeCloseTo(1, 5)
   })
 
-  it('moveRock fast and quaternion paths match', () => {
+  it('moveRock stays on unit sphere over 160 frames', () => {
     const orientation = latLngToQuaternion(-34, 112)
-    const angularVelocity = headingToAngularVelocity(orientation, -0.4, 0.19)
+    const angularVelocity = vec3Zero()
+    headingToAngularVelocity(angularVelocity, orientation, -0.4, 0.19)
     const startPoint = pointFromLatLng(-34, 112)
-    const fast = makeRock({
+    const rock = makeRock({
       orientation,
-      ...startPoint,
-      angularVelocity: angularVelocity.clone(),
-    })
-    const slow = makeRock({
-      orientation: orientation.clone(),
-      ...startPoint,
-      angularVelocity: angularVelocity.clone(),
+      position: startPoint,
+      angularVelocity,
     })
 
     for (let i = 0; i < 160; i++) {
-      moveRock(fast, 16, RADIUS, true)
-      moveRock(slow, 16, RADIUS, false)
+      moveRock(rock, 16)
     }
 
-    expect(fast.x ?? 0).toBeCloseTo(slow.x ?? 0, 5)
-    expect(fast.y ?? 1).toBeCloseTo(slow.y ?? 1, 5)
-    expect(fast.z ?? 0).toBeCloseTo(slow.z ?? 0, 5)
-    expect(
-      orientationAlignment(fast.orientation, slow.orientation)
-    ).toBeCloseTo(1, 5)
+    expect(vec3Length(rock.position)).toBeCloseTo(1, 5)
+    const qLen = Math.sqrt(
+      rock.orientation[0] ** 2 +
+        rock.orientation[1] ** 2 +
+        rock.orientation[2] ** 2 +
+        rock.orientation[3] ** 2
+    )
+    expect(qLen).toBeCloseTo(1, 5)
   })
 
-  it('moveBullet fast and quaternion paths match', () => {
+  it('moveBullet stays on unit sphere over 90 frames', () => {
     const orientation = latLngToQuaternion(6, -145)
-    const angularVelocity = headingToAngularVelocity(orientation, 1.3, 0.3)
+    const angularVelocity = vec3Zero()
+    headingToAngularVelocity(angularVelocity, orientation, 1.3, 0.3)
     const startPoint = pointFromLatLng(6, -145)
-    const fast = makeBullet({
+    const bullet = makeBullet({
       orientation,
-      ...startPoint,
-      angularVelocity: angularVelocity.clone(),
-    })
-    const slow = makeBullet({
-      orientation: orientation.clone(),
-      ...startPoint,
-      angularVelocity: angularVelocity.clone(),
+      position: startPoint,
+      angularVelocity,
     })
 
     for (let i = 0; i < 90; i++) {
-      moveBullet(fast, 16, RADIUS, true)
-      moveBullet(slow, 16, RADIUS, false)
+      moveBullet(bullet, 16)
     }
 
-    expect(fast.x ?? 0).toBeCloseTo(slow.x ?? 0, 5)
-    expect(fast.y ?? 1).toBeCloseTo(slow.y ?? 1, 5)
-    expect(fast.z ?? 0).toBeCloseTo(slow.z ?? 0, 5)
-    expect(
-      orientationAlignment(fast.orientation, slow.orientation)
-    ).toBeCloseTo(1, 5)
+    expect(vec3Length(bullet.position)).toBeCloseTo(1, 5)
+    const qLen = Math.sqrt(
+      bullet.orientation[0] ** 2 +
+        bullet.orientation[1] ** 2 +
+        bullet.orientation[2] ** 2 +
+        bullet.orientation[3] ** 2
+    )
+    expect(qLen).toBeCloseTo(1, 5)
   })
 })

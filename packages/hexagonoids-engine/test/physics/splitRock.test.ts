@@ -1,5 +1,6 @@
 import { createRNG } from '@neat-evolution/utils'
 import { describe, expect, it } from 'vitest'
+import { vec3Length } from '../../src/features/engine/math/vec3.js'
 import {
   createGame,
   ROCK_LARGE_SIZE,
@@ -31,9 +32,7 @@ describe('splitRock scalar math', () => {
     splitRock(game, rock, rng)
 
     for (const child of game.rocks.values()) {
-      const len = Math.sqrt(
-        child.x * child.x + child.y * child.y + child.z * child.z
-      )
+      const len = vec3Length(child.position)
       expect(len).toBeCloseTo(1, 5)
     }
   })
@@ -51,11 +50,7 @@ describe('splitRock scalar math', () => {
     splitRock(game, rock, rng)
 
     for (const child of game.rocks.values()) {
-      const speed = Math.sqrt(
-        child.angularVelocity.x ** 2 +
-          child.angularVelocity.y ** 2 +
-          child.angularVelocity.z ** 2
-      )
+      const speed = vec3Length(child.angularVelocity)
       expect(speed).toBeGreaterThan(0.001)
     }
   })
@@ -83,7 +78,11 @@ describe('splitRock scalar math', () => {
   })
 
   it('produces deterministic results with same seed', () => {
-    const results: Array<{ x: number; y: number; z: number }> = []
+    const results: Array<{
+      x: number
+      y: number
+      z: number
+    }> = []
 
     for (let run = 0; run < 2; run++) {
       const rng = createRNG('deterministic-test')
@@ -98,7 +97,11 @@ describe('splitRock scalar math', () => {
 
       const children = [...game.rocks.values()]
       for (const child of children) {
-        results.push({ x: child.x, y: child.y, z: child.z })
+        results.push({
+          x: child.position[0],
+          y: child.position[1],
+          z: child.position[2],
+        })
       }
     }
 

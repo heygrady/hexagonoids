@@ -1,6 +1,4 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import type { RNG } from '@neat-evolution/utils'
-import type { SpatialPoint } from '../../spatial-index/index.js'
 
 import {
   MAX_ROCKS,
@@ -23,15 +21,23 @@ import {
   SPLIT_SPEED_MAX_FACTOR,
   SPLIT_SPEED_MIN_FACTOR,
 } from '../constants.js'
-import { defaultRockState } from '../defaults.js'
 import { generateId } from '../generateId.js'
+import { quatFromUnitPoint, quatToUnitPoint } from '../math/quat.js'
+import type { Quat, Vec3 } from '../math/types.js'
 import {
-  quaternionToUnitPointFastInPlace,
-  unitPointToQuaternion,
-} from '../physics/latLng.js'
+  vec3Cross,
+  vec3Dot,
+  vec3Normalize,
+  vec3Scale,
+  vec3Set,
+} from '../math/vec3.js'
 import { headingToAngularVelocity } from '../physics/quaternionPhysics.js'
 import type { GameState, RockState } from '../types.js'
 import { rockValueForSize } from './rockHelpers.js'
+import { RockPool } from './rockPool.js'
+
+// Module-scoped pool
+const rockPool = new RockPool()
 
 function rockSpeedForSize(size: 0 | 1 | 2): number {
   switch (size) {
@@ -49,41 +55,50 @@ function rockSpeedForSize(size: 0 | 1 | 2): number {
  */
 export function spawnRock(
   game: GameState,
-  point: SpatialPoint,
+  point: Vec3,
   size: 0 | 1 | 2,
   rng: RNG,
   localHeading?: number
 ): RockState {
-  const id = generateId('rock')
-  const orientation = unitPointToQuaternion(point.x, point.y, point.z)
+  const rock = rockPool.obtain()
+  rock.id = generateId('rock')
+  rock.size = size
+  rock.value = rockValueForSize(size)
+
+  quatFromUnitPoint(rock.orientation, point[0], point[1], point[2])
   const speed = rockSpeedForSize(size)
   const randomHeading = localHeading ?? rng.gen() * Math.PI * 2
-  const angularVelocity = headingToAngularVelocity(
-    orientation,
+  headingToAngularVelocity(
+    rock.angularVelocity,
+    rock.orientation,
     randomHeading,
     speed
   )
+  quatToUnitPoint(rock.position, rock.orientation)
 
-  const rock: RockState = {
-    ...defaultRockState,
-    id,
-    orientation,
-    x: point.x,
-    y: point.y,
-    z: point.z,
-    angularVelocity,
-    size,
-    value: rockValueForSize(size),
-  }
-  game.rocks.set(id, rock)
+  game.rocks.set(rock.id, rock)
   return rock
+}
+
+/** Obtain a rock entity from the pool (all fields stale — caller must overwrite). */
+export function obtainRockEntity(): RockState {
+  return rockPool.obtain()
+}
+
+/** Release a rock entity back to the pool. */
+export function releaseRockEntity(rock: RockState): void {
+  rockPool.release(rock)
 }
 
 /**
  * Remove a rock from the game.
  */
 export function destroyRock(game: GameState, rockId: string): void {
+  const rock = game.rocks.get(rockId)
   game.rocks.delete(rockId)
+  if (rock != null) {
+    rockPool.release(rock)
+  }
 }
 
 /**
@@ -98,18 +113,18 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
   const newSize = (rock.size - 1) as 0 | 1
 
   // Parent world-up: rotate (0,1,0) by parent orientation — scalar math
-  const pqx = rock.orientation.x
-  const pqy = rock.orientation.y
-  const pqz = rock.orientation.z
-  const pqw = rock.orientation.w
+  const pqx = rock.orientation[0]
+  const pqy = rock.orientation[1]
+  const pqz = rock.orientation[2]
+  const pqw = rock.orientation[3]
   const parentUpX = 2 * (pqx * pqy - pqz * pqw)
   const parentUpY = 1 - 2 * (pqx * pqx + pqz * pqz)
   const parentUpZ = 2 * (pqy * pqz + pqx * pqw)
 
   // Parent speed (vector magnitude)
-  const pvx = rock.angularVelocity.x
-  const pvy = rock.angularVelocity.y
-  const pvz = rock.angularVelocity.z
+  const pvx = rock.angularVelocity[0]
+  const pvy = rock.angularVelocity[1]
+  const pvz = rock.angularVelocity[2]
   const parentSpeed = Math.sqrt(pvx * pvx + pvy * pvy + pvz * pvz)
   const childBaseSpeed = rockSpeedForSize(newSize)
 
@@ -119,7 +134,6 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
     const rollHalf = roll * 0.5
     const rollSin = Math.sin(rollHalf)
     const rollCos = Math.cos(rollHalf)
-    // Roll quat = (0, 0, sin(roll/2), cos(roll/2))
 
     // Child orientation = parent * rollQuat (quaternion multiply)
     let cqx = pqw * 0 + pqx * rollCos + pqy * rollSin - pqz * 0
@@ -128,7 +142,7 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
     let cqw = pqw * rollCos - pqx * 0 - pqy * 0 - pqz * rollSin
 
     // Normalize child orientation
-    let cqLen = Math.sqrt(cqx * cqx + cqy * cqy + cqz * cqz + cqw * cqw)
+    const cqLen = Math.sqrt(cqx * cqx + cqy * cqy + cqz * cqz + cqw * cqw)
     if (cqLen > 0.00001) {
       const inv = 1 / cqLen
       cqx *= inv
@@ -143,14 +157,12 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
     const hHalf = headingOffset * 0.5
     const hSin = Math.sin(hHalf)
     const hCos = Math.cos(hHalf)
-    // offsetQuat = (upX*sin, upY*sin, upZ*sin, cos)
     const oqx = parentUpX * hSin
     const oqy = parentUpY * hSin
     const oqz = parentUpZ * hSin
     const oqw = hCos
 
     // Rotate parent velocity by offsetQuat: v' = q * v * q^-1
-    // Using the formula: t = 2 * cross(q.xyz, v); v' = v + q.w * t + cross(q.xyz, t)
     const tx = 2 * (oqy * pvz - oqz * pvy)
     const ty = 2 * (oqz * pvx - oqx * pvz)
     const tz = 2 * (oqx * pvy - oqy * pvx)
@@ -158,7 +170,7 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
     let cvy = pvy + oqw * ty + (oqz * tx - oqx * tz)
     let cvz = pvz + oqw * tz + (oqx * ty - oqy * tx)
 
-    // Normalize child velocity (or use forward direction as fallback)
+    // Normalize child velocity direction
     let cvLenSq = cvx * cvx + cvy * cvy + cvz * cvz
     if (cvLenSq > 0.000001) {
       const invLen = 1 / Math.sqrt(cvLenSq)
@@ -191,39 +203,31 @@ export function splitRock(game: GameState, rock: RockState, rng: RNG): void {
       Math.min(maxSpeed, inherited + jitter)
     )
 
-    const childOrientation = new Quaternion(cqx, cqy, cqz, cqw)
+    const child = rockPool.obtain()
+    child.id = generateId('rock')
+    child.size = newSize
+    child.value = rockValueForSize(newSize)
 
-    const id = generateId('rock')
-    const child: RockState = {
-      ...defaultRockState,
-      id,
-      orientation: childOrientation,
-      x: 0,
-      y: 0,
-      z: 0,
-      angularVelocity: new Vector3(
-        cvx * clampedSpeed,
-        cvy * clampedSpeed,
-        cvz * clampedSpeed
-      ),
-      size: newSize,
-      value: rockValueForSize(newSize),
-    }
-    quaternionToUnitPointFastInPlace(childOrientation, child)
-    game.rocks.set(id, child)
+    child.orientation[0] = cqx
+    child.orientation[1] = cqy
+    child.orientation[2] = cqz
+    child.orientation[3] = cqw
+    quatToUnitPoint(child.position, child.orientation)
+
+    child.angularVelocity[0] = cvx * clampedSpeed
+    child.angularVelocity[1] = cvy * clampedSpeed
+    child.angularVelocity[2] = cvz * clampedSpeed
+
+    game.rocks.set(child.id, child)
   }
 
   destroyRock(game, rock.id)
 }
 
 export interface SpawnWaveOptions {
-  /** Override spawn border half-width in degrees. */
   borderHalfWidth?: number
-  /** Override spawn border half-height in degrees. */
   borderHalfHeight?: number
-  /** Extra release padding beyond border half extents (degrees). */
   releasePaddingDegrees?: number
-  /** Override inward heading spread in degrees (default: ±90). */
   inwardSpreadDegrees?: number
 }
 
@@ -256,7 +260,6 @@ function sampleRectBorder(
   const perimeter = width * 2 + height * 2
   const distance = wrap01(borderT) * perimeter
 
-  // Start at top-left, move clockwise around the rectangle.
   if (distance < width) {
     return [-halfWidth + distance, halfHeight]
   }
@@ -284,12 +287,22 @@ export function getSpawnBorderExtents(
   }
 }
 
+// Module-scoped scratch for spawn geometry
+const _center = new Float64Array(3) as Vec3
+const _east = new Float64Array(3) as Vec3
+const _north = new Float64Array(3) as Vec3
+const _tangent = new Float64Array(3) as Vec3
+const _rotAxis = new Float64Array(3) as Vec3
+const _spawn = new Float64Array(3) as Vec3
+const _reference = new Float64Array(3) as Vec3
+const _spawnQuat = new Float64Array(4) as Quat
+const _tmpVec = new Float64Array(3) as Vec3
+
 /**
  * Sample a point on the rectangular spawn border around a unit-sphere center.
- * `borderT` wraps at 1 and maps to perimeter length uniformly.
  */
 export function sampleSpawnBorderPoint(
-  centerPoint: SpatialPoint,
+  centerPoint: Vec3,
   borderT: number,
   options?: SpawnWaveOptions
 ): SpawnBorderPoint {
@@ -304,77 +317,128 @@ export function sampleSpawnBorderPoint(
 
   if (distance < 0.00001) {
     return {
-      x: centerPoint.x,
-      y: centerPoint.y,
-      z: centerPoint.z,
+      x: centerPoint[0],
+      y: centerPoint[1],
+      z: centerPoint[2],
       borderT: wrap01(borderT),
     }
   }
 
-  const center = new Vector3(centerPoint.x, centerPoint.y, centerPoint.z)
-  if (center.lengthSquared() < 0.0000001) {
+  // Normalize center
+  vec3Set(_center, centerPoint[0], centerPoint[1], centerPoint[2])
+  const cLenSq =
+    _center[0] * _center[0] + _center[1] * _center[1] + _center[2] * _center[2]
+  if (cLenSq < 0.0000001) {
     return { x: 0, y: 1, z: 0, borderT: wrap01(borderT) }
   }
-  center.normalize()
+  vec3Normalize(_center)
 
-  const reference = Math.abs(center.y) > 0.95 ? Vector3.Right() : Vector3.Up()
-  const east = Vector3.Cross(reference, center).normalize()
-  const north = Vector3.Cross(center, east).normalize()
+  // Reference vector for east/north basis
+  if (Math.abs(_center[1]) > 0.95) {
+    vec3Set(_reference, 1, 0, 0) // Right
+  } else {
+    vec3Set(_reference, 0, 1, 0) // Up
+  }
 
-  const tangent = east.scale(xRad).addInPlace(north.scale(yRad))
-  const heading = tangent.normalize()
-  const rotationAxis = Vector3.Cross(center, heading).normalize()
-  const spawn = center.applyRotationQuaternion(
-    Quaternion.RotationAxis(rotationAxis, distance)
-  )
-  spawn.normalize()
-  return { x: spawn.x, y: spawn.y, z: spawn.z, borderT: wrap01(borderT) }
+  // east = normalize(cross(reference, center))
+  vec3Cross(_east, _reference, _center)
+  vec3Normalize(_east)
+
+  // north = normalize(cross(center, east))
+  vec3Cross(_north, _center, _east)
+  vec3Normalize(_north)
+
+  // tangent = east * xRad + north * yRad
+  vec3Scale(_tangent, _east, xRad)
+  vec3Scale(_tmpVec, _north, yRad)
+  _tangent[0] += _tmpVec[0]
+  _tangent[1] += _tmpVec[1]
+  _tangent[2] += _tmpVec[2]
+
+  // heading = normalize(tangent)
+  vec3Normalize(_tangent)
+
+  // rotationAxis = normalize(cross(center, heading))
+  vec3Cross(_rotAxis, _center, _tangent)
+  vec3Normalize(_rotAxis)
+
+  // spawn = rotate center by axis-angle(rotAxis, distance)
+  // Using Rodrigues' rotation: v' = v*cos(a) + (k×v)*sin(a) + k*(k·v)*(1-cos(a))
+  const cosA = Math.cos(distance)
+  const sinA = Math.sin(distance)
+  const kDotV = vec3Dot(_rotAxis, _center)
+
+  // k × v
+  vec3Cross(_tmpVec, _rotAxis, _center)
+
+  _spawn[0] =
+    _center[0] * cosA + _tmpVec[0] * sinA + _rotAxis[0] * kDotV * (1 - cosA)
+  _spawn[1] =
+    _center[1] * cosA + _tmpVec[1] * sinA + _rotAxis[1] * kDotV * (1 - cosA)
+  _spawn[2] =
+    _center[2] * cosA + _tmpVec[2] * sinA + _rotAxis[2] * kDotV * (1 - cosA)
+  vec3Normalize(_spawn)
+
+  return {
+    x: _spawn[0],
+    y: _spawn[1],
+    z: _spawn[2],
+    borderT: wrap01(borderT),
+  }
 }
 
-function headingTowardPoint(
-  spawnPoint: SpatialPoint,
-  targetPoint: SpatialPoint
-): number {
-  const spawnOrientation = unitPointToQuaternion(
-    spawnPoint.x,
-    spawnPoint.y,
-    spawnPoint.z
-  )
-  const spawnUp = new Vector3(spawnPoint.x, spawnPoint.y, spawnPoint.z)
-  const target = new Vector3(targetPoint.x, targetPoint.y, targetPoint.z)
-  if (
-    spawnUp.lengthSquared() < 0.0000001 ||
-    target.lengthSquared() < 0.0000001
-  ) {
-    return 0
-  }
-  spawnUp.normalize()
-  target.normalize()
+function headingTowardPoint(spawnPoint: Vec3, targetPoint: Vec3): number {
+  // Build spawn orientation
+  quatFromUnitPoint(_spawnQuat, spawnPoint[0], spawnPoint[1], spawnPoint[2])
 
-  // Project target direction onto spawn tangent plane.
-  const targetOnPlane = target.subtract(
-    spawnUp.scale(Vector3.Dot(target, spawnUp))
-  )
-  if (targetOnPlane.lengthSquared() < 0.00001) return 0
-  targetOnPlane.normalize()
+  // Normalize spawn normal and target
+  vec3Set(_center, spawnPoint[0], spawnPoint[1], spawnPoint[2])
+  vec3Normalize(_center)
+  vec3Set(_tmpVec, targetPoint[0], targetPoint[1], targetPoint[2])
+  vec3Normalize(_tmpVec)
 
-  const forward = Vector3.Forward().applyRotationQuaternion(spawnOrientation)
-  const right = Vector3.Right().applyRotationQuaternion(spawnOrientation)
+  // Project target onto spawn tangent plane: t - n*(t·n)
+  const dotTN = vec3Dot(_tmpVec, _center)
+  _tangent[0] = _tmpVec[0] - _center[0] * dotTN
+  _tangent[1] = _tmpVec[1] - _center[1] * dotTN
+  _tangent[2] = _tmpVec[2] - _center[2] * dotTN
 
-  return Math.atan2(
-    Vector3.Dot(targetOnPlane, right),
-    Vector3.Dot(targetOnPlane, forward)
-  )
+  const tLenSq =
+    _tangent[0] * _tangent[0] +
+    _tangent[1] * _tangent[1] +
+    _tangent[2] * _tangent[2]
+  if (tLenSq < 0.00001) return 0
+  vec3Normalize(_tangent)
+
+  // Forward = rotate (0,0,1) by spawnQuat
+  const sq = _spawnQuat
+  const ftx = 2 * sq[1]
+  const fty = -2 * sq[0]
+  const ftz = 0
+  const fx = sq[3] * ftx + (sq[1] * ftz - sq[2] * fty)
+  const fy = sq[3] * fty + (sq[2] * ftx - sq[0] * ftz)
+  const fz = 1 + sq[3] * ftz + (sq[0] * fty - sq[1] * ftx)
+
+  // Right = rotate (1,0,0) by spawnQuat
+  const rtx = 0
+  const rty = 2 * sq[2]
+  const rtz = -2 * sq[1]
+  const rx = 1 + sq[3] * rtx + (sq[1] * rtz - sq[2] * rty)
+  const ry = sq[3] * rty + (sq[2] * rtx - sq[0] * rtz)
+  const rz = sq[3] * rtz + (sq[0] * rty - sq[1] * rtx)
+
+  const dotForward = _tangent[0] * fx + _tangent[1] * fy + _tangent[2] * fz
+  const dotRight = _tangent[0] * rx + _tangent[1] * ry + _tangent[2] * rz
+
+  return Math.atan2(dotRight, dotForward)
 }
 
 /**
  * Spawn a wave of rocks around a position.
- * By default, rocks spawn within a nearby gameplay radius around the center
- * position. Pass options to override distances when needed.
  */
 export function spawnWave(
   game: GameState,
-  centerPoint: SpatialPoint,
+  centerPoint: Vec3,
   rng: RNG,
   options?: SpawnWaveOptions
 ): void {
@@ -385,15 +449,18 @@ export function spawnWave(
       Math.PI) /
     180
 
+  // Use a temporary Vec3 for spawn border points
+  const spawnPt = new Float64Array(3) as Vec3
+
   for (let i = 0; i < count && game.rocks.size < MAX_ROCKS; i++) {
-    // Stratified sampling avoids clumping all rocks at one side of the border.
     const borderT = (i + rng.gen()) / Math.max(1, count)
     const point = sampleSpawnBorderPoint(centerPoint, borderT, options)
+    vec3Set(spawnPt, point.x, point.y, point.z)
     const inwardHeading =
-      headingTowardPoint(point, centerPoint) +
+      headingTowardPoint(spawnPt, centerPoint) +
       (rng.gen() * 2 - 1) * inwardSpreadRad
 
-    spawnRock(game, point, ROCK_LARGE_SIZE, rng, inwardHeading)
+    spawnRock(game, spawnPt, ROCK_LARGE_SIZE, rng, inwardHeading)
   }
 
   game.wave++

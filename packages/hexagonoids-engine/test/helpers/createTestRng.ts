@@ -8,10 +8,13 @@ export function createTestRng(): RNG {
     0.82, 0.92, 0.02, 0.11, 0.21, 0.31, 0.41, 0.51, 0.61, 0.71, 0.81,
   ]
   const next = () => values[i++ % values.length] ?? 0.5
-  return {
+  const rng: RNG = {
     gen: () => next(),
     genRange: (min: number, max: number) =>
       Math.floor(next() * (max - min)) + min,
     genBool: () => next() < 0.5,
+    derive: () => rng,
+    toSeed: () => '__rng:0',
   }
+  return rng
 }

@@ -1,5 +1,6 @@
 import { createRoot } from 'solid-js'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { vec3Length } from '../../src/features/engine/math/vec3.js'
 import {
   createReactiveEngine,
   useGameOver,
@@ -101,7 +102,8 @@ describe('createReactiveEngine', () => {
       const ids = engine.shipIds()
       expect(ids.length).toBeGreaterThan(0)
 
-      const shipId = ids[0]!
+      const shipId = ids[0]
+      if (shipId === undefined) throw new Error('Expected shipId')
       const ship = engine.state.ships.get(shipId)
       expect(ship).toBeDefined()
 
@@ -113,8 +115,9 @@ describe('createReactiveEngine', () => {
 
       const updatedShip = engine.state.ships.get(shipId)
       expect(updatedShip).toBeDefined()
+      if (updatedShip === undefined) throw new Error('Expected updated ship')
       // After thrust, angular velocity should be non-zero
-      expect(updatedShip!.angularVelocity.length()).toBeGreaterThan(0)
+      expect(vec3Length(updatedShip.angularVelocity)).toBeGreaterThan(0)
       dispose()
     })
   })
@@ -167,7 +170,8 @@ describe('createReactiveEngine', () => {
       expect(engine.shipIds().length).toBe(1)
 
       // Remove the ship
-      const shipId = engine.shipIds()[0]!
+      const shipId = engine.shipIds()[0]
+      if (shipId === undefined) throw new Error('Expected shipId')
       engine.mutate((state) => {
         state.ships.delete(shipId)
       })

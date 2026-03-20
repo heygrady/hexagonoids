@@ -1,156 +1,105 @@
 /**
- * Quantitative tests for moveBullet — verify arc distance magnitudes.
+ * Quantitative tests for moveBullet -- verify arc distance magnitudes.
  *
  * Key constants:
- *   BULLET_SPEED = MAX_SPEED = Math.PI / 10  — radians per second
+ *   BULLET_SPEED = MAX_SPEED = Math.PI / 10  -- radians per second
  *   RADIUS = 5
  */
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import { describe, expect, it } from 'vitest'
+import { vec3Zero } from '../../../src/features/engine/math/create.js'
+import type { Vec3 } from '../../../src/features/engine/math/types.js'
 import { latLngToQuaternion } from '../../../src/features/engine/physics/latLng.js'
-import type { BulletState } from '../../../src/index.js'
 import {
   BULLET_SPEED,
   headingToAngularVelocity,
   moveBullet,
   RADIUS,
 } from '../../../src/index.js'
+import { makeBullet } from '../../helpers/entities.js'
 import { pointFromLatLng } from '../../helpers/points.js'
 
-function arcDistanceFromPoints(
-  ax: number,
-  ay: number,
-  az: number,
-  bx: number,
-  by: number,
-  bz: number
-): number {
-  const dot = Math.max(-1, Math.min(1, ax * bx + ay * by + az * bz))
+function arcDistanceFromPoints(a: Vec3, b: Vec3): number {
+  const dot = Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))
   return Math.acos(dot) * RADIUS
 }
 
-function makeBullet(overrides: Partial<BulletState> = {}): BulletState {
-  return {
-    id: 'test-bullet',
-    orientation: Quaternion.Identity(),
-    ...pointFromLatLng(0, 0),
-    angularVelocity: Vector3.Zero(),
-    firedAt: null,
-    ownerId: 'test-ship',
-    ...overrides,
-  }
-}
-
-describe('moveBullet — quantitative distance per frame', () => {
+describe('moveBullet -- quantitative distance per frame', () => {
   it('travels the correct arc distance in one 16ms frame at BULLET_SPEED', () => {
-    // A bullet at BULLET_SPEED rad/s for one 60fps frame (16ms) should travel:
-    //   angle = BULLET_SPEED * (16 / 1000) radians
-    //   arc   = angle * RADIUS meters
     const dtMs = 16
     const expectedAngle = BULLET_SPEED * (dtMs / 1000)
     const expectedArcDistance = expectedAngle * RADIUS
 
     const orientation = latLngToQuaternion(0, 0)
-    const angularVelocity = headingToAngularVelocity(
-      orientation,
-      0,
-      BULLET_SPEED
-    )
+    const angularVelocity = vec3Zero()
+    headingToAngularVelocity(angularVelocity, orientation, 0, BULLET_SPEED)
     const start = pointFromLatLng(0, 0)
-    const bullet = makeBullet({ orientation, ...start, angularVelocity })
+    const bullet = makeBullet({
+      orientation,
+      position: start,
+      angularVelocity,
+    })
 
-    moveBullet(bullet, dtMs, RADIUS)
+    moveBullet(bullet, dtMs)
 
-    const actualArcDistance = arcDistanceFromPoints(
-      start.x,
-      start.y,
-      start.z,
-      bullet.x ?? 0,
-      bullet.y ?? 1,
-      bullet.z ?? 0
-    )
-
+    const actualArcDistance = arcDistanceFromPoints(start, bullet.position)
     expect(actualArcDistance).toBeCloseTo(expectedArcDistance, 4)
   })
 
   it('travels 1000x less distance with dtMs=1 than dtMs=1000 (catches dt scaling bugs)', () => {
-    // If the engine accidentally passed milliseconds where seconds are needed, the
-    // bullet would move 1000x too far per frame. This test catches that class of bug.
     const orientation1 = latLngToQuaternion(0, 0)
     const start = pointFromLatLng(0, 0)
+    const av1 = vec3Zero()
+    headingToAngularVelocity(av1, orientation1, 0, BULLET_SPEED)
     const bulletSmall = makeBullet({
       orientation: orientation1,
-      ...start,
-      angularVelocity: headingToAngularVelocity(orientation1, 0, BULLET_SPEED),
+      position: start,
+      angularVelocity: av1,
     })
-    moveBullet(bulletSmall, 1, RADIUS)
-    const distSmall = arcDistanceFromPoints(
-      1,
-      0,
-      0,
-      bulletSmall.x ?? 0,
-      bulletSmall.y ?? 1,
-      bulletSmall.z ?? 0
-    )
+    moveBullet(bulletSmall, 1)
+    const refPoint = pointFromLatLng(0, 0)
+    const distSmall = arcDistanceFromPoints(refPoint, bulletSmall.position)
 
     const orientation2 = latLngToQuaternion(0, 0)
+    const av2 = vec3Zero()
+    headingToAngularVelocity(av2, orientation2, 0, BULLET_SPEED)
     const bulletBig = makeBullet({
       orientation: orientation2,
-      ...start,
-      angularVelocity: headingToAngularVelocity(orientation2, 0, BULLET_SPEED),
+      position: pointFromLatLng(0, 0),
+      angularVelocity: av2,
     })
-    moveBullet(bulletBig, 1000, RADIUS)
-    const distBig = arcDistanceFromPoints(
-      1,
-      0,
-      0,
-      bulletBig.x ?? 0,
-      bulletBig.y ?? 1,
-      bulletBig.z ?? 0
-    )
+    moveBullet(bulletBig, 1000)
+    const distBig = arcDistanceFromPoints(refPoint, bulletBig.position)
 
     expect(distBig / distSmall).toBeCloseTo(1000, 2)
   })
 })
 
-describe('moveBullet — distance scales correctly with dtMs', () => {
+describe('moveBullet -- distance scales correctly with dtMs', () => {
   it('distance is proportional to dtMs for small angles', () => {
     const orientation = latLngToQuaternion(0, 0)
     const start = pointFromLatLng(0, 0)
 
+    const av16 = vec3Zero()
+    headingToAngularVelocity(av16, orientation, 0, BULLET_SPEED)
     const bullet16 = makeBullet({
       orientation,
-      ...start,
-      angularVelocity: headingToAngularVelocity(orientation, 0, BULLET_SPEED),
+      position: start,
+      angularVelocity: av16,
     })
-    moveBullet(bullet16, 16, RADIUS)
-    const dist16 = arcDistanceFromPoints(
-      1,
-      0,
-      0,
-      bullet16.x ?? 0,
-      bullet16.y ?? 1,
-      bullet16.z ?? 0
-    )
+    moveBullet(bullet16, 16)
+    const refPoint = pointFromLatLng(0, 0)
+    const dist16 = arcDistanceFromPoints(refPoint, bullet16.position)
 
+    const orientation32 = latLngToQuaternion(0, 0)
+    const av32 = vec3Zero()
+    headingToAngularVelocity(av32, orientation32, 0, BULLET_SPEED)
     const bullet32 = makeBullet({
-      orientation: latLngToQuaternion(0, 0),
-      ...start,
-      angularVelocity: headingToAngularVelocity(
-        latLngToQuaternion(0, 0),
-        0,
-        BULLET_SPEED
-      ),
+      orientation: orientation32,
+      position: pointFromLatLng(0, 0),
+      angularVelocity: av32,
     })
-    moveBullet(bullet32, 32, RADIUS)
-    const dist32 = arcDistanceFromPoints(
-      1,
-      0,
-      0,
-      bullet32.x ?? 0,
-      bullet32.y ?? 1,
-      bullet32.z ?? 0
-    )
+    moveBullet(bullet32, 32)
+    const dist32 = arcDistanceFromPoints(refPoint, bullet32.position)
 
     expect(dist32 / dist16).toBeCloseTo(2, 4)
   })
@@ -164,24 +113,17 @@ describe('moveBullet — distance scales correctly with dtMs', () => {
 
     const orientation = latLngToQuaternion(lat, lng)
     const start = pointFromLatLng(lat, lng)
-    const angularVelocity = headingToAngularVelocity(
+    const angularVelocity = vec3Zero()
+    headingToAngularVelocity(angularVelocity, orientation, 0, BULLET_SPEED)
+    const bullet = makeBullet({
       orientation,
-      0,
-      BULLET_SPEED
-    )
-    const bullet = makeBullet({ orientation, ...start, angularVelocity })
+      position: start,
+      angularVelocity,
+    })
 
-    moveBullet(bullet, dtMs, RADIUS)
+    moveBullet(bullet, dtMs)
 
-    const actualArcDistance = arcDistanceFromPoints(
-      start.x,
-      start.y,
-      start.z,
-      bullet.x ?? 0,
-      bullet.y ?? 1,
-      bullet.z ?? 0
-    )
-
+    const actualArcDistance = arcDistanceFromPoints(start, bullet.position)
     expect(actualArcDistance).toBeCloseTo(expectedArcDistance, 4)
   })
 })

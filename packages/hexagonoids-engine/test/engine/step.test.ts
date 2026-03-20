@@ -1,5 +1,6 @@
 import type { RNG } from '@neat-evolution/utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { vec3Length } from '../../src/features/engine/math/vec3.js'
 import type { EngineHooks, GameState, PlayerInputs } from '../../src/index.js'
 import {
   advanceGameTime,
@@ -16,6 +17,7 @@ import {
   step,
 } from '../../src/index.js'
 import { createTestRng } from '../helpers/createTestRng.js'
+import { makeBullet } from '../helpers/entities.js'
 import { entityPoint } from '../helpers/points.js'
 
 const NO_INPUT: PlayerInputs = {}
@@ -53,23 +55,27 @@ describe('step function', () => {
 
     it('ship moves when stepping with no input', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
-      const ship = game.ships.get(player.shipId!)!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
+      const shipId = player.shipId
+      if (shipId == null) throw new Error('Expected shipId')
+      const ship = game.ships.get(shipId)
+      if (ship === undefined) throw new Error('Expected ship')
 
       // Give ship some velocity
-      ship.angularVelocity.x = 0.1
+      ship.angularVelocity[0] = 0.1
 
-      const xBefore = ship.x ?? 0
-      const yBefore = ship.y ?? 1
-      const zBefore = ship.z ?? 0
+      const xBefore = ship.position[0]
+      const yBefore = ship.position[1]
+      const zBefore = ship.position[2]
 
       step(game, NO_INPUT, 16, rng)
 
       // Position should have changed
       const moved =
-        (ship.x ?? 0) !== xBefore ||
-        (ship.y ?? 1) !== yBefore ||
-        (ship.z ?? 0) !== zBefore
+        ship.position[0] !== xBefore ||
+        ship.position[1] !== yBefore ||
+        ship.position[2] !== zBefore
       expect(moved).toBe(true)
     })
   })
@@ -89,8 +95,12 @@ describe('step function', () => {
 
     it('ship turns with left/right input', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
-      const ship = game.ships.get(player.shipId!)!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
+      const shipId = player.shipId
+      if (shipId == null) throw new Error('Expected shipId')
+      const ship = game.ships.get(shipId)
+      if (ship === undefined) throw new Error('Expected ship')
 
       const inputs: PlayerInputs = {
         p1: { left: true, right: false, thrust: false, fire: false },
@@ -106,8 +116,12 @@ describe('step function', () => {
 
     it('ship accelerates with thrust input', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
-      const ship = game.ships.get(player.shipId!)!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
+      const shipId = player.shipId
+      if (shipId == null) throw new Error('Expected shipId')
+      const ship = game.ships.get(shipId)
+      if (ship === undefined) throw new Error('Expected ship')
 
       const inputs: PlayerInputs = {
         p1: { left: false, right: false, thrust: true, fire: false },
@@ -115,7 +129,7 @@ describe('step function', () => {
       step(game, inputs, 16, rng)
 
       // Angular velocity should be non-zero after thrust
-      expect(ship.angularVelocity.length()).toBeGreaterThan(0)
+      expect(vec3Length(ship.angularVelocity)).toBeGreaterThan(0)
     })
   })
 
@@ -143,21 +157,23 @@ describe('step function', () => {
   describe('collision — bullet hits rock', () => {
     it('bullet destroys rock and scores player', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
-      const ship = game.ships.get(player.shipId!)!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
+      const shipId = player.shipId
+      if (shipId == null) throw new Error('Expected shipId')
+      const ship = game.ships.get(shipId)
+      if (ship === undefined) throw new Error('Expected ship')
 
       // Place a rock right at the ship's position
       const rock = spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
       // Place a bullet at the rock's position
-      const bullet = {
+      const bullet = makeBullet({
         id: 'test-bullet',
-        orientation: rock.orientation.clone(),
-        ...entityPoint(rock),
-        angularVelocity: ship.angularVelocity.clone(),
-        firedAt: game.now,
+        position: entityPoint(rock),
         ownerId: ship.id,
-      }
+        firedAt: game.now,
+      })
       game.bullets.set(bullet.id, bullet)
 
       step(game, NO_INPUT, 16, rng)
@@ -174,8 +190,12 @@ describe('step function', () => {
   describe('collision — ship hits rock', () => {
     it('ship collision kills player', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
-      const ship = game.ships.get(player.shipId!)!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
+      const shipId = player.shipId
+      if (shipId == null) throw new Error('Expected shipId')
+      const ship = game.ships.get(shipId)
+      if (ship === undefined) throw new Error('Expected ship')
 
       // Place a rock at ship position
       spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
@@ -199,7 +219,8 @@ describe('step function', () => {
   describe('player regeneration', () => {
     it('regenerates player after wait period', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
       player.lives = 2
 
       // Kill player manually
@@ -257,10 +278,14 @@ describe('step function', () => {
   describe('game over', () => {
     it('sets endedAt when player dies with 0 lives', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
       player.lives = 0
 
-      const ship = game.ships.get(player.shipId!)!
+      const shipId = player.shipId
+      if (shipId == null) throw new Error('Expected shipId')
+      const ship = game.ships.get(shipId)
+      if (ship === undefined) throw new Error('Expected ship')
 
       // Place rock at ship position and advance past grace
       spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
@@ -276,21 +301,23 @@ describe('step function', () => {
   describe('engine hooks', () => {
     it('onCollision fires with bullet-rock type on bullet-rock hit', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
-      const ship = game.ships.get(player.shipId!)!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
+      const shipId = player.shipId
+      if (shipId == null) throw new Error('Expected shipId')
+      const ship = game.ships.get(shipId)
+      if (ship === undefined) throw new Error('Expected ship')
 
       // Place a rock at ship position
       const rock = spawnRock(game, entityPoint(ship), ROCK_LARGE_SIZE, rng)
 
       // Place a bullet at the rock's position
-      const bullet = {
+      const bullet = makeBullet({
         id: 'test-bullet',
-        orientation: rock.orientation.clone(),
-        ...entityPoint(rock),
-        angularVelocity: ship.angularVelocity.clone(),
-        firedAt: game.now,
+        position: entityPoint(rock),
         ownerId: ship.id,
-      }
+        firedAt: game.now,
+      })
       game.bullets.set(bullet.id, bullet)
 
       const hooks: EngineHooks = {
@@ -314,7 +341,8 @@ describe('step function', () => {
 
     it('onPlayerRegenerated fires when dead player regenerates', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
       player.lives = 2
 
       // Kill player manually
@@ -369,8 +397,10 @@ describe('step function', () => {
       // States should be identical
       expect(run1.state.now).toBe(run2.state.now)
 
-      const p1a = run1.state.players.get('p1')!
-      const p1b = run2.state.players.get('p1')!
+      const p1a = run1.state.players.get('p1')
+      if (p1a === undefined) throw new Error('Expected player in run1')
+      const p1b = run2.state.players.get('p1')
+      if (p1b === undefined) throw new Error('Expected player in run2')
       expect(p1a.score).toBe(p1b.score)
       expect(p1a.alive).toBe(p1b.alive)
       expect(p1a.lives).toBe(p1b.lives)

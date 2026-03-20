@@ -1,42 +1,30 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import { describe, expect, it } from 'vitest'
-import type { BulletState } from '../../../src/index.js'
-import { moveBullet, RADIUS } from '../../../src/index.js'
-import { pointFromLatLng } from '../../helpers/points.js'
-
-/** Create a fresh bullet state for testing. */
-const makeBullet = (overrides: Partial<BulletState> = {}): BulletState => ({
-  id: 'test-bullet',
-  orientation: Quaternion.Identity(),
-  ...pointFromLatLng(0, 0),
-  angularVelocity: Vector3.Zero(),
-  firedAt: null,
-  ownerId: 'test-ship',
-  ...overrides,
-})
+import { vec3 } from '../../../src/features/engine/math/create.js'
+import { moveBullet } from '../../../src/index.js'
+import { makeBullet } from '../../helpers/entities.js'
 
 describe('moveBullet', () => {
   it('does not move a bullet at rest', () => {
     const bullet = makeBullet()
-    const xBefore = bullet.x
-    const yBefore = bullet.y
-    const zBefore = bullet.z
-    moveBullet(bullet, 16, RADIUS)
-    expect(bullet.x).toBe(xBefore)
-    expect(bullet.y).toBe(yBefore)
-    expect(bullet.z).toBe(zBefore)
+    const x0 = bullet.position[0]
+    const y0 = bullet.position[1]
+    const z0 = bullet.position[2]
+    moveBullet(bullet, 16)
+    expect(bullet.position[0]).toBe(x0)
+    expect(bullet.position[1]).toBe(y0)
+    expect(bullet.position[2]).toBe(z0)
   })
 
-  it('updates xyz when bullet has angular velocity', () => {
-    const bullet = makeBullet({ angularVelocity: new Vector3(0.5, 0, 0) })
-    const xBefore = bullet.x ?? 0
-    const yBefore = bullet.y ?? 1
-    const zBefore = bullet.z ?? 0
-    moveBullet(bullet, 100, RADIUS)
+  it('updates position when bullet has angular velocity', () => {
+    const bullet = makeBullet({ angularVelocity: vec3(0.5, 0, 0) })
+    const x0 = bullet.position[0]
+    const y0 = bullet.position[1]
+    const z0 = bullet.position[2]
+    moveBullet(bullet, 100)
     const moved =
-      Math.abs((bullet.x ?? 0) - xBefore) > 0.001 ||
-      Math.abs((bullet.y ?? 1) - yBefore) > 0.001 ||
-      Math.abs((bullet.z ?? 0) - zBefore) > 0.001
+      Math.abs(bullet.position[0] - x0) > 0.001 ||
+      Math.abs(bullet.position[1] - y0) > 0.001 ||
+      Math.abs(bullet.position[2] - z0) > 0.001
     expect(moved).toBe(true)
   })
 })

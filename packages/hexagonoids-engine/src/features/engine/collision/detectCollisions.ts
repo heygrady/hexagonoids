@@ -46,8 +46,7 @@ export function greatCircleDistance(
 
 function chordDistanceFromDot(dotValue: number, radius: number): number {
   return (
-    Math.sqrt(Math.max(0, 2 - 2 * Math.max(-1, Math.min(1, dotValue)))) *
-    radius
+    Math.sqrt(Math.max(0, 2 - 2 * Math.max(-1, Math.min(1, dotValue)))) * radius
   )
 }
 
@@ -62,14 +61,18 @@ export function detectCollisions(
 ): CollisionPair[] {
   const pairs: CollisionPair[] = []
   if (state.rocks.size === 0) return pairs
-  const rockQueries =
-    queries ?? createManagedSpatialQueries(() => state)
+  const rockQueries = queries ?? createManagedSpatialQueries(() => state)
 
   // Bullet-rock collisions
   for (const bullet of state.bullets.values()) {
-    const rock = rockQueries.findFirstRockIntersect(bullet, BULLET_RADIUS)
+    const rock = rockQueries.findFirstRockIntersect(
+      bullet.position,
+      BULLET_RADIUS
+    )
     if (rock != null) {
-      const dot = bullet.x * rock.x + bullet.y * rock.y + bullet.z * rock.z
+      const bp = bullet.position
+      const rp = rock.position
+      const dot = bp[0] * rp[0] + bp[1] * rp[1] + bp[2] * rp[2]
       pairs.push({
         a: { id: bullet.id, type: 'bullet' },
         b: { id: rock.id, type: 'rock' },
@@ -89,9 +92,11 @@ export function detectCollisions(
         continue
     }
 
-    const rock = rockQueries.findFirstRockIntersect(ship, SHIP_RADIUS)
+    const rock = rockQueries.findFirstRockIntersect(ship.position, SHIP_RADIUS)
     if (rock != null) {
-      const dot = ship.x * rock.x + ship.y * rock.y + ship.z * rock.z
+      const sp = ship.position
+      const rp = rock.position
+      const dot = sp[0] * rp[0] + sp[1] * rp[1] + sp[2] * rp[2]
       pairs.push({
         a: { id: ship.id, type: 'ship' },
         b: { id: rock.id, type: 'rock' },

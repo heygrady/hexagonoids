@@ -4,6 +4,8 @@
 export {
   destroyBullet,
   expireBullets,
+  obtainBulletEntity,
+  releaseBulletEntity,
   spawnBullet,
 } from './features/engine/bullet/bulletActions.js'
 export {
@@ -100,19 +102,41 @@ export { advanceGameTime, elapsed } from './features/engine/gameTime.js'
 // ID generation
 export { generateId, resetIdCounter } from './features/engine/generateId.js'
 export type { EngineHooks } from './features/engine/hooks.js'
+export {
+  quat,
+  quatIdentity,
+  vec3,
+  vec3Zero,
+} from './features/engine/math/create.js'
+export {
+  quatFromUnitPoint,
+  quatToUnitPoint,
+} from './features/engine/math/quat.js'
+// Math library
+export type { Quat, Vec3 } from './features/engine/math/types.js'
+export { vec3Set } from './features/engine/math/vec3.js'
 // Physics — quaternion spherical movement
 export { accelerateShip } from './features/engine/physics/accelerateShip.js'
-export { unitPointToQuaternion } from './features/engine/physics/latLng.js'
+export {
+  latLngToQuaternion,
+  latLngToUnitPoint,
+  latLngToVec3,
+  quaternionToLatLng,
+  quaternionToLatLngFast,
+  quaternionToLatLngFastInPlace,
+  unitPointToLatLng,
+  unitPointToLatLngInPlace,
+  unitPointToQuaternion,
+  vec3ToLatLng,
+} from './features/engine/physics/latLng.js'
 export { moveBullet } from './features/engine/physics/moveBullet.js'
 export { moveRock } from './features/engine/physics/moveRock.js'
 export { moveShip } from './features/engine/physics/moveShip.js'
 export {
   applyAngularFriction,
   clampAngularVelocity,
-  getPositionFromQuaternion,
   headingToAngularVelocity,
   integrateAngularVelocity,
-  integrateAngularVelocityFast,
 } from './features/engine/physics/quaternionPhysics.js'
 export {
   easeCircleOut,
@@ -143,6 +167,8 @@ export { reseedGame } from './features/engine/player/reseedGame.js'
 export {
   destroyRock,
   getSpawnBorderExtents,
+  obtainRockEntity,
+  releaseRockEntity,
   sampleSpawnBorderPoint,
   spawnRock,
   spawnWave,
@@ -157,6 +183,8 @@ export {
 export {
   destroyShip,
   fireBullet,
+  obtainShipEntity,
+  releaseShipEntity,
   spawnShip,
 } from './features/engine/ship/shipActions.js'
 export {

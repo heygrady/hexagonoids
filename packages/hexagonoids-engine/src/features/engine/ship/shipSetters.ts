@@ -1,5 +1,5 @@
-import type { Vector3 } from '@babylonjs/core/Maths/math.vector.js'
-
+import type { Vec3 } from '../math/types.js'
+import { vec3Copy, vec3Equals } from '../math/vec3.js'
 import type { ShipState } from '../types.js'
 
 /**
@@ -19,12 +19,9 @@ export function setYaw(ship: ShipState, yaw: number): boolean {
   return true
 }
 
-export function setAngularVelocity(
-  ship: ShipState,
-  velocity: Vector3
-): boolean {
-  if (ship.angularVelocity.equals(velocity)) return false
-  ship.angularVelocity = velocity.clone()
+export function setAngularVelocity(ship: ShipState, velocity: Vec3): boolean {
+  if (vec3Equals(ship.angularVelocity, velocity)) return false
+  vec3Copy(ship.angularVelocity, velocity)
   return true
 }
 
@@ -40,9 +37,10 @@ export function setLocation(
   y: number,
   z: number
 ): boolean {
-  if (ship.x === x && ship.y === y && ship.z === z) return false
-  ship.x = x
-  ship.y = y
-  ship.z = z
+  const p = ship.position
+  if (p[0] === x && p[1] === y && p[2] === z) return false
+  p[0] = x
+  p[1] = y
+  p[2] = z
   return true
 }

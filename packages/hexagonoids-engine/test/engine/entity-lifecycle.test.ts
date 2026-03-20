@@ -1,5 +1,7 @@
 import type { RNG } from '@neat-evolution/utils'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { vec3 } from '../../src/features/engine/math/create.js'
+import { vec3Length } from '../../src/features/engine/math/vec3.js'
 import type { GameState } from '../../src/index.js'
 import {
   advanceGameTime,
@@ -56,18 +58,22 @@ describe('entity lifecycle', () => {
 
       const player = game.players.get('p1')
       expect(player).toBeDefined()
-      expect(player!.alive).toBe(true)
-      expect(player!.lives).toBe(PLAYER_STARTING_LIVES)
-      expect(player!.score).toBe(0)
-      expect(player!.shipId).not.toBeNull()
-      expect(player!.startedAt).toBe(0)
+      if (player === undefined) throw new Error('Expected player')
+      expect(player.alive).toBe(true)
+      expect(player.lives).toBe(PLAYER_STARTING_LIVES)
+      expect(player.score).toBe(0)
+      expect(player.shipId).not.toBeNull()
+      expect(player.startedAt).toBe(0)
 
       // Ship was spawned
       expect(game.ships.size).toBe(1)
-      const ship = game.ships.get(player!.shipId!)
+      const shipId = player.shipId
+      if (shipId == null) throw new Error('Expected shipId')
+      const ship = game.ships.get(shipId)
       expect(ship).toBeDefined()
-      expect(ship!.playerId).toBe('p1')
-      expect(ship!.alive).toBe(true)
+      if (ship === undefined) throw new Error('Expected ship')
+      expect(ship.playerId).toBe('p1')
+      expect(ship.alive).toBe(true)
     })
 
     it('player dies → alive=false, diedAt set', () => {
@@ -76,7 +82,8 @@ describe('entity lifecycle', () => {
 
       killPlayer(game, 'p1')
 
-      const player = game.players.get('p1')!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
       expect(player.alive).toBe(false)
       expect(player.diedAt).toBe(game.now)
       expect(player.shipId).toBeNull()
@@ -94,7 +101,8 @@ describe('entity lifecycle', () => {
       expect(canRegenerate(game, 'p1')).toBe(true)
       regeneratePlayer(game, 'p1', rng)
 
-      const player = game.players.get('p1')!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
       expect(player.alive).toBe(true)
       expect(player.lives).toBe(PLAYER_STARTING_LIVES - 1)
       expect(player.shipId).not.toBeNull()
@@ -103,7 +111,8 @@ describe('entity lifecycle', () => {
 
     it('game over when player dies with no lives', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
       player.lives = 0
 
       killPlayer(game, 'p1')
@@ -114,7 +123,8 @@ describe('entity lifecycle', () => {
       startPlayer(game, 'p1', rng)
       scorePlayer(game, 'p1', 100)
 
-      const player = game.players.get('p1')!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
       expect(player.score).toBe(100)
     })
   })
@@ -141,9 +151,10 @@ describe('entity lifecycle', () => {
 
       const bullet = fireBullet(game, ship, rng)
       expect(bullet).not.toBeNull()
+      if (bullet == null) throw new Error('Expected bullet')
       expect(game.bullets.size).toBe(1)
-      expect(bullet!.ownerId).toBe(ship.id)
-      expect(bullet!.firedAt).toBe(game.now)
+      expect(bullet.ownerId).toBe(ship.id)
+      expect(bullet.firedAt).toBe(game.now)
     })
 
     it('fireBullet respects cooldown', () => {
@@ -206,7 +217,7 @@ describe('entity lifecycle', () => {
       for (const child of game.rocks.values()) {
         expect(child.size).toBe(ROCK_MEDIUM_SIZE)
         expect(child.value).toBe(ROCK_MEDIUM_VALUE)
-        expect(child.angularVelocity.length()).toBeGreaterThan(0)
+        expect(vec3Length(child.angularVelocity)).toBeGreaterThan(0)
         expect(
           pointDistanceSquared(entityPoint(child), entityPoint(rock))
         ).toBeGreaterThan(0)
@@ -262,8 +273,12 @@ describe('entity lifecycle', () => {
 
     it('defers next check when blocked by local clutter', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
-      const ship = game.ships.get(player.shipId!)!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
+      const shipId = player.shipId
+      if (shipId == null) throw new Error('Expected shipId')
+      const ship = game.ships.get(shipId)
+      if (ship === undefined) throw new Error('Expected ship')
 
       // Force gate evaluation now and create local clutter at the ship.
       player.nextWaveCheckAt = game.now
@@ -279,8 +294,12 @@ describe('entity lifecycle', () => {
 
     it('blocks waves when world cap is already saturated', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
-      const ship = game.ships.get(player.shipId!)!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
+      const shipId = player.shipId
+      if (shipId == null) throw new Error('Expected shipId')
+      const ship = game.ships.get(shipId)
+      if (ship === undefined) throw new Error('Expected ship')
 
       player.nextWaveCheckAt = game.now
       player.score = 0 // cap starts at wave size 4 * 5 = 20
@@ -302,13 +321,17 @@ describe('entity lifecycle', () => {
 
     it('replenishes after no nearby encounters for a while', () => {
       startPlayer(game, 'p1', rng)
-      const player = game.players.get('p1')!
-      const ship = game.ships.get(player.shipId!)!
+      const player = game.players.get('p1')
+      if (player === undefined) throw new Error('Expected player')
+      const shipId = player.shipId
+      if (shipId == null) throw new Error('Expected shipId')
+      const ship = game.ships.get(shipId)
+      if (ship === undefined) throw new Error('Expected ship')
 
       // Simulate a single leftover far from the player.
       spawnRock(
         game,
-        { x: -ship.x, y: -ship.y, z: -ship.z },
+        vec3(-ship.position[0], -ship.position[1], -ship.position[2]),
         ROCK_LARGE_SIZE,
         rng
       )

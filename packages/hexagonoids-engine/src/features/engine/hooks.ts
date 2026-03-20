@@ -1,4 +1,4 @@
-import type { SpatialPoint } from '../spatial-index/index.js'
+import type { Vec3 } from './math/types.js'
 import type { CollisionType, EntityRef } from './types.js'
 
 export interface EngineHooks {
@@ -11,7 +11,7 @@ export interface EngineHooks {
   onPlayerRegenerated?: (playerId: string) => void
   onGameOver?: (playerId: string) => void
   /** Provide a spawn position for player regeneration. If undefined, falls back to random. */
-  getRegenerationPosition?: (playerId: string) => SpatialPoint | undefined
+  getRegenerationPosition?: (playerId: string) => Vec3 | undefined
   /** Optional narrow-phase verification. Return false to reject a broad-phase collision. */
   verifyCollision?: (a: EntityRef, b: EntityRef, type: CollisionType) => boolean
 }

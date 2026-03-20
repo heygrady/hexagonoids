@@ -12,47 +12,41 @@ import type {
 } from './types.js'
 
 /**
- * Default ship state. `orientation` and `angularVelocity` are omitted — callers
- * must supply fresh instances to avoid shared mutable references.
+ * Default ship state. `orientation`, `position`, and `angularVelocity` are
+ * omitted — callers must supply fresh Vec3/Quat instances to avoid shared
+ * mutable references.
  */
 export const defaultShipState: Omit<
   ShipState,
-  'id' | 'playerId' | 'orientation' | 'angularVelocity'
+  'id' | 'playerId' | 'orientation' | 'position' | 'angularVelocity'
 > = {
-  x: 0,
-  y: 1,
-  z: 0,
   yaw: 0,
   alive: true,
   firedAt: null,
 }
 
 /**
- * Default rock state. `orientation` and `angularVelocity` are omitted — callers
- * must supply fresh instances to avoid shared mutable references.
+ * Default rock state. `orientation`, `position`, and `angularVelocity` are
+ * omitted — callers must supply fresh Vec3/Quat instances to avoid shared
+ * mutable references.
  */
 export const defaultRockState: Omit<
   RockState,
-  'id' | 'orientation' | 'angularVelocity'
+  'id' | 'orientation' | 'position' | 'angularVelocity'
 > = {
-  x: 0,
-  y: 1,
-  z: 0,
   size: ROCK_LARGE_SIZE,
   value: ROCK_LARGE_VALUE,
 }
 
 /**
- * Default bullet state. `orientation` and `angularVelocity` are omitted — callers
- * must supply fresh instances to avoid shared mutable references.
+ * Default bullet state. `orientation`, `position`, and `angularVelocity` are
+ * omitted — callers must supply fresh Vec3/Quat instances to avoid shared
+ * mutable references.
  */
 export const defaultBulletState: Omit<
   BulletState,
-  'id' | 'ownerId' | 'orientation' | 'angularVelocity'
+  'id' | 'ownerId' | 'orientation' | 'position' | 'angularVelocity'
 > = {
-  x: 0,
-  y: 1,
-  z: 0,
   firedAt: null,
 }
 

@@ -1,33 +1,33 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
-
 import {
   ACCELERATION_RATE,
   FRICTION_COEFFICIENT,
   MAX_DURATION,
   MAX_SPEED,
 } from '../constants.js'
+import type { Vec3 } from '../math/types.js'
+import { vec3Length, vec3ScaleInPlace } from '../math/vec3.js'
 import type { ShipState } from '../types.js'
 
 import { clampAngularVelocity } from './quaternionPhysics.js'
 
 /**
  * Easing function: quad out — t * (2 - t)
- * Equivalent to d3-ease easeQuadOut.
  */
 const easeQuadOut = (t: number): number => t * (2 - t)
 
-function getThrustAxisQuaternion(ship: ShipState): Vector3 {
-  const worldUp = Vector3.Up().applyRotationQuaternion(ship.orientation)
-  const localHeadingRotation = Quaternion.RotationAxis(Vector3.Up(), ship.yaw)
-  const localHeading =
-    Vector3.Forward().applyRotationQuaternion(localHeadingRotation)
-  const worldHeading = localHeading.applyRotationQuaternion(ship.orientation)
-  return Vector3.Cross(worldUp, worldHeading)
-}
+// Module-scoped scratch for thrust axis computation
+const _thrustAxis = new Float64Array(3) as Vec3
 
-function getThrustAxisFast(ship: ShipState): Vector3 {
-  // Derive world basis from orientation (not lat/lng) to avoid pole singularities.
-  const { x, y, z, w } = ship.orientation
+/**
+ * Compute thrust axis for a ship. Pure scalar — zero allocations.
+ * Result written into module-scoped scratch, valid until next call.
+ */
+function computeThrustAxis(ship: ShipState): Vec3 {
+  const q = ship.orientation
+  const x = q[0],
+    y = q[1],
+    z = q[2],
+    w = q[3]
   const x2 = x + x
   const y2 = y + y
   const z2 = z + z
@@ -41,12 +41,12 @@ function getThrustAxisFast(ship: ShipState): Vector3 {
   const wy = w * y2
   const wz = w * z2
 
-  // Rotated local up (0,1,0).
+  // Rotated local up (0,1,0)
   const upX = xy - wz
   const upY = 1 - xx - zz
   const upZ = yz + wx
 
-  // Rotated local forward (0,0,1) is yaw=0 heading.
+  // Rotated local forward (0,0,1) is yaw=0 heading
   const forwardX = xz + wy
   const forwardY = yz - wx
   const forwardZ = 1 - xx - yy
@@ -54,7 +54,7 @@ function getThrustAxisFast(ship: ShipState): Vector3 {
   const sinYaw = Math.sin(ship.yaw)
   const cosYaw = Math.cos(ship.yaw)
 
-  // Rotate heading in tangent plane around surface normal.
+  // Rotate heading in tangent plane around surface normal
   const crossX = upY * forwardZ - upZ * forwardY
   const crossY = upZ * forwardX - upX * forwardZ
   const crossZ = upX * forwardY - upY * forwardX
@@ -65,46 +65,24 @@ function getThrustAxisFast(ship: ShipState): Vector3 {
   const headingY = forwardY * cosYaw + crossY * sinYaw + upY * dot * oneMinusCos
   const headingZ = forwardZ * cosYaw + crossZ * sinYaw + upZ * dot * oneMinusCos
 
-  // Acceleration axis: up × heading.
-  const axisX = upY * headingZ - upZ * headingY
-  const axisY = upZ * headingX - upX * headingZ
-  const axisZ = upX * headingY - upY * headingX
-  return new Vector3(axisX, axisY, axisZ)
-}
-
-export function getThrustAccelerationQuaternion(
-  ship: ShipState,
-  accelMagnitude: number
-): Vector3 {
-  const axis = getThrustAxisQuaternion(ship)
-  const axisLen = axis.length()
-  if (axisLen < 0.00001) {
-    return Vector3.Zero()
-  }
-  return axis.scale(accelMagnitude / axisLen)
-}
-
-export function getThrustAccelerationFast(
-  ship: ShipState,
-  accelMagnitude: number
-): Vector3 {
-  const axis = getThrustAxisFast(ship)
-  const axisLen = axis.length()
-  if (axisLen < 0.00001) {
-    return Vector3.Zero()
-  }
-  return axis.scale(accelMagnitude / axisLen)
+  // Acceleration axis: up × heading
+  _thrustAxis[0] = upY * headingZ - upZ * headingY
+  _thrustAxis[1] = upZ * headingX - upX * headingZ
+  _thrustAxis[2] = upX * headingY - upY * headingX
+  return _thrustAxis
 }
 
 function applyThrustAcceleration(
   ship: ShipState,
-  accelMagnitude: number,
-  useFastThrust: boolean
+  accelMagnitude: number
 ): void {
-  const acceleration = useFastThrust
-    ? getThrustAccelerationFast(ship, accelMagnitude)
-    : getThrustAccelerationQuaternion(ship, accelMagnitude)
-  ship.angularVelocity.addInPlace(acceleration)
+  const axis = computeThrustAxis(ship)
+  const axisLen = vec3Length(axis)
+  if (axisLen < 0.00001) return
+  const scale = accelMagnitude / axisLen
+  ship.angularVelocity[0] += axis[0] * scale
+  ship.angularVelocity[1] += axis[1] * scale
+  ship.angularVelocity[2] += axis[2] * scale
 }
 
 /**
@@ -114,33 +92,31 @@ function applyThrustAcceleration(
  * @param ship - The ship state to mutate
  * @param thrusting - Whether the ship is currently thrusting
  * @param dtMs - Time delta in milliseconds
- * @param duration - Milliseconds of continuous acceleration (for easing). Pass 0 on first frame.
+ * @param duration - Milliseconds of continuous acceleration (for easing)
  */
 export const accelerateShip = (
   ship: ShipState,
   thrusting: boolean,
   dtMs: number,
-  duration: number,
-  useFastThrust: boolean = true
+  duration: number
 ): void => {
   if (thrusting) {
-    // Ease acceleration from 50% to 100% over MAX_DURATION
     const t = Math.min(Math.max(duration / MAX_DURATION, 0), 1)
     const et = easeQuadOut(t)
     const halfRate = ACCELERATION_RATE / 1000 / 2
     const accelMagnitude = (et * halfRate + halfRate) * dtMs
 
     if (accelMagnitude > 0) {
-      applyThrustAcceleration(ship, accelMagnitude, useFastThrust)
+      applyThrustAcceleration(ship, accelMagnitude)
     }
   }
 
   // Apply friction when not thrusting
-  if (!thrusting && ship.angularVelocity.length() > 0) {
+  if (!thrusting && vec3Length(ship.angularVelocity) > 0) {
     const dragFactor = Math.exp(-FRICTION_COEFFICIENT * (dtMs / 1000))
-    ship.angularVelocity.scaleInPlace(dragFactor)
+    vec3ScaleInPlace(ship.angularVelocity, dragFactor)
   }
 
   // Clamp to max speed
-  ship.angularVelocity = clampAngularVelocity(ship.angularVelocity, MAX_SPEED)
+  clampAngularVelocity(ship.angularVelocity, MAX_SPEED)
 }

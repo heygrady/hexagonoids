@@ -22,8 +22,6 @@ import type { GameState, PlayerInputs } from './types.js'
 
 /**
  * Apply player inputs to their ships.
- * Tracks per-player input hold timestamps to compute easing durations,
- * matching the app's behavior where turn/thrust ramp up over time.
  */
 function applyInputs(
   state: GameState,
@@ -32,7 +30,6 @@ function applyInputs(
   rng: RNG
 ): void {
   const now = state.now
-  const useFastThrust = state.useFastThrust
   for (const playerId in inputs) {
     const input = inputs[playerId]
     if (input == null) continue
@@ -71,7 +68,7 @@ function applyInputs(
       turnShip(ship, 1, dtMs, rightDuration)
     }
     const thrustDuration = input.thrust ? now - player.thrustPressedAt! : 0
-    accelerateShip(ship, input.thrust, dtMs, thrustDuration, useFastThrust)
+    accelerateShip(ship, input.thrust, dtMs, thrustDuration)
     if (input.fire) fireBullet(state, ship, rng)
   }
 }
@@ -81,32 +78,18 @@ function applyInputs(
  */
 function moveEntities(state: GameState, dtMs: number): void {
   for (const ship of state.ships.values()) {
-    moveShip(ship, dtMs, RADIUS, state.useFastThrust)
+    moveShip(ship, dtMs)
   }
   for (const rock of state.rocks.values()) {
-    moveRock(rock, dtMs, RADIUS, state.useFastThrust)
+    moveRock(rock, dtMs)
   }
   for (const bullet of state.bullets.values()) {
-    moveBullet(bullet, dtMs, RADIUS, state.useFastThrust)
+    moveBullet(bullet, dtMs)
   }
 }
 
 /**
  * Advance the game simulation by one tick.
- *
- * Step order:
- * 1. Advance game time
- * 2. Apply player inputs (turn, thrust, fire)
- * 3. Move all entities
- * 4. Expire bullets past max lifetime
- * 5. Detect collisions
- * 6. Handle collisions (split rocks, kill players, score points)
- * 7. Regenerate dead players (if respawn delay elapsed and lives > 0)
- * 8. Spawn rock waves
- * 9. Game over — endedAt set by killPlayer; onGameOver hook fired by handleCollisions
- */
-/**
- * @param dtMs - Time delta in milliseconds
  */
 export function step(
   state: GameState,
@@ -119,27 +102,21 @@ export function step(
   const gameOver = state.endedAt != null
   const queries = spatialQueries ?? createManagedSpatialQueries(() => state)
 
-  // 1. Advance game time
   advanceGameTime(state, dtMs)
 
-  // 2. Apply inputs
   if (!gameOver) {
     applyInputs(state, inputs, dtMs, rng)
   }
 
-  // 3. Move entities
   moveEntities(state, dtMs)
 
-  // 4. Expire bullets
   expireBullets(state)
 
-  // 5–6. Detect and handle collisions
   if (!gameOver) {
     const collisions = detectCollisions(state, RADIUS, queries)
     handleCollisions(state, collisions, rng, hooks)
   }
 
-  // 7. Regenerate players
   if (!gameOver) {
     for (const player of state.players.values()) {
       if (!player.alive && canRegenerate(state, player.id)) {
@@ -150,7 +127,6 @@ export function step(
     }
   }
 
-  // 8. Spawn waves — queries always read fresh state.rocks
   if (!gameOver) {
     for (const player of state.players.values()) {
       checkWaveSpawn(state, player.id, rng, queries)

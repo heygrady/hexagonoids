@@ -512,7 +512,11 @@ function buildSpatialEntity(
   return {
     id: entity.id,
     type,
-    point: entity,
+    point: {
+      x: entity.position[0],
+      y: entity.position[1],
+      z: entity.position[2],
+    },
     entity,
   }
 }

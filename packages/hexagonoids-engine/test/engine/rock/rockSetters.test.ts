@@ -1,8 +1,5 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
 import { describe, expect, it } from 'vitest'
-import type { RockState } from '../../../src/index.js'
 import {
-  defaultRockState,
   ROCK_LARGE_SIZE,
   ROCK_LARGE_VALUE,
   ROCK_MEDIUM_SIZE,
@@ -11,23 +8,13 @@ import {
   ROCK_SMALL_VALUE,
   setRockSize,
 } from '../../../src/index.js'
-
-function createRock(overrides: Partial<RockState> = {}): RockState {
-  return {
-    ...defaultRockState,
-    id: 'r1',
-    orientation: Quaternion.Identity(),
-    angularVelocity: Vector3.Zero(),
-    ...overrides,
-  }
-}
+import { makeRock } from '../../helpers/entities.js'
 
 describe('rockSetters', () => {
   describe('setRockSize', () => {
     it('updates size and recalculates value for all sizes', () => {
-      const rock = createRock({
+      const rock = makeRock({
         size: ROCK_LARGE_SIZE,
-        value: ROCK_LARGE_VALUE,
       })
 
       setRockSize(rock, ROCK_MEDIUM_SIZE)
@@ -44,9 +31,8 @@ describe('rockSetters', () => {
     })
 
     it('returns false when size is unchanged', () => {
-      const rock = createRock({
+      const rock = makeRock({
         size: ROCK_LARGE_SIZE,
-        value: ROCK_LARGE_VALUE,
       })
       const changed = setRockSize(rock, ROCK_LARGE_SIZE)
 

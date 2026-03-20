@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { ShipState } from '../../src/index.js'
 import {
   advanceGameTime,
   createGame,
-  defaultShipState,
   elapsed,
   spawnWave,
 } from '../../src/index.js'
+import { makeShip } from '../helpers/entities.js'
 import { pointFromLatLng } from '../helpers/points.js'
 
 describe('createGame', () => {
@@ -21,11 +20,7 @@ describe('createGame', () => {
     const { state: a } = createGame()
     const { state: b } = createGame()
 
-    a.ships.set('s1', {
-      ...defaultShipState,
-      id: 's1',
-      playerId: 'p1',
-    } as ShipState)
+    a.ships.set('s1', makeShip({ id: 's1', playerId: 'p1' }))
     expect(b.ships.size).toBe(0)
   })
 

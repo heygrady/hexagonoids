@@ -1,5 +1,5 @@
-import type { Vector3 } from '@babylonjs/core/Maths/math.vector.js'
-
+import type { Vec3 } from '../math/types.js'
+import { vec3Copy, vec3Equals } from '../math/vec3.js'
 import type { RockState } from '../types.js'
 import { rockValueForSize } from './rockHelpers.js'
 
@@ -9,19 +9,17 @@ export function setLocation(
   y: number,
   z: number
 ): boolean {
-  if (rock.x === x && rock.y === y && rock.z === z) return false
-  rock.x = x
-  rock.y = y
-  rock.z = z
+  const p = rock.position
+  if (p[0] === x && p[1] === y && p[2] === z) return false
+  p[0] = x
+  p[1] = y
+  p[2] = z
   return true
 }
 
-export function setAngularVelocity(
-  rock: RockState,
-  velocity: Vector3
-): boolean {
-  if (rock.angularVelocity.equals(velocity)) return false
-  rock.angularVelocity = velocity.clone()
+export function setAngularVelocity(rock: RockState, velocity: Vec3): boolean {
+  if (vec3Equals(rock.angularVelocity, velocity)) return false
+  vec3Copy(rock.angularVelocity, velocity)
   return true
 }
 

@@ -1,5 +1,4 @@
 import type { RNG } from '@neat-evolution/utils'
-import type { SpatialPoint } from '../../spatial-index/index.js'
 import {
   MAX_ROCKS,
   PLAYER_STARTING_LIVES,
@@ -27,25 +26,26 @@ import {
 import type { ManagedSpatialQueries } from '../createManagedSpatialQueries.js'
 import { defaultPlayerState } from '../defaults.js'
 import { elapsed } from '../gameTime.js'
+import type { Vec3 } from '../math/types.js'
 import { getSpawnBorderExtents, spawnWave } from '../rock/rockActions.js'
 import { destroyShip, spawnShip } from '../ship/shipActions.js'
 import type { GameState } from '../types.js'
 
 import { decrementLives, incrementScore } from './playerSetters.js'
 
-function randomUnitPoint(rng: RNG): SpatialPoint {
-  const y = rng.gen() * 2 - 1
+function randomUnitPoint(rng: RNG): Vec3 {
+  const py = rng.gen() * 2 - 1
   const theta = rng.gen() * Math.PI * 2
-  const radial = Math.sqrt(Math.max(0, 1 - y * y))
-  return {
-    x: radial * Math.cos(theta),
-    y,
-    z: radial * Math.sin(theta),
-  }
+  const radial = Math.sqrt(Math.max(0, 1 - py * py))
+  const v = new Float64Array(3) as Vec3
+  v[0] = radial * Math.cos(theta)
+  v[1] = py
+  v[2] = radial * Math.sin(theta)
+  return v
 }
 
 function rocksWithinDistance(
-  center: SpatialPoint,
+  center: Vec3,
   distanceRad: number,
   spatialQueries: Pick<ManagedSpatialQueries, 'countRocksNear'>
 ): number {
@@ -91,7 +91,7 @@ function spawnBorderGateDistanceRad(): number {
 }
 
 function areLeftoverRocksFar(
-  center: SpatialPoint,
+  center: Vec3,
   spatialQueries: Pick<ManagedSpatialQueries, 'hasRocksNear'>
 ): boolean {
   return !spatialQueries.hasRocksNear(center, ROCK_FAR_CLEAR_DISTANCE * RADIUS)
@@ -119,7 +119,7 @@ function noRecentEncounter(
 
 export function evaluateWaveSpawnGate(
   game: GameState,
-  center: SpatialPoint,
+  center: Vec3,
   score: number,
   lastEncounterAt: number | null = null,
   spatialQueries: Pick<ManagedSpatialQueries, 'countRocksNear' | 'hasRocksNear'>
@@ -193,7 +193,7 @@ export function evaluateWaveSpawnGate(
  * Check if any rock is within encounter distance of the given position.
  */
 export function hasNearbyRocks(
-  center: SpatialPoint,
+  center: Vec3,
   spatialQueries: Pick<ManagedSpatialQueries, 'hasRocksNear'>
 ): boolean {
   return spatialQueries.hasRocksNear(center, ROCK_ENCOUNTER_DISTANCE * RADIUS)
@@ -283,7 +283,7 @@ export function regeneratePlayer(
   game: GameState,
   playerId: string,
   rng: RNG,
-  spawnPoint?: SpatialPoint
+  spawnPoint?: Vec3
 ): void {
   const player = game.players.get(playerId)
   if (player == null) return
@@ -335,7 +335,9 @@ export function checkWaveSpawn(
 
   const ship = player.shipId != null ? game.ships.get(player.shipId) : undefined
   if (ship == null) return
-  if (spatialQueries.hasRocksNear(ship, ROCK_ENCOUNTER_DISTANCE * RADIUS)) {
+  if (
+    spatialQueries.hasRocksNear(ship.position, ROCK_ENCOUNTER_DISTANCE * RADIUS)
+  ) {
     player.lastRockEncounterAt = game.now
     player.nextWaveCheckAt = game.now + ROCK_WAVE_RETRY_DEFER_PERIOD
     return
@@ -343,7 +345,7 @@ export function checkWaveSpawn(
 
   const gate = evaluateWaveSpawnGate(
     game,
-    ship,
+    ship.position,
     player.score,
     player.lastRockEncounterAt,
     spatialQueries
@@ -353,7 +355,7 @@ export function checkWaveSpawn(
     return
   }
 
-  spawnWave(game, ship, rng)
+  spawnWave(game, ship.position, rng)
   player.waveSpawnedAt = game.now
   player.nextWaveCheckAt = game.now + nextWaveDelayMs(player.score)
 }
