@@ -1,6 +1,7 @@
 import {
   headingToAngularVelocity,
   unitPointToQuaternion,
+  vec3Zero,
 } from '@heygrady/hexagonoids-engine'
 
 import type { ScenarioSnapshot } from './types.js'
@@ -161,10 +162,10 @@ export function angularVelocityToHeadingSpeed(
 
   // Get the same quaternion frame that headingToAngularVelocity uses
   const q = unitPointToQuaternion(x, y, z)
-  const qx = q.x
-  const qy = q.y
-  const qz = q.z
-  const qw = q.w
+  const qx = q[0]
+  const qy = q[1]
+  const qz = q[2]
+  const qw = q[3]
 
   // Forward (local Z) in world space — column 2 of rotation matrix from quaternion
   const fwdX = 2 * (qx * qz + qw * qy)
@@ -200,8 +201,9 @@ export function headingSpeedToAngularVelocity(
     return [0, 0, 0]
   }
   const q = unitPointToQuaternion(x, y, z)
-  const av = headingToAngularVelocity(q, heading, speed)
-  return [av.x, av.y, av.z]
+  const av = vec3Zero()
+  headingToAngularVelocity(av, q, heading, speed)
+  return [av[0], av[1], av[2]]
 }
 
 // ── Encode (v4) ──────────────────────────────────────────────────────────────

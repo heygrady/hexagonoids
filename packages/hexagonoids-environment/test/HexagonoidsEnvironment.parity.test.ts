@@ -30,11 +30,14 @@ describe('HexagonoidsEnvironment parity', () => {
 
   const createAgentSeedRng = (): RNG => {
     let next = 0
-    return {
+    const rng: RNG = {
       gen: () => `agent-${next++}` as unknown as number,
       genRange: (min: number) => min,
       genBool: () => true,
+      derive: () => rng,
+      toSeed: () => '__rng:0',
     }
+    return rng
   }
 
   it('produces matching fitness for executor and agent evaluation when seeds align', () => {

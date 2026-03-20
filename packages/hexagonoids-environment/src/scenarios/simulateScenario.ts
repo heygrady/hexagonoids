@@ -50,7 +50,7 @@ export function simulateScenario(
   const jitterSpeed = config.scenarioJitterSpeed ?? 0
 
   if (jitterYaw > 0 || jitterSpeed > 0) {
-    const jitterRng = createRNG(`${seed}:jitter:${scenario.id}`)
+    const jitterRng = createRNG(seed).derive('jitter')
     const jitterShip = state.ships.values().next().value
     if (jitterShip != null) {
       if (jitterYaw > 0) {
@@ -58,7 +58,9 @@ export function simulateScenario(
       }
       if (jitterSpeed > 0) {
         const factor = 1 + (jitterRng.gen() * 2 - 1) * jitterSpeed
-        jitterShip.angularVelocity.scaleInPlace(factor)
+        jitterShip.angularVelocity[0] *= factor
+        jitterShip.angularVelocity[1] *= factor
+        jitterShip.angularVelocity[2] *= factor
       }
     }
   }
@@ -111,9 +113,9 @@ export function simulateScenario(
     const ship =
       player?.shipId != null ? state.ships.get(player.shipId) : undefined
     if (ship?.alive) {
-      const cx = ship.x
-      const cy = ship.y
-      const cz = ship.z
+      const cx = ship.position[0]
+      const cy = ship.position[1]
+      const cz = ship.position[2]
 
       // Chord distance on unit sphere (accurate for small deltas between ticks)
       if (hasPrev) {
@@ -148,7 +150,11 @@ export function simulateScenario(
 
     const rockPerception =
       ship?.alive === true
-        ? buildRockPerceptionPrecompute(ship, yawToBearing(ship.yaw), engine)
+        ? buildRockPerceptionPrecompute(
+            ship.position,
+            yawToBearing(ship.yaw),
+            engine
+          )
         : undefined
     context.memory[MEMORY_ROCK_PERCEPTION] = rockPerception
 
@@ -258,9 +264,9 @@ export function simulateScenario(
   const ship =
     player?.shipId != null ? state.ships.get(player.shipId) : undefined
   if (ship?.alive && hasPrev) {
-    const dx = ship.x - prevX
-    const dy = ship.y - prevY
-    const dz = ship.z - prevZ
+    const dx = ship.position[0] - prevX
+    const dy = ship.position[1] - prevY
+    const dz = ship.position[2] - prevZ
     distanceTraveled += Math.sqrt(dx * dx + dy * dy + dz * dz) * RADIUS
   }
 

@@ -14,7 +14,7 @@ import {
   type StepAgentFactoryOptions,
 } from '@neat-evolution/rl-core'
 import type { StatsRecorder } from '@neat-evolution/stats'
-import { createRNG } from '@neat-evolution/utils'
+import { createRNG, type RNG } from '@neat-evolution/utils'
 
 import { createGameAgent, type GameAgent } from './agents/createGameAgent.js'
 import { runCurriculum } from './curriculum/runCurriculum.js'
@@ -137,10 +137,10 @@ export class HexagonoidsEnvironment
     context?: PartialEvaluationContext
   ): number {
     const stats = context?.stats
-    const seed =
-      context?.rng != null ? String(context.rng.gen()) : this.nextAgentSeed()
+    const evaluationRng =
+      context?.rng != null ? context.rng.derive('evaluation') : undefined
     return this.evaluateGauntlet({
-      seed,
+      evaluationRng,
       agent,
       gameAgent,
       stats,
@@ -155,16 +155,18 @@ export class HexagonoidsEnvironment
   }
 
   private evaluateGauntlet({
-    seed,
+    evaluationRng,
     agent,
     gameAgent,
     stats,
   }: {
-    seed: string
+    evaluationRng: RNG | undefined
     agent: StepAgent
     gameAgent: GameAgent
-    stats?: StatsRecorder | undefined
+    stats: StatsRecorder | undefined
   }): number {
+    const gauntletRng = evaluationRng?.derive('gauntlet')
+    const seed = gauntletRng?.toSeed() ?? this.nextAgentSeed()
     const bank = this.config.scenarioBank
     const hasBank = bank != null && bank.length > 0
     const hasCurriculum = this.config.simulation.curriculumEnabled
@@ -359,7 +361,8 @@ export class HexagonoidsEnvironment
           reward += deltas.scoreDelta * resolvedRewardConfig.scoreScale
         }
         if (deltas.lifeDelta < 0) {
-          reward += resolvedRewardConfig.deathPenalty * Math.abs(deltas.lifeDelta)
+          reward +=
+            resolvedRewardConfig.deathPenalty * Math.abs(deltas.lifeDelta)
         }
         if (deltas.newBullets > 0) {
           reward -= deltas.newBullets * resolvedRewardConfig.shotPenalty
@@ -464,7 +467,11 @@ export class HexagonoidsEnvironment
         type: 'curriculum',
         metadata: { index, seed: `${seed}:curriculum:${index}` },
       })
-      return this.buildSimulationHooks(agent, gameAgent, this.config.rewardConfig)
+      return this.buildSimulationHooks(
+        agent,
+        gameAgent,
+        this.config.rewardConfig
+      )
     }
 
     const metricsArray = runCurriculum(

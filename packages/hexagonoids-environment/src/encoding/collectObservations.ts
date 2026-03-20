@@ -3,7 +3,7 @@ import type {
   ManagedSpatialQueries,
   RockState,
   ShipState,
-  SpatialPoint,
+  Vec3,
 } from '@heygrady/hexagonoids-engine'
 import {
   BULLET_RADIUS,
@@ -67,7 +67,7 @@ function requireSpatialQueries(
   return spatialQueries
 }
 
-function buildLocalBasisFromCenter(center: SpatialPoint): {
+function buildLocalBasisFromCenter(center: Vec3): {
   northX: number
   northY: number
   northZ: number
@@ -76,21 +76,21 @@ function buildLocalBasisFromCenter(center: SpatialPoint): {
   eastZ: number
 } {
   const refX = 0
-  const refY = Math.abs(center.y) > 0.99 ? 0 : 1
-  const refZ = Math.abs(center.y) > 0.99 ? 1 : 0
+  const refY = Math.abs(center[1]) > 0.99 ? 0 : 1
+  const refZ = Math.abs(center[1]) > 0.99 ? 1 : 0
 
-  let eastX = refY * center.z - refZ * center.y
-  let eastY = refZ * center.x - refX * center.z
-  let eastZ = refX * center.y - refY * center.x
+  let eastX = refY * center[2] - refZ * center[1]
+  let eastY = refZ * center[0] - refX * center[2]
+  let eastZ = refX * center[1] - refY * center[0]
   const eastLen = Math.sqrt(eastX * eastX + eastY * eastY + eastZ * eastZ)
   const invEastLen = eastLen > PROJECTION_EPSILON ? 1 / eastLen : 1
   eastX *= invEastLen
   eastY *= invEastLen
   eastZ *= invEastLen
 
-  const northX = eastY * center.z - eastZ * center.y
-  const northY = eastZ * center.x - eastX * center.z
-  const northZ = eastX * center.y - eastY * center.x
+  const northX = eastY * center[2] - eastZ * center[1]
+  const northY = eastZ * center[0] - eastX * center[2]
+  const northZ = eastX * center[1] - eastY * center[0]
 
   return {
     northX,
@@ -321,7 +321,7 @@ export interface RockPerceptionEntry {
 export interface RockPerceptionPrecompute {
   rocks: RockPerceptionEntry[]
   /** Ship center used for projection */
-  ship: SpatialPoint
+  ship: Vec3
   /** Rotated forward basis (bearing-adjusted) */
   forwardX: number
   forwardY: number
@@ -333,15 +333,15 @@ export interface RockPerceptionPrecompute {
 }
 
 export function buildRockPerceptionPrecompute(
-  shipCenter: SpatialPoint,
+  shipCenter: Vec3,
   shipBearing: number,
   spatialQueries?: Pick<ManagedSpatialQueries, 'queryRocksNear'>
 ): RockPerceptionPrecompute {
   const queries = requireSpatialQueries(spatialQueries)
   const basis = buildLocalBasisFromCenter(shipCenter)
-  const shipX = shipCenter.x
-  const shipY = shipCenter.z
-  const shipZ = shipCenter.y
+  const shipX = shipCenter[0]
+  const shipY = shipCenter[2]
+  const shipZ = shipCenter[1]
   const northX = basis.northX
   const northY = basis.northZ
   const northZ = basis.northY
@@ -361,12 +361,13 @@ export function buildRockPerceptionPrecompute(
   const rocks = new Array<RockPerceptionEntry>(rockCount)
 
   for (let index = 0; index < rockCount; index++) {
-    const rock = candidateRocks[index]!
+    const rock = candidateRocks[index]
+    if (rock == null) continue
 
     // Remap y↔z (engine y-up → projection z-up)
-    const rx = rock.x
-    const ry = rock.z
-    const rz = rock.y
+    const rx = rock.position[0]
+    const ry = rock.position[2]
+    const rz = rock.position[1]
 
     const dot = shipX * rx + shipY * ry + shipZ * rz
 
@@ -389,9 +390,9 @@ export function buildRockPerceptionPrecompute(
       localY,
       inVisionRange,
       radius: rockRadiusBySize(rock.size),
-      avx: av.x,
-      avy: av.z,
-      avz: av.y,
+      avx: av[0],
+      avy: av[2],
+      avz: av[1],
     }
   }
 
@@ -520,9 +521,9 @@ function scanMemoryRocks(
     rightY,
     rightZ,
   } = currentPerception
-  const shipX = shipCenter.x
-  const shipY = shipCenter.z
-  const shipZ = shipCenter.y
+  const shipX = shipCenter[0]
+  const shipY = shipCenter[2]
+  const shipZ = shipCenter[1]
 
   // Build a quick lookup for visible rock IDs to avoid re-scanning perception
   // This reuses the perception array (already allocated) instead of creating a Set
@@ -547,9 +548,9 @@ function scanMemoryRocks(
     }
 
     // Remap to local coordinate system (y-up → z-up for projection math)
-    const rx = rock.x
-    const ry = rock.z
-    const rz = rock.y
+    const rx = rock.position[0]
+    const ry = rock.position[2]
+    const rz = rock.position[1]
 
     // Hemisphere check: dot > 0 means rock is on ship's side of the sphere
     const dot = shipX * rx + shipY * ry + shipZ * rz
@@ -576,9 +577,9 @@ function scanMemoryRocks(
 
     // Compute relative velocity (remap rock AV y↔z to match projection space)
     const av = rock.angularVelocity
-    const dvx = av.x - shipAV.x
-    const dvy = av.z - shipAV.y
-    const dvz = av.y - shipAV.z
+    const dvx = av[0] - shipAV.x
+    const dvy = av[2] - shipAV.y
+    const dvz = av[1] - shipAV.z
     const relVelRight = dvx * rightX + dvy * rightY + dvz * rightZ
     const relVelForward = dvx * forwardX + dvy * forwardY + dvz * forwardZ
 
@@ -642,21 +643,21 @@ function scanBullets(
     rightY,
     rightZ,
   } = rockPerception
-  const shipX = shipCenter.x
-  const shipY = shipCenter.z
-  const shipZ = shipCenter.y
+  const shipX = shipCenter[0]
+  const shipY = shipCenter[2]
+  const shipZ = shipCenter[1]
 
   // Collect own bullets into pre-allocated parallel arrays
   let bulletCount = 0
   for (const bullet of state.bullets.values()) {
     if (bullet.ownerId !== shipId) continue
     const idx = bulletCount
-    _bulletX[idx] = bullet.x
-    _bulletY[idx] = bullet.z // remap y↔z (engine y-up → projection z-up)
-    _bulletZ[idx] = bullet.y
-    _bulletAVX[idx] = bullet.angularVelocity.x
-    _bulletAVY[idx] = bullet.angularVelocity.z // remap y↔z
-    _bulletAVZ[idx] = bullet.angularVelocity.y
+    _bulletX[idx] = bullet.position[0]
+    _bulletY[idx] = bullet.position[2] // remap y↔z (engine y-up → projection z-up)
+    _bulletZ[idx] = bullet.position[1]
+    _bulletAVX[idx] = bullet.angularVelocity[0]
+    _bulletAVY[idx] = bullet.angularVelocity[2] // remap y↔z
+    _bulletAVZ[idx] = bullet.angularVelocity[1]
     _bulletFiredAt[idx] = bullet.firedAt ?? 0
     bulletCount++
   }
@@ -770,14 +771,14 @@ export function collectObservations(
   const shipBearing = yawToBearing(ship.yaw)
   const rockPerception =
     rockPerceptionBuffer ??
-    buildRockPerceptionPrecompute(ship, shipBearing, spatialQueries)
+    buildRockPerceptionPrecompute(ship.position, shipBearing, spatialQueries)
 
   const { forwardX, forwardY, forwardZ, rightX, rightY, rightZ } =
     rockPerception
 
   // Remap ship angular velocity y↔z (engine y-up → projection z-up)
   const rawAV = ship.angularVelocity
-  const shipAV = { x: rawAV.x, y: rawAV.z, z: rawAV.y }
+  const shipAV = { x: rawAV[0], y: rawAV[2], z: rawAV[1] }
 
   // Encode ship velocity onto tangent plane
   encodeShipVelocity(

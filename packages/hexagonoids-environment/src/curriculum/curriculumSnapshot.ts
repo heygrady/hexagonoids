@@ -36,7 +36,7 @@ export function buildCurriculumParams(
   const coneIndex = (wrapped % CONE_COUNT) as ConeIndex
   const variantIndex = Math.floor(wrapped / CONE_COUNT)
   const variant = ALL_VARIANTS[variantIndex] as ScenarioVariant
-  const rng = createRNG(`${seed}:curriculum-params:${index}`)
+  const rng = createRNG(seed).derive(`curriculum-params:${index}`)
   const rockSize = Math.floor(rng.gen() * 3) as 0 | 1 | 2
   const lateralOffset = (rng.gen() * 2 - 1) * 0.8
   return { coneIndex, variant, rockSize, lateralOffset }

@@ -25,18 +25,27 @@ describe('createCurriculumGameState', () => {
   it('has a player with a ship', () => {
     const { engine } = createCurriculumGameState(makeParams(), 'test-seed', 33)
     const player = engine.state.players.get(PLAYER_ID)
-    expect(player).toBeDefined()
-    expect(player!.shipId).toBeTruthy()
-    const ship = engine.state.ships.get(player!.shipId!)
-    expect(ship).toBeDefined()
-    expect(ship!.alive).toBe(true)
+    if (player === undefined) {
+      throw new Error('Expected player to be defined')
+    }
+    if (player.shipId == null) {
+      throw new Error('Expected player to have a shipId')
+    }
+    const ship = engine.state.ships.get(player.shipId)
+    if (ship === undefined) {
+      throw new Error('Expected ship to be defined')
+    }
+    expect(ship.alive).toBe(true)
   })
 
   it('wave spawning is suppressed', () => {
     const { engine } = createCurriculumGameState(makeParams(), 'test-seed', 33)
     const player = engine.state.players.get(PLAYER_ID)
-    expect(player!.nextWaveCheckAt).toBe(engine.state.now + 999999)
-    expect(player!.lastRockEncounterAt).toBe(engine.state.now)
+    if (player === undefined) {
+      throw new Error('Expected player to be defined')
+    }
+    expect(player.nextWaveCheckAt).toBe(engine.state.now + 999999)
+    expect(player.lastRockEncounterAt).toBe(engine.state.now)
   })
 
   it('maxTicks is positive and finite', () => {
@@ -56,14 +65,23 @@ describe('createCurriculumGameState', () => {
       33
     )
     const player = engine.state.players.get(PLAYER_ID)
-    const ship = engine.state.ships.get(player!.shipId!)!
-    const rock = [...engine.state.rocks.values()][0]!
+    if (player === undefined || player.shipId == null) {
+      throw new Error('Expected player with shipId to be defined')
+    }
+    const ship = engine.state.ships.get(player.shipId)
+    if (ship === undefined) {
+      throw new Error('Expected ship to be defined')
+    }
+    const rock = [...engine.state.rocks.values()][0]
+    if (rock === undefined) {
+      throw new Error('Expected rock to be defined')
+    }
 
     // Compute angular distance between ship and rock
     const dot =
-      (ship.x ?? 0) * (rock.x ?? 0) +
-      (ship.y ?? 1) * (rock.y ?? 0) +
-      (ship.z ?? 0) * (rock.z ?? 0)
+      ship.position[0] * rock.position[0] +
+      ship.position[1] * rock.position[1] +
+      ship.position[2] * rock.position[2]
     const angularDist = Math.acos(Math.max(-1, Math.min(1, dot)))
 
     // Should be approximately SOI_ANGULAR_RADIUS (~0.5 rad)
@@ -76,13 +94,19 @@ describe('createCurriculumGameState', () => {
     const b = createCurriculumGameState(makeParams(), 'seed-b', 33)
 
     // Ships should be at different positions (seeded random spawn)
-    const shipA = [...a.engine.state.ships.values()][0]!
-    const shipB = [...b.engine.state.ships.values()][0]!
+    const shipA = [...a.engine.state.ships.values()][0]
+    if (shipA === undefined) {
+      throw new Error('Expected shipA to be defined')
+    }
+    const shipB = [...b.engine.state.ships.values()][0]
+    if (shipB === undefined) {
+      throw new Error('Expected shipB to be defined')
+    }
 
     const dot =
-      (shipA.x ?? 0) * (shipB.x ?? 0) +
-      (shipA.y ?? 1) * (shipB.y ?? 1) +
-      (shipA.z ?? 0) * (shipB.z ?? 0)
+      shipA.position[0] * shipB.position[0] +
+      shipA.position[1] * shipB.position[1] +
+      shipA.position[2] * shipB.position[2]
 
     // Different seeds should produce different positions (not exactly the same)
     expect(dot).not.toBeCloseTo(1.0, 5)
@@ -113,7 +137,10 @@ describe('createCurriculumGameState', () => {
         'test-seed',
         33
       )
-      const rock = [...engine.state.rocks.values()][0]!
+      const rock = [...engine.state.rocks.values()][0]
+      if (rock === undefined) {
+        throw new Error('Expected rock to be defined')
+      }
       expect(rock.size).toBe(rockSize)
     }
   })

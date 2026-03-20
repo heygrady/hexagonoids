@@ -77,9 +77,9 @@ export function simulateCurriculumScenario(
 
     // Track ship position for distance + spatial coverage
     if (ship?.alive) {
-      const cx = ship.x
-      const cy = ship.y
-      const cz = ship.z
+      const cx = ship.position[0]
+      const cy = ship.position[1]
+      const cz = ship.position[2]
 
       if (hasPrev) {
         const dx = cx - prevX
@@ -113,7 +113,11 @@ export function simulateCurriculumScenario(
     // Build rock perception
     const rockPerception =
       ship?.alive === true
-        ? buildRockPerceptionPrecompute(ship, yawToBearing(ship.yaw), engine)
+        ? buildRockPerceptionPrecompute(
+            ship.position,
+            yawToBearing(ship.yaw),
+            engine
+          )
         : undefined
     memory[MEMORY_ROCK_PERCEPTION] = rockPerception
 
@@ -213,9 +217,9 @@ export function simulateCurriculumScenario(
       ? state.ships.get(trackedPlayer.shipId)
       : undefined
   if (ship?.alive && hasPrev) {
-    const dx = ship.x - prevX
-    const dy = ship.y - prevY
-    const dz = ship.z - prevZ
+    const dx = ship.position[0] - prevX
+    const dy = ship.position[1] - prevY
+    const dz = ship.position[2] - prevZ
     distanceTraveled += Math.sqrt(dx * dx + dy * dy + dz * dz) * RADIUS
   }
   collector.setUniqueCellsVisited(visitedBuckets.size)

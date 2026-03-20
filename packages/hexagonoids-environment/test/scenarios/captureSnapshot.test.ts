@@ -91,20 +91,21 @@ describe('restoreSnapshot round-trip', () => {
     const snapshot = captureSnapshot(state, PLAYER_ID)
     const { state: restored } = restoreSnapshot(snapshot)
 
-    const restoredShip = restored.ships.values().next().value!
-    expect(restoredShip.x).toBeCloseTo(snapshot.ship.x, 6)
-    expect(restoredShip.y).toBeCloseTo(snapshot.ship.y, 6)
-    expect(restoredShip.z).toBeCloseTo(snapshot.ship.z, 6)
+    const restoredShip = restored.ships.values().next().value
+    if (restoredShip == null) throw new Error('Expected restored ship')
+    expect(restoredShip.position[0]).toBeCloseTo(snapshot.ship.x, 6)
+    expect(restoredShip.position[1]).toBeCloseTo(snapshot.ship.y, 6)
+    expect(restoredShip.position[2]).toBeCloseTo(snapshot.ship.z, 6)
     expect(restoredShip.yaw).toBeCloseTo(snapshot.ship.yaw, 6)
-    expect(restoredShip.angularVelocity.x).toBeCloseTo(
+    expect(restoredShip.angularVelocity[0]).toBeCloseTo(
       snapshot.ship.angularVelocityX,
       6
     )
-    expect(restoredShip.angularVelocity.y).toBeCloseTo(
+    expect(restoredShip.angularVelocity[1]).toBeCloseTo(
       snapshot.ship.angularVelocityY,
       6
     )
-    expect(restoredShip.angularVelocity.z).toBeCloseTo(
+    expect(restoredShip.angularVelocity[2]).toBeCloseTo(
       snapshot.ship.angularVelocityZ,
       6
     )
@@ -126,9 +127,9 @@ describe('restoreSnapshot round-trip', () => {
       if (actual == null || expected == null) {
         throw new Error(`Missing rock at index ${i}`)
       }
-      expect(actual.x).toBeCloseTo(expected.x, 6)
-      expect(actual.y).toBeCloseTo(expected.y, 6)
-      expect(actual.z).toBeCloseTo(expected.z, 6)
+      expect(actual.position[0]).toBeCloseTo(expected.x, 6)
+      expect(actual.position[1]).toBeCloseTo(expected.y, 6)
+      expect(actual.position[2]).toBeCloseTo(expected.z, 6)
       expect(actual.size).toBe(expected.size)
       expect(actual.value).toBe(expected.value)
     }
@@ -141,7 +142,8 @@ describe('restoreSnapshot round-trip', () => {
     const snapshot = captureSnapshot(state, PLAYER_ID)
     const { state: restored } = restoreSnapshot(snapshot)
 
-    const restoredPlayer = restored.players.get(PLAYER_ID)!
+    const restoredPlayer = restored.players.get(PLAYER_ID)
+    if (restoredPlayer == null) throw new Error('Expected restored player')
     expect(restoredPlayer.score).toBe(snapshot.player.score)
     expect(restoredPlayer.lives).toBe(snapshot.player.lives)
     expect(restoredPlayer.alive).toBe(snapshot.player.alive)
@@ -184,24 +186,32 @@ describe('restoreSnapshot round-trip', () => {
 
     const snapshot = captureSnapshot(state, PLAYER_ID)
 
-    const { state: s1, rng: r1 } = restoreSnapshot(snapshot, 'det-seed')
-    const { state: s2, rng: r2 } = restoreSnapshot(snapshot, 'det-seed')
-
-    // Step both identically
     const stepInputs: PlayerInputs = {
       [PLAYER_ID]: { left: true, right: false, thrust: true, fire: true },
     }
+
+    // Run first restore sequentially (restoreSnapshot recycles previous entities)
+    const { state: s1, rng: r1 } = restoreSnapshot(snapshot, 'det-seed')
     for (let i = 0; i < 30; i++) {
       step(s1, stepInputs, 33, r1)
+    }
+    const ship1 = s1.ships.values().next().value
+    if (ship1 == null) throw new Error('Expected ship1')
+    const pos1 = [ship1.position[0], ship1.position[1], ship1.position[2]]
+    const now1 = s1.now
+
+    // Run second restore (recycles first's entities)
+    const { state: s2, rng: r2 } = restoreSnapshot(snapshot, 'det-seed')
+    for (let i = 0; i < 30; i++) {
       step(s2, stepInputs, 33, r2)
     }
+    const ship2 = s2.ships.values().next().value
+    if (ship2 == null) throw new Error('Expected ship2')
 
-    const ship1 = s1.ships.values().next().value!
-    const ship2 = s2.ships.values().next().value!
-    expect(ship1.x).toBe(ship2.x)
-    expect(ship1.y).toBe(ship2.y)
-    expect(ship1.z).toBe(ship2.z)
-    expect(s1.now).toBe(s2.now)
+    expect(ship2.position[0]).toBe(pos1[0])
+    expect(ship2.position[1]).toBe(pos1[1])
+    expect(ship2.position[2]).toBe(pos1[2])
+    expect(s2.now).toBe(now1)
   })
 
   it('snapshot is JSON-serializable (lossless round-trip)', () => {

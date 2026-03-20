@@ -74,13 +74,13 @@ export function simulateGame(
   seed: string,
   hooks?: SimulationHooks
 ): RawMetrics {
-  const { maxTicks, dtMs, useFastThrust } = {
+  const { maxTicks, dtMs } = {
     ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation,
     ...config,
   }
 
   // 1. Create game
-  const engine = createGame({ seed, useFastThrust })
+  const engine = createGame({ seed })
   const { state, rng } = engine
 
   // 2. Start player
@@ -128,9 +128,9 @@ export function simulateGame(
     const ship =
       player?.shipId != null ? state.ships.get(player.shipId) : undefined
     if (ship?.alive) {
-      const cx = ship.x
-      const cy = ship.y
-      const cz = ship.z
+      const cx = ship.position[0]
+      const cy = ship.position[1]
+      const cz = ship.position[2]
 
       // Chord distance on unit sphere (accurate for small deltas between ticks)
       if (hasPrev) {
@@ -165,7 +165,11 @@ export function simulateGame(
 
     const rockPerception =
       ship?.alive === true
-        ? buildRockPerceptionPrecompute(ship, yawToBearing(ship.yaw), engine)
+        ? buildRockPerceptionPrecompute(
+            ship.position,
+            yawToBearing(ship.yaw),
+            engine
+          )
         : undefined
     context.memory[MEMORY_ROCK_PERCEPTION] = rockPerception
 
@@ -256,9 +260,9 @@ export function simulateGame(
   const ship =
     player?.shipId != null ? state.ships.get(player.shipId) : undefined
   if (ship?.alive && hasPrev) {
-    const dx = ship.x - prevX
-    const dy = ship.y - prevY
-    const dz = ship.z - prevZ
+    const dx = ship.position[0] - prevX
+    const dy = ship.position[1] - prevY
+    const dz = ship.position[2] - prevZ
     distanceTraveled += Math.sqrt(dx * dx + dy * dy + dz * dz) * RADIUS
   }
 

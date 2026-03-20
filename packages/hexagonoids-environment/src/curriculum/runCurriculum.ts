@@ -40,7 +40,7 @@ export function runCurriculum(
   count: number,
   hooksFactory?: (index: number) => SimulationHooks | undefined
 ): RawMetrics[] {
-  const rng = createRNG(`${seed}:curriculum`)
+  const rng = createRNG(seed).derive('curriculum')
 
   if (count <= 0) return []
 
@@ -91,7 +91,7 @@ export function runCurriculum(
   // Run each scenario and collect metrics
   const results: RawMetrics[] = []
   for (let i = 0; i < scenarios.length; i++) {
-    const scenarioSeed = `${seed}:curriculum:${i}`
+    const scenarioSeed = rng.derive(`scenario:${i}`).toSeed()
     const hooks = hooksFactory?.(i)
     const metrics = simulateCurriculumScenario(
       agent,

@@ -5,6 +5,7 @@ import type {
   Outputs,
   StaticExecutor,
 } from '@neat-evolution/executor'
+import type { RNG } from '@neat-evolution/utils'
 import { describe, expect, it } from 'vitest'
 import { createEnvironment } from '../src/createEnvironment.js'
 import { INPUT_COUNT } from '../src/encoding/encodingPresets.js'
@@ -97,12 +98,15 @@ describe('HexagonoidsEnvironment', () => {
       },
     })
     // Use a fake RNG that returns the same value to produce identical seeds
-    const makeRng = () => {
-      return {
+    const makeRng = (): RNG => {
+      const rng: RNG = {
         gen: () => 0.42,
         genRange: (min: number, _max: number) => min,
         genBool: () => true,
+        derive: () => rng,
+        toSeed: () => '__rng:0',
       }
+      return rng
     }
     const executor1 = createMidpointExecutor()
     const executor2 = createMidpointExecutor()

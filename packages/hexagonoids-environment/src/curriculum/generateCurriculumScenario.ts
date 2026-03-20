@@ -6,6 +6,7 @@ import {
   ROCK_SMALL_SPEED,
   spawnRock,
   startPlayer,
+  vec3,
 } from '@heygrady/hexagonoids-engine'
 
 import { SOI_ANGULAR_RADIUS } from '../utils/constants.js'
@@ -68,7 +69,7 @@ export function createCurriculumGameState(
   const { coneIndex, variant, rockSize, lateralOffset } = params
 
   // 1. Create game and start player
-  const engine = createGame({ seed, useFastThrust: true })
+  const engine = createGame({ seed })
   const { state, rng } = engine
   startPlayer(state, PLAYER_ID, rng)
 
@@ -84,9 +85,9 @@ export function createCurriculumGameState(
   }
 
   // 2. Get ship's cached XYZ and yaw
-  const sx = ship.x
-  const sy = ship.y
-  const sz = ship.z
+  const sx = ship.position[0]
+  const sy = ship.position[1]
+  const sz = ship.position[2]
   const yaw = ship.yaw
 
   // 3. Compute cone direction relative to ship yaw (engine convention: 0=east, CW positive)
@@ -148,7 +149,7 @@ export function createCurriculumGameState(
   }
 
   // 5. Spawn the rock directly from the unit point
-  spawnRock(state, { x: rx, y: ry, z: rz }, rockSize, rng, rockHeading)
+  spawnRock(state, vec3(rx, ry, rz), rockSize, rng, rockHeading)
 
   // 6. Suppress wave spawning
   player.nextWaveCheckAt = state.now + 999999

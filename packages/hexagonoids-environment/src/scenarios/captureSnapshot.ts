@@ -35,12 +35,12 @@ export function captureSnapshot(
   const rocks: ScenarioRockState[] = []
   for (const rock of state.rocks.values()) {
     rocks.push({
-      x: rock.x,
-      y: rock.y,
-      z: rock.z,
-      angularVelocityX: rock.angularVelocity.x,
-      angularVelocityY: rock.angularVelocity.y,
-      angularVelocityZ: rock.angularVelocity.z,
+      x: rock.position[0],
+      y: rock.position[1],
+      z: rock.position[2],
+      angularVelocityX: rock.angularVelocity[0],
+      angularVelocityY: rock.angularVelocity[1],
+      angularVelocityZ: rock.angularVelocity[2],
       size: rock.size,
       value: rock.value,
     })
@@ -49,12 +49,12 @@ export function captureSnapshot(
   const bullets: ScenarioBulletState[] = []
   for (const bullet of state.bullets.values()) {
     bullets.push({
-      x: bullet.x,
-      y: bullet.y,
-      z: bullet.z,
-      angularVelocityX: bullet.angularVelocity.x,
-      angularVelocityY: bullet.angularVelocity.y,
-      angularVelocityZ: bullet.angularVelocity.z,
+      x: bullet.position[0],
+      y: bullet.position[1],
+      z: bullet.position[2],
+      angularVelocityX: bullet.angularVelocity[0],
+      angularVelocityY: bullet.angularVelocity[1],
+      angularVelocityZ: bullet.angularVelocity[2],
       firedAt: bullet.firedAt,
       ownerIndex: 0, // single-player: always index 0
     })
@@ -67,13 +67,13 @@ export function captureSnapshot(
     gameTime: state.now,
     wave: state.wave,
     ship: {
-      x: ship.x,
-      y: ship.y,
-      z: ship.z,
+      x: ship.position[0],
+      y: ship.position[1],
+      z: ship.position[2],
       yaw: ship.yaw,
-      angularVelocityX: ship.angularVelocity.x,
-      angularVelocityY: ship.angularVelocity.y,
-      angularVelocityZ: ship.angularVelocity.z,
+      angularVelocityX: ship.angularVelocity[0],
+      angularVelocityY: ship.angularVelocity[1],
+      angularVelocityZ: ship.angularVelocity[2],
       alive: ship.alive,
       firedAt: ship.firedAt,
     },

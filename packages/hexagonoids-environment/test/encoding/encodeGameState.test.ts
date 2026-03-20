@@ -1,11 +1,13 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js'
+import type { Vec3 } from '@heygrady/hexagonoids-engine'
 import {
   createGame,
   ROCK_LARGE_SIZE,
   spawnRock,
   startPlayer,
   unitPointToQuaternion,
+  vec3,
 } from '@heygrady/hexagonoids-engine'
+import { createRNG } from '@neat-evolution/utils'
 import { describe, expect, it } from 'vitest'
 import { encodeGameState } from '../../src/encoding/encodeGameState.js'
 import {
@@ -20,40 +22,72 @@ import {
 
 const PLAYER_ID = 'player-1'
 
-function pointFromLatLng(lat: number, lng: number) {
+function pointFromLatLng(lat: number, lng: number): Vec3 {
   const latRad = (lat * Math.PI) / 180
   const lngRad = (lng * Math.PI) / 180
   const cosLat = Math.cos(latRad)
-  return {
-    x: cosLat * Math.cos(lngRad),
-    y: Math.sin(latRad),
-    z: cosLat * Math.sin(lngRad),
-  }
+  return vec3(
+    cosLat * Math.cos(lngRad),
+    Math.sin(latRad),
+    cosLat * Math.sin(lngRad)
+  )
 }
 
 function offsetPoint(
-  center: { x: number; y: number; z: number },
+  center: Vec3,
   distanceDegrees: number,
   headingRadians = 0
-) {
-  const up = new Vector3(center.x, center.y, center.z).normalize()
-  const reference = Math.abs(up.y) > 0.95 ? Vector3.Right() : Vector3.Up()
-  const east = Vector3.Cross(reference, up).normalize()
-  const north = Vector3.Cross(up, east).normalize()
-  const tangent = east
-    .scale(Math.cos(headingRadians))
-    .addInPlace(north.scale(Math.sin(headingRadians)))
-    .normalize()
-  const axis = Vector3.Cross(up, tangent).normalize()
-  const rotated = up.applyRotationQuaternion(
-    Quaternion.RotationAxis(axis, (distanceDegrees * Math.PI) / 180)
-  )
-  rotated.normalize()
-  return {
-    x: rotated.x,
-    y: rotated.y,
-    z: rotated.z,
-  }
+): Vec3 {
+  // Normalize center
+  const cx = center[0],
+    cy = center[1],
+    cz = center[2]
+  const len = Math.sqrt(cx * cx + cy * cy + cz * cz)
+  const ux = cx / len,
+    uy = cy / len,
+    uz = cz / len
+
+  // Build tangent plane basis
+  const refX = 0,
+    refY = Math.abs(uy) > 0.95 ? 0 : 1,
+    refZ = Math.abs(uy) > 0.95 ? 1 : 0
+  let ex = refY * uz - refZ * uy,
+    ey = refZ * ux - refX * uz,
+    ez = refX * uy - refY * ux
+  const eLen = Math.sqrt(ex * ex + ey * ey + ez * ez)
+  ex /= eLen
+  ey /= eLen
+  ez /= eLen
+  const nx = ey * uz - ez * uy,
+    ny = ez * ux - ex * uz,
+    nz = ex * uy - ey * ux
+
+  // Tangent direction from heading
+  const cosH = Math.cos(headingRadians),
+    sinH = Math.sin(headingRadians)
+  const tx = nx * cosH + ex * sinH,
+    ty = ny * cosH + ey * sinH,
+    tz = nz * cosH + ez * sinH
+
+  // Rotation axis = cross(up, tangent)
+  const ax = uy * tz - uz * ty,
+    ay = uz * tx - ux * tz,
+    az = ux * ty - uy * tx
+  const aLen = Math.sqrt(ax * ax + ay * ay + az * az)
+  const kx = ax / aLen,
+    ky = ay / aLen,
+    kz = az / aLen
+
+  // Rodrigues' rotation: rotate center around axis by distance
+  const angle = (distanceDegrees * Math.PI) / 180
+  const cosA = Math.cos(angle),
+    sinA = Math.sin(angle)
+  const dot = kx * ux + ky * uy + kz * uz
+  const rx = ux * cosA + (ky * uz - kz * uy) * sinA + kx * dot * (1 - cosA)
+  const ry = uy * cosA + (kz * ux - kx * uz) * sinA + ky * dot * (1 - cosA)
+  const rz = uz * cosA + (kx * uy - ky * ux) * sinA + kz * dot * (1 - cosA)
+
+  return vec3(rx, ry, rz)
 }
 
 function setupGame(seed: string, ticks = 0) {
@@ -169,11 +203,12 @@ describe('encodeGameState', () => {
       throw new Error('Expected alive ship for proximity test')
     }
 
-    spawnRock(state, offsetPoint(ship, 4, 0.4), ROCK_LARGE_SIZE, {
-      gen: () => 0.5,
-      genRange: (min: number, _max: number) => min,
-      genBool: () => true,
-    })
+    spawnRock(
+      state,
+      offsetPoint(ship.position, 4, 0.4),
+      ROCK_LARGE_SIZE,
+      createRNG('test')
+    )
 
     const result = encodeGameState(
       state,
@@ -203,11 +238,12 @@ describe('encodeGameState', () => {
       throw new Error('Expected alive ship for cone8 test')
     }
 
-    spawnRock(state, offsetPoint(ship, 4, -0.3), ROCK_LARGE_SIZE, {
-      gen: () => 0.5,
-      genRange: (min: number, _max: number) => min,
-      genBool: () => true,
-    })
+    spawnRock(
+      state,
+      offsetPoint(ship.position, 4, -0.3),
+      ROCK_LARGE_SIZE,
+      createRNG('test')
+    )
 
     const result = encodeGameState(
       state,
@@ -244,16 +280,18 @@ describe('encodeGameState', () => {
     }
 
     const heading = 0.2
-    spawnRock(state, offsetPoint(ship, 3, heading), ROCK_LARGE_SIZE, {
-      gen: () => 0.5,
-      genRange: (min: number, _max: number) => min,
-      genBool: () => true,
-    })
-    spawnRock(state, offsetPoint(ship, 5, heading), ROCK_LARGE_SIZE, {
-      gen: () => 0.5,
-      genRange: (min: number, _max: number) => min,
-      genBool: () => true,
-    })
+    spawnRock(
+      state,
+      offsetPoint(ship.position, 3, heading),
+      ROCK_LARGE_SIZE,
+      createRNG('test')
+    )
+    spawnRock(
+      state,
+      offsetPoint(ship.position, 5, heading),
+      ROCK_LARGE_SIZE,
+      createRNG('test')
+    )
 
     const result = encodeGameState(
       state,
@@ -297,11 +335,11 @@ describe('encodeGameState', () => {
 
     for (const start of starts) {
       const point = pointFromLatLng(start.lat, start.lng)
-      ship.x = point.x
-      ship.y = point.y
-      ship.z = point.z
+      ship.position[0] = point[0]
+      ship.position[1] = point[1]
+      ship.position[2] = point[2]
       ship.yaw = start.yaw
-      ship.orientation = unitPointToQuaternion(point.x, point.y, point.z)
+      ship.orientation = unitPointToQuaternion(point[0], point[1], point[2])
 
       const result = encodeGameState(
         state,
