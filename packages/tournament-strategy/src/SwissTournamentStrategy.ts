@@ -275,7 +275,7 @@ export class SwissTournamentStrategy<G extends AnyGenome>
         if (opponent == null) {
           const remaining = Array.from(remainingEntries)
           if (remaining.length > 0) {
-            opponent = remaining[threadRNG().genRange(0, remaining.length)]
+            opponent = remaining[threadRNG().genIntRange(0, remaining.length)]
           }
         }
 
