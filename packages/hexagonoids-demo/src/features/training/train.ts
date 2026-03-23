@@ -10,6 +10,7 @@ import {
 } from '@heygrady/hexagonoids-environment'
 import { createEnvironment } from '@heygrady/hexagonoids-environment/node'
 import { Activation, type OutputActivationSpec } from '@neat-evolution/core'
+import { IndividualStrategy } from '@neat-evolution/evaluation-strategy'
 import { defaultEvolutionOptions } from '@neat-evolution/evolution'
 import {
   type EvaluatorConfig,
@@ -25,6 +26,7 @@ import type {
   StepRolloutBufferConfig,
   TrajectoryBatchCollectorConfig,
 } from '@neat-evolution/rl-core'
+import { createRNG } from '@neat-evolution/utils'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 import {
   appendGenerationLog,
@@ -50,8 +52,6 @@ import { buildEnvironmentOptions } from '../runtime/buildEnvironmentOptions.js'
 import { summarizeBaselineAgent } from './evaluation/baselines.js'
 import { mean, median } from './evaluation/metrics.js'
 import { generationSeedPack } from './evaluation/seedSchedule.js'
-import { IndividualStrategy } from '@neat-evolution/evaluation-strategy'
-import { createRNG } from '@neat-evolution/utils'
 
 const DEFAULT_OUTPUT_DIR = DEFAULT_ARTIFACTS_DIR
 const DEFAULT_METHOD: SupportedAlgorithm = 'NEAT'
