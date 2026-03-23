@@ -1,3 +1,5 @@
+import { createRNG } from '@neat-evolution/utils'
+
 import { setStatus } from '../GameSetters.js'
 import {
   EvolutionStatus,
@@ -79,7 +81,7 @@ export const start = async ($game: GameStore) => {
     if (population == null) {
       throw new Error('Population not created after init')
     }
-    await population.evaluate()
+    await population.evaluate(createRNG('restore-evaluation'))
 
     const opponent = getOpponent($game)
     if (opponent != null) {
