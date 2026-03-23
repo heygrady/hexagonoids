@@ -38,20 +38,20 @@ export function randomAI(
     // PRIORITY 1: WIN (always take it)
     if (candidates.winningMoves.length > 0) {
       move = candidates.winningMoves[
-        rng.genRange(0, candidates.winningMoves.length)
+        rng.genIntRange(0, candidates.winningMoves.length)
       ] as number
       if (verbose === true) console.log(`Winning move ${move + 1}`)
 
       // PRIORITY 2: BLOCK (always block opponent's win)
     } else if (candidates.blockingMoves.length > 0 && rng.genBool()) {
       move = candidates.blockingMoves[
-        rng.genRange(0, candidates.blockingMoves.length)
+        rng.genIntRange(0, candidates.blockingMoves.length)
       ] as number
       if (verbose === true) console.log(`Blocking move ${move + 1}`)
 
       // PRIORITY 3: RANDOM MOVE
     } else {
-      move = validMoves[rng.genRange(0, validMoves.length)] as number
+      move = validMoves[rng.genIntRange(0, validMoves.length)] as number
       if (verbose === true) console.log(`Random move ${move + 1}`)
     }
   }

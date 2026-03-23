@@ -34,7 +34,7 @@ export function simpleAI(
   // PRIORITY 0: Empty board opening (edges - intentionally weak)
   if (validMoves.length === 9) {
     // Always edge (deterministic weak opening)
-    move = [1, 3, 4, 5, 7][rng.genRange(0, 5)] as number
+    move = [1, 3, 4, 5, 7][rng.genIntRange(0, 5)] as number
     if (verbose === true) {
       console.log(`Edge opening ${move + 1}`)
     }
@@ -44,48 +44,48 @@ export function simpleAI(
     // PRIORITY 1: WIN (always take it)
     if (candidates.winningMoves.length > 0) {
       move = candidates.winningMoves[
-        rng.genRange(0, candidates.winningMoves.length)
+        rng.genIntRange(0, candidates.winningMoves.length)
       ] as number
       if (verbose === true) console.log(`Winning move ${move + 1}`)
 
       // PRIORITY 2: BLOCK (always block opponent's win)
     } else if (candidates.blockingMoves.length > 0) {
       move = candidates.blockingMoves[
-        rng.genRange(0, candidates.blockingMoves.length)
+        rng.genIntRange(0, candidates.blockingMoves.length)
       ] as number
       if (verbose === true) console.log(`Blocking move ${move + 1}`)
 
       // PRIORITY 3: BUILD VERTICAL COLUMNS (secondary preference)
     } else if (candidates.developingColumns.length > 0) {
       move = candidates.developingColumns[
-        rng.genRange(0, candidates.developingColumns.length)
+        rng.genIntRange(0, candidates.developingColumns.length)
       ] as number
       if (verbose === true) console.log(`Building column ${move + 1}`)
 
       // PRIORITY 4: BUILD HORIZONTAL ROWS (most visible/natural)
     } else if (candidates.developingRows.length > 0) {
       move = candidates.developingRows[
-        rng.genRange(0, candidates.developingRows.length)
+        rng.genIntRange(0, candidates.developingRows.length)
       ] as number
       if (verbose === true) console.log(`Building row ${move + 1}`)
 
       // PRIORITY 5: BUILD DIAGONALS (lowest developing priority)
     } else if (candidates.developingDiagonals.length > 0) {
       move = candidates.developingDiagonals[
-        rng.genRange(0, candidates.developingDiagonals.length)
+        rng.genIntRange(0, candidates.developingDiagonals.length)
       ] as number
       if (verbose === true) console.log(`Building diagonal ${move + 1}`)
 
       // PRIORITY 6: OPEN MOVES (take any open line)
     } else if (candidates.openMoves.length > 0) {
       move = candidates.openMoves[
-        rng.genRange(0, candidates.openMoves.length)
+        rng.genIntRange(0, candidates.openMoves.length)
       ] as number
       if (verbose === true) console.log(`Open move ${move + 1}`)
 
       // PRIORITY 7: FALLBACK (any valid move - should rarely happen)
     } else {
-      move = validMoves[rng.genRange(0, validMoves.length)] as number
+      move = validMoves[rng.genIntRange(0, validMoves.length)] as number
       if (verbose === true) console.log(`Fallback move ${move + 1}`)
     }
   }

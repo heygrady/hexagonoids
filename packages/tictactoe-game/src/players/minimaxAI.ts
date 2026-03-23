@@ -120,7 +120,7 @@ export function minimaxAI(
 
   if (validMoves.length === 9) {
     const corners = [0, 2, 6, 8]
-    bestMove = corners[rng.genRange(0, corners.length)] as number
+    bestMove = corners[rng.genIntRange(0, corners.length)] as number
     if (verbose === true) {
       console.log(`MinimaxAI chooses move ${bestMove + 1} (opening move)`)
     }
@@ -158,7 +158,7 @@ export function minimaxAI(
 
   // If multiple best moves, pick one at random
   if (bestMoves.length > 1) {
-    bestMove = bestMoves[rng.genRange(0, bestMoves.length)] as number
+    bestMove = bestMoves[rng.genIntRange(0, bestMoves.length)] as number
   }
 
   if (verbose === true) {

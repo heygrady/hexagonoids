@@ -148,7 +148,7 @@ export function neatAI(
 
   // Randomly select from all moves with the best probability
   if (bestMoves.length > 0) {
-    move = bestMoves[rng.genRange(0, bestMoves.length)] as number
+    move = bestMoves[rng.genIntRange(0, bestMoves.length)] as number
   }
 
   // 4. Combine valid probability mass with decisiveness
@@ -172,7 +172,7 @@ export function neatAI(
   // If no valid move was found (should not occur if validMoves.length > 0),
   // pick a random valid move as a fallback.
   if (move === -1) {
-    move = validMoves[rng.genRange(0, validMoves.length)] as number
+    move = validMoves[rng.genIntRange(0, validMoves.length)] as number
     if (verbose === true) {
       console.log(`🎲 Random move ${move + 1}`)
     }

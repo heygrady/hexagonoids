@@ -21,7 +21,7 @@ export function sleeperAI(
   const { rng = threadRNG() } = options ?? {}
   const validMoves = getValidMoves(board)
   // first two moves are randomAI, then minimaxAI
-  const randomMovesThreshold = 9 - ([3, 4, 5][rng.genRange(0, 3)] ?? 3)
+  const randomMovesThreshold = 9 - ([3, 4, 5][rng.genIntRange(0, 3)] ?? 3)
   if (validMoves.length < randomMovesThreshold) {
     return minimaxAI(board, player, options)
   }

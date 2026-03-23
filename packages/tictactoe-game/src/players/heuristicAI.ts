@@ -36,7 +36,7 @@ export function heuristicAI(
   // 1. EMPTY BOARD: Strong, deterministic opening
   if (validMoves.length === 9) {
     const corners = [0, 2, 4, 6, 8] // also center
-    move = corners[rng.genRange(0, corners.length)] as number
+    move = corners[rng.genIntRange(0, corners.length)] as number
     if (verbose === true) console.log(`Corner opening ${move + 1}`)
   } else {
     const candidates = getForkingCandidateMoves(board, player)
@@ -45,28 +45,28 @@ export function heuristicAI(
     if (candidates.winningMoves.length > 0) {
       // Deterministic: always pick first winning move
       move = candidates.winningMoves[
-        rng.genRange(0, candidates.winningMoves.length)
+        rng.genIntRange(0, candidates.winningMoves.length)
       ] as number
       if (verbose === true) console.log(`(H) Winning move ${move + 1}`)
 
       // PRIORITY 2: BLOCK WIN (always)
     } else if (candidates.blockingMoves.length > 0) {
       move = candidates.blockingMoves[
-        rng.genRange(0, candidates.blockingMoves.length)
+        rng.genIntRange(0, candidates.blockingMoves.length)
       ] as number
       if (verbose === true) console.log(`(H) Blocking move ${move + 1}`)
 
       // PRIORITY 3: CREATE FORK (always)
     } else if (candidates.forkingMoves.length > 0) {
       move = candidates.forkingMoves[
-        rng.genRange(0, candidates.forkingMoves.length)
+        rng.genIntRange(0, candidates.forkingMoves.length)
       ] as number
       if (verbose === true) console.log(`(H) Forking move ${move + 1}`)
 
       // PRIORITY 4: BLOCK FORK (always)
     } else if (candidates.blockingForkMoves.length > 0) {
       move = candidates.blockingForkMoves[
-        rng.genRange(0, candidates.blockingForkMoves.length)
+        rng.genIntRange(0, candidates.blockingForkMoves.length)
       ] as number
       if (verbose === true) console.log(`(H) Blocking fork ${move + 1}`)
 
@@ -79,7 +79,7 @@ export function heuristicAI(
     } else {
       const corners = [0, 2, 6, 8].filter((i) => board[i] === 0)
       if (corners.length > 0) {
-        move = corners[rng.genRange(0, corners.length)] as number
+        move = corners[rng.genIntRange(0, corners.length)] as number
         if (verbose === true) console.log(`(H) Corner move ${move + 1}`)
       } else {
         // Combine all developing moves (rows, columns, diagonals)
@@ -89,10 +89,12 @@ export function heuristicAI(
           ...candidates.developingDiagonals,
         ]
         if (allDeveloping.length > 0) {
-          move = allDeveloping[rng.genRange(0, allDeveloping.length)] as number
+          move = allDeveloping[
+            rng.genIntRange(0, allDeveloping.length)
+          ] as number
           if (verbose === true) console.log(`(H) Developing move ${move + 1}`)
         } else {
-          move = validMoves[rng.genRange(0, validMoves.length)] as number
+          move = validMoves[rng.genIntRange(0, validMoves.length)] as number
           if (verbose === true) console.log(`(H) Fallback move ${move + 1}`)
         }
       }
