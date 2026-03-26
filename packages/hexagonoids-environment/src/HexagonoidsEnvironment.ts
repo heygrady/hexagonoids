@@ -16,8 +16,10 @@ import {
 import type { StatsRecorder } from '@neat-evolution/stats'
 import { createRNG, type RNG } from '@neat-evolution/utils'
 import { createGameAgent, type GameAgent } from './agents/createGameAgent.js'
+import { MEMORY_ROCK_PERCEPTION } from './agents/types.js'
 import type { CurriculumScenarioParams } from './curriculum/generateCurriculumScenario.js'
 import { runCurriculum } from './curriculum/runCurriculum.js'
+import type { RockPerceptionPrecompute } from './encoding/collectObservations.js'
 import { INPUT_COUNT } from './encoding/encodingPresets.js'
 import { computeFireTimeAimReward } from './evaluation/bulletAimReward.js'
 import {
@@ -28,6 +30,8 @@ import {
   type FitnessBreakdown,
   type FitnessContext,
   type GauntletBreakdown,
+  type RewardBreakdown,
+  type RewardBreakdownByMode,
   weightedFitnessSum,
 } from './evaluation/calculateFitness.js'
 import {
@@ -59,6 +63,89 @@ import type { ScenarioSnapshot } from './scenarios/types.js'
 const DEFAULT_OUTPUT_COUNT = 4
 const PLAYER_ID = 'player-1'
 
+type RewardMode = 'scenarios' | 'fullGame' | 'curriculum'
+
+interface RewardAccumulator {
+  total: number
+  breakdown: RewardBreakdownByMode
+}
+
+function createEmptyRewardBreakdown(): RewardBreakdown {
+  return {
+    survival: 0,
+    thrust: 0,
+    engagement: 0,
+    progress: 0,
+    kill: 0,
+    score: 0,
+    aim: 0,
+    shotPenalty: 0,
+    death: 0,
+    waveBonus: 0,
+    actionBand: 0,
+    total: 0,
+  }
+}
+
+function createRewardAccumulator(): RewardAccumulator {
+  return {
+    total: 0,
+    breakdown: {
+      scenarios: createEmptyRewardBreakdown(),
+      fullGame: createEmptyRewardBreakdown(),
+      curriculum: createEmptyRewardBreakdown(),
+      total: createEmptyRewardBreakdown(),
+    },
+  }
+}
+
+function cloneRewardBreakdown(breakdown: RewardBreakdown): RewardBreakdown {
+  return { ...breakdown }
+}
+
+function cloneRewardBreakdownByMode(
+  breakdown: RewardBreakdownByMode
+): RewardBreakdownByMode {
+  return {
+    scenarios: cloneRewardBreakdown(breakdown.scenarios),
+    fullGame: cloneRewardBreakdown(breakdown.fullGame),
+    curriculum: cloneRewardBreakdown(breakdown.curriculum),
+    total: cloneRewardBreakdown(breakdown.total),
+  }
+}
+
+function addRewardComponent(
+  accumulator: RewardAccumulator,
+  mode: RewardMode,
+  component: keyof RewardBreakdown,
+  value: number
+): void {
+  if (value === 0) return
+  const modeBucket = accumulator.breakdown[mode]
+  const totalBucket = accumulator.breakdown.total
+  modeBucket[component] += value
+  totalBucket[component] += value
+  if (component !== 'total') {
+    modeBucket.total += value
+    totalBucket.total += value
+  }
+  accumulator.total = accumulator.breakdown.total.total
+}
+
+function computeEngagementSignal(
+  rockPerception: RockPerceptionPrecompute | undefined
+): number {
+  if (rockPerception == null) return 0
+  let best = 0
+  for (const rock of rockPerception.rocks) {
+    if (rock == null || rock.id === '' || rock.inVisionRange !== true) continue
+    const distance = Math.min(1, Math.hypot(rock.localX, rock.localY))
+    const score = 1 - distance
+    if (score > best) best = score
+  }
+  return best
+}
+
 function createNoopStepAgent(): StepAgent {
   return {
     act(): Float64Array {
@@ -81,7 +168,7 @@ export class HexagonoidsEnvironment
     | EnvironmentInitOptions<StepAgentFactory, StepAgentFactoryOptions>
     | undefined
   private agentSeedCounter = 0
-  private currentRewardAccumulator: { total: number } | undefined
+  private currentRewardAccumulator: RewardAccumulator | undefined
 
   constructor(
     config?: Partial<HexagonoidsEnvironmentConfig>,
@@ -196,7 +283,7 @@ export class HexagonoidsEnvironment
     }
 
     // Accumulate RL reward across all episodes
-    const rewardAccumulator = { total: 0 }
+    const rewardAccumulator = createRewardAccumulator()
     this.currentRewardAccumulator = rewardAccumulator
 
     // Collect per-episode breakdowns when stats active
@@ -243,6 +330,10 @@ export class HexagonoidsEnvironment
           fullGameBreakdowns,
           curriculumBreakdowns: [],
           aggregatedFrames: { ...frames },
+          rewardBreakdown: cloneRewardBreakdown(rewardAccumulator.breakdown.total),
+          rewardBreakdownByMode: cloneRewardBreakdownByMode(
+            rewardAccumulator.breakdown
+          ),
           totalReward: rewardAccumulator.total,
         }
         stats.record(METRIC_GAUNTLET_BREAKDOWN, breakdown)
@@ -322,6 +413,10 @@ export class HexagonoidsEnvironment
         curriculumBreakdowns,
         curriculumParams,
         aggregatedFrames: { ...frames },
+        rewardBreakdown: cloneRewardBreakdown(rewardAccumulator.breakdown.total),
+        rewardBreakdownByMode: cloneRewardBreakdownByMode(
+          rewardAccumulator.breakdown
+        ),
         totalReward: rewardAccumulator.total,
       }
       stats.record(METRIC_GAUNTLET_BREAKDOWN, breakdown)
@@ -355,6 +450,7 @@ export class HexagonoidsEnvironment
   private buildSimulationHooks(
     agent: StepAgent,
     gameAgent: GameAgent,
+    rewardMode: RewardMode,
     rewardConfig?: Partial<RewardConfig>,
     situationClass?: number
   ): SimulationHooks {
@@ -365,6 +461,7 @@ export class HexagonoidsEnvironment
     }
     const dtMs = this.config.simulation.dtMs
     let episodeStartTime: number | undefined
+    let previousEngagement = 0
     return {
       onAfterTick(deltas: TickDeltas, snapshot) {
         // Capture game time on first tick to filter pre-existing bullets
@@ -372,25 +469,58 @@ export class HexagonoidsEnvironment
           episodeStartTime = snapshot.state.now
         }
         let reward = 0
+        const rewardTerms = createEmptyRewardBreakdown()
         if (deltas.shipAlive) {
-          reward += resolvedRewardConfig.survivalReward
+          rewardTerms.survival += resolvedRewardConfig.survivalReward
           if (deltas.thrustActive) {
-            reward += resolvedRewardConfig.thrustReward
+            rewardTerms.thrust += resolvedRewardConfig.thrustReward
           }
         }
+        reward += rewardTerms.survival + rewardTerms.thrust
         if (deltas.scoreDelta !== 0) {
-          reward += deltas.scoreDelta * resolvedRewardConfig.scoreScale
+          rewardTerms.score += deltas.scoreDelta * resolvedRewardConfig.scoreScale
+          reward += rewardTerms.score
+        }
+        if (deltas.rocksDestroyed > 0) {
+          rewardTerms.kill +=
+            deltas.rocksDestroyed * resolvedRewardConfig.rockReward
+          reward += rewardTerms.kill
         }
         if (deltas.lifeDelta < 0) {
-          reward +=
+          rewardTerms.death +=
             resolvedRewardConfig.deathPenalty * Math.abs(deltas.lifeDelta)
+          reward += rewardTerms.death
         }
         if (deltas.newBullets > 0) {
-          reward -= deltas.newBullets * resolvedRewardConfig.shotPenalty
+          rewardTerms.shotPenalty -=
+            deltas.newBullets * resolvedRewardConfig.shotPenalty
+          reward += rewardTerms.shotPenalty
         }
         if (deltas.waveChanged) {
-          reward += resolvedRewardConfig.waveBonus
+          rewardTerms.waveBonus += resolvedRewardConfig.waveBonus
+          reward += rewardTerms.waveBonus
         }
+
+        const rockPerception = snapshot.context.memory[
+          MEMORY_ROCK_PERCEPTION
+        ] as RockPerceptionPrecompute | undefined
+        const engagementSignal = computeEngagementSignal(rockPerception)
+        if (resolvedRewardConfig.engagementReward !== 0 && engagementSignal > 0) {
+          rewardTerms.engagement +=
+            resolvedRewardConfig.engagementReward * engagementSignal
+          reward += rewardTerms.engagement
+        }
+        if (
+          resolvedRewardConfig.progressReward !== 0 &&
+          previousEngagement > 0 &&
+          engagementSignal > previousEngagement
+        ) {
+          rewardTerms.progress +=
+            resolvedRewardConfig.progressReward *
+            (engagementSignal - previousEngagement)
+          reward += rewardTerms.progress
+        }
+        previousEngagement = engagementSignal
 
         // Bullet aim reward — fire-time intercept prediction
         if (deltas.newBullets > 0 && resolvedRewardConfig.bulletAimReward > 0) {
@@ -400,13 +530,14 @@ export class HexagonoidsEnvironment
               ? snapshot.state.ships.get(player.shipId)
               : undefined
           if (ship != null) {
-            reward += computeFireTimeAimReward(
+            rewardTerms.aim += computeFireTimeAimReward(
               snapshot.state,
               ship,
               resolvedRewardConfig,
               dtMs,
               episodeStartTime
             )
+            reward += rewardTerms.aim
           }
         }
 
@@ -426,7 +557,27 @@ export class HexagonoidsEnvironment
         }
 
         if (rewardAccumulator != null) {
-          rewardAccumulator.total += reward
+          const components: Array<keyof RewardBreakdown> = [
+            'survival',
+            'thrust',
+            'engagement',
+            'progress',
+            'kill',
+            'score',
+            'aim',
+            'shotPenalty',
+            'death',
+            'waveBonus',
+            'actionBand',
+          ]
+          for (const component of components) {
+            addRewardComponent(
+              rewardAccumulator,
+              rewardMode,
+              component,
+              rewardTerms[component]
+            )
+          }
         }
 
         const nextState = gameAgent.observe(
@@ -517,6 +668,7 @@ export class HexagonoidsEnvironment
       return this.buildSimulationHooks(
         agent,
         gameAgent,
+        'curriculum',
         this.config.rewardConfig
       )
     }
@@ -656,6 +808,7 @@ export class HexagonoidsEnvironment
     const hooks = this.buildSimulationHooks(
       agent,
       gameAgent,
+      'fullGame',
       this.config.rewardConfig
     )
     const metrics = simulateGame(
@@ -731,6 +884,7 @@ export class HexagonoidsEnvironment
       const hooks = this.buildSimulationHooks(
         agent,
         gameAgent,
+        'scenarios',
         this.config.rewardConfig,
         scenario.necklace ?? undefined
       )

@@ -457,8 +457,34 @@ export interface GauntletBreakdown {
   curriculumParams?: CurriculumScenarioParams[]
   /** Aggregated action frames across all episodes. */
   aggregatedFrames: ActionFrames
+  /** Structured RL reward totals across the full gauntlet. */
+  rewardBreakdown: RewardBreakdown
+  /** Structured RL reward totals split by evaluation mode. */
+  rewardBreakdownByMode: RewardBreakdownByMode
   /** Total RL reward accumulated across all episodes in the gauntlet. */
   totalReward: number
+}
+
+export interface RewardBreakdown {
+  survival: number
+  thrust: number
+  engagement: number
+  progress: number
+  kill: number
+  score: number
+  aim: number
+  shotPenalty: number
+  death: number
+  waveBonus: number
+  actionBand: number
+  total: number
+}
+
+export interface RewardBreakdownByMode {
+  scenarios: RewardBreakdown
+  fullGame: RewardBreakdown
+  curriculum: RewardBreakdown
+  total: RewardBreakdown
 }
 
 /**

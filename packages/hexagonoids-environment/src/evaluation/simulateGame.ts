@@ -22,6 +22,12 @@ import { createMetricsCollector } from './RawMetrics.js'
 
 export interface RewardConfig {
   survivalReward: number
+  /** Legacy per-tick reward while thrust is active. Prefer engagement/progress shaping. */
+  thrustReward: number
+  /** Dense reward for staying in useful engagement with visible rocks. */
+  engagementReward: number
+  /** Dense reward for improving target quality / approach state. */
+  progressReward: number
   scoreScale: number
   shotPenalty: number
   deathPenalty: number
@@ -33,21 +39,21 @@ export interface RewardConfig {
   bulletAimOutOfRangeScale: number
   /** Penalty for bullets fired at nothing — applied when closest approach exceeds large rock radius (0 = disabled). */
   bulletMissDemerit: number
-  /** Small reward per tick when thrust is active (0 = disabled). */
-  thrustReward: number
 }
 
 export const DEFAULT_REWARD_CONFIG: RewardConfig = {
-  survivalReward: 0,
+  survivalReward: 0.002,
+  thrustReward: 0,
+  engagementReward: 0.01,
+  progressReward: 0.05,
   scoreScale: 0,
-  shotPenalty: 0,
-  deathPenalty: -1,
+  shotPenalty: 0.001,
+  deathPenalty: -0.5,
   waveBonus: 0,
-  rockReward: 0,
+  rockReward: 1,
   bulletAimReward: 0,
   bulletAimOutOfRangeScale: 0.1,
   bulletMissDemerit: 0,
-  thrustReward: 0,
 }
 
 export interface TickDeltas {

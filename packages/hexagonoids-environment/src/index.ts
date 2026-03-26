@@ -88,6 +88,8 @@ export {
   type FitnessContext,
   type GateBreakdown,
   type GauntletBreakdown,
+  type RewardBreakdown,
+  type RewardBreakdownByMode,
   weightedFitnessSum,
   zScore,
 } from './evaluation/calculateFitness.js'
