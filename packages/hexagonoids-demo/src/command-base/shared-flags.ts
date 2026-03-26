@@ -165,6 +165,18 @@ export const trainLikeFlags = {
     -1,
     1
   )(),
+  rlRewardEngagement: floatFlag(
+    'rlRewardEngagement',
+    'Dense reward for useful rock engagement',
+    -1,
+    1
+  )(),
+  rlRewardProgress: floatFlag(
+    'rlRewardProgress',
+    'Dense reward for improving target quality',
+    -1,
+    1
+  )(),
   rlRewardScoreScale: floatFlag(
     'rlRewardScoreScale',
     'Step reward multiplier for engine score delta',
@@ -279,6 +291,7 @@ export const inspectInputsFlags = {
 }
 
 export const inspectFitnessFlags = {
+  profile: trainLikeFlags.profile,
   scenariosPerOrganism: Flags.integer({
     min: 1,
     summary: 'Scenarios per organism',
@@ -320,6 +333,9 @@ export const inspectFitnessFlags = {
   }),
   lab: Flags.string({
     summary: 'Lab directory to inspect',
+  }),
+  showRewardTotals: Flags.boolean({
+    summary: 'Show structured reward totals in the inspection output',
   }),
   method: trainLikeFlags.method,
 }

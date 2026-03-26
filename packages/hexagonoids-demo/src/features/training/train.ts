@@ -152,6 +152,8 @@ export interface TrainOptions {
   rlRewardRock?: number | undefined
   rlRewardDeath?: number | undefined
   rlRewardSurvival?: number | undefined
+  rlRewardEngagement?: number | undefined
+  rlRewardProgress?: number | undefined
   rlRewardScoreScale?: number | undefined
   rlRewardShotPenalty?: number | undefined
   rlRewardWaveBonus?: number | undefined

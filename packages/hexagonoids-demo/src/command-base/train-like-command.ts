@@ -87,6 +87,8 @@ interface TrainLikeNumberFlags {
   rlRewardRock?: number
   rlRewardDeath?: number
   rlRewardSurvival?: number
+  rlRewardEngagement?: number
+  rlRewardProgress?: number
   rlRewardScoreScale?: number
   rlRewardShotPenalty?: number
   rlRewardWaveBonus?: number
@@ -270,6 +272,12 @@ export abstract class TrainLikeCommand extends BaseCommand {
       options.rlRewardDeath = flags.rlRewardDeath
     if (isNumber(flags.rlRewardSurvival)) {
       options.rlRewardSurvival = flags.rlRewardSurvival
+    }
+    if (isNumber(flags.rlRewardEngagement)) {
+      options.rlRewardEngagement = flags.rlRewardEngagement
+    }
+    if (isNumber(flags.rlRewardProgress)) {
+      options.rlRewardProgress = flags.rlRewardProgress
     }
     if (isNumber(flags.rlRewardScoreScale)) {
       options.rlRewardScoreScale = flags.rlRewardScoreScale

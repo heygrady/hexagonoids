@@ -1,6 +1,8 @@
 import {
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   type HexagonoidsEnvironmentConfig,
+  DEFAULT_REWARD_CONFIG,
+  type RewardConfig,
   type ScenarioSnapshot,
   type SimulationConfig,
 } from '@heygrady/hexagonoids-environment'
@@ -79,6 +81,14 @@ function buildRewardConfig(
     overrides.deathPenalty = options.rlRewardDeath
   if (options.rlRewardSurvival != null)
     overrides.survivalReward = options.rlRewardSurvival
+  if (options.rlRewardEngagement != null)
+    overrides.engagementReward = options.rlRewardEngagement
+  if (options.rlRewardProgress != null)
+    overrides.progressReward = options.rlRewardProgress
+  if (options.rlRewardEngagement != null)
+    overrides.engagementReward = options.rlRewardEngagement
+  if (options.rlRewardProgress != null)
+    overrides.progressReward = options.rlRewardProgress
   if (options.rlRewardScoreScale != null)
     overrides.scoreScale = options.rlRewardScoreScale
   if (options.rlRewardShotPenalty != null)
@@ -95,4 +105,16 @@ function buildRewardConfig(
     overrides.thrustReward = options.rlRewardThrust
   if (Object.keys(overrides).length === 0) return {}
   return { rewardConfig: overrides }
+}
+
+export function resolveRewardConfig(
+  options: Partial<TrainOptions>
+): RewardConfig {
+  const built = buildRewardConfig(options)
+  const overrides =
+    'rewardConfig' in built ? (built.rewardConfig as Partial<RewardConfig>) : {}
+  return {
+    ...DEFAULT_REWARD_CONFIG,
+    ...overrides,
+  }
 }
