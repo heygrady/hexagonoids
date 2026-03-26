@@ -2,10 +2,13 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { Flags } from '@oclif/core'
+import { createMemoryRecorder } from '@neat-evolution/stats'
+import { METRIC_GAUNTLET_BREAKDOWN, type GauntletBreakdown } from '@heygrady/hexagonoids-environment'
 
 import { formatNumber } from '../command-base/output.js'
 import { trainLikeFlags } from '../command-base/shared-flags.js'
 import { TrainLikeCommand } from '../command-base/train-like-command.js'
+import { summarizeGenerationAlignment } from '../features/inspect/rewardAlignment.js'
 import { DEFAULT_ARTIFACTS_DIR } from '../features/persistence/artifactPaths.js'
 import {
   analyzeHeapProfile,
@@ -37,6 +40,13 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
     heapProfile: Flags.boolean({
       summary:
         'Capture V8 heap sampling profiles from worker threads and analyze allocations',
+    }),
+    inspectAlignment: Flags.boolean({
+      summary: 'Emit reward-fitness alignment summaries during RL evaluation',
+    }),
+    alignmentTopN: Flags.integer({
+      summary: 'Top organisms to print in alignment summaries',
+      min: 1,
     }),
   }
 
@@ -71,6 +81,12 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
     const cpuProfile = flags.cpuProfile === true
     const heapProfile = flags.heapProfile === true
     const outputDir = options.outputDir ?? DEFAULT_ARTIFACTS_DIR
+    const inspectAlignment = flags.inspectAlignment === true
+    const alignmentTopN =
+      typeof flags.alignmentTopN === 'number' ? flags.alignmentTopN : 2
+    const alignmentRecorder = inspectAlignment
+      ? createMemoryRecorder([METRIC_GAUNTLET_BREAKDOWN])
+      : undefined
 
     this.log(`Using profile: ${profile.label}`)
     this.log(`RL mode: ${rlMode}`)
@@ -120,6 +136,28 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
       ...options,
       ...(cpuProfile && { workerCpuProfiles: true }),
       ...(heapProfile && { workerHeapProfiles: true }),
+      ...(alignmentRecorder != null && { stats: alignmentRecorder }),
+      ...(inspectAlignment && {
+        afterEvaluate: (population: unknown, iteration: number) => {
+          const allBreakdowns = alignmentRecorder?.get<GauntletBreakdown>(
+            METRIC_GAUNTLET_BREAKDOWN
+          )
+          const populationSize = options.populationSize ?? 100
+          const genBreakdowns =
+            allBreakdowns?.slice(Math.max(0, allBreakdowns.length - populationSize)) ??
+            []
+          if (genBreakdowns.length === 0) return
+          const pop = population as { species: { size: number } }
+          for (const line of summarizeGenerationAlignment(
+            iteration,
+            pop.species.size,
+            genBreakdowns,
+            { topN: alignmentTopN, showComponents: true, showModes: false }
+          )) {
+            this.log(line)
+          }
+        },
+      }),
     }
     const rlResult = await train(rlOptions)
     if (rlResult.mode !== 'training') {
@@ -365,6 +403,10 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
       parts.push(`death=${options.rlRewardDeath}`)
     if (options.rlRewardSurvival != null)
       parts.push(`survival=${options.rlRewardSurvival}`)
+    if (options.rlRewardEngagement != null)
+      parts.push(`engagement=${options.rlRewardEngagement}`)
+    if (options.rlRewardProgress != null)
+      parts.push(`progress=${options.rlRewardProgress}`)
     if (options.rlRewardScoreScale != null)
       parts.push(`scoreScale=${options.rlRewardScoreScale}`)
     if (options.rlRewardShotPenalty != null)
@@ -378,7 +420,9 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
     if (parts.length > 0) {
       this.log(`Reward overrides: ${parts.join(', ')}`)
     } else {
-      this.log('Reward config: defaults (rock=1, death=-1, rest=0)')
+      this.log(
+        'Reward config: defaults (rock=1, death=-0.5, survival=0.002, engagement=0.01, progress=0.05)'
+      )
     }
   }
 }

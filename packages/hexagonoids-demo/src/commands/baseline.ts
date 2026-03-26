@@ -1,5 +1,11 @@
+import { Flags } from '@oclif/core'
+
 import { formatNumber } from '../command-base/output.js'
 import { trainLikeFlags } from '../command-base/shared-flags.js'
+import {
+  defaultInspectFitnessOptions,
+  runInspectFitness,
+} from '../features/inspect/inspectFitness.js'
 import { TrainLikeCommand } from '../command-base/train-like-command.js'
 import { train } from '../features/training/train.js'
 
@@ -15,6 +21,10 @@ export default class BaselineCommand extends TrainLikeCommand {
 
   static override flags = {
     ...trainLikeFlags,
+    inspectAlignment: Flags.boolean({
+      summary:
+        'After baseline evaluation, run fitness inspection with reward totals for built-in agents',
+    }),
   }
 
   override async run(): Promise<void> {
@@ -41,6 +51,33 @@ export default class BaselineCommand extends TrainLikeCommand {
       this.log(
         `${score.name}: meanFitness=${formatNumber(score.meanFitness)} score=${formatNumber(score.metrics.score)} accuracy=${formatNumber(score.metrics.accuracy)} rocks=${formatNumber(score.metrics.rocksDestroyed)}`
       )
+    }
+
+    if (flags.inspectAlignment === true) {
+      const defaults = defaultInspectFitnessOptions()
+      this.log()
+      await runInspectFitness({
+        scenariosPerOrganism:
+          options.scenariosPerOrganism ?? defaults.scenariosPerOrganism,
+        scenarioMaxTicks: options.scenarioMaxTicks ?? defaults.scenarioMaxTicks,
+        seed: options.baseSeed ?? defaults.seed,
+        dtMs: options.dtMs ?? defaults.dtMs,
+        curriculumCount:
+          (options.curriculumCount as number | undefined) ??
+          defaults.curriculumCount,
+        scenarioWeight: options.scenarioWeight ?? defaults.scenarioWeight,
+        fullGameWeight: options.fullGameWeight ?? defaults.fullGameWeight,
+        curriculumWeight: options.curriculumWeight ?? defaults.curriculumWeight,
+        maxTicks: options.maxTicks ?? defaults.maxTicks,
+        fullGameSeeds:
+          options.fullGameSeedsPerOrganism ?? defaults.fullGameSeeds,
+        genome: undefined,
+        lab: undefined,
+        method: (options.method as string | undefined) ?? defaults.method,
+        showRewardTotals: true,
+        discoverLabGenomes: false,
+        profileConfig: options,
+      })
     }
   }
 }

@@ -28,6 +28,7 @@ import { loadScenarioBank } from '../../data/scenarios.js'
 import { defaultProfile } from '../profiles/index.js'
 import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
 import { hydrateToExecutor } from '../registries/hydrateGenome.js'
+import type { TrainOptions } from '../training/train.js'
 
 // ── Package root for artifact discovery ──
 const PACKAGE_ROOT = resolve(new URL('.', import.meta.url).pathname, '../../..')
@@ -46,6 +47,9 @@ export interface InspectFitnessOptions {
   genome: string | undefined
   lab: string | undefined
   method: string
+  showRewardTotals: boolean
+  discoverLabGenomes?: boolean
+  profileConfig?: Partial<TrainOptions> | undefined
 }
 
 export function defaultInspectFitnessOptions(): InspectFitnessOptions {
@@ -73,6 +77,8 @@ export function defaultInspectFitnessOptions(): InspectFitnessOptions {
     genome: undefined,
     lab: undefined,
     method: (pc.method as string | undefined) ?? 'HyperNEAT',
+    showRewardTotals: false,
+    discoverLabGenomes: true,
   }
 }
 
@@ -208,7 +214,9 @@ function evaluateWithRecorder(
 export async function runInspectFitness(
   options: InspectFitnessOptions
 ): Promise<void> {
-  const pc = (defaultProfile.config ?? {}) as Record<string, unknown>
+  const pc = (options.profileConfig ??
+    defaultProfile.config ??
+    {}) as Record<string, unknown>
 
   const envConfig = mergeConfig({
     simulation: {
@@ -276,7 +284,7 @@ export async function runInspectFitness(
   ]
 
   // Auto-discover lab genomes
-  if (!options.genome) {
+  if (!options.genome && options.discoverLabGenomes !== false) {
     const labDir = options.lab ? resolve(options.lab) : findMostRecentLab()
     if (labDir) {
       const labGenomes = discoverLabGenomes(labDir)
@@ -556,6 +564,16 @@ export async function runInspectFitness(
     console.log(`  turnBiasGate:   ${fmtNum(gates.turnBias)}`)
     console.log(`  combinedGate:   ${fmtNum(gates.combined)}`)
     console.log(`  gatedFitness:   ${fmtNum(breakdown.fitness)}`)
+
+    if (options.showRewardTotals) {
+      console.log(`\n=== Reward Totals ===`)
+      console.log(
+        `  total: ${fmtNum(breakdown.rewardBreakdown.total, 3)}  kill=${fmtNum(breakdown.rewardBreakdown.kill, 3)} death=${fmtNum(breakdown.rewardBreakdown.death, 3)} survival=${fmtNum(breakdown.rewardBreakdown.survival, 3)} engagement=${fmtNum(breakdown.rewardBreakdown.engagement, 3)} progress=${fmtNum(breakdown.rewardBreakdown.progress, 3)} aim=${fmtNum(breakdown.rewardBreakdown.aim, 3)} shotPenalty=${fmtNum(breakdown.rewardBreakdown.shotPenalty, 3)}`
+      )
+      console.log(
+        `  modes: scenarios=${fmtNum(breakdown.rewardBreakdownByMode.scenarios.total, 3)} fullGame=${fmtNum(breakdown.rewardBreakdownByMode.fullGame.total, 3)} curriculum=${fmtNum(breakdown.rewardBreakdownByMode.curriculum.total, 3)}`
+      )
+    }
 
     agentData.push({ name: entry.name, breakdown })
     console.log()

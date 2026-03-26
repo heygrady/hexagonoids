@@ -1,11 +1,11 @@
-import { BaseCommand } from '../../command-base/base-command.js'
+import { TrainLikeCommand } from '../../command-base/train-like-command.js'
 import { inspectFitnessFlags } from '../../command-base/shared-flags.js'
 import {
   defaultInspectFitnessOptions,
   runInspectFitness,
 } from '../../features/inspect/inspectFitness.js'
 
-export default class InspectFitnessCommand extends BaseCommand {
+export default class InspectFitnessCommand extends TrainLikeCommand {
   static override summary = 'Inspect the fitness-scoring workflow.'
 
   static override description =
@@ -22,43 +22,61 @@ export default class InspectFitnessCommand extends BaseCommand {
   override async run(): Promise<void> {
     const { flags } = await this.parse(InspectFitnessCommand)
     const defaults = defaultInspectFitnessOptions()
+    const profileRef =
+      typeof flags.profile === 'string' ? flags.profile : undefined
+    const profile = await this.resolveProfile(profileRef)
+    const mergedOptions = this.mergeTrainOptions(
+      profile.config,
+      this.flagsToTrainOptions(flags)
+    )
 
     await runInspectFitness({
       scenariosPerOrganism:
         typeof flags.scenariosPerOrganism === 'number'
           ? flags.scenariosPerOrganism
-          : defaults.scenariosPerOrganism,
+          : (mergedOptions.scenariosPerOrganism ?? defaults.scenariosPerOrganism),
       scenarioMaxTicks:
         typeof flags.scenarioMaxTicks === 'number'
           ? flags.scenarioMaxTicks
-          : defaults.scenarioMaxTicks,
+          : (mergedOptions.scenarioMaxTicks ?? defaults.scenarioMaxTicks),
       seed: typeof flags.seed === 'string' ? flags.seed : defaults.seed,
-      dtMs: typeof flags.dtMs === 'number' ? flags.dtMs : defaults.dtMs,
+      dtMs:
+        typeof flags.dtMs === 'number'
+          ? flags.dtMs
+          : (mergedOptions.dtMs ?? defaults.dtMs),
       curriculumCount:
         typeof flags.curriculumCount === 'number'
           ? flags.curriculumCount
-          : defaults.curriculumCount,
+          : ((mergedOptions.curriculumCount as number | undefined) ??
+            defaults.curriculumCount),
       scenarioWeight:
         typeof flags.scenarioWeight === 'number'
           ? flags.scenarioWeight
-          : defaults.scenarioWeight,
+          : (mergedOptions.scenarioWeight ?? defaults.scenarioWeight),
       fullGameWeight:
         typeof flags.fullGameWeight === 'number'
           ? flags.fullGameWeight
-          : defaults.fullGameWeight,
+          : (mergedOptions.fullGameWeight ?? defaults.fullGameWeight),
       curriculumWeight:
         typeof flags.curriculumWeight === 'number'
           ? flags.curriculumWeight
-          : defaults.curriculumWeight,
+          : (mergedOptions.curriculumWeight ?? defaults.curriculumWeight),
       maxTicks:
-        typeof flags.maxTicks === 'number' ? flags.maxTicks : defaults.maxTicks,
+        typeof flags.maxTicks === 'number'
+          ? flags.maxTicks
+          : (mergedOptions.maxTicks ?? defaults.maxTicks),
       fullGameSeeds:
         typeof flags.fullGameSeeds === 'number'
           ? flags.fullGameSeeds
-          : defaults.fullGameSeeds,
+          : (mergedOptions.fullGameSeedsPerOrganism ?? defaults.fullGameSeeds),
       genome: typeof flags.genome === 'string' ? flags.genome : undefined,
       lab: typeof flags.lab === 'string' ? flags.lab : undefined,
-      method: typeof flags.method === 'string' ? flags.method : defaults.method,
+      method:
+        typeof flags.method === 'string'
+          ? flags.method
+          : ((mergedOptions.method as string | undefined) ?? defaults.method),
+      showRewardTotals: flags.showRewardTotals === true,
+      profileConfig: mergedOptions,
     })
   }
 }
