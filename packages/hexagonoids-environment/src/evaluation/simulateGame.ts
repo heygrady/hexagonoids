@@ -27,6 +27,14 @@ export interface RewardConfig {
   deathPenalty: number
   waveBonus: number
   rockReward: number
+  /** Fire-time reward coefficient for bullet intercept quality (0 = disabled). */
+  bulletAimReward: number
+  /** Multiplier for aimed-but-out-of-range bullets (0–1). */
+  bulletAimOutOfRangeScale: number
+  /** Penalty for bullets fired at nothing — applied when closest approach exceeds large rock radius (0 = disabled). */
+  bulletMissDemerit: number
+  /** Small reward per tick when thrust is active (0 = disabled). */
+  thrustReward: number
 }
 
 export const DEFAULT_REWARD_CONFIG: RewardConfig = {
@@ -35,7 +43,11 @@ export const DEFAULT_REWARD_CONFIG: RewardConfig = {
   shotPenalty: 0,
   deathPenalty: -1,
   waveBonus: 0,
-  rockReward: 1,
+  rockReward: 0,
+  bulletAimReward: 0,
+  bulletAimOutOfRangeScale: 0.1,
+  bulletMissDemerit: 0,
+  thrustReward: 0,
 }
 
 export interface TickDeltas {
@@ -48,6 +60,7 @@ export interface TickDeltas {
   shipAlive: boolean
   terminated: boolean
   truncated: boolean
+  thrustActive: boolean
 }
 
 export interface SimulationHooks {
@@ -245,6 +258,7 @@ export function simulateGame(
           shipAlive: liveShip?.alive === true,
           terminated,
           truncated,
+          thrustActive: inputs.thrust,
         },
         {
           state,

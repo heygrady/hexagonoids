@@ -5,12 +5,19 @@ import {
   PLAYER_STARTING_LIVES,
   TURN_RATE,
 } from '@heygrady/hexagonoids-engine'
+import type { CurriculumScenarioParams } from '../curriculum/generateCurriculumScenario.js'
 import type {
+  ActionGateConfig,
+  BehavioralGateConfig,
   FitnessWeights,
   GateConfig,
   GateEasing,
+  TurnBiasGateConfig,
 } from '../HexagonoidsEnvironmentConfig.js'
-import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '../HexagonoidsEnvironmentConfig.js'
+import {
+  DEFAULT_BEHAVIORAL_GATE_CONFIG,
+  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
+} from '../HexagonoidsEnvironmentConfig.js'
 import { SOI_ANGULAR_RADIUS } from '../utils/constants.js'
 import type { RawMetrics } from './RawMetrics.js'
 import { computePossibleDeaths } from './scenarioContext.js'
@@ -122,116 +129,76 @@ function actionSaturationScore(
   return lowScore * highScore
 }
 
-/**
- * Action diversity gate: geometric mean of 4 action saturation scores.
- * A single action pegged at 100% drives this toward 0.
- */
-export function actionDiversityGate(
-  metrics: ActionFrames,
-  gateConfig: GateConfig
-): number {
-  const { actionLow, actionHigh, actionEasing, actionGateFloor } = gateConfig
-  const alive = metrics.aliveFrames
-
-  const thrust = actionSaturationScore(
-    metrics.thrustFrames,
-    alive,
-    actionLow,
-    actionHigh,
-    actionEasing
-  )
-  const fire = actionSaturationScore(
-    metrics.fireFrames,
-    alive,
-    actionLow,
-    actionHigh,
-    actionEasing
-  )
-  const left = actionSaturationScore(
-    metrics.leftFrames,
-    alive,
-    actionLow,
-    actionHigh,
-    actionEasing
-  )
-  const right = actionSaturationScore(
-    metrics.rightFrames,
-    alive,
-    actionLow,
-    actionHigh,
-    actionEasing
-  )
-
-  const geoMean = (thrust * fire * left * right) ** 0.25
-  return Math.max(geoMean, actionGateFloor)
-}
+// ── Per-action behavioral gates ──────────────────────────────────────
 
 /**
- * Turn gate: ensures agents actually steer, not just feather thrust.
- * Uses combined (left + right) turn fraction through the same saturation
- * curve as the action gate. Agents that never turn get gated hard.
+ * Per-action saturation gate with its own low/high/easing/floor.
+ * Reuses `actionSaturationScore` but applies a per-action floor.
  */
-export function turnGate(
-  metrics: ActionFrames,
-  gateConfig: GateConfig
+function perActionGate(
+  actionFrames: number,
+  aliveFrames: number,
+  config: ActionGateConfig
 ): number {
-  const { turnLow, turnHigh, turnEasing, turnGateFloor } = gateConfig
-  const alive = metrics.aliveFrames
-  const turnFrames = metrics.leftFrames + metrics.rightFrames
   const score = actionSaturationScore(
-    turnFrames,
-    alive,
-    turnLow,
-    turnHigh,
-    turnEasing
+    actionFrames,
+    aliveFrames,
+    config.low,
+    config.high,
+    config.easing
   )
-  return Math.max(score, turnGateFloor)
-}
-
-/**
- * Throttle gate: ensures agents actually thrust, not just spin and shoot.
- * Uses thrust frame fraction through the same saturation curve as the other
- * gates. Agents that never or always thrust get gated.
- */
-export function throttleGate(
-  metrics: ActionFrames,
-  gateConfig: GateConfig
-): number {
-  const { throttleLow, throttleHigh, throttleEasing, throttleGateFloor } =
-    gateConfig
-  const alive = metrics.aliveFrames
-  const score = actionSaturationScore(
-    metrics.thrustFrames,
-    alive,
-    throttleLow,
-    throttleHigh,
-    throttleEasing
-  )
-  return Math.max(score, throttleGateFloor)
+  return Math.max(score, config.floor)
 }
 
 /**
  * Turn bias gate: penalizes agents that turn predominantly in one direction.
- * Measures max(left, right) / (left + right). Returns 1.0 when balanced or
- * below threshold; eases toward floor as bias approaches 1.0.
- * Returns 1.0 when agent doesn't turn (turnGate handles that case).
+ * Returns 1.0 when balanced or below threshold; eases toward floor as bias
+ * approaches 1.0. Returns 1.0 when agent doesn't turn (turn gate handles
+ * that case).
  */
-export function turnBiasGate(
+function perTurnBiasGate(
   metrics: ActionFrames,
-  gateConfig: GateConfig
+  config: TurnBiasGateConfig
 ): number {
-  const { turnBiasGateFloor, turnBiasMax, turnBiasEasing } = gateConfig
   const totalTurns = metrics.leftFrames + metrics.rightFrames
   if (totalTurns <= 0) return 1.0
 
   const bias = Math.max(metrics.leftFrames, metrics.rightFrames) / totalTurns
+  if (bias <= config.max) return 1.0
 
-  if (bias <= turnBiasMax) return 1.0
-
-  const easeIn = EASE_IN[turnBiasEasing]
-  const t = (bias - turnBiasMax) / (1 - turnBiasMax + 1e-9)
+  const easeIn = EASE_IN[config.easing]
+  const t = (bias - config.max) / (1 - config.max + 1e-9)
   const score = 1 - easeIn(clamp(t, 0, 1))
-  return Math.max(score, turnBiasGateFloor)
+  return Math.max(score, config.floor)
+}
+
+/**
+ * Calculate a single behavioral gate from 4 non-overlapping per-action gates.
+ * Each action is counted exactly once. Combined via geometric mean.
+ *
+ * With per-action floors of 0.3/0.3/0.1/0.1, the worst-case geometric mean
+ * is ~0.19, floored at config.floor (default 0.05). This replaces the old
+ * system where worst-case was 0.0000002.
+ */
+export function calculateBehavioralGate(
+  metrics: ActionFrames,
+  config: BehavioralGateConfig
+): number {
+  const thrust = perActionGate(
+    metrics.thrustFrames,
+    metrics.aliveFrames,
+    config.thrust
+  )
+  const fire = perActionGate(
+    metrics.fireFrames,
+    metrics.aliveFrames,
+    config.fire
+  )
+  const turnFrames = metrics.leftFrames + metrics.rightFrames
+  const turn = perActionGate(turnFrames, metrics.aliveFrames, config.turn)
+  const bias = perTurnBiasGate(metrics, config.turnBias)
+
+  return Math.max((thrust * fire * turn * bias) ** 0.25, config.floor)
 }
 
 /**
@@ -261,6 +228,8 @@ export interface FitnessContext {
   possibleDeaths?: number
   /** Tick duration in milliseconds (needed for fire-rate-based rock denominator). */
   dtMs?: number
+  /** Configured episode length in ticks. Used for kill budget so surviving longer doesn't inflate the target. */
+  maxTicks?: number
 }
 
 /**
@@ -294,23 +263,29 @@ export function computeKillCycleTicks(dtMs: number): number {
 }
 
 /**
- * Compute the physics-based rock kill budget for a given elapsed time.
+ * Compute the physics-based rock kill budget.
  *
- * `possibleKills = min(floor(elapsedTicks / killCycleTicks), uniqueRocksSeen)`
+ * When `maxTicks` is provided, the budget is based on the configured episode
+ * length rather than actual elapsed time. This decouples kill expectations
+ * from survival — agents that live longer get more time to meet a fixed
+ * target instead of having the target inflate against them.
  *
- * The kill cycle (~48 ticks at 33ms) represents the time to fire, turn 180°,
- * and close distance to the next rock. This auto-scales with scenario length:
- * short scenarios get a small budget (1 kill in 32 ticks), while long games
- * are capped by rocks actually encountered.
+ * `targetKillRatio` (default 1.0) scales the budget down, analogous to
+ * `targetAccuracy`. At 0.5, killing half the physics-based max = perfect.
  */
 export function computePossibleKills(
   elapsedTicks: number,
   dtMs: number,
-  uniqueRocksSeen: number
+  uniqueRocksSeen: number,
+  maxTicks?: number,
+  targetKillRatio?: number
 ): number {
   const killCycle = computeKillCycleTicks(dtMs)
-  const rateCap = Math.floor(elapsedTicks / killCycle)
-  return Math.max(1, Math.min(rateCap, uniqueRocksSeen))
+  const budgetTicks = maxTicks ?? elapsedTicks
+  const rawBudget = Math.floor(budgetTicks / killCycle)
+  const ratio = targetKillRatio ?? 1.0
+  const scaledBudget = ratio < 1.0 ? Math.floor(rawBudget * ratio) : rawBudget
+  return Math.max(1, Math.min(scaledBudget, uniqueRocksSeen))
 }
 
 export interface FitnessBreakdown {
@@ -347,7 +322,9 @@ export function computeFitnessBreakdown(
   const effectiveMaxRocks = computePossibleKills(
     metrics.elapsedTicks,
     dtMs,
-    metrics.uniqueRocksSeen
+    metrics.uniqueRocksSeen,
+    context.maxTicks,
+    weights.targetKillRatio
   )
   const rocksNorm = clamp(metrics.rocksDestroyed / effectiveMaxRocks, 0, 1)
   const accuracyNorm = clamp(metrics.accuracy / targetAccuracy, 0, 1)
@@ -400,49 +377,58 @@ export function weightedFitnessSum(
 }
 
 export interface GateBreakdown {
-  actionGate: number
-  turnGate: number
-  throttleGate: number
-  turnBiasGate: number
+  thrust: number
+  fire: number
+  turn: number
+  turnBias: number
   combined: number
 }
 
 /**
  * Compute the full gate breakdown for aggregated frame counts, returning
- * individual gate values and their combined product.
+ * individual per-action gate values and their geometric mean.
  */
 export function computeGateBreakdown(
   aggregatedMetrics: ActionFrames,
-  gateConfig: GateConfig
+  config: BehavioralGateConfig = DEFAULT_BEHAVIORAL_GATE_CONFIG
 ): GateBreakdown {
-  const actionGateVal = actionDiversityGate(aggregatedMetrics, gateConfig)
-  const turnGateVal = turnGate(aggregatedMetrics, gateConfig)
-  const throttleGateVal = throttleGate(aggregatedMetrics, gateConfig)
-  const turnBiasGateVal = turnBiasGate(aggregatedMetrics, gateConfig)
-  return {
-    actionGate: actionGateVal,
-    turnGate: turnGateVal,
-    throttleGate: throttleGateVal,
-    turnBiasGate: turnBiasGateVal,
-    combined: actionGateVal * turnGateVal * throttleGateVal * turnBiasGateVal,
-  }
+  const thrust = perActionGate(
+    aggregatedMetrics.thrustFrames,
+    aggregatedMetrics.aliveFrames,
+    config.thrust
+  )
+  const fire = perActionGate(
+    aggregatedMetrics.fireFrames,
+    aggregatedMetrics.aliveFrames,
+    config.fire
+  )
+  const turnFrames =
+    aggregatedMetrics.leftFrames + aggregatedMetrics.rightFrames
+  const turn = perActionGate(
+    turnFrames,
+    aggregatedMetrics.aliveFrames,
+    config.turn
+  )
+  const bias = perTurnBiasGate(aggregatedMetrics, config.turnBias)
+  const combined = Math.max((thrust * fire * turn * bias) ** 0.25, config.floor)
+  return { thrust, fire, turn, turnBias: bias, combined }
 }
 
 /**
  * Apply behavioral gates on aggregated frame counts across all episodes.
  *
- * Multiplies fitness by action diversity, turn, and turn bias gates computed
- * from total frame counts. This catches agents that consistently exhibit
- * degenerate patterns (e.g. 0% thrust, 100% fire, all-left spinning) without
- * penalizing legitimate focused behavior in short individual scenarios.
+ * Multiplies fitness by the geometric mean of per-action gates computed from
+ * total frame counts. This catches agents that consistently exhibit degenerate
+ * patterns (e.g. 0% thrust, 100% fire, all-left spinning) without penalizing
+ * legitimate focused behavior in short individual scenarios.
  */
 export function applyBehavioralGates(
   fitness: number,
   aggregatedMetrics: ActionFrames,
-  gateConfig: GateConfig
+  config: BehavioralGateConfig = DEFAULT_BEHAVIORAL_GATE_CONFIG
 ): number {
   return clamp(
-    fitness * computeGateBreakdown(aggregatedMetrics, gateConfig).combined,
+    fitness * computeGateBreakdown(aggregatedMetrics, config).combined,
     0,
     1
   )
@@ -467,8 +453,12 @@ export interface GauntletBreakdown {
   fullGameBreakdowns: FitnessBreakdown[]
   /** Per-episode breakdowns for curriculum. */
   curriculumBreakdowns: FitnessBreakdown[]
+  /** Params that generated each curriculum scenario (parallel to curriculumBreakdowns). */
+  curriculumParams?: CurriculumScenarioParams[]
   /** Aggregated action frames across all episodes. */
   aggregatedFrames: ActionFrames
+  /** Total RL reward accumulated across all episodes in the gauntlet. */
+  totalReward: number
 }
 
 /**

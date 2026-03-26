@@ -45,22 +45,81 @@ export function simulateScenario(
   const engine = restoreSnapshot(scenario, seed)
   const { state, rng } = engine
 
-  // Apply ship jitter if configured
+  // Apply ship jitter and random left/right mirror
   const jitterYaw = config.scenarioJitterYaw ?? 0
   const jitterSpeed = config.scenarioJitterSpeed ?? 0
+  const jitterRng = createRNG(seed).derive('jitter')
+  const jitterShip = state.ships.values().next().value
 
-  if (jitterYaw > 0 || jitterSpeed > 0) {
-    const jitterRng = createRNG(seed).derive('jitter')
-    const jitterShip = state.ships.values().next().value
-    if (jitterShip != null) {
-      if (jitterYaw > 0) {
-        jitterShip.yaw += (jitterRng.gen() * 2 - 1) * jitterYaw
+  if (jitterShip != null) {
+    if (jitterYaw > 0) {
+      jitterShip.yaw += (jitterRng.gen() * 2 - 1) * jitterYaw
+    }
+    if (jitterSpeed > 0) {
+      const factor = 1 + (jitterRng.gen() * 2 - 1) * jitterSpeed
+      jitterShip.angularVelocity[0] *= factor
+      jitterShip.angularVelocity[1] *= factor
+      jitterShip.angularVelocity[2] *= factor
+    }
+
+    // 50% chance to mirror the scenario left/right relative to the ship.
+    // Reflects all rock and bullet positions across the great circle containing
+    // the ship's position and forward direction (plane normal = ship's "right"
+    // tangent vector). This prevents agents from memorizing turn direction.
+    if (jitterRng.genBool()) {
+      const cx = jitterShip.position[0]
+      const cy = jitterShip.position[1]
+      const cz = jitterShip.position[2]
+
+      // Build local basis at ship position (same as perception system)
+      const refY = Math.abs(cy) > 0.99 ? 0 : 1
+      const refZ = Math.abs(cy) > 0.99 ? 1 : 0
+      let eastX = refY * cz - refZ * cy
+      let eastY = refZ * cx - 0 * cz
+      let eastZ = 0 * cy - refY * cx
+      const eastLen = Math.sqrt(eastX * eastX + eastY * eastY + eastZ * eastZ)
+      if (eastLen > 1e-9) {
+        const inv = 1 / eastLen
+        eastX *= inv
+        eastY *= inv
+        eastZ *= inv
       }
-      if (jitterSpeed > 0) {
-        const factor = 1 + (jitterRng.gen() * 2 - 1) * jitterSpeed
-        jitterShip.angularVelocity[0] *= factor
-        jitterShip.angularVelocity[1] *= factor
-        jitterShip.angularVelocity[2] *= factor
+      const northX = eastY * cz - eastZ * cy
+      const northY = eastZ * cx - eastX * cz
+      const northZ = eastX * cy - eastY * cx
+
+      // Ship's right vector in tangent plane from bearing
+      const bearing = yawToBearing(jitterShip.yaw)
+      const cosB = Math.cos(bearing)
+      const sinB = Math.sin(bearing)
+      const rx = -sinB * northX + cosB * eastX
+      const ry = -sinB * northY + cosB * eastY
+      const rz = -sinB * northZ + cosB * eastZ
+
+      // Reflect positions and velocities across the plane with normal = right
+      for (const rock of state.rocks.values()) {
+        const p = rock.position
+        const d = 2 * (p[0] * rx + p[1] * ry + p[2] * rz)
+        p[0] -= d * rx
+        p[1] -= d * ry
+        p[2] -= d * rz
+        const v = rock.angularVelocity
+        const vd = 2 * (v[0] * rx + v[1] * ry + v[2] * rz)
+        v[0] -= vd * rx
+        v[1] -= vd * ry
+        v[2] -= vd * rz
+      }
+      for (const bullet of state.bullets.values()) {
+        const p = bullet.position
+        const d = 2 * (p[0] * rx + p[1] * ry + p[2] * rz)
+        p[0] -= d * rx
+        p[1] -= d * ry
+        p[2] -= d * rz
+        const v = bullet.angularVelocity
+        const vd = 2 * (v[0] * rx + v[1] * ry + v[2] * rz)
+        v[0] -= vd * rx
+        v[1] -= vd * ry
+        v[2] -= vd * rz
       }
     }
   }
@@ -247,6 +306,7 @@ export function simulateScenario(
           shipAlive: liveShip?.alive === true,
           terminated,
           truncated,
+          thrustActive: inputs.thrust,
         },
         {
           state,

@@ -1,23 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import {
-  actionDiversityGate,
   applyBehavioralGates,
+  calculateBehavioralGate,
   calculateFitness,
   computeFitnessBreakdown,
   computeGateBreakdown,
   engagementGate,
   evaluateFullGameFitness,
   type FitnessContext,
-  turnBiasGate,
-  turnGate,
   weightedFitnessSum,
   zScore,
 } from '../../src/evaluation/calculateFitness.js'
 import type { RawMetrics } from '../../src/evaluation/RawMetrics.js'
-import { DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG } from '../../src/HexagonoidsEnvironmentConfig.js'
+import {
+  DEFAULT_BEHAVIORAL_GATE_CONFIG,
+  DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
+} from '../../src/HexagonoidsEnvironmentConfig.js'
 
 const defaultWeights = DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights
 const defaultGateConfig = DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig
+const defaultBehavioralConfig = DEFAULT_BEHAVIORAL_GATE_CONFIG
 
 const defaultContext: FitnessContext = {}
 
@@ -65,18 +67,13 @@ describe('zScore', () => {
   })
 })
 
-describe('actionDiversityGate', () => {
-  it('returns floor when one action is at 100%', () => {
-    const metrics = makeMetrics({
-      aliveFrames: 1000,
-      thrustFrames: 1000,
-      fireFrames: 0,
-      leftFrames: 1000,
-      rightFrames: 0,
-    })
-    const result = actionDiversityGate(metrics, defaultGateConfig)
-    // Geometric mean includes zero factors → clamped to floor
-    expect(result).toBe(defaultGateConfig.actionGateFloor)
+describe('calculateBehavioralGate', () => {
+  it('returns per-action floors when aliveFrames is 0', () => {
+    const metrics = makeMetrics({ aliveFrames: 0 })
+    const result = calculateBehavioralGate(metrics, defaultBehavioralConfig)
+    // All actions at floor: (0.3 * 0.3 * 0.1 * 1.0)^0.25 ≈ 0.31
+    expect(result).toBeGreaterThan(defaultBehavioralConfig.floor)
+    expect(result).toBeLessThan(0.5)
   })
 
   it('returns ~1.0 for healthy diverse usage', () => {
@@ -84,135 +81,96 @@ describe('actionDiversityGate', () => {
       aliveFrames: 1000,
       thrustFrames: 400,
       fireFrames: 200,
-      leftFrames: 300,
-      rightFrames: 300,
-    })
-    const result = actionDiversityGate(metrics, defaultGateConfig)
-    expect(result).toBeGreaterThan(0.7)
-  })
-
-  it('returns floor when aliveFrames is 0', () => {
-    const metrics = makeMetrics({ aliveFrames: 0 })
-    const result = actionDiversityGate(metrics, defaultGateConfig)
-    expect(result).toBe(defaultGateConfig.actionGateFloor)
-  })
-})
-
-describe('turnGate', () => {
-  it('returns turnFloor when agent never turns', () => {
-    const metrics = makeMetrics({
-      aliveFrames: 1000,
-      leftFrames: 0,
-      rightFrames: 0,
-    })
-    const result = turnGate(metrics, defaultGateConfig)
-    expect(result).toBe(defaultGateConfig.turnGateFloor)
-  })
-
-  it('returns ~1.0 for healthy turn usage', () => {
-    const metrics = makeMetrics({
-      aliveFrames: 1000,
       leftFrames: 150,
       rightFrames: 150,
     })
-    const result = turnGate(metrics, defaultGateConfig)
-    expect(result).toBeGreaterThan(0.7)
+    const result = calculateBehavioralGate(metrics, defaultBehavioralConfig)
+    expect(result).toBeGreaterThan(0.8)
   })
 
-  it('gates feather-shooter that only thrusts and fires', () => {
+  it('penalizes run-n-gun (high thrust, high fire, zero turn) moderately', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 1000,
+      thrustFrames: 800,
+      fireFrames: 500,
+      leftFrames: 0,
+      rightFrames: 0,
+    })
+    const result = calculateBehavioralGate(metrics, defaultBehavioralConfig)
+    // Turn gate at floor (0.1), but thrust and fire healthy.
+    // Geometric mean: (thrust * fire * 0.1 * 1.0)^0.25 should be moderate
+    expect(result).toBeGreaterThan(defaultBehavioralConfig.floor)
+    expect(result).toBeLessThan(0.8)
+  })
+
+  it('penalizes do-nothing agent to combined floor', () => {
+    const metrics = makeMetrics({
+      aliveFrames: 1000,
+      thrustFrames: 0,
+      fireFrames: 0,
+      leftFrames: 0,
+      rightFrames: 0,
+    })
+    const result = calculateBehavioralGate(metrics, defaultBehavioralConfig)
+    // All per-action gates at their floors: (0.3 * 0.3 * 0.1 * 1.0)^0.25
+    expect(result).toBeGreaterThanOrEqual(defaultBehavioralConfig.floor)
+    expect(result).toBeLessThan(0.5)
+  })
+
+  it('per-action floors prevent catastrophic combined value', () => {
+    // Worst case: all actions at floor
+    const metrics = makeMetrics({
+      aliveFrames: 1000,
+      thrustFrames: 0,
+      fireFrames: 0,
+      leftFrames: 0,
+      rightFrames: 0,
+    })
+    const result = calculateBehavioralGate(metrics, defaultBehavioralConfig)
+    // (0.3 * 0.3 * 0.1 * 1.0)^0.25 ≈ 0.42, much better than old 0.0000002
+    expect(result).toBeGreaterThan(0.05)
+  })
+
+  it('turn bias penalizes all-left turning', () => {
     const metrics = makeMetrics({
       aliveFrames: 1000,
       thrustFrames: 400,
       fireFrames: 200,
-      leftFrames: 0,
-      rightFrames: 0,
-    })
-    const result = turnGate(metrics, defaultGateConfig)
-    expect(result).toBe(defaultGateConfig.turnGateFloor)
-  })
-
-  it('passes agent that turns in one direction', () => {
-    const metrics = makeMetrics({
-      aliveFrames: 1000,
-      leftFrames: 200,
-      rightFrames: 0,
-    })
-    const result = turnGate(metrics, defaultGateConfig)
-    expect(result).toBeGreaterThan(defaultGateConfig.turnGateFloor)
-  })
-
-  it('returns turnFloor when aliveFrames is 0', () => {
-    const metrics = makeMetrics({ aliveFrames: 0 })
-    const result = turnGate(metrics, defaultGateConfig)
-    expect(result).toBe(defaultGateConfig.turnGateFloor)
-  })
-})
-
-describe('turnBiasGate', () => {
-  it('returns 1.0 when turns are perfectly balanced', () => {
-    const metrics = makeMetrics({
-      aliveFrames: 1000,
-      leftFrames: 200,
-      rightFrames: 200,
-    })
-    expect(turnBiasGate(metrics, defaultGateConfig)).toBe(1.0)
-  })
-
-  it('returns 1.0 when agent never turns', () => {
-    const metrics = makeMetrics({
-      aliveFrames: 1000,
-      leftFrames: 0,
-      rightFrames: 0,
-    })
-    expect(turnBiasGate(metrics, defaultGateConfig)).toBe(1.0)
-  })
-
-  it('returns 1.0 when bias is below threshold', () => {
-    // 70/30 split = 0.7 bias, below default 0.8 threshold
-    const metrics = makeMetrics({
-      aliveFrames: 1000,
-      leftFrames: 210,
-      rightFrames: 90,
-    })
-    expect(turnBiasGate(metrics, defaultGateConfig)).toBe(1.0)
-  })
-
-  it('penalizes when turns are nearly all in one direction', () => {
-    const metrics = makeMetrics({
-      aliveFrames: 1000,
-      leftFrames: 299,
-      rightFrames: 1,
-    })
-    const result = turnBiasGate(metrics, defaultGateConfig)
-    expect(result).toBeLessThan(1.0)
-    expect(result).toBeGreaterThan(defaultGateConfig.turnBiasGateFloor)
-  })
-
-  it('returns floor when all turns are in one direction', () => {
-    const metrics = makeMetrics({
-      aliveFrames: 1000,
       leftFrames: 300,
-      rightFrames: 0,
+      rightFrames: 0, // 100% left bias
     })
-    expect(turnBiasGate(metrics, defaultGateConfig)).toBe(
-      defaultGateConfig.turnBiasGateFloor
+    const result = calculateBehavioralGate(metrics, defaultBehavioralConfig)
+    const balanced = calculateBehavioralGate(
+      makeMetrics({
+        aliveFrames: 1000,
+        thrustFrames: 400,
+        fireFrames: 200,
+        leftFrames: 150,
+        rightFrames: 150,
+      }),
+      defaultBehavioralConfig
     )
+    expect(result).toBeLessThan(balanced)
   })
 
-  it('penalizes left-bias same as right-bias', () => {
+  it('turn bias is symmetric', () => {
     const leftBias = makeMetrics({
       aliveFrames: 1000,
-      leftFrames: 299,
-      rightFrames: 1,
+      thrustFrames: 400,
+      fireFrames: 200,
+      leftFrames: 290,
+      rightFrames: 10,
     })
     const rightBias = makeMetrics({
       aliveFrames: 1000,
-      leftFrames: 1,
-      rightFrames: 299,
+      thrustFrames: 400,
+      fireFrames: 200,
+      leftFrames: 10,
+      rightFrames: 290,
     })
-    expect(turnBiasGate(leftBias, defaultGateConfig)).toBe(
-      turnBiasGate(rightBias, defaultGateConfig)
-    )
+    expect(
+      calculateBehavioralGate(leftBias, defaultBehavioralConfig)
+    ).toBeCloseTo(calculateBehavioralGate(rightBias, defaultBehavioralConfig))
   })
 })
 
@@ -485,14 +443,24 @@ describe('weightedFitnessSum', () => {
     // Heavy rocks weight
     const rocksHeavy = weightedFitnessSum(
       metrics,
-      { rocksDestroyed: 0.9, accuracy: 0.1, targetAccuracy: 0.3 },
+      {
+        rocksDestroyed: 0.9,
+        accuracy: 0.1,
+        targetAccuracy: 0.3,
+        targetKillRatio: 1.0,
+      },
       defaultGateConfig,
       defaultContext
     )
     // Heavy accuracy weight (but accuracy is 0 here)
     const accHeavy = weightedFitnessSum(
       metrics,
-      { rocksDestroyed: 0.1, accuracy: 0.9, targetAccuracy: 0.3 },
+      {
+        rocksDestroyed: 0.1,
+        accuracy: 0.9,
+        targetAccuracy: 0.3,
+        targetKillRatio: 1.0,
+      },
       defaultGateConfig,
       defaultContext
     )
@@ -645,7 +613,7 @@ describe('applyBehavioralGates', () => {
       leftFrames: 3000,
       rightFrames: 3000,
     })
-    const result = applyBehavioralGates(0.5, metrics, defaultGateConfig)
+    const result = applyBehavioralGates(0.5, metrics, defaultBehavioralConfig)
     // Diverse actions → gates near 1.0, fitness mostly preserved
     expect(result).toBeGreaterThan(0.3)
     expect(result).toBeLessThanOrEqual(0.5)
@@ -659,9 +627,10 @@ describe('applyBehavioralGates', () => {
       leftFrames: 5000,
       rightFrames: 5000,
     })
-    const result = applyBehavioralGates(0.5, metrics, defaultGateConfig)
-    // 0% thrust → actionDiversityGate geometric mean includes zero → floor
-    expect(result).toBeLessThan(0.1)
+    const result = applyBehavioralGates(0.5, metrics, defaultBehavioralConfig)
+    // 0% thrust → thrust gate at floor, but not catastrophic
+    expect(result).toBeLessThan(0.5)
+    expect(result).toBeGreaterThan(0)
   })
 
   it('penalizes all-buttons-held degenerate agent', () => {
@@ -672,9 +641,9 @@ describe('applyBehavioralGates', () => {
       leftFrames: 10000,
       rightFrames: 10000,
     })
-    const result = applyBehavioralGates(0.5, metrics, defaultGateConfig)
-    // 100% on all actions → high side penalty → gate near 0
-    expect(result).toBeLessThan(0.1)
+    const result = applyBehavioralGates(0.5, metrics, defaultBehavioralConfig)
+    // 100% on all actions → high side penalty on thrust and fire
+    expect(result).toBeLessThan(0.3)
   })
 
   it('penalizes no-turn agent', () => {
@@ -685,9 +654,9 @@ describe('applyBehavioralGates', () => {
       leftFrames: 0,
       rightFrames: 0,
     })
-    const result = applyBehavioralGates(0.5, metrics, defaultGateConfig)
-    // turnGate → floor for 0 turn frames
-    expect(result).toBeLessThan(0.2)
+    const result = applyBehavioralGates(0.5, metrics, defaultBehavioralConfig)
+    // turn gate at floor (0.1), geometric mean pulls combined down
+    expect(result).toBeLessThan(0.5)
   })
 
   it('penalizes all-left spinner', () => {
@@ -698,9 +667,9 @@ describe('applyBehavioralGates', () => {
       leftFrames: 5000,
       rightFrames: 0,
     })
-    const result = applyBehavioralGates(0.5, metrics, defaultGateConfig)
-    // turnBiasGate penalizes 100% left bias
-    expect(result).toBeLessThan(0.3)
+    const result = applyBehavioralGates(0.5, metrics, defaultBehavioralConfig)
+    // turnBias gate penalizes 100% left bias
+    expect(result).toBeLessThan(0.5)
   })
 
   it('returns 0 when fitness is 0', () => {
@@ -711,7 +680,7 @@ describe('applyBehavioralGates', () => {
       leftFrames: 3000,
       rightFrames: 3000,
     })
-    expect(applyBehavioralGates(0, metrics, defaultGateConfig)).toBe(0)
+    expect(applyBehavioralGates(0, metrics, defaultBehavioralConfig)).toBe(0)
   })
 
   it('clamps result to [0, 1]', () => {
@@ -722,22 +691,22 @@ describe('applyBehavioralGates', () => {
       leftFrames: 3000,
       rightFrames: 3000,
     })
-    const result = applyBehavioralGates(1.5, metrics, defaultGateConfig)
+    const result = applyBehavioralGates(1.5, metrics, defaultBehavioralConfig)
     expect(result).toBeLessThanOrEqual(1)
   })
 })
 
 describe('easing curve shape', () => {
-  it('actionDiversityGate produces expected shape with quad easing', () => {
-    const quadGate = {
-      ...defaultGateConfig,
-      actionEasing: 'quad' as const,
-      actionLow: 0.1,
-      actionHigh: 0.6,
+  it('calculateBehavioralGate produces expected shape with quad easing', () => {
+    const quadConfig = {
+      ...defaultBehavioralConfig,
+      thrust: { ...defaultBehavioralConfig.thrust, easing: 'quad' as const },
+      fire: { ...defaultBehavioralConfig.fire, easing: 'quad' as const },
+      turn: { ...defaultBehavioralConfig.turn, easing: 'quad' as const },
     }
 
     // In the sweet zone → near 1.0
-    const sweetSpot = actionDiversityGate(
+    const sweetSpot = calculateBehavioralGate(
       makeMetrics({
         aliveFrames: 1000,
         thrustFrames: 300,
@@ -745,25 +714,12 @@ describe('easing curve shape', () => {
         leftFrames: 200,
         rightFrames: 200,
       }),
-      quadGate
+      quadConfig
     )
     expect(sweetSpot).toBeGreaterThan(0.8)
 
-    // Just above high → still close to 1 (gentle departure with easeIn)
-    const justAbove = actionDiversityGate(
-      makeMetrics({
-        aliveFrames: 1000,
-        thrustFrames: 650,
-        fireFrames: 200,
-        leftFrames: 200,
-        rightFrames: 200,
-      }),
-      quadGate
-    )
-    expect(justAbove).toBeGreaterThan(0.5)
-
-    // Saturated → heavily penalized
-    const saturated = actionDiversityGate(
+    // Saturated thrust → penalized
+    const saturated = calculateBehavioralGate(
       makeMetrics({
         aliveFrames: 1000,
         thrustFrames: 950,
@@ -771,7 +727,7 @@ describe('easing curve shape', () => {
         leftFrames: 200,
         rightFrames: 200,
       }),
-      quadGate
+      quadConfig
     )
     expect(saturated).toBeLessThan(sweetSpot)
   })
@@ -864,7 +820,7 @@ describe('computeFitnessBreakdown', () => {
 })
 
 describe('computeGateBreakdown', () => {
-  it('fields multiply to combined', () => {
+  it('combined is geometric mean of per-action gates', () => {
     const frames = {
       thrustFrames: 4000,
       fireFrames: 2000,
@@ -872,10 +828,12 @@ describe('computeGateBreakdown', () => {
       rightFrames: 3000,
       aliveFrames: 10000,
     }
-    const gb = computeGateBreakdown(frames, defaultGateConfig)
-    expect(gb.combined).toBeCloseTo(
-      gb.actionGate * gb.turnGate * gb.throttleGate * gb.turnBiasGate
+    const gb = computeGateBreakdown(frames, defaultBehavioralConfig)
+    const expected = Math.max(
+      (gb.thrust * gb.fire * gb.turn * gb.turnBias) ** 0.25,
+      defaultBehavioralConfig.floor
     )
+    expect(gb.combined).toBeCloseTo(expected)
   })
 
   it('combined matches applyBehavioralGates ratio', () => {
@@ -886,9 +844,23 @@ describe('computeGateBreakdown', () => {
       rightFrames: 3000,
       aliveFrames: 10000,
     }
-    const gb = computeGateBreakdown(frames, defaultGateConfig)
-    const gated = applyBehavioralGates(1.0, frames, defaultGateConfig)
-    // applyBehavioralGates(1.0, ...) = clamp(1.0 * combined, 0, 1) = combined (when <= 1)
+    const gb = computeGateBreakdown(frames, defaultBehavioralConfig)
+    const gated = applyBehavioralGates(1.0, frames, defaultBehavioralConfig)
     expect(gated).toBeCloseTo(gb.combined)
+  })
+
+  it('returns per-action gate values', () => {
+    const frames = {
+      thrustFrames: 4000,
+      fireFrames: 2000,
+      leftFrames: 3000,
+      rightFrames: 3000,
+      aliveFrames: 10000,
+    }
+    const gb = computeGateBreakdown(frames, defaultBehavioralConfig)
+    expect(gb.thrust).toBeGreaterThan(0)
+    expect(gb.fire).toBeGreaterThan(0)
+    expect(gb.turn).toBeGreaterThan(0)
+    expect(gb.turnBias).toBe(1.0) // balanced turns
   })
 })

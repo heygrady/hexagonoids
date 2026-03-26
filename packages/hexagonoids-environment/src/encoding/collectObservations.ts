@@ -67,14 +67,25 @@ function requireSpatialQueries(
   return spatialQueries
 }
 
-function buildLocalBasisFromCenter(center: Vec3): {
+interface LocalBasis {
   northX: number
   northY: number
   northZ: number
   eastX: number
   eastY: number
   eastZ: number
-} {
+}
+
+const _pooledBasis: LocalBasis = {
+  northX: 0,
+  northY: 0,
+  northZ: 0,
+  eastX: 0,
+  eastY: 0,
+  eastZ: 0,
+}
+
+function buildLocalBasisFromCenter(center: Vec3): LocalBasis {
   const refX = 0
   const refY = Math.abs(center[1]) > 0.99 ? 0 : 1
   const refZ = Math.abs(center[1]) > 0.99 ? 1 : 0
@@ -88,18 +99,14 @@ function buildLocalBasisFromCenter(center: Vec3): {
   eastY *= invEastLen
   eastZ *= invEastLen
 
-  const northX = eastY * center[2] - eastZ * center[1]
-  const northY = eastZ * center[0] - eastX * center[2]
-  const northZ = eastX * center[1] - eastY * center[0]
+  _pooledBasis.northX = eastY * center[2] - eastZ * center[1]
+  _pooledBasis.northY = eastZ * center[0] - eastX * center[2]
+  _pooledBasis.northZ = eastX * center[1] - eastY * center[0]
+  _pooledBasis.eastX = eastX
+  _pooledBasis.eastY = eastY
+  _pooledBasis.eastZ = eastZ
 
-  return {
-    northX,
-    northY,
-    northZ,
-    eastX,
-    eastY,
-    eastZ,
-  }
+  return _pooledBasis
 }
 
 function makeEmptyLidar(): ConeHit[] {
@@ -332,6 +339,38 @@ export interface RockPerceptionPrecompute {
   rightZ: number
 }
 
+// ── Pre-allocated rock perception pool ───────────────────────────────────────
+
+/** Maximum rocks the pool can hold (matches engine MAX_ROCKS). */
+const ROCK_POOL_SIZE = 64
+
+const _pooledRocks: RockPerceptionEntry[] = new Array<RockPerceptionEntry>(
+  ROCK_POOL_SIZE
+)
+for (let i = 0; i < ROCK_POOL_SIZE; i++) {
+  _pooledRocks[i] = {
+    id: '',
+    localX: 0,
+    localY: 0,
+    inVisionRange: false,
+    radius: 0,
+    avx: 0,
+    avy: 0,
+    avz: 0,
+  }
+}
+
+const _pooledPrecompute: RockPerceptionPrecompute = {
+  rocks: _pooledRocks,
+  ship: [0, 0, 0] as unknown as Vec3,
+  forwardX: 0,
+  forwardY: 0,
+  forwardZ: 0,
+  rightX: 0,
+  rightY: 0,
+  rightZ: 0,
+}
+
 export function buildRockPerceptionPrecompute(
   shipCenter: Vec3,
   shipBearing: number,
@@ -357,8 +396,25 @@ export function buildRockPerceptionPrecompute(
   const rightY = eastY * cosBearing - northY * sinBearing
   const rightZ = eastZ * cosBearing - northZ * sinBearing
   const candidateRocks = queries.queryRocksNear(shipCenter, SOI_ARC_DISTANCE)
-  const rockCount = candidateRocks.length
-  const rocks = new Array<RockPerceptionEntry>(rockCount)
+  const rockCount = Math.min(candidateRocks.length, ROCK_POOL_SIZE)
+
+  // Restore pool entries that a previous trim may have deleted
+  if (_pooledRocks.length < rockCount) {
+    const oldLen = _pooledRocks.length
+    _pooledRocks.length = ROCK_POOL_SIZE
+    for (let i = oldLen; i < ROCK_POOL_SIZE; i++) {
+      _pooledRocks[i] = {
+        id: '',
+        localX: 0,
+        localY: 0,
+        inVisionRange: false,
+        radius: 0,
+        avx: 0,
+        avy: 0,
+        avz: 0,
+      }
+    }
+  }
 
   for (let index = 0; index < rockCount; index++) {
     const rock = candidateRocks[index]
@@ -382,30 +438,33 @@ export function buildRockPerceptionPrecompute(
       inVisionRange = true
     }
 
-    // Remap angular velocity y↔z (engine y-up → projection z-up)
+    // Write into pooled entry (avoids object allocation)
+    const entry = _pooledRocks[index] as RockPerceptionEntry
     const av = rock.angularVelocity
-    rocks[index] = {
-      id: rock.id,
-      localX,
-      localY,
-      inVisionRange,
-      radius: rockRadiusBySize(rock.size),
-      avx: av[0],
-      avy: av[2],
-      avz: av[1],
-    }
+    entry.id = rock.id
+    entry.localX = localX
+    entry.localY = localY
+    entry.inVisionRange = inVisionRange
+    entry.radius = rockRadiusBySize(rock.size)
+    entry.avx = av[0]
+    entry.avy = av[2]
+    entry.avz = av[1]
   }
 
-  return {
-    rocks,
-    ship: shipCenter,
-    forwardX,
-    forwardY,
-    forwardZ,
-    rightX,
-    rightY,
-    rightZ,
-  }
+  // Trim the pooled array so consumers see the correct length via
+  // .length, for-of, and .some() without needing a separate count field.
+  _pooledRocks.length = rockCount
+
+  _pooledPrecompute.rocks = _pooledRocks
+  _pooledPrecompute.ship = shipCenter
+  _pooledPrecompute.forwardX = forwardX
+  _pooledPrecompute.forwardY = forwardY
+  _pooledPrecompute.forwardZ = forwardZ
+  _pooledPrecompute.rightX = rightX
+  _pooledPrecompute.rightY = rightY
+  _pooledPrecompute.rightZ = rightZ
+
+  return _pooledPrecompute
 }
 
 /**

@@ -7,13 +7,11 @@ export interface SimulationConfig {
   useFastThrust: boolean
   scenariosPerOrganism: number
   scenarioMaxTicks: number
-  /** Whether to run curriculum micro-scenarios during evaluation. */
-  curriculumEnabled: boolean
-  /** Number of curriculum micro-scenarios to run (default 32 = 8 cones x 4 variants). */
+  /** Number of curriculum micro-scenarios to run (default 48). */
   curriculumCount: number
-  /** Max yaw offset in radians for scenario ship jitter (default: 0 = disabled). */
+  /** Max yaw offset in radians for scenario ship jitter. Default ~15° so agents can't memorize one aim direction. */
   scenarioJitterYaw?: number
-  /** Max speed scale fraction for scenario ship jitter (default: 0 = disabled). */
+  /** Max speed scale fraction for scenario ship jitter. Default 0.2 = ±20% speed variation. */
   scenarioJitterSpeed?: number
 }
 
@@ -24,6 +22,13 @@ export interface FitnessWeights {
   accuracy: number
   /** Accuracy threshold at which the accuracy term saturates to 1.0 (default 0.2 = 1-in-5 hit rate). */
   targetAccuracy: number
+  /**
+   * Fraction of the physics-based kill budget that counts as "perfect".
+   * The kill budget is computed from the configured episode maxTicks (not
+   * actual elapsed time), so surviving longer does not inflate the target.
+   * Default 0.5 means killing half the theoretical max = rocksNorm 1.0.
+   */
+  targetKillRatio: number
 }
 
 /**
@@ -35,6 +40,50 @@ export interface FitnessWeights {
  */
 export type GateEasing = 'linear' | 'quad' | 'cubic' | 'exp' | 'circle'
 
+/** Per-action saturation gate config. */
+export interface ActionGateConfig {
+  /** Below this usage fraction → penalty (not enough). */
+  low: number
+  /** Above this usage fraction → penalty (too much). */
+  high: number
+  /** Easing curve for penalty falloff. */
+  easing: GateEasing
+  /** Per-action minimum gate output. */
+  floor: number
+}
+
+/** Turn bias gate config. */
+export interface TurnBiasGateConfig {
+  /** Bias threshold above which penalty kicks in (0.5=balanced, 1.0=all one direction). */
+  max: number
+  /** Easing curve for penalty. */
+  easing: GateEasing
+  /** Minimum gate output. */
+  floor: number
+}
+
+/**
+ * Non-overlapping per-action behavioral gate config.
+ * Each action is counted exactly once. Combined via geometric mean.
+ */
+export interface BehavioralGateConfig {
+  thrust: ActionGateConfig
+  fire: ActionGateConfig
+  turn: ActionGateConfig
+  turnBias: TurnBiasGateConfig
+  /** Combined gate floor (minimum output of the geometric mean). */
+  floor: number
+}
+
+export const DEFAULT_BEHAVIORAL_GATE_CONFIG: BehavioralGateConfig = {
+  thrust: { low: 0.15, high: 0.85, easing: 'exp', floor: 0.3 },
+  fire: { low: 0.05, high: 0.6, easing: 'exp', floor: 0.3 },
+  turn: { low: 0.15, high: 0.9, easing: 'exp', floor: 0.1 },
+  turnBias: { max: 0.85, easing: 'cubic', floor: 0.1 },
+  floor: 0.05,
+}
+
+/** @deprecated Use BehavioralGateConfig instead. Kept for survivalGateFloor. */
 export interface GateConfig {
   /** Minimum action diversity gate output (prevents zero-fitness collapse). */
   actionGateFloor: number
@@ -74,6 +123,7 @@ export interface HexagonoidsEnvironmentConfig {
   simulation: SimulationConfig
   fitnessWeights: FitnessWeights
   gateConfig: GateConfig
+  behavioralGateConfig?: BehavioralGateConfig
   scenarioBank?: ScenarioSnapshot[] | undefined
   /** Blending weight for scenario fitness. Normalized with fullGameWeight and curriculumWeight. */
   scenarioWeight: number
@@ -103,13 +153,15 @@ export const DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG: HexagonoidsEnvironmentConfi
       useFastThrust: true,
       scenariosPerOrganism: 20,
       scenarioMaxTicks: 120,
-      curriculumEnabled: false,
-      curriculumCount: 32,
+      curriculumCount: 48,
+      scenarioJitterYaw: Math.PI / 12, // ~15 degrees
+      scenarioJitterSpeed: 0.2, // ±20% speed variation
     },
     fitnessWeights: {
       rocksDestroyed: 0.7,
       accuracy: 0.3,
       targetAccuracy: 0.3,
+      targetKillRatio: 0.5,
     },
     gateConfig: {
       actionGateFloor: 0.2,
@@ -191,5 +243,27 @@ export function mergeConfig(
       DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fullGameSeedsPerOrganism,
     ...(partial.rewardConfig != null && { rewardConfig: partial.rewardConfig }),
     ...(partial.outputCount != null && { outputCount: partial.outputCount }),
+    ...(partial.behavioralGateConfig != null && {
+      behavioralGateConfig: {
+        ...DEFAULT_BEHAVIORAL_GATE_CONFIG,
+        ...partial.behavioralGateConfig,
+        thrust: {
+          ...DEFAULT_BEHAVIORAL_GATE_CONFIG.thrust,
+          ...partial.behavioralGateConfig.thrust,
+        },
+        fire: {
+          ...DEFAULT_BEHAVIORAL_GATE_CONFIG.fire,
+          ...partial.behavioralGateConfig.fire,
+        },
+        turn: {
+          ...DEFAULT_BEHAVIORAL_GATE_CONFIG.turn,
+          ...partial.behavioralGateConfig.turn,
+        },
+        turnBias: {
+          ...DEFAULT_BEHAVIORAL_GATE_CONFIG.turnBias,
+          ...partial.behavioralGateConfig.turnBias,
+        },
+      },
+    }),
   }
 }

@@ -19,11 +19,18 @@ export {
 } from './curriculum/curriculumSnapshot.js'
 // Curriculum
 export type {
-  ConeIndex,
+  CurriculumPattern,
   CurriculumScenarioParams,
-  ScenarioVariant,
+  DistanceClass,
 } from './curriculum/generateCurriculumScenario.js'
-export { runCurriculum } from './curriculum/runCurriculum.js'
+export {
+  ALL_DISTANCE_CLASSES,
+  ALL_PATTERNS,
+} from './curriculum/generateCurriculumScenario.js'
+export {
+  type CurriculumResult,
+  runCurriculum,
+} from './curriculum/runCurriculum.js'
 export {
   type ActionDecoder,
   binaryDecoder,
@@ -68,8 +75,8 @@ export {
 } from './evaluation/behavioralProfile.js'
 export {
   type ActionFrames,
-  actionDiversityGate,
   applyBehavioralGates,
+  calculateBehavioralGate,
   calculateFitness,
   computeFitnessBreakdown,
   computeGateBreakdown,
@@ -81,9 +88,6 @@ export {
   type FitnessContext,
   type GateBreakdown,
   type GauntletBreakdown,
-  throttleGate,
-  turnBiasGate,
-  turnGate,
   weightedFitnessSum,
   zScore,
 } from './evaluation/calculateFitness.js'
@@ -108,13 +112,17 @@ export {
 // Environment
 export { HexagonoidsEnvironment } from './HexagonoidsEnvironment.js'
 export type {
+  ActionGateConfig,
+  BehavioralGateConfig,
   FitnessWeights,
   GateConfig,
   GateEasing,
   HexagonoidsEnvironmentConfig,
   SimulationConfig,
+  TurnBiasGateConfig,
 } from './HexagonoidsEnvironmentConfig.js'
 export {
+  DEFAULT_BEHAVIORAL_GATE_CONFIG,
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   mergeConfig,
 } from './HexagonoidsEnvironmentConfig.js'

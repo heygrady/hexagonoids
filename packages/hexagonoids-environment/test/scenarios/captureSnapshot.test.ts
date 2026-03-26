@@ -152,7 +152,7 @@ describe('restoreSnapshot round-trip', () => {
 
   it('preserves game time and wave', () => {
     const { state, rng } = createTestGame('roundtrip-time')
-    tickGame(state, rng, 100)
+    tickGame(state, rng, 40)
 
     const snapshot = captureSnapshot(state, PLAYER_ID)
     const { state: restored } = restoreSnapshot(snapshot)

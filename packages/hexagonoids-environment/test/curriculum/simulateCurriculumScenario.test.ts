@@ -1,17 +1,20 @@
 import { describe, expect, it } from 'vitest'
 
 import { doNothingAgent } from '../../src/agents/doNothingAgent.js'
-import type { CurriculumScenarioParams } from '../../src/curriculum/generateCurriculumScenario.js'
+import {
+  ALL_PATTERNS,
+  type CurriculumScenarioParams,
+} from '../../src/curriculum/generateCurriculumScenario.js'
 import { simulateCurriculumScenario } from '../../src/curriculum/simulateCurriculumScenario.js'
 
 function makeParams(
   overrides: Partial<CurriculumScenarioParams> = {}
 ): CurriculumScenarioParams {
   return {
-    coneIndex: 0,
-    variant: 'direct-towards',
+    angle: 0,
+    pattern: 'inbound',
     rockSize: 2,
-    lateralOffset: 0,
+    headingJitter: 0,
     ...overrides,
   }
 }
@@ -62,17 +65,11 @@ describe('simulateCurriculumScenario', () => {
     expect(metrics.elapsedTicks).toBeGreaterThan(0)
   })
 
-  it('runs without error for all variants', () => {
-    const variants = [
-      'direct-towards',
-      'direct-away',
-      'lateral-left',
-      'lateral-right',
-    ] as const
-    for (const variant of variants) {
+  it('runs without error for all patterns', () => {
+    for (const pattern of ALL_PATTERNS) {
       const metrics = simulateCurriculumScenario(
         doNothingAgent,
-        makeParams({ variant }),
+        makeParams({ pattern }),
         'test-seed',
         33
       )
@@ -80,11 +77,12 @@ describe('simulateCurriculumScenario', () => {
     }
   })
 
-  it('runs without error for all cone indices', () => {
-    for (let i = 0; i < 8; i++) {
+  it('runs without error for various angles', () => {
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * 2 * Math.PI
       const metrics = simulateCurriculumScenario(
         doNothingAgent,
-        makeParams({ coneIndex: i as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 }),
+        makeParams({ angle }),
         'test-seed',
         33
       )
