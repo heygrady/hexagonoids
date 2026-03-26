@@ -4,47 +4,48 @@ const defaultProfile: TrainingProfile = {
   name: 'default',
   config: {
     populationSize: 100,
-    method: 'NEAT',
+    method: 'HyperNEAT',
     iterations: 50,
+    baseSeed: 'hexagonoids-phase03',
+    dtMs: 33,
+
+    // ── Fitness weights ──
     fitnessWeights: {
-      rocksDestroyed: 0.9,
-      accuracy: 0.1,
-      targetAccuracy: 0.4, // percentage of bullets landed that counts as "perfect"
+      rocksDestroyed: 0.7,
+      accuracy: 0.3,
+      targetKillRatio: 0.9,
+      targetAccuracy: 0.3,
     },
     gateConfig: {
-      actionGateFloor: 0.6,
-      actionLow: 0.1,
-      actionHigh: 0.9,
-      actionEasing: 'exp',
-      turnGateFloor: 0.01,
-      turnLow: 0.1,
-      turnHigh: 0.75,
-      turnEasing: 'exp',
-      throttleGateFloor: 0.2,
-      throttleLow: 0.1,
-      throttleHigh: 0.9,
-      throttleEasing: 'exp',
-      turnBiasGateFloor: 0.01,
-      turnBiasMax: 0.85,
-      turnBiasEasing: 'exp',
-      survivalGateFloor: 0,
+      survivalGateFloor: 0.2,
     },
-    curriculumEnabled: true,
-    curriculumCount: 32,
+    behavioralGateConfig: {
+      thrust: { low: 0.15, high: 0.7, easing: 'exp', floor: 0.2 },
+      fire: { low: 0.05, high: 0.6, easing: 'exp', floor: 0.2 },
+      turn: { low: 0.15, high: 0.9, easing: 'exp', floor: 0.2 },
+      turnBias: { max: 0.85, easing: 'cubic', floor: 0.2 },
+      floor: 0.05,
+    },
+
+    // ── Evaluation blend (all three modes, weight > 0 = enabled) ──
     scenarioWeight: 0.3,
-    fullGameWeight: 0.6,
-    curriculumWeight: 0.1,
+    fullGameWeight: 0.4,
+    curriculumWeight: 0.3,
+
+    // ── Scenario settings ──
     scenariosPerOrganism: 128,
     scenarioMaxTicks: 64,
-    scenarioSeedsPerOrganism: 1,
+
+    // ── Curriculum settings ──
+    curriculumCount: 48,
+
+    // ── Full game settings ──
     maxTicks: 2048,
-    evaluationSeedsPerOrganism: 1,
     fullGameSeedsPerOrganism: 2,
+
+    // ── Training limits ──
     secondsLimit: 900,
     earlyStopPatience: 18,
-    dtMs: 33,
-    baseSeed: 'hexagonoids-phase03',
-    scenarioMode: true,
   },
 }
 

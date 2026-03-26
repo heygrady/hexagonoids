@@ -9,6 +9,7 @@ import { join, resolve } from 'node:path'
 
 import {
   type AgentFn,
+  ALL_PATTERNS,
   computePossibleDeaths,
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   doNothingAgent,
@@ -36,7 +37,6 @@ export interface InspectFitnessOptions {
   scenarioMaxTicks: number
   seed: string
   dtMs: number
-  curriculum: boolean
   curriculumCount: number
   scenarioWeight: number
   fullGameWeight: number
@@ -46,9 +46,6 @@ export interface InspectFitnessOptions {
   genome: string | undefined
   lab: string | undefined
   method: string
-  actionGateFloor: number | undefined
-  turnGateFloor: number | undefined
-  turnBiasGateFloor: number | undefined
 }
 
 export function defaultInspectFitnessOptions(): InspectFitnessOptions {
@@ -62,7 +59,6 @@ export function defaultInspectFitnessOptions(): InspectFitnessOptions {
     scenarioMaxTicks: (pc.scenarioMaxTicks as number | undefined) ?? 60,
     seed: 'inspect-fitness-001',
     dtMs: (pc.dtMs as number | undefined) ?? sim.dtMs,
-    curriculum: (pc.curriculumEnabled as boolean | undefined) ?? false,
     curriculumCount:
       (pc.curriculumCount as number | undefined) ?? sim.curriculumCount,
     scenarioWeight:
@@ -77,9 +73,6 @@ export function defaultInspectFitnessOptions(): InspectFitnessOptions {
     genome: undefined,
     lab: undefined,
     method: (pc.method as string | undefined) ?? 'HyperNEAT',
-    actionGateFloor: undefined,
-    turnGateFloor: undefined,
-    turnBiasGateFloor: undefined,
   }
 }
 
@@ -217,27 +210,18 @@ export async function runInspectFitness(
 ): Promise<void> {
   const pc = (defaultProfile.config ?? {}) as Record<string, unknown>
 
-  const profileGateConfig =
-    (pc.gateConfig as Record<string, unknown> | undefined) ?? {}
-  const gateOverrides: Record<string, number> = {}
-  if (options.actionGateFloor !== undefined)
-    gateOverrides.actionGateFloor = options.actionGateFloor
-  if (options.turnGateFloor !== undefined)
-    gateOverrides.turnGateFloor = options.turnGateFloor
-  if (options.turnBiasGateFloor !== undefined)
-    gateOverrides.turnBiasGateFloor = options.turnBiasGateFloor
-
   const envConfig = mergeConfig({
     simulation: {
       scenariosPerOrganism: options.scenariosPerOrganism,
       scenarioMaxTicks: options.scenarioMaxTicks,
       maxTicks: options.maxTicks,
       dtMs: options.dtMs,
-      curriculumEnabled: options.curriculum,
       curriculumCount: options.curriculumCount,
     },
     fitnessWeights: pc.fitnessWeights as Record<string, number> | undefined,
-    gateConfig: { ...profileGateConfig, ...gateOverrides },
+    ...(pc.behavioralGateConfig != null && {
+      behavioralGateConfig: pc.behavioralGateConfig,
+    }),
     scenarioWeight: options.scenarioWeight,
     fullGameWeight: options.fullGameWeight,
     curriculumWeight: options.curriculumWeight,
@@ -253,7 +237,7 @@ export async function runInspectFitness(
   // Normalize blending weights for display
   let sw = options.scenarioWeight
   let fw = options.fullGameWeight
-  let cw = options.curriculum ? options.curriculumWeight : 0
+  let cw = options.curriculumWeight > 0 ? options.curriculumWeight : 0
   const total = sw + fw + cw
   if (total > 0) {
     sw /= total
@@ -269,7 +253,7 @@ export async function runInspectFitness(
   console.log(
     `Weights: rocks=${weights.rocksDestroyed} accuracy=${weights.accuracy} targetAccuracy=${weights.targetAccuracy}`
   )
-  if (options.curriculum) {
+  if (options.curriculumWeight > 0) {
     console.log(`Curriculum: enabled, count=${options.curriculumCount}`)
   }
   console.log(
@@ -453,9 +437,88 @@ export async function runInspectFitness(
     }
 
     // ── Print: Curriculum Fitness ──
-    if (options.curriculum) {
-      console.log(`\n=== Curriculum Fitness ===`)
-      console.log(`  curriculumFitness: ${fmtNum(breakdown.curriculumFitness)}`)
+    if (options.curriculumWeight > 0) {
+      const cBreakdowns = breakdown.curriculumBreakdowns
+      const cParams = breakdown.curriculumParams ?? []
+      const cN = cBreakdowns.length
+      console.log(`\n=== Curriculum Fitness (${cN} scenarios) ===`)
+      console.log(
+        `  curriculumFitness:  ${fmtNum(breakdown.curriculumFitness)}`
+      )
+
+      if (cN > 0 && cParams.length === cN) {
+        // ── By pattern ──
+        console.log(`\n  ── By pattern ──`)
+        for (const pattern of ALL_PATTERNS) {
+          const indices: number[] = []
+          for (let i = 0; i < cN; i++) {
+            if (cParams[i]?.pattern === pattern) indices.push(i)
+          }
+          if (indices.length === 0) continue
+          const patternFitness =
+            indices.reduce(
+              (sum, i) => sum + (cBreakdowns[i]?.fitness ?? 0),
+              0
+            ) / indices.length
+          const patternKills = indices.reduce(
+            (sum, i) => sum + (cBreakdowns[i]?.rocksDestroyed ?? 0),
+            0
+          )
+          console.log(
+            `  ${pad(pattern + ':', 12)} ${fmtNum(patternFitness)}  (${indices.length} scenarios, ${patternKills} kills)`
+          )
+        }
+
+        // ── By rock count ──
+        console.log(`\n  ── By rock count ──`)
+        const countBuckets = new Map<string, number[]>()
+        for (let i = 0; i < cN; i++) {
+          const rc = cParams[i]?.rockCount ?? 1
+          const label = rc >= 3 ? '3+' : String(rc)
+          const existing = countBuckets.get(label)
+          if (existing != null) {
+            existing.push(i)
+          } else {
+            countBuckets.set(label, [i])
+          }
+        }
+        for (const [label, indices] of [...countBuckets.entries()].sort(
+          (a, b) => a[0].localeCompare(b[0])
+        )) {
+          const bucketFitness =
+            indices.reduce(
+              (sum, i) => sum + (cBreakdowns[i]?.fitness ?? 0),
+              0
+            ) / indices.length
+          const noun = label === '1' ? 'rock' : 'rocks'
+          console.log(
+            `  ${pad(label + ' ' + noun + ':', 12)} ${fmtNum(bucketFitness)}  (${indices.length} scenarios)`
+          )
+        }
+
+        // ── By distance ──
+        console.log(`\n  ── By distance ──`)
+        const distBuckets = new Map<string, number[]>()
+        for (let i = 0; i < cN; i++) {
+          const dist = cParams[i]?.distance ?? 'far'
+          const existing = distBuckets.get(dist)
+          if (existing != null) {
+            existing.push(i)
+          } else {
+            distBuckets.set(dist, [i])
+          }
+        }
+        for (const [label, indices] of distBuckets) {
+          const bucketFitness =
+            indices.reduce(
+              (sum, i) => sum + (cBreakdowns[i]?.fitness ?? 0),
+              0
+            ) / indices.length
+          console.log(
+            `  ${pad(label + ':', 12)} ${fmtNum(bucketFitness)}  (${indices.length} scenarios)`
+          )
+        }
+      }
     }
 
     // ── Print: Blended Fitness ──
@@ -472,7 +535,7 @@ export async function runInspectFitness(
     console.log(
       `    fullGame:   ${fmtNum(breakdown.fullGameFitness)} × ${fmtNum(fw, 2)} = ${fmtNum(fw * breakdown.fullGameFitness)}`
     )
-    if (options.curriculum) {
+    if (options.curriculumWeight > 0) {
       console.log(
         `    curriculum: ${fmtNum(breakdown.curriculumFitness)} × ${fmtNum(cw, 2)} = ${fmtNum(cw * breakdown.curriculumFitness)}`
       )
@@ -487,10 +550,11 @@ export async function runInspectFitness(
         `  thrust: ${pct(aggregatedFrames.thrustFrames / aggregatedFrames.aliveFrames)}  fire: ${pct(aggregatedFrames.fireFrames / aggregatedFrames.aliveFrames)}  left: ${pct(aggregatedFrames.leftFrames / aggregatedFrames.aliveFrames)}  right: ${pct(aggregatedFrames.rightFrames / aggregatedFrames.aliveFrames)}`
       )
     }
-    console.log(`  actionGate:     ${fmtNum(gates.actionGate)}`)
-    console.log(`  turnGate:       ${fmtNum(gates.turnGate)}`)
-    console.log(`  throttleGate:   ${fmtNum(gates.throttleGate)}`)
-    console.log(`  turnBiasGate:   ${fmtNum(gates.turnBiasGate)}`)
+    console.log(`  thrustGate:     ${fmtNum(gates.thrust)}`)
+    console.log(`  fireGate:       ${fmtNum(gates.fire)}`)
+    console.log(`  turnGate:       ${fmtNum(gates.turn)}`)
+    console.log(`  turnBiasGate:   ${fmtNum(gates.turnBias)}`)
+    console.log(`  combinedGate:   ${fmtNum(gates.combined)}`)
     console.log(`  gatedFitness:   ${fmtNum(breakdown.fitness)}`)
 
     agentData.push({ name: entry.name, breakdown })
@@ -506,7 +570,7 @@ export async function runInspectFitness(
     const rowDefs: [string, (d: AgentResult) => number][] = [
       ['scenarioFitness', (d) => d.breakdown.scenarioFitness],
       ['fullGameFitness', (d) => d.breakdown.fullGameFitness],
-      ...(options.curriculum
+      ...(options.curriculumWeight > 0
         ? ([
             [
               'curriculumFitness',
@@ -516,10 +580,10 @@ export async function runInspectFitness(
         : []),
       ['blendedRaw', (d) => d.breakdown.blendedFitnessRaw],
       ['blendedFitness', (d) => d.breakdown.fitness],
-      ['actionGate(agg)', (d) => d.breakdown.gates.actionGate],
-      ['turnGate(agg)', (d) => d.breakdown.gates.turnGate],
-      ['throttleGate(agg)', (d) => d.breakdown.gates.throttleGate],
-      ['turnBiasGate(agg)', (d) => d.breakdown.gates.turnBiasGate],
+      ['thrustGate(agg)', (d) => d.breakdown.gates.thrust],
+      ['fireGate(agg)', (d) => d.breakdown.gates.fire],
+      ['turnGate(agg)', (d) => d.breakdown.gates.turn],
+      ['turnBiasGate(agg)', (d) => d.breakdown.gates.turnBias],
     ]
 
     const tableWidth = labelWidth + 2 + columns.length * colWidth

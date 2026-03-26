@@ -74,6 +74,12 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
 
     this.log(`Using profile: ${profile.label}`)
     this.log(`RL mode: ${rlMode}`)
+    this.log(
+      `Population: ${options.populationSize ?? 100}  Iterations: ${options.iterations ?? 50}  LR: ${options.rlLearningRate ?? 0.001}`
+    )
+    this.log(
+      `Gauntlet: scenarios=${options.scenarioWeight ?? 0.3} fullGame=${options.fullGameWeight ?? 0.6} curriculum=${options.curriculumWeight ?? 0.1}`
+    )
     const profilingParts: string[] = []
     if (cpuProfile) profilingParts.push('CPU')
     if (heapProfile) profilingParts.push('Heap')
@@ -102,6 +108,14 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
 
     // Run RL variant (with optional CPU profiling)
     this.log(`=== ${rlMode.toUpperCase()}-Lamarck Training ===`)
+    if (
+      options.speciationThreshold != null ||
+      options.speciationThresholdMoveAmount != null
+    ) {
+      this.log(
+        `Speciation: threshold=${options.speciationThreshold ?? 'default'} moveAmount=${options.speciationThresholdMoveAmount ?? 'default'}`
+      )
+    }
     const rlOptions: TrainOptions = {
       ...options,
       ...(cpuProfile && { workerCpuProfiles: true }),
@@ -357,6 +371,10 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
       parts.push(`shotPenalty=${options.rlRewardShotPenalty}`)
     if (options.rlRewardWaveBonus != null)
       parts.push(`waveBonus=${options.rlRewardWaveBonus}`)
+    if (options.rlRewardBulletAim != null)
+      parts.push(`bulletAim=${options.rlRewardBulletAim}`)
+    if (options.rlRewardBulletAimOutOfRange != null)
+      parts.push(`bulletAimOOR=${options.rlRewardBulletAimOutOfRange}`)
     if (parts.length > 0) {
       this.log(`Reward overrides: ${parts.join(', ')}`)
     } else {

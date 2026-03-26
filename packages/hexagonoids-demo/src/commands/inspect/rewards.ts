@@ -1,40 +1,45 @@
 import { DEFAULT_REWARD_CONFIG } from '@heygrady/hexagonoids-environment'
 import { Flags } from '@oclif/core'
 import { BaseCommand } from '../../command-base/base-command.js'
-import { inspectFitnessFlags } from '../../command-base/shared-flags.js'
 import {
   defaultInspectRewardsOptions,
   runInspectRewards,
 } from '../../features/inspect/inspectStepRewards.js'
 
 export default class InspectRewardsCommand extends BaseCommand {
-  static override summary = 'Inspect the reward signal for RL training.'
+  static override summary =
+    'Inspect reward-fitness correlation during training.'
 
   static override description =
-    'Runs evaluation and reports per-tick reward events, segment triggers, and alignment with fitness.'
+    'Runs a training loop and reports per-generation Pearson correlation between fitness and total RL reward.'
 
   static override examples = [
     '<%= config.bin %> inspect rewards',
-    '<%= config.bin %> inspect rewards --rockReward 2 --deathPenalty -0.5',
-    '<%= config.bin %> inspect rewards --genome ./genome.json',
+    '<%= config.bin %> inspect rewards --bulletAimReward 1.0 --bulletMissDemerit 0.5',
   ]
 
   static override flags = {
-    ...inspectFitnessFlags,
-    rockReward: Flags.string({
-      summary: 'Reward per rock destroyed',
+    seed: Flags.string({ summary: 'Base seed for training' }),
+    method: Flags.string({ summary: 'Algorithm method (e.g. HyperNEAT)' }),
+    populationSize: Flags.integer({
+      summary: 'Population size',
+      min: 5,
+    }),
+    iterations: Flags.integer({
+      summary: 'Number of generations to run',
+      min: 1,
     }),
     deathPenalty: Flags.string({
       summary: 'Penalty per death (negative number)',
     }),
-    survivalReward: Flags.string({
-      summary: 'Reward per alive tick',
+    bulletAimReward: Flags.string({
+      summary: 'Fire-time reward coefficient for bullet intercept quality',
     }),
-    scoreScale: Flags.string({
-      summary: 'Multiplier for engine score delta',
+    bulletMissDemerit: Flags.string({
+      summary: 'Penalty for bullets fired at nothing',
     }),
-    shotPenalty: Flags.string({
-      summary: 'Penalty per bullet fired',
+    thrustReward: Flags.string({
+      summary: 'Small reward per tick when thrust is active',
     }),
   }
 
@@ -43,54 +48,26 @@ export default class InspectRewardsCommand extends BaseCommand {
     const defaults = defaultInspectRewardsOptions()
 
     const rewardConfig = { ...DEFAULT_REWARD_CONFIG }
-    if (flags.rockReward != null)
-      rewardConfig.rockReward = Number(flags.rockReward)
     if (flags.deathPenalty != null)
       rewardConfig.deathPenalty = Number(flags.deathPenalty)
-    if (flags.survivalReward != null)
-      rewardConfig.survivalReward = Number(flags.survivalReward)
-    if (flags.scoreScale != null)
-      rewardConfig.scoreScale = Number(flags.scoreScale)
-    if (flags.shotPenalty != null)
-      rewardConfig.shotPenalty = Number(flags.shotPenalty)
+    if (flags.bulletAimReward != null)
+      rewardConfig.bulletAimReward = Number(flags.bulletAimReward)
+    if (flags.bulletMissDemerit != null)
+      rewardConfig.bulletMissDemerit = Number(flags.bulletMissDemerit)
+    if (flags.thrustReward != null)
+      rewardConfig.thrustReward = Number(flags.thrustReward)
 
     await runInspectRewards({
-      scenariosPerOrganism:
-        typeof flags.scenariosPerOrganism === 'number'
-          ? flags.scenariosPerOrganism
-          : defaults.scenariosPerOrganism,
-      scenarioMaxTicks:
-        typeof flags.scenarioMaxTicks === 'number'
-          ? flags.scenarioMaxTicks
-          : defaults.scenarioMaxTicks,
       seed: typeof flags.seed === 'string' ? flags.seed : defaults.seed,
-      dtMs: typeof flags.dtMs === 'number' ? flags.dtMs : defaults.dtMs,
-      curriculum: flags.curriculum ?? defaults.curriculum,
-      curriculumCount:
-        typeof flags.curriculumCount === 'number'
-          ? flags.curriculumCount
-          : defaults.curriculumCount,
-      scenarioWeight:
-        typeof flags.scenarioWeight === 'number'
-          ? flags.scenarioWeight
-          : defaults.scenarioWeight,
-      fullGameWeight:
-        typeof flags.fullGameWeight === 'number'
-          ? flags.fullGameWeight
-          : defaults.fullGameWeight,
-      curriculumWeight:
-        typeof flags.curriculumWeight === 'number'
-          ? flags.curriculumWeight
-          : defaults.curriculumWeight,
-      maxTicks:
-        typeof flags.maxTicks === 'number' ? flags.maxTicks : defaults.maxTicks,
-      fullGameSeeds:
-        typeof flags.fullGameSeeds === 'number'
-          ? flags.fullGameSeeds
-          : defaults.fullGameSeeds,
-      genome: typeof flags.genome === 'string' ? flags.genome : undefined,
-      lab: typeof flags.lab === 'string' ? flags.lab : undefined,
       method: typeof flags.method === 'string' ? flags.method : defaults.method,
+      populationSize:
+        typeof flags.populationSize === 'number'
+          ? flags.populationSize
+          : defaults.populationSize,
+      iterations:
+        typeof flags.iterations === 'number'
+          ? flags.iterations
+          : defaults.iterations,
       rewardConfig,
     })
   }

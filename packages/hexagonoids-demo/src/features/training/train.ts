@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import {
+  type BehavioralGateConfig,
   doNothingAgent,
   type FitnessWeights,
   type GateConfig,
@@ -78,11 +79,13 @@ const toRunConfig = (options: TrainOptions) => {
     threadCount:
       options.threadCount ?? Math.max(1, Math.floor(hardwareConcurrency - 1)),
     signal: options.signal,
-    scenarioMode: options.scenarioMode ?? false,
     scenariosPerOrganism: options.scenariosPerOrganism ?? 64,
     scenarioMaxTicks: options.scenarioMaxTicks ?? 32,
+    scenarioWeight: options.scenarioWeight,
+    fullGameWeight: options.fullGameWeight,
+    curriculumWeight: options.curriculumWeight,
     rlMode: options.rlMode ?? 'none',
-    rlLearningRate: options.rlLearningRate ?? 0.01,
+    rlLearningRate: options.rlLearningRate ?? 0.001,
     rlIsLamarckian: options.rlIsLamarckian ?? true,
     rlRewardThreshold: options.rlRewardThreshold ?? 0.1,
     rlEpsilon: options.rlEpsilon ?? 0.3,
@@ -95,6 +98,9 @@ const toRunConfig = (options: TrainOptions) => {
     rlReplayCapacity: options.rlReplayCapacity ?? 10000,
     rlReplayBatchSize: options.rlReplayBatchSize ?? 32,
     rlTargetSyncInterval: options.rlTargetSyncInterval ?? 100,
+    rlWarmupGenerations: options.rlWarmupGenerations ?? 0,
+    speciationThreshold: options.speciationThreshold,
+    speciationThresholdMoveAmount: options.speciationThresholdMoveAmount,
   }
 }
 
@@ -118,14 +124,13 @@ export interface TrainOptions {
   workerHeapProfiles?: boolean | undefined
   workerCpuProfileDir?: string | undefined
   signal?: AbortSignal | undefined
-  scenarioMode?: boolean | undefined
   scenariosPerOrganism?: number | undefined
   scenarioMaxTicks?: number | undefined
-  curriculumEnabled?: boolean | undefined
   curriculumCount?: number | undefined
   curriculumWeight?: number | undefined
   fitnessWeights?: FitnessWeights | undefined
   gateConfig?: Partial<GateConfig> | undefined
+  behavioralGateConfig?: Partial<BehavioralGateConfig> | undefined
   scenarioWeight?: number | undefined
   fullGameWeight?: number | undefined
   scenarioSeedsPerOrganism?: number | undefined
@@ -150,6 +155,15 @@ export interface TrainOptions {
   rlRewardScoreScale?: number | undefined
   rlRewardShotPenalty?: number | undefined
   rlRewardWaveBonus?: number | undefined
+  rlRewardBulletAim?: number | undefined
+  rlRewardBulletAimOutOfRange?: number | undefined
+  rlRewardBulletMissDemerit?: number | undefined
+  rlRewardThrust?: number | undefined
+  rlWarmupGenerations?: number | undefined
+  speciationThreshold?: number | undefined
+  speciationThresholdMoveAmount?: number | undefined
+  stats?: import('@neat-evolution/stats').StatsRecorder | undefined
+  afterEvaluate?: (population: unknown, iteration: number) => void
 }
 
 export interface BaselineRunResult {
@@ -638,17 +652,17 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
   let scenarioBank:
     | import('@heygrady/hexagonoids-environment').ScenarioSnapshot[]
     | undefined
-  if (config.scenarioMode) {
+  if ((config.scenarioWeight ?? 0) > 0) {
     const { loadScenarioBank } = await import('../../data/scenarios.js')
     const loadedScenarioBank = await loadScenarioBank()
     if (loadedScenarioBank.length === 0) {
       throw new Error(
-        'Scenario mode enabled but no scenarios found. Run: yarn workspace @heygrady/hexagonoids-demo demo scenarios'
+        'Scenario weight > 0 but no scenarios found. Run: yarn workspace @heygrady/hexagonoids-demo demo scenarios'
       )
     }
     scenarioBank = loadedScenarioBank
     console.log(
-      `Scenario mode: ${loadedScenarioBank.length} scenarios loaded, ${config.scenariosPerOrganism} per organism, ${config.scenarioMaxTicks} max ticks each`
+      `Scenarios: ${loadedScenarioBank.length} loaded, ${config.scenariosPerOrganism} per organism, ${config.scenarioMaxTicks} max ticks each`
     )
   }
 
@@ -683,71 +697,184 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
 
   const strategy = new IndividualStrategy()
 
+  // ── Shared helpers for warmup + main phase ──
+
+  const handleNewBest = (organism: unknown) => {
+    bestOrganism = organism
+    if (
+      organism != null &&
+      typeof organism === 'object' &&
+      'fitness' in organism &&
+      typeof organism.fitness === 'number'
+    ) {
+      bestFitness = organism.fitness
+    }
+  }
+
+  const createAfterEvaluate = (generationOffset: number) => {
+    return (
+      activePopulation: { best: () => { fitness: number | null } | null },
+      iteration: number
+    ) => {
+      const generation = generationOffset + iteration
+      const best = activePopulation.best()
+      if (best == null) return
+
+      const entry: GenerationLogEntry = {
+        generation,
+        method,
+        bestFitness: best.fitness ?? 0,
+        seeds: generationSeedPack(
+          generation,
+          config.evaluationSeedsPerOrganism,
+          config.baseSeed
+        ),
+        seedsPerOrganism: config.evaluationSeedsPerOrganism,
+        baseSeed: config.baseSeed,
+        elapsedMs: Date.now() - runStart,
+        timestamp: new Date().toISOString(),
+      }
+
+      const logWrite = appendGenerationLog(entry, config.outputDir)
+        .then(() => ({ ok: true }) as const)
+        .catch((error) => ({ ok: false, error }) as const)
+      pendingGenerationWrites.push(logWrite)
+
+      const genomeWrite = saveGenerationGenome(
+        best,
+        generation,
+        config.outputDir
+      )
+        .then(() => ({ ok: true }) as const)
+        .catch((error) => ({ ok: false, error }) as const)
+      pendingGenerationWrites.push(genomeWrite)
+
+      if (options.afterEvaluate != null) {
+        options.afterEvaluate(activePopulation, generation)
+      }
+    }
+  }
+
+  const populationOptions = {
+    populationSize: config.populationSize,
+    ...(config.speciationThreshold != null && {
+      speciationThreshold: config.speciationThreshold,
+    }),
+    ...(config.speciationThresholdMoveAmount != null && {
+      speciationThresholdMoveAmount: config.speciationThresholdMoveAmount,
+    }),
+  }
+
+  const environmentConfig = {
+    config: environment,
+    pathname: CREATE_ENVIRONMENT_PATHNAME,
+  }
+
+  // ── Warmup phase: Baldwinian RL (evaluate with PPO but don't write back) ──
+
+  const warmupGenerations = config.rlWarmupGenerations
+  const useWarmup = warmupGenerations > 0 && config.rlMode !== 'none'
+  let restoredPopulationFactoryOptions: unknown | undefined
+  let generationOffset = 0
+
+  if (useWarmup) {
+    // Baldwinian warmup: PPO improves the fitness signal but weights are NOT
+    // written back.  This selects for organisms that respond well to gradient
+    // updates — a "learnability" filter — without the weight divergence that
+    // breaks speciation.
+    const warmupEvaluatorConfig: EvaluatorConfig = {
+      taskCount: config.populationSize,
+      threadCount: config.threadCount,
+      ...(runtimeConfig.evaluation ?? {}),
+    }
+
+    const warmupExecution =
+      runtimeConfig.execution != null
+        ? {
+            createExecutionManager:
+              runtimeConfig.execution.createExecutionManager,
+            executionManagerFactoryOptions: {
+              ...runtimeConfig.execution.executionManagerFactoryOptions,
+              isLamarckian: false,
+            },
+          }
+        : undefined
+
+    console.log(
+      `[WARMUP] Running ${warmupGenerations} Baldwinian ${config.rlMode} generations (no weight write-back)...`
+    )
+
+    const warmupManager = new EvolutionManager({
+      ...algorithmDetails,
+      environment: environmentConfig,
+      population: { options: populationOptions },
+      evolution: {
+        iterations: warmupGenerations,
+        secondsLimit: 0,
+        earlyStop: false,
+        logInterval: config.logInterval,
+        handleNewBest,
+        afterEvaluate: createAfterEvaluate(0),
+      },
+      evaluation: {
+        strategy,
+        options: warmupEvaluatorConfig,
+        ...(options.stats != null ? { stats: options.stats } : {}),
+      },
+      ...(warmupExecution != null ? { execution: warmupExecution } : {}),
+      ...(config.signal != null ? { signal: config.signal } : {}),
+      rng: createRNG(config.baseSeed),
+    })
+
+    await warmupManager.init()
+    await warmupManager.evolve()
+
+    const popData = warmupManager.getPopulationData()
+    restoredPopulationFactoryOptions = popData.factoryOptions
+    generationOffset = warmupGenerations
+
+    await warmupManager.terminate()
+    console.log(
+      `[WARMUP] Completed ${warmupGenerations} Baldwinian warmup generations. Switching to Lamarckian ${config.rlMode}...`
+    )
+  }
+
+  // ── Main phase (with RL if configured, or only phase if no warmup) ──
+
+  const remainingIterations = useWarmup
+    ? config.iterations - warmupGenerations
+    : config.iterations
+
+  // Slightly relax speciation threshold for RL phases to absorb weight
+  // divergence from backprop updates (0.9 vs default 0.8).
+  const rlPopulationOptions =
+    config.rlMode !== 'none' && config.speciationThreshold == null
+      ? { ...populationOptions, speciationThreshold: 0.9 }
+      : populationOptions
+
   const manager = new EvolutionManager({
     ...algorithmDetails,
-    environment: {
-      config: environment,
-      pathname: CREATE_ENVIRONMENT_PATHNAME,
-    },
+    environment: environmentConfig,
     population: {
-      options: {
-        populationSize: config.populationSize,
-      },
+      options: rlPopulationOptions,
+      ...(restoredPopulationFactoryOptions != null
+        ? { factoryOptions: restoredPopulationFactoryOptions as never }
+        : {}),
     },
     evolution: {
-      iterations: config.iterations,
+      iterations: remainingIterations,
       secondsLimit: config.secondsLimit,
       earlyStop: true,
       earlyStopPatience: config.earlyStopPatience,
       logInterval: config.logInterval,
-      handleNewBest: (organism: unknown) => {
-        bestOrganism = organism
-        if (
-          organism != null &&
-          typeof organism === 'object' &&
-          'fitness' in organism &&
-          typeof organism.fitness === 'number'
-        ) {
-          bestFitness = organism.fitness
-        }
-      },
-      afterEvaluate: (activePopulation, iteration) => {
-        const best = activePopulation.best()
-        if (best == null) return
-
-        const entry: GenerationLogEntry = {
-          generation: iteration,
-          method,
-          bestFitness: best.fitness ?? 0,
-          seeds: generationSeedPack(
-            iteration,
-            config.evaluationSeedsPerOrganism,
-            config.baseSeed
-          ),
-          seedsPerOrganism: config.evaluationSeedsPerOrganism,
-          baseSeed: config.baseSeed,
-          elapsedMs: Date.now() - runStart,
-          timestamp: new Date().toISOString(),
-        }
-
-        const logWrite = appendGenerationLog(entry, config.outputDir)
-          .then(() => ({ ok: true }) as const)
-          .catch((error) => ({ ok: false, error }) as const)
-        pendingGenerationWrites.push(logWrite)
-
-        const genomeWrite = saveGenerationGenome(
-          best,
-          iteration,
-          config.outputDir
-        )
-          .then(() => ({ ok: true }) as const)
-          .catch((error) => ({ ok: false, error }) as const)
-        pendingGenerationWrites.push(genomeWrite)
-      },
+      ...(useWarmup ? { initialMutations: 0 } : {}),
+      handleNewBest,
+      afterEvaluate: createAfterEvaluate(generationOffset),
     },
     evaluation: {
       strategy,
       options: evaluatorConfig,
+      ...(options.stats != null ? { stats: options.stats } : {}),
     },
     ...(runtimeConfig.execution != null
       ? {
@@ -755,7 +882,7 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
         }
       : {}),
     ...(config.signal != null ? { signal: config.signal } : {}),
-    rng: createRNG(config.baseSeed),
+    rng: createRNG(useWarmup ? `${config.baseSeed}:rl` : config.baseSeed),
   })
 
   // Initialize the manager to create workers before starting CPU profiles

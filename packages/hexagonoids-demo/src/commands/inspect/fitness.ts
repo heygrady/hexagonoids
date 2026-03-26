@@ -34,7 +34,6 @@ export default class InspectFitnessCommand extends BaseCommand {
           : defaults.scenarioMaxTicks,
       seed: typeof flags.seed === 'string' ? flags.seed : defaults.seed,
       dtMs: typeof flags.dtMs === 'number' ? flags.dtMs : defaults.dtMs,
-      curriculum: flags.curriculum ?? defaults.curriculum,
       curriculumCount:
         typeof flags.curriculumCount === 'number'
           ? flags.curriculumCount
@@ -60,18 +59,6 @@ export default class InspectFitnessCommand extends BaseCommand {
       genome: typeof flags.genome === 'string' ? flags.genome : undefined,
       lab: typeof flags.lab === 'string' ? flags.lab : undefined,
       method: typeof flags.method === 'string' ? flags.method : defaults.method,
-      actionGateFloor:
-        typeof flags.actionGateFloor === 'number'
-          ? flags.actionGateFloor
-          : undefined,
-      turnGateFloor:
-        typeof flags.turnGateFloor === 'number'
-          ? flags.turnGateFloor
-          : undefined,
-      turnBiasGateFloor:
-        typeof flags.turnBiasGateFloor === 'number'
-          ? flags.turnBiasGateFloor
-          : undefined,
     })
   }
 }

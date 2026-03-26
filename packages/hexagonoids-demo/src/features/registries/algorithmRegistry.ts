@@ -91,6 +91,7 @@ export const createHexagonoidsNEATGenomeOptions = (): NEATGenomeOptions => {
     ...cloneDefaultOptions(defaultNEATGenomeOptions),
     hiddenActivation: HEXAGONOIDS_HIDDEN_ACTIVATION,
     outputActivation: HEXAGONOIDS_OUTPUT_ACTIVATION,
+    useBias: true,
   }
 }
 
@@ -145,6 +146,7 @@ export const createHexagonoidsDESHyperNEATGenomeOptions =
       outputConfig: 'line',
       hiddenActivation: HEXAGONOIDS_HIDDEN_ACTIVATION,
       outputActivation: HEXAGONOIDS_OUTPUT_ACTIVATION,
+      useBias: true,
       ...HEXAGONOIDS_CPPN_MUTATIONS,
     }
   }

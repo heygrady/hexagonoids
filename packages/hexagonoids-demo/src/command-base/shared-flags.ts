@@ -85,9 +85,6 @@ export const trainLikeFlags = {
     min: 1,
     summary: 'Worker thread count',
   }),
-  scenarios: Flags.boolean({
-    summary: 'Enable scenario-mode evaluation',
-  }),
   scenariosPerOrganism: Flags.integer({
     min: 1,
     summary: 'Scenarios per organism',
@@ -186,6 +183,30 @@ export const trainLikeFlags = {
     -10,
     10
   )(),
+  rlRewardBulletAim: floatFlag(
+    'rlRewardBulletAim',
+    'Per-tick coefficient for bullet intercept quality reward',
+    0,
+    1
+  )(),
+  rlRewardBulletAimOutOfRange: floatFlag(
+    'rlRewardBulletAimOutOfRange',
+    'Multiplier for aimed-but-out-of-range bullets (0–1)',
+    0,
+    1
+  )(),
+  rlRewardBulletMissDemerit: floatFlag(
+    'rlRewardBulletMissDemerit',
+    'Penalty for bullets fired at nothing',
+    0,
+    2
+  )(),
+  rlRewardThrust: floatFlag(
+    'rlRewardThrust',
+    'Small reward per tick when thrust is active',
+    0,
+    1
+  )(),
   rlEpochs: Flags.integer({
     min: 1,
     summary: 'PPO training epochs per batch',
@@ -209,6 +230,10 @@ export const trainLikeFlags = {
   rlTargetSyncInterval: Flags.integer({
     min: 1,
     summary: 'DQL target network sync interval',
+  }),
+  rlWarmupGenerations: Flags.integer({
+    min: 0,
+    summary: 'Pure-evolution generations before enabling RL',
   }),
   rlLamarckian: Flags.boolean({
     summary: 'Enable Lamarckian write-back',
@@ -269,9 +294,6 @@ export const inspectFitnessFlags = {
     min: 1,
     summary: 'Simulation step size in milliseconds',
   }),
-  curriculum: Flags.boolean({
-    summary: 'Enable curriculum evaluation',
-  }),
   curriculumCount: Flags.integer({
     min: 1,
     summary: 'Curriculum scenario count',
@@ -300,12 +322,6 @@ export const inspectFitnessFlags = {
     summary: 'Lab directory to inspect',
   }),
   method: trainLikeFlags.method,
-  actionGateFloor: trainLikeFlags.actionGateFloor,
-  turnGateFloor: trainLikeFlags.turnGateFloor,
-  turnBiasGateFloor: floatFlag(
-    'turnBiasGateFloor',
-    'Minimum turn-bias gate output'
-  )(),
 }
 
 export const scenariosFlags = {

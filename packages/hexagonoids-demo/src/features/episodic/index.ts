@@ -39,12 +39,11 @@ function buildVariants(options: EpisodicOptions): VariantConfig[] {
 
   // Start from the tuned default profile, then override for episodic runs.
   // Deep-merge structured objects (fitnessWeights, gateConfig) the same way
-  // the training-oriented workflows do. Only override method, scenarioMode,
-  // baseSeed, and explicit options handed in by the command layer.
+  // the training-oriented workflows do. scenarioMode is inferred from
+  // scenarioWeight > 0. Only override baseSeed and explicit options.
   const shared: TrainOptions = {
     ...profileConfig,
     // Episodic overrides
-    scenarioMode: true,
     baseSeed: options.baseSeed ?? DEFAULT_BASE_SEED,
     // Edge overrides (only when provided)
     ...(options.iterations != null && { iterations: options.iterations }),

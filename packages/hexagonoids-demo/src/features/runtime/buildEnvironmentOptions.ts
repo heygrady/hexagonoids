@@ -21,12 +21,9 @@ export function buildEnvironmentOptions(
 ): Partial<HexagonoidsEnvironmentConfig> {
   const simulation: Partial<SimulationConfig> = {
     useFastThrust: options.useFastThrust ?? true,
-    curriculumEnabled:
-      options.curriculumEnabled ??
-      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.curriculumEnabled,
-    curriculumCount:
-      options.curriculumCount ??
-      DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.simulation.curriculumCount,
+    ...(options.curriculumCount != null && {
+      curriculumCount: options.curriculumCount,
+    }),
     ...(options.maxTicks != null && { maxTicks: options.maxTicks }),
     ...(options.dtMs != null && { dtMs: options.dtMs }),
     ...(options.scenariosPerOrganism != null && {
@@ -64,9 +61,13 @@ export function buildEnvironmentOptions(
     ...(options.fullGameSeedsPerOrganism != null && {
       fullGameSeedsPerOrganism: options.fullGameSeedsPerOrganism,
     }),
+    ...(options.behavioralGateConfig != null && {
+      behavioralGateConfig:
+        options.behavioralGateConfig as HexagonoidsEnvironmentConfig['behavioralGateConfig'],
+    }),
     ...(outputCount != null && { outputCount }),
     ...buildRewardConfig(options),
-  }
+  } as Partial<HexagonoidsEnvironmentConfig>
 }
 
 function buildRewardConfig(
@@ -84,6 +85,14 @@ function buildRewardConfig(
     overrides.shotPenalty = options.rlRewardShotPenalty
   if (options.rlRewardWaveBonus != null)
     overrides.waveBonus = options.rlRewardWaveBonus
+  if (options.rlRewardBulletAim != null)
+    overrides.bulletAimReward = options.rlRewardBulletAim
+  if (options.rlRewardBulletAimOutOfRange != null)
+    overrides.bulletAimOutOfRangeScale = options.rlRewardBulletAimOutOfRange
+  if (options.rlRewardBulletMissDemerit != null)
+    overrides.bulletMissDemerit = options.rlRewardBulletMissDemerit
+  if (options.rlRewardThrust != null)
+    overrides.thrustReward = options.rlRewardThrust
   if (Object.keys(overrides).length === 0) return {}
   return { rewardConfig: overrides }
 }

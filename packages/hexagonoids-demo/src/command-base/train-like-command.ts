@@ -13,6 +13,7 @@ const DEFAULT_FITNESS_WEIGHTS = {
   rocksDestroyed: 0.6,
   accuracy: 0.4,
   targetAccuracy: 0.2,
+  targetKillRatio: 0.5,
 } satisfies FitnessWeights
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -82,12 +83,17 @@ interface TrainLikeNumberFlags {
   rlReplayCapacity?: number
   rlReplayBatchSize?: number
   rlTargetSyncInterval?: number
+  rlWarmupGenerations?: number
   rlRewardRock?: number
   rlRewardDeath?: number
   rlRewardSurvival?: number
   rlRewardScoreScale?: number
   rlRewardShotPenalty?: number
   rlRewardWaveBonus?: number
+  rlRewardBulletAim?: number
+  rlRewardBulletAimOutOfRange?: number
+  rlRewardBulletMissDemerit?: number
+  rlRewardThrust?: number
 }
 
 type TrainLikeFlags = TrainLikeBooleanFlags &
@@ -152,7 +158,6 @@ export abstract class TrainLikeCommand extends BaseCommand {
     options: Partial<TrainOptions>,
     flags: TrainLikeFlags
   ): void {
-    if (flags.scenarios === true) options.scenarioMode = true
     if (isNumber(flags.scenariosPerOrganism)) {
       options.scenariosPerOrganism = flags.scenariosPerOrganism
     }
@@ -274,6 +279,22 @@ export abstract class TrainLikeCommand extends BaseCommand {
     }
     if (isNumber(flags.rlRewardWaveBonus)) {
       options.rlRewardWaveBonus = flags.rlRewardWaveBonus
+    }
+    if (isNumber(flags.rlRewardBulletAim)) {
+      options.rlRewardBulletAim = flags.rlRewardBulletAim
+    }
+    if (isNumber(flags.rlRewardBulletAimOutOfRange)) {
+      options.rlRewardBulletAimOutOfRange = flags.rlRewardBulletAimOutOfRange
+    }
+    if (isNumber(flags.rlRewardBulletMissDemerit)) {
+      options.rlRewardBulletMissDemerit = flags.rlRewardBulletMissDemerit
+    }
+    if (isNumber(flags.rlRewardThrust)) {
+      options.rlRewardThrust = flags.rlRewardThrust
+    }
+
+    if (isNumber(flags.rlWarmupGenerations)) {
+      options.rlWarmupGenerations = flags.rlWarmupGenerations
     }
 
     if (flags.rlLamarckian === true && flags.rlDarwinian === true) {
