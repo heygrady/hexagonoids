@@ -122,6 +122,24 @@ export function ObserveController() {
     )
   }
 
+  // RL reward config URL overrides
+  const parseFloatParam = (name: string): number | undefined => {
+    const v = searchParams.get(name)
+    if (v == null) return undefined
+    const n = parseFloat(v)
+    return Number.isFinite(n) ? n : undefined
+  }
+  const rlLR = parseFloatParam('rlLearningRate')
+  if (rlLR != null) urlOverrides.rlLearningRate = rlLR
+  const rlBulletAim = parseFloatParam('rlRewardBulletAim')
+  if (rlBulletAim != null) urlOverrides.rlRewardBulletAim = rlBulletAim
+  const rlMissDemerit = parseFloatParam('rlRewardBulletMissDemerit')
+  if (rlMissDemerit != null) urlOverrides.rlRewardBulletMissDemerit = rlMissDemerit
+  const rlDeath = parseFloatParam('rlRewardDeath')
+  if (rlDeath != null) urlOverrides.rlRewardDeath = rlDeath
+  const rlThrust = parseFloatParam('rlRewardThrust')
+  if (rlThrust != null) urlOverrides.rlRewardThrust = rlThrust
+
   // observeAgent is set in startGeneration when a new executor arrives
 
   const agentMode = searchParams.get('agent') === 'best' ? 'best' : 'hero'
@@ -177,9 +195,31 @@ export function ObserveController() {
   let curriculumIndex = curriculumPinIndex ?? 0
   let curriculumTicksRemaining = 0
 
+  // Parse RL mode from URL
+  let observeRLMode: TrainOptions['rlMode'] = undefined
+  const rlParam = searchParams.get('rl')
+  if (rlParam === 'ppo') {
+    observeRLMode = 'ppo'
+  } else if (rlParam != null && rlParam !== 'none') {
+    console.warn(
+      `[OBSERVE] Unsupported RL mode "${rlParam}", using none`
+    )
+  }
+
+  // Parse RL warmup generations from URL
+  const rlWarmupParam = searchParams.get('rlWarmup')
+  const rlWarmupParsed =
+    rlWarmupParam != null ? parseInt(rlWarmupParam, 10) : NaN
+  const observeRLWarmup =
+    !Number.isNaN(rlWarmupParsed) && rlWarmupParsed > 0
+      ? rlWarmupParsed
+      : undefined
+
   console.log(
     `[OBSERVE] method=${observeMethod}, ` +
-      `agent=${agentMode}, playback=${playbackMode}, maxGenerations=${observeMaxGenerations}`
+      `agent=${agentMode}, playback=${playbackMode}, maxGenerations=${observeMaxGenerations}` +
+      (observeRLMode != null ? `, rl=${observeRLMode}` : '') +
+      (observeRLWarmup != null ? `, rlWarmup=${observeRLWarmup}` : '')
   )
 
   setObserveTrainingGeneration(1)
@@ -330,8 +370,9 @@ export function ObserveController() {
         curriculumTicksRemaining = maxTicks
         applySnapshotToEngine(snapshot, gameSeed)
         console.log(
-          `[OBSERVE] curriculum index=${prevIndex} cone=${params.coneIndex} ` +
-            `variant=${params.variant} rockSize=${params.rockSize} maxTicks=${maxTicks}` +
+          `[OBSERVE] curriculum index=${prevIndex} pattern=${params.pattern} ` +
+            `angle=${((params.angle * 180) / Math.PI).toFixed(1)}° rocks=${params.rockCount ?? 1} ` +
+            `dist=${params.distance ?? 'far'} maxTicks=${maxTicks}` +
             (curriculumPinIndex != null ? ' (pinned)' : '')
         )
         break
@@ -458,7 +499,8 @@ export function ObserveController() {
       profileOptions.evaluationSeedsPerOrganism ??
       OBSERVE_EVALUATION_SEEDS_PER_ORGANISM,
     evaluationBaseSeed: OBSERVE_SEED,
-    scenarioMode: true,
+    ...(observeRLMode != null && { rlMode: observeRLMode }),
+    ...(observeRLWarmup != null && { rlWarmupGenerations: observeRLWarmup }),
   })
 
   const handleKeyDown = (event: KeyboardEvent) => {

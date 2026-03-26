@@ -24,6 +24,7 @@ export default defineConfig({
         '@neat-evolution/es-hyperneat',
         '@neat-evolution/des-hyperneat',
         '@neat-evolution/executor',
+        '@neat-evolution/rl-core',
         '@heygrady/tictactoe-environment',
         '@heygrady/tictactoe-game',
       ],

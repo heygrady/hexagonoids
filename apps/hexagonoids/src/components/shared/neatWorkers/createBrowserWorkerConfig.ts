@@ -12,6 +12,8 @@ export interface BrowserWorkerModulePathnames {
   algorithmPathname: string
   createEnvironmentPathname: string
   createExecutorPathname: string
+  createExecutorBackpropPathname?: string
+  createPPOExecutionManagerPathname?: string
 }
 
 const extractModulePath = (
@@ -44,6 +46,16 @@ export function resolveBrowserWorkerModulePathnames(
       modulePathnames.algorithmPathname = extractModulePath(key, importFn)
     } else if (key.includes('createEnvironmentPathname')) {
       modulePathnames.createEnvironmentPathname = extractModulePath(
+        key,
+        importFn
+      )
+    } else if (key.includes('createExecutorBackpropPathname')) {
+      modulePathnames.createExecutorBackpropPathname = extractModulePath(
+        key,
+        importFn
+      )
+    } else if (key.includes('createPPOExecutionManagerPathname')) {
+      modulePathnames.createPPOExecutionManagerPathname = extractModulePath(
         key,
         importFn
       )
@@ -84,6 +96,14 @@ export function createBrowserWorkerConfig(
       evaluatorWorkerScriptUrl: workerEvaluatorScriptUrl,
       reproducerWorkerScriptUrl: workerReproducerScriptUrl,
       threadCount,
+      ...(pathnames.createExecutorBackpropPathname != null && {
+        createExecutorBackpropPathname:
+          pathnames.createExecutorBackpropPathname,
+      }),
+      ...(pathnames.createPPOExecutionManagerPathname != null && {
+        createPPOExecutionManagerPathname:
+          pathnames.createPPOExecutionManagerPathname,
+      }),
     },
   }
 }

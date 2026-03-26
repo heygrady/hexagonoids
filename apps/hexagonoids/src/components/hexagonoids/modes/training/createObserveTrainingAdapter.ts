@@ -16,6 +16,7 @@ import {
   mergeConfig,
   type ScenarioSnapshot,
 } from '@heygrady/hexagonoids-environment'
+import { Activation, type OutputActivationSpec } from '@neat-evolution/core'
 import { defaultTopologyConfigOptions } from '@neat-evolution/des-hyperneat'
 import type { EnvironmentDescription } from '@neat-evolution/environment'
 import type { AnyErasedGenome } from '@neat-evolution/evaluator'
@@ -64,6 +65,17 @@ function normalizeThreadCount(value: number | undefined): number {
   return Math.max(1, Math.floor(hardwareConcurrency - 3))
 }
 
+/** PPO uses 4 actions × 2 (paired softmax) + 1 value head = 9 outputs. */
+const ACTION_COUNT = 4
+const PPO_OUTPUT_COUNT = ACTION_COUNT * 2 + 1
+const PPO_OUTPUT_ACTIVATION: OutputActivationSpec = [
+  [2, Activation.Softmax],
+  [2, Activation.Softmax],
+  [2, Activation.Softmax],
+  [2, Activation.Softmax],
+  [1, Activation.Linear],
+]
+
 function buildEnvironmentConfig(
   config: ObserveTrainingConfig,
   scenarioBank?: ScenarioSnapshot[]
@@ -71,12 +83,15 @@ function buildEnvironmentConfig(
   config: HexagonoidsEnvironmentConfig
   description: EnvironmentDescription
 } {
-  const merged = mergeConfig(buildEnvironmentOptions(config, scenarioBank))
+  const outputCount = config.rlMode === 'ppo' ? PPO_OUTPUT_COUNT : undefined
+  const merged = mergeConfig(
+    buildEnvironmentOptions(config, scenarioBank, outputCount)
+  )
   return {
     config: merged,
     description: {
       inputs: INPUT_COUNT,
-      outputs: 4,
+      outputs: outputCount ?? 4,
     },
   }
 }
@@ -128,6 +143,43 @@ function algorithmConfig(method: SupportedAlgorithm): ErasedManagerConfig {
           genomeOptions: createHexagonoidsDESHyperNEATGenomeOptions(),
         },
       }
+  }
+}
+
+function buildPPOExecutionConfig(
+  workerConfig: ReturnType<typeof createBrowserWorkerConfig>,
+  config: ObserveTrainingConfig
+): { createExecutionManager: string; executionManagerFactoryOptions: Record<string, unknown> } | undefined {
+  const evalConfig = workerConfig.evaluatorConfig as Record<string, unknown>
+  const ppoPathname = evalConfig.createPPOExecutionManagerPathname as
+    | string
+    | undefined
+  if (ppoPathname == null) {
+    console.warn('[OBSERVE] PPO execution manager pathname not found')
+    return undefined
+  }
+
+  const ppoConfig = {
+    learningRate: config.rlLearningRate ?? 0.001,
+    actionCount: ACTION_COUNT,
+    multiDiscrete: true,
+    discountFactor: 0.99,
+    clipEpsilon: 0.2,
+    entropyCoefficient: 0.01,
+    valueLossCoefficient: 0.5,
+    gaeLambda: 0.95,
+    normalizeAdvantages: true,
+    trajectoryConfig: {
+      rolloutLength: 'episode' as const,
+    },
+  }
+
+  return {
+    createExecutionManager: ppoPathname,
+    executionManagerFactoryOptions: {
+      config: ppoConfig,
+      isLamarckian: true,
+    },
   }
 }
 
@@ -193,7 +245,7 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
       }, 250)
 
       let scenarioBank: ScenarioSnapshot[] | undefined
-      if (config.scenarioMode !== false) {
+      if ((config.scenarioWeight ?? 0) > 0) {
         try {
           const { loadScenarioBank } = await import(
             '@heygrady/hexagonoids-demo/data/scenarios'
@@ -213,40 +265,156 @@ export function createObserveTrainingAdapter(): ObserveTrainingAdapter {
         scenarioBank
       )
 
-      const manager = new EvolutionManager({
-        ...algorithmConfig(method),
-        environment: {
-          config: {
-            description,
-            toFactoryOptions: () => envConfig,
-          },
-          pathname: workerConfig.createEnvironmentPathname,
-        },
-        evolution: {
-          iterations,
-          afterEvaluateInterval: 1,
-          afterEvaluate: (activePopulation, iteration) => {
-            if (disposed) return
-            const generation = iteration + 1
-            const best = activePopulation.best()
-            generationTarget = Math.min(iterations, generation + 1)
-            emitStatus('training')
+      const rlMode = config.rlMode === 'ppo' ? 'ppo' : 'none'
 
-            if (best?.fitness == null) return
-            emitBest({
-              generation,
-              fitness: best.fitness,
-              organism: best,
-              elapsedMs: performance.now() - startedAt,
-            })
+      // Build algorithm config, overriding output activation for RL
+      const algoConfig = algorithmConfig(method)
+      if (
+        rlMode === 'ppo' &&
+        algoConfig.algorithm.genomeOptions != null
+      ) {
+        const genomeOpts = algoConfig.algorithm.genomeOptions as Record<
+          string,
+          unknown
+        >
+        genomeOpts.outputActivation = PPO_OUTPUT_ACTIVATION
+      }
+
+      // Build evaluator config — RL overrides the executor pathname
+      const evalConfig = workerConfig.evaluatorConfig as Record<string, unknown>
+      const evaluatorOptions = { ...workerConfig.evaluatorConfig }
+      if (rlMode === 'ppo') {
+        const backpropPathname =
+          evalConfig.createExecutorBackpropPathname as string | undefined
+        if (backpropPathname != null) {
+          evaluatorOptions.createExecutorPathname = backpropPathname
+        }
+      }
+
+      // Build execution config for RL
+      const executionConfig =
+        rlMode === 'ppo'
+          ? buildPPOExecutionConfig(workerConfig, config)
+          : undefined
+
+      // ── Shared helpers for warmup + main phase ──
+
+      const environmentOptions = {
+        config: {
+          description,
+          toFactoryOptions: () => envConfig,
+        },
+        pathname: workerConfig.createEnvironmentPathname,
+      }
+
+      const createAfterEvaluate = (generationOffset: number) => {
+        return (
+          activePopulation: { best: () => { fitness: number | null } | null },
+          iteration: number
+        ) => {
+          if (disposed) return
+          const generation = generationOffset + iteration + 1
+          const best = activePopulation.best()
+          generationTarget = Math.min(iterations, generation + 1)
+          emitStatus('training')
+
+          if (best?.fitness == null) return
+          emitBest({
+            generation,
+            fitness: best.fitness,
+            organism: best,
+            elapsedMs: performance.now() - startedAt,
+          })
+        }
+      }
+
+      // ── Warmup phase: Baldwinian PPO (evaluate with PPO but don't write back) ──
+
+      const warmupGenerations = config.rlWarmupGenerations ?? 0
+      const useWarmup = warmupGenerations > 0 && rlMode === 'ppo'
+      let restoredPopulationFactoryOptions: unknown | undefined
+
+      if (useWarmup) {
+        console.log(
+          `[OBSERVE] Running ${warmupGenerations} Baldwinian PPO warmup generations (no weight write-back)...`
+        )
+
+        // Baldwinian execution: same PPO config but isLamarckian = false
+        const warmupExecution =
+          executionConfig != null
+            ? {
+                createExecutionManager: executionConfig.createExecutionManager,
+                executionManagerFactoryOptions: {
+                  ...executionConfig.executionManagerFactoryOptions,
+                  isLamarckian: false,
+                },
+              }
+            : undefined
+
+        const warmupManager = new EvolutionManager({
+          ...algoConfig,
+          environment: environmentOptions,
+          evolution: {
+            iterations: warmupGenerations,
+            earlyStop: false,
+            afterEvaluateInterval: 1,
+            afterEvaluate: createAfterEvaluate(0),
           },
+          population: {
+            options: { populationSize },
+          },
+          evaluation: {
+            options: evaluatorOptions,
+          },
+          ...(warmupExecution != null ? { execution: warmupExecution } : {}),
+          signal: abortController.signal,
+        })
+        currentManager = warmupManager
+
+        await warmupManager.evolve()
+
+        const popData = warmupManager.getPopulationData()
+        restoredPopulationFactoryOptions = popData.factoryOptions
+
+        await warmupManager.terminate()
+        currentManager = null
+        console.log(
+          `[OBSERVE] Baldwinian warmup complete. Switching to Lamarckian PPO for remaining ${iterations - warmupGenerations} generations...`
+        )
+      }
+
+      // ── Main phase ──
+
+      const remainingIterations = useWarmup
+        ? iterations - warmupGenerations
+        : iterations
+      const generationOffset = useWarmup ? warmupGenerations : 0
+
+      // Slightly relax speciation threshold for RL to absorb weight divergence
+      const rlPopulationOptions =
+        rlMode === 'ppo'
+          ? { populationSize, speciationThreshold: 0.9 }
+          : { populationSize }
+
+      const manager = new EvolutionManager({
+        ...algoConfig,
+        environment: environmentOptions,
+        evolution: {
+          iterations: remainingIterations,
+          ...(useWarmup ? { initialMutations: 0 } : {}),
+          afterEvaluateInterval: 1,
+          afterEvaluate: createAfterEvaluate(generationOffset),
         },
         population: {
-          options: { populationSize },
+          options: rlPopulationOptions,
+          ...(restoredPopulationFactoryOptions != null
+            ? { factoryOptions: restoredPopulationFactoryOptions as never }
+            : {}),
         },
         evaluation: {
-          options: workerConfig.evaluatorConfig,
+          options: evaluatorOptions,
         },
+        ...(executionConfig != null ? { execution: executionConfig } : {}),
         signal: abortController.signal,
       })
       currentManager = manager
