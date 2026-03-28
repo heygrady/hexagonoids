@@ -5,15 +5,20 @@
  * how structured reward components align with raw and gated fitness.
  */
 import {
+  computeGateBreakdown,
+  DEFAULT_BEHAVIORAL_GATE_CONFIG,
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
   METRIC_GAUNTLET_BREAKDOWN,
+  mergeConfig,
+  SHAPING_TERM_SEMANTICS,
+  type BehavioralGateConfig,
   type GauntletBreakdown,
   type RewardConfig,
 } from '@heygrady/hexagonoids-environment'
 import { createMemoryRecorder } from '@neat-evolution/stats'
+import { buildEnvironmentOptions, resolveRewardConfig } from '../runtime/buildEnvironmentOptions.js'
 import type { TrainOptions } from '../training/train.js'
 import { train } from '../training/train.js'
-import { resolveRewardConfig } from '../runtime/buildEnvironmentOptions.js'
 import {
   fmtNum,
   pearsonCorrelation,
@@ -29,6 +34,7 @@ export interface InspectRewardsOptions {
   topN: number
   showComponents: boolean
   showModes: boolean
+  showFitnessViews: boolean
   profileConfig?: Partial<TrainOptions> | undefined
 }
 
@@ -42,7 +48,64 @@ export function defaultInspectRewardsOptions(): InspectRewardsOptions {
     topN: 3,
     showComponents: false,
     showModes: false,
+    showFitnessViews: false,
   }
+}
+
+function formatBehavioralGateConfig(config: BehavioralGateConfig): string {
+  return [
+    `thrust[low=${fmtNum(config.thrust.low, 3)} high=${fmtNum(
+      config.thrust.high,
+      3
+    )} easing=${config.thrust.easing} floor=${fmtNum(config.thrust.floor, 3)}]`,
+    `fire[low=${fmtNum(config.fire.low, 3)} high=${fmtNum(
+      config.fire.high,
+      3
+    )} easing=${config.fire.easing} floor=${fmtNum(config.fire.floor, 3)}]`,
+    `turn[low=${fmtNum(config.turn.low, 3)} high=${fmtNum(
+      config.turn.high,
+      3
+    )} easing=${config.turn.easing} floor=${fmtNum(config.turn.floor, 3)}]`,
+    `bias[max=${fmtNum(config.turnBias.max, 3)} easing=${config.turnBias.easing} floor=${fmtNum(config.turnBias.floor, 3)}]`,
+    `combinedFloor=${fmtNum(config.floor, 3)}`,
+  ].join(' ')
+}
+
+function formatTurnGateReferences(config: BehavioralGateConfig): string {
+  const aliveFrames = 1000
+  const thrustFrames = 400
+  const fireFrames = 350
+  const parts = [0.9, 0.95, 0.98, 1].map((turnFraction) => {
+    const turnFrames = Math.round(aliveFrames * turnFraction)
+    const directionalTurns = Math.max(2, turnFrames)
+    const leftFrames = Math.floor(directionalTurns / 2)
+    const rightFrames = directionalTurns - leftFrames
+    const gate = computeGateBreakdown(
+      {
+        thrustFrames,
+        fireFrames,
+        turnFrames,
+        leftFrames,
+        rightFrames,
+        turnConflictFrames: 0,
+        turnAmbiguousFrames: 0,
+        aliveFrames,
+      },
+      config
+    ).turn
+    return `${Math.round(turnFraction * 100)}%->${fmtNum(gate, 3)}`
+  })
+  return parts.join('  ')
+}
+
+function formatRuntimeHooks(
+  hooks: Partial<TrainOptions>['runtimeHooks']
+): string | null {
+  if (hooks == null) return null
+  const parts: string[] = []
+  if (typeof hooks.reward === 'string') parts.push(`reward=${hooks.reward}`)
+  if (typeof hooks.fitness === 'string') parts.push(`fitness=${hooks.fitness}`)
+  return parts.length > 0 ? parts.join(' ') : null
 }
 
 export async function runInspectRewards(
@@ -50,14 +113,31 @@ export async function runInspectRewards(
 ): Promise<void> {
   const pc = (options.profileConfig ?? {}) as Partial<TrainOptions>
   const rewardConfig = options.rewardConfig
+  const resolvedEnvironmentConfig = mergeConfig(buildEnvironmentOptions(pc))
+  const behavioralGateConfig =
+    resolvedEnvironmentConfig.behavioralGateConfig ??
+    DEFAULT_BEHAVIORAL_GATE_CONFIG
 
   console.log('\n=== Reward-Fitness Alignment ===')
   console.log(
     `Population: ${options.populationSize}  Iterations: ${options.iterations}  Seed: "${options.seed}"`
   )
   console.log(
-    `Reward config: kill=${rewardConfig.rockReward} death=${rewardConfig.deathPenalty} survival=${rewardConfig.survivalReward} engagement=${rewardConfig.engagementReward} progress=${rewardConfig.progressReward} shotPenalty=${rewardConfig.shotPenalty} aim=${rewardConfig.bulletAimReward}`
+    `Reward config: objective[kill=${rewardConfig.rockReward} death=${rewardConfig.deathPenalty} scoreScale=${rewardConfig.scoreScale}] shaping[survival=${rewardConfig.survivalReward} thrust=${rewardConfig.thrustReward} engagement(${SHAPING_TERM_SEMANTICS.engagement}Delta)=${rewardConfig.engagementReward} progress(${SHAPING_TERM_SEMANTICS.progress}Delta)=${rewardConfig.progressReward} aim=${rewardConfig.bulletAimReward}] cost[shotPenalty=${rewardConfig.shotPenalty} actionBand=${rewardConfig.actionBandCost} turnConflict=${rewardConfig.turnConflictPenalty}]`
   )
+  console.log(
+    `Shaping semantics: engagement=${SHAPING_TERM_SEMANTICS.engagement}  progress=${SHAPING_TERM_SEMANTICS.progress}`
+  )
+  console.log(
+    `Behavioral gates: ${formatBehavioralGateConfig(behavioralGateConfig)}`
+  )
+  console.log(
+    `Turn gate refs: ${formatTurnGateReferences(behavioralGateConfig)}`
+  )
+  const runtimeHooks = formatRuntimeHooks(pc.runtimeHooks)
+  if (runtimeHooks != null) {
+    console.log(`Runtime hooks: ${runtimeHooks}`)
+  }
   console.log()
 
   const recorder = createMemoryRecorder([METRIC_GAUNTLET_BREAKDOWN])
@@ -85,6 +165,7 @@ export async function runInspectRewards(
     fitnessWeights: pc.fitnessWeights,
     gateConfig: pc.gateConfig,
     behavioralGateConfig: pc.behavioralGateConfig,
+    runtimeHooks: pc.runtimeHooks,
     earlyStopPatience: options.iterations + 1,
     secondsLimit: 0,
     rlRewardRock: rewardConfig.rockReward,
@@ -92,9 +173,10 @@ export async function runInspectRewards(
     rlRewardSurvival: rewardConfig.survivalReward,
     rlRewardEngagement: rewardConfig.engagementReward,
     rlRewardProgress: rewardConfig.progressReward,
+    rlRewardActionBand: rewardConfig.actionBandCost,
+    rlRewardTurnConflict: rewardConfig.turnConflictPenalty,
     rlRewardScoreScale: rewardConfig.scoreScale,
     rlRewardShotPenalty: rewardConfig.shotPenalty,
-    rlRewardWaveBonus: rewardConfig.waveBonus,
     rlRewardBulletAim: rewardConfig.bulletAimReward,
     rlRewardBulletAimOutOfRange: rewardConfig.bulletAimOutOfRangeScale,
     rlRewardBulletMissDemerit: rewardConfig.bulletMissDemerit,
@@ -133,6 +215,7 @@ export async function runInspectRewards(
           topN: options.topN,
           showComponents: options.showComponents,
           showModes: options.showModes,
+          showFitnessViews: options.showFitnessViews,
         }
       )) {
         console.log(line)

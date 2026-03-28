@@ -20,12 +20,14 @@ import {
   METRIC_GAUNTLET_BREAKDOWN,
   mergeConfig,
   randomAgent,
+  SHAPING_TERM_SEMANTICS,
 } from '@heygrady/hexagonoids-environment'
 import type { PartialEvaluationContext } from '@neat-evolution/execution-manager'
 import { createMemoryRecorder } from '@neat-evolution/stats'
 import { createRNG } from '@neat-evolution/utils'
 import { loadScenarioBank } from '../../data/scenarios.js'
 import { defaultProfile } from '../profiles/index.js'
+import { formatTrainingProfileHooks } from '../profiles/summary.js'
 import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
 import { hydrateToExecutor } from '../registries/hydrateGenome.js'
 import type { TrainOptions } from '../training/train.js'
@@ -216,7 +218,7 @@ export async function runInspectFitness(
 ): Promise<void> {
   const pc = (options.profileConfig ??
     defaultProfile.config ??
-    {}) as Record<string, unknown>
+    {}) as Partial<TrainOptions>
 
   const envConfig = mergeConfig({
     simulation: {
@@ -229,6 +231,9 @@ export async function runInspectFitness(
     fitnessWeights: pc.fitnessWeights as Record<string, number> | undefined,
     ...(pc.behavioralGateConfig != null && {
       behavioralGateConfig: pc.behavioralGateConfig,
+    }),
+    ...(pc.runtimeHooks != null && {
+      runtimeHooks: pc.runtimeHooks,
     }),
     scenarioWeight: options.scenarioWeight,
     fullGameWeight: options.fullGameWeight,
@@ -270,6 +275,10 @@ export async function runInspectFitness(
   console.log(
     `Full game: maxTicks=${options.maxTicks} seeds=${options.fullGameSeeds} maxPossibleDeaths=${fgPossibleDeaths} (per-seed from elapsedTicks)`
   )
+  const runtimeHooks = formatTrainingProfileHooks(pc.runtimeHooks)
+  if (runtimeHooks != null) {
+    console.log(`Runtime hooks: ${runtimeHooks}`)
+  }
   console.log()
 
   // Create environment
@@ -568,7 +577,7 @@ export async function runInspectFitness(
     if (options.showRewardTotals) {
       console.log(`\n=== Reward Totals ===`)
       console.log(
-        `  total: ${fmtNum(breakdown.rewardBreakdown.total, 3)}  kill=${fmtNum(breakdown.rewardBreakdown.kill, 3)} death=${fmtNum(breakdown.rewardBreakdown.death, 3)} survival=${fmtNum(breakdown.rewardBreakdown.survival, 3)} engagement=${fmtNum(breakdown.rewardBreakdown.engagement, 3)} progress=${fmtNum(breakdown.rewardBreakdown.progress, 3)} aim=${fmtNum(breakdown.rewardBreakdown.aim, 3)} shotPenalty=${fmtNum(breakdown.rewardBreakdown.shotPenalty, 3)}`
+        `  total: ${fmtNum(breakdown.rewardBreakdown.total, 3)}  kill=${fmtNum(breakdown.rewardBreakdown.kill, 3)} death=${fmtNum(breakdown.rewardBreakdown.death, 3)} survival=${fmtNum(breakdown.rewardBreakdown.survival, 3)} engagement(${SHAPING_TERM_SEMANTICS.engagement})=${fmtNum(breakdown.rewardBreakdown.engagement, 3)} progress(${SHAPING_TERM_SEMANTICS.progress})=${fmtNum(breakdown.rewardBreakdown.progress, 3)} aim=${fmtNum(breakdown.rewardBreakdown.aim, 3)} shotPenalty=${fmtNum(breakdown.rewardBreakdown.shotPenalty, 3)}`
       )
       console.log(
         `  modes: scenarios=${fmtNum(breakdown.rewardBreakdownByMode.scenarios.total, 3)} fullGame=${fmtNum(breakdown.rewardBreakdownByMode.fullGame.total, 3)} curriculum=${fmtNum(breakdown.rewardBreakdownByMode.curriculum.total, 3)}`
