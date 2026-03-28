@@ -2,12 +2,21 @@ import { type PlayerInputs, RADIUS } from '@heygrady/hexagonoids-engine'
 import { createRNG } from '@neat-evolution/utils'
 
 import type { AgentContext, AgentFn } from '../agents/types.js'
-import { MEMORY_ROCK_PERCEPTION, MEMORY_SEEN_ROCKS } from '../agents/types.js'
+import {
+  MEMORY_ACTION_DIAGNOSTICS,
+  MEMORY_ROCK_PERCEPTION,
+  MEMORY_SEEN_ROCKS,
+} from '../agents/types.js'
 import { buildRockPerceptionPrecompute } from '../encoding/collectObservations.js'
 import { findBucketXYZ } from '../evaluation/icosahedralBuckets.js'
 import type { RawMetrics } from '../evaluation/RawMetrics.js'
 import { createMetricsCollector } from '../evaluation/RawMetrics.js'
 import type { SimulationHooks } from '../evaluation/simulateGame.js'
+import {
+  detectTurnConflict,
+  normalizeExclusiveTurnInput,
+  type TurnInputDiagnostics,
+} from '../evaluation/turnInputs.js'
 import { yawToBearing } from '../utils/sphericalBearing.js'
 
 import type { CurriculumScenarioParams } from './generateCurriculumScenario.js'
@@ -181,10 +190,20 @@ export function simulateCurriculumScenario(
     memory[MEMORY_ROCK_PERCEPTION] = rockPerception
 
     // Get agent inputs
-    const inputs = agent(state, PLAYER_ID, context)
+    const rawInputs = agent(state, PLAYER_ID, context)
+    const diagnostics = context.memory[
+      MEMORY_ACTION_DIAGNOSTICS
+    ] as TurnInputDiagnostics | undefined
+    const turnConflict =
+      diagnostics?.turnConflict === true || detectTurnConflict(rawInputs)
+    const turnAmbiguous = diagnostics?.turnAmbiguous === true
+    const inputs = normalizeExclusiveTurnInput(rawInputs)
 
     // Track action usage per live frame
-    collector.addActionFrame(inputs, ship?.alive === true)
+    collector.addActionFrame(inputs, ship?.alive === true, {
+      turnConflict,
+      turnAmbiguous,
+    })
 
     // Track rocks in SOI and unique rocks seen
     if (rockPerception != null && rockPerception.rocks.length > 0) {
@@ -263,6 +282,10 @@ export function simulateCurriculumScenario(
         {
           state,
           playerId: PLAYER_ID,
+          inputs,
+          rawInputs,
+          turnConflict,
+          turnAmbiguous,
           context,
         }
       )

@@ -24,7 +24,7 @@ const defaultBehavioralConfig = DEFAULT_BEHAVIORAL_GATE_CONFIG
 const defaultContext: FitnessContext = {}
 
 function makeMetrics(overrides: Partial<RawMetrics> = {}): RawMetrics {
-  return {
+  const metrics: RawMetrics = {
     score: 0,
     livesRemaining: 3,
     timeAlive: 10000,
@@ -37,8 +37,11 @@ function makeMetrics(overrides: Partial<RawMetrics> = {}): RawMetrics {
     wavesSpawned: 1,
     thrustFrames: 0,
     fireFrames: 0,
+    turnFrames: 0,
     leftFrames: 0,
     rightFrames: 0,
+    turnConflictFrames: 0,
+    turnAmbiguousFrames: 0,
     aliveFrames: 0,
     largeRocksSpawned: 0,
     uniqueRocksSeen: 0,
@@ -46,6 +49,14 @@ function makeMetrics(overrides: Partial<RawMetrics> = {}): RawMetrics {
     uniqueCellsVisited: 0,
     elapsedTicks: 0,
     ...overrides,
+  }
+  return {
+    ...metrics,
+    turnFrames:
+      overrides.turnFrames ??
+      Math.min(metrics.aliveFrames, metrics.leftFrames + metrics.rightFrames),
+    turnConflictFrames: overrides.turnConflictFrames ?? 0,
+    turnAmbiguousFrames: overrides.turnAmbiguousFrames ?? 0,
   }
 }
 
@@ -824,8 +835,10 @@ describe('computeGateBreakdown', () => {
     const frames = {
       thrustFrames: 4000,
       fireFrames: 2000,
+      turnFrames: 6000,
       leftFrames: 3000,
       rightFrames: 3000,
+      turnConflictFrames: 0,
       aliveFrames: 10000,
     }
     const gb = computeGateBreakdown(frames, defaultBehavioralConfig)
@@ -840,8 +853,10 @@ describe('computeGateBreakdown', () => {
     const frames = {
       thrustFrames: 4000,
       fireFrames: 2000,
+      turnFrames: 6000,
       leftFrames: 3000,
       rightFrames: 3000,
+      turnConflictFrames: 0,
       aliveFrames: 10000,
     }
     const gb = computeGateBreakdown(frames, defaultBehavioralConfig)
@@ -853,8 +868,10 @@ describe('computeGateBreakdown', () => {
     const frames = {
       thrustFrames: 4000,
       fireFrames: 2000,
+      turnFrames: 6000,
       leftFrames: 3000,
       rightFrames: 3000,
+      turnConflictFrames: 0,
       aliveFrames: 10000,
     }
     const gb = computeGateBreakdown(frames, defaultBehavioralConfig)

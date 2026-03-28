@@ -8,6 +8,7 @@ import {
 import { randomAgent } from '../agents/randomAgent.js'
 import type { AgentContext, AgentFn } from '../agents/types.js'
 import type { SimulationConfig } from '../HexagonoidsEnvironmentConfig.js'
+import { normalizeExclusiveTurnInput } from '../evaluation/turnInputs.js'
 import { SOI_ANGULAR_RADIUS } from '../utils/constants.js'
 
 import { captureSnapshot } from './captureSnapshot.js'
@@ -163,7 +164,9 @@ export function generateScenarios(
 
       // Get agent inputs and step
       killDetectedThisTick = false
-      const inputs = agent(state, PLAYER_ID, context)
+      const inputs = normalizeExclusiveTurnInput(
+        agent(state, PLAYER_ID, context)
+      )
       stepInputs[PLAYER_ID] = inputs
       engine.tick(stepInputs, dtMs, hooks)
 

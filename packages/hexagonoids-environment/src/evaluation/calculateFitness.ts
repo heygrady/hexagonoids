@@ -14,6 +14,10 @@ import type {
   GateEasing,
   TurnBiasGateConfig,
 } from '../HexagonoidsEnvironmentConfig.js'
+import type {
+  RuntimeHookAnnotations,
+  RuntimeScoringHooksConfig,
+} from '../runtimeHooksTypes.js'
 import {
   DEFAULT_BEHAVIORAL_GATE_CONFIG,
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
@@ -25,7 +29,14 @@ import { computePossibleDeaths } from './scenarioContext.js'
 /** The frame-count fields that behavioral gates need. */
 export type ActionFrames = Pick<
   RawMetrics,
-  'thrustFrames' | 'fireFrames' | 'leftFrames' | 'rightFrames' | 'aliveFrames'
+  | 'thrustFrames'
+  | 'fireFrames'
+  | 'turnFrames'
+  | 'leftFrames'
+  | 'rightFrames'
+  | 'turnConflictFrames'
+  | 'turnAmbiguousFrames'
+  | 'aliveFrames'
 >
 
 function clamp(value: number, min: number, max: number): number {
@@ -194,8 +205,11 @@ export function calculateBehavioralGate(
     metrics.aliveFrames,
     config.fire
   )
-  const turnFrames = metrics.leftFrames + metrics.rightFrames
-  const turn = perActionGate(turnFrames, metrics.aliveFrames, config.turn)
+  const turn = perActionGate(
+    metrics.turnFrames,
+    metrics.aliveFrames,
+    config.turn
+  )
   const bias = perTurnBiasGate(metrics, config.turnBias)
 
   return Math.max((thrust * fire * turn * bias) ** 0.25, config.floor)
@@ -402,10 +416,8 @@ export function computeGateBreakdown(
     aggregatedMetrics.aliveFrames,
     config.fire
   )
-  const turnFrames =
-    aggregatedMetrics.leftFrames + aggregatedMetrics.rightFrames
   const turn = perActionGate(
-    turnFrames,
+    aggregatedMetrics.turnFrames,
     aggregatedMetrics.aliveFrames,
     config.turn
   )
@@ -463,6 +475,13 @@ export interface GauntletBreakdown {
   rewardBreakdownByMode: RewardBreakdownByMode
   /** Total RL reward accumulated across all episodes in the gauntlet. */
   totalReward: number
+  /** Active runtime scoring hook refs for this evaluation. */
+  activeHooks?: RuntimeScoringHooksConfig | undefined
+  /** Hook-produced annotations for inspect and diagnostics. */
+  hookAnnotations?: {
+    reward?: RuntimeHookAnnotations | undefined
+    fitness?: RuntimeHookAnnotations | undefined
+  }
 }
 
 export interface RewardBreakdown {
@@ -475,8 +494,8 @@ export interface RewardBreakdown {
   aim: number
   shotPenalty: number
   death: number
-  waveBonus: number
   actionBand: number
+  turnConflict: number
   total: number
 }
 
@@ -485,6 +504,64 @@ export interface RewardBreakdownByMode {
   fullGame: RewardBreakdown
   curriculum: RewardBreakdown
   total: RewardBreakdown
+}
+
+export const REWARD_COMPONENTS = [
+  'survival',
+  'thrust',
+  'engagement',
+  'progress',
+  'kill',
+  'score',
+  'aim',
+  'shotPenalty',
+  'death',
+  'actionBand',
+  'turnConflict',
+] as const
+
+export type RewardComponent = (typeof REWARD_COMPONENTS)[number]
+
+export type RewardCategory =
+  | 'sparseObjective'
+  | 'denseShaping'
+  | 'behaviorCost'
+
+export const REWARD_CATEGORY_COMPONENTS: Record<
+  RewardCategory,
+  readonly RewardComponent[]
+> = {
+  sparseObjective: ['kill', 'score', 'death'],
+  denseShaping: ['survival', 'thrust', 'engagement', 'progress', 'aim'],
+  behaviorCost: ['shotPenalty', 'actionBand', 'turnConflict'],
+}
+
+export const REWARD_COMPONENT_CATEGORY: Record<
+  RewardComponent,
+  RewardCategory
+> = {
+  survival: 'denseShaping',
+  thrust: 'denseShaping',
+  engagement: 'denseShaping',
+  progress: 'denseShaping',
+  kill: 'sparseObjective',
+  score: 'sparseObjective',
+  aim: 'denseShaping',
+  shotPenalty: 'behaviorCost',
+  death: 'sparseObjective',
+  actionBand: 'behaviorCost',
+  turnConflict: 'behaviorCost',
+}
+
+export function rewardCategoryTotal(
+  breakdown: RewardBreakdown,
+  category: RewardCategory
+): number {
+  let total = 0
+  for (const component of REWARD_CATEGORY_COMPONENTS[category]) {
+    total += breakdown[component]
+  }
+  return total
 }
 
 /**

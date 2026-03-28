@@ -34,6 +34,7 @@ export {
 export {
   type ActionDecoder,
   binaryDecoder,
+  decodeActionOutputs,
   pairedDecoder,
   selectDecoder,
 } from './encoding/actionDecoders.js'
@@ -88,8 +89,14 @@ export {
   type FitnessContext,
   type GateBreakdown,
   type GauntletBreakdown,
+  type RewardCategory,
+  type RewardComponent,
   type RewardBreakdown,
   type RewardBreakdownByMode,
+  REWARD_CATEGORY_COMPONENTS,
+  REWARD_COMPONENT_CATEGORY,
+  REWARD_COMPONENTS,
+  rewardCategoryTotal,
   weightedFitnessSum,
   zScore,
 } from './evaluation/calculateFitness.js'
@@ -106,11 +113,37 @@ export { createMetricsCollector } from './evaluation/RawMetrics.js'
 export { computePossibleDeaths } from './evaluation/scenarioContext.js'
 export {
   DEFAULT_REWARD_CONFIG,
+  SHAPING_TERM_SEMANTICS,
   type RewardConfig,
+  type RewardMode,
+  type SimulationSnapshot,
   type SimulationHooks,
   simulateGame,
   type TickDeltas,
 } from './evaluation/simulateGame.js'
+export {
+  getRuntimeScoringHookModule,
+  registerRuntimeScoringHookModule,
+  resolveRuntimeScoringHooks,
+  type FitnessHookContext,
+  type FitnessHookResult,
+  type ResolvedRuntimeScoringHooks,
+  type RewardHookContext,
+  type RewardHookResult,
+  type RuntimeFitnessHook,
+  type RuntimeRewardHook,
+  type RuntimeScoringHookModule,
+} from './runtimeHooks.js'
+export type {
+  RuntimeHookAnnotationValue,
+  RuntimeHookAnnotations,
+  RuntimeScoringHooksConfig,
+} from './runtimeHooksTypes.js'
+export {
+  detectTurnConflict,
+  normalizeExclusiveTurnInput,
+  type TurnInputDiagnostics,
+} from './evaluation/turnInputs.js'
 // Environment
 export { HexagonoidsEnvironment } from './HexagonoidsEnvironment.js'
 export type {

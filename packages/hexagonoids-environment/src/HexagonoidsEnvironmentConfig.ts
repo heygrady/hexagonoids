@@ -1,4 +1,5 @@
 import type { RewardConfig } from './evaluation/simulateGame.js'
+import type { RuntimeScoringHooksConfig } from './runtimeHooksTypes.js'
 import type { ScenarioSnapshot } from './scenarios/types.js'
 
 export interface SimulationConfig {
@@ -135,12 +136,14 @@ export interface HexagonoidsEnvironmentConfig {
   fullGameSeedsPerOrganism: number
   /** Per-tick reward config for RL step agents. Falls back to DEFAULT_REWARD_CONFIG when omitted. */
   rewardConfig?: Partial<RewardConfig> | undefined
+  /** Worker-safe runtime scoring rig references. */
+  runtimeHooks?: RuntimeScoringHooksConfig | undefined
   /**
    * Total number of genome outputs reported in description.outputs.
-   * Defaults to 4 (the 4 game actions). RL modes may need more:
-   * AC adds 1 critic output (5 total), QL multiDiscrete doubles to 8.
-   * The environment always reads the first 4 outputs for game actions;
-   * extra outputs are consumed by the RL agent.
+   * Defaults to 7: thrust(2), fire(2), turn(3 left/none/right).
+   * RL modes may add a critic/value head or use legacy binary layouts.
+   * The environment decodes outputs by layout:
+   * 7 = grouped categorical action head, 8+ = legacy paired, 4 = legacy binary.
    */
   outputCount?: number | undefined
 }
@@ -242,6 +245,11 @@ export function mergeConfig(
       partial.fullGameSeedsPerOrganism ??
       DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fullGameSeedsPerOrganism,
     ...(partial.rewardConfig != null && { rewardConfig: partial.rewardConfig }),
+    ...(partial.runtimeHooks != null && {
+      runtimeHooks: {
+        ...partial.runtimeHooks,
+      },
+    }),
     ...(partial.outputCount != null && { outputCount: partial.outputCount }),
     ...(partial.behavioralGateConfig != null && {
       behavioralGateConfig: {

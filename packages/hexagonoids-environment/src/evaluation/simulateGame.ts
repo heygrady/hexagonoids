@@ -2,13 +2,17 @@ import {
   createGame,
   type GameState,
   type PlayerInputs,
+  type PlayerInputState,
   RADIUS,
   ROCK_WAVE_SIZES,
   startPlayer,
 } from '@heygrady/hexagonoids-engine'
 
 import type { AgentContext, AgentFn } from '../agents/types.js'
-import { MEMORY_ROCK_PERCEPTION } from '../agents/types.js'
+import {
+  MEMORY_ACTION_DIAGNOSTICS,
+  MEMORY_ROCK_PERCEPTION,
+} from '../agents/types.js'
 import { buildRockPerceptionPrecompute } from '../encoding/collectObservations.js'
 import {
   DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG,
@@ -19,19 +23,33 @@ import { yawToBearing } from '../utils/sphericalBearing.js'
 import { findBucketXYZ } from './icosahedralBuckets.js'
 import type { RawMetrics } from './RawMetrics.js'
 import { createMetricsCollector } from './RawMetrics.js'
+import {
+  detectTurnConflict,
+  normalizeExclusiveTurnInput,
+  type TurnInputDiagnostics,
+} from './turnInputs.js'
 
 export interface RewardConfig {
   survivalReward: number
   /** Legacy per-tick reward while thrust is active. Prefer engagement/progress shaping. */
   thrustReward: number
-  /** Dense reward for staying in useful engagement with visible rocks. */
+  /**
+   * PBRS-style coefficient for target-access improvement.
+   * Exposed as the stable `engagement` reward slot in breakdowns.
+   */
   engagementReward: number
-  /** Dense reward for improving target quality / approach state. */
+  /**
+   * PBRS-style coefficient for encounter-control improvement.
+   * Exposed as the stable `progress` reward slot in breakdowns.
+   */
   progressReward: number
+  /** Soft behavior-cost coefficient for rolling gate shortfall. */
+  actionBandCost: number
+  /** Penalty when both left and right are requested in the same tick. */
+  turnConflictPenalty: number
   scoreScale: number
   shotPenalty: number
   deathPenalty: number
-  waveBonus: number
   rockReward: number
   /** Fire-time reward coefficient for bullet intercept quality (0 = disabled). */
   bulletAimReward: number
@@ -46,15 +64,21 @@ export const DEFAULT_REWARD_CONFIG: RewardConfig = {
   thrustReward: 0,
   engagementReward: 0.01,
   progressReward: 0.05,
+  actionBandCost: 0.006,
+  turnConflictPenalty: 0.003,
   scoreScale: 0,
   shotPenalty: 0.001,
   deathPenalty: -0.5,
-  waveBonus: 0,
   rockReward: 1,
   bulletAimReward: 0,
   bulletAimOutOfRangeScale: 0.1,
   bulletMissDemerit: 0,
 }
+
+export const SHAPING_TERM_SEMANTICS = {
+  engagement: 'targetAccess',
+  progress: 'encounterControl',
+} as const
 
 export interface TickDeltas {
   tick: number
@@ -69,16 +93,34 @@ export interface TickDeltas {
   thrustActive: boolean
 }
 
+export interface SimulationSnapshot {
+  state: GameState
+  playerId: string
+  inputs: {
+    left: boolean
+    right: boolean
+    thrust: boolean
+    fire: boolean
+  }
+  rawInputs: {
+    left: boolean
+    right: boolean
+    thrust: boolean
+    fire: boolean
+  }
+  turnConflict: boolean
+  turnAmbiguous: boolean
+  context: AgentContext
+}
+
 export interface SimulationHooks {
   onAfterTick?(
     deltas: TickDeltas,
-    snapshot: {
-      state: GameState
-      playerId: string
-      context: AgentContext
-    }
+    snapshot: SimulationSnapshot
   ): void
 }
+
+export type RewardMode = 'scenarios' | 'fullGame' | 'curriculum'
 
 const PLAYER_ID = 'player-1'
 /**
@@ -193,10 +235,20 @@ export function simulateGame(
     context.memory[MEMORY_ROCK_PERCEPTION] = rockPerception
 
     // Get agent inputs
-    const inputs = agent(state, PLAYER_ID, context)
+    const rawInputs = agent(state, PLAYER_ID, context)
+    const diagnostics = context.memory[
+      MEMORY_ACTION_DIAGNOSTICS
+    ] as TurnInputDiagnostics | undefined
+    const turnConflict =
+      diagnostics?.turnConflict === true || detectTurnConflict(rawInputs)
+    const turnAmbiguous = diagnostics?.turnAmbiguous === true
+    const inputs: PlayerInputState = normalizeExclusiveTurnInput(rawInputs)
 
     // Track action usage per live frame
-    collector.addActionFrame(inputs, ship?.alive === true)
+    collector.addActionFrame(inputs, ship?.alive === true, {
+      turnConflict,
+      turnAmbiguous,
+    })
 
     // Track rocks in SOI and unique rocks seen
     if (rockPerception != null && rockPerception.rocks.length > 0) {
@@ -269,6 +321,10 @@ export function simulateGame(
         {
           state,
           playerId: PLAYER_ID,
+          inputs,
+          rawInputs,
+          turnConflict,
+          turnAmbiguous,
           context,
         }
       )

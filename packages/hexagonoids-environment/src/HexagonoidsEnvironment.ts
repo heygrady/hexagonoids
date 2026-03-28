@@ -24,9 +24,9 @@ import { INPUT_COUNT } from './encoding/encodingPresets.js'
 import { computeFireTimeAimReward } from './evaluation/bulletAimReward.js'
 import {
   type ActionFrames,
+  computeGateBreakdown,
   applyBehavioralGates,
   computeFitnessBreakdown,
-  computeGateBreakdown,
   type FitnessBreakdown,
   type FitnessContext,
   type GauntletBreakdown,
@@ -43,6 +43,8 @@ import { computePossibleDeaths } from './evaluation/scenarioContext.js'
 import {
   DEFAULT_REWARD_CONFIG,
   type RewardConfig,
+  type RewardMode,
+  type SimulationSnapshot,
   type SimulationHooks,
   simulateGame,
   type TickDeltas,
@@ -52,6 +54,12 @@ import {
   DEFAULT_BEHAVIORAL_GATE_CONFIG,
   mergeConfig,
 } from './HexagonoidsEnvironmentConfig.js'
+import {
+  resolveRuntimeScoringHooks,
+  type ResolvedRuntimeScoringHooks,
+} from './runtimeHooks.js'
+import { applyRewardHookAdjustments, mergeRuntimeHookAnnotations } from './runtimeHooks/shared.js'
+import type { RuntimeHookAnnotations } from './runtimeHooksTypes.js'
 import { simulateScenario } from './scenarios/simulateScenario.js'
 import {
   buildStratifiedIndex,
@@ -60,10 +68,8 @@ import {
 } from './scenarios/stratifiedSample.js'
 import type { ScenarioSnapshot } from './scenarios/types.js'
 
-const DEFAULT_OUTPUT_COUNT = 4
+const DEFAULT_OUTPUT_COUNT = 7
 const PLAYER_ID = 'player-1'
-
-type RewardMode = 'scenarios' | 'fullGame' | 'curriculum'
 
 interface RewardAccumulator {
   total: number
@@ -81,8 +87,8 @@ function createEmptyRewardBreakdown(): RewardBreakdown {
     aim: 0,
     shotPenalty: 0,
     death: 0,
-    waveBonus: 0,
     actionBand: 0,
+    turnConflict: 0,
     total: 0,
   }
 }
@@ -132,18 +138,211 @@ function addRewardComponent(
   accumulator.total = accumulator.breakdown.total.total
 }
 
-function computeEngagementSignal(
+interface TacticalPotentials {
+  /** Quality of the best currently attackable visible rock. */
+  targetAccess: number
+  /** How manageable the immediate encounter looks overall. */
+  encounterControl: number
+}
+
+interface VisibleRockSummary {
+  visibleCount: number
+  bestAccess: number
+  secondAccess: number
+  averageAccess: number
+}
+
+interface RollingActionWindow {
+  frames: Array<{
+    thrust: boolean
+    fire: boolean
+    left: boolean
+    right: boolean
+  }>
+  counts: ActionFrames
+}
+
+function computeTargetAccessPotential(
   rockPerception: RockPerceptionPrecompute | undefined
 ): number {
-  if (rockPerception == null) return 0
-  let best = 0
+  const summary = summarizeVisibleRocks(rockPerception)
+  if (summary.visibleCount === 0) return 0
+
+  const focus = Math.max(0, summary.bestAccess - 0.5 * summary.secondAccess)
+  return Math.min(
+    1,
+    0.55 * summary.bestAccess +
+      0.25 * summary.averageAccess +
+      0.2 * focus
+  )
+}
+
+function computeEncounterControlPotential(
+  rockPerception: RockPerceptionPrecompute | undefined,
+  rockCount: number
+): number {
+  // Cheap proxy for "is this fight getting easier to finish?" without
+  // conflating control with button activity.
+  const summary = summarizeVisibleRocks(rockPerception)
+  const burdenRelief = 1 / (1 + Math.max(0, rockCount) / 3)
+  const localSimplicity =
+    summary.visibleCount <= 1
+      ? 1
+      : 1 / (1 + (summary.visibleCount - 1) / 2)
+  const focus = Math.max(0, summary.bestAccess - 0.5 * summary.secondAccess)
+  const localControl =
+    summary.visibleCount === 0
+      ? 0.2
+      : Math.min(
+          1,
+          0.55 * focus +
+            0.25 * localSimplicity +
+            0.2 * summary.averageAccess
+        )
+
+  return Math.min(
+    1,
+    0.5 * burdenRelief + 0.3 * localControl + 0.2 * summary.bestAccess
+  )
+}
+
+function computeTacticalPotentials(
+  rockPerception: RockPerceptionPrecompute | undefined,
+  rockCount: number
+): TacticalPotentials {
+  const targetAccess = computeTargetAccessPotential(rockPerception)
+  return {
+    targetAccess,
+    encounterControl: computeEncounterControlPotential(
+      rockPerception,
+      rockCount
+    ),
+  }
+}
+
+function summarizeVisibleRocks(
+  rockPerception: RockPerceptionPrecompute | undefined
+): VisibleRockSummary {
+  if (rockPerception == null) {
+    return {
+      visibleCount: 0,
+      bestAccess: 0,
+      secondAccess: 0,
+      averageAccess: 0,
+    }
+  }
+
+  let visibleCount = 0
+  let bestAccess = 0
+  let secondAccess = 0
+  let accessSum = 0
+
   for (const rock of rockPerception.rocks) {
     if (rock == null || rock.id === '' || rock.inVisionRange !== true) continue
+
+    visibleCount += 1
     const distance = Math.min(1, Math.hypot(rock.localX, rock.localY))
-    const score = 1 - distance
-    if (score > best) best = score
+    const proximity = 1 - distance
+    const forwardness =
+      distance > 1e-9 ? Math.max(0, rock.localY / distance) : 1
+    const centeredness = 1 - Math.min(1, Math.abs(rock.localX))
+    const sizeBonus = Math.min(1, rock.radius / 0.055)
+    const attackLane = 1 - Math.min(1, Math.abs(rock.localX) / (0.08 + 2.5 * rock.radius + 0.35 * distance))
+    const access = Math.min(
+      1,
+      proximity *
+        (0.35 * forwardness +
+          0.35 * attackLane +
+          0.2 * centeredness +
+          0.1 * sizeBonus)
+    )
+
+    accessSum += access
+    if (access >= bestAccess) {
+      secondAccess = bestAccess
+      bestAccess = access
+    } else if (access > secondAccess) {
+      secondAccess = access
+    }
   }
-  return best
+
+  return {
+    visibleCount,
+    bestAccess,
+    secondAccess,
+    averageAccess: visibleCount > 0 ? accessSum / visibleCount : 0,
+  }
+}
+
+const ACTION_BAND_WINDOW_SIZE = 64
+const ACTION_BAND_MIN_SAMPLES = 32
+
+function createRollingActionWindow(): RollingActionWindow {
+  return {
+    frames: [],
+    counts: {
+      thrustFrames: 0,
+      fireFrames: 0,
+      turnFrames: 0,
+      leftFrames: 0,
+      rightFrames: 0,
+      turnConflictFrames: 0,
+      turnAmbiguousFrames: 0,
+      aliveFrames: 0,
+    },
+  }
+}
+
+function updateRollingActionWindow(
+  window: RollingActionWindow,
+  inputs: {
+    thrust: boolean
+    fire: boolean
+    left: boolean
+    right: boolean
+  },
+  shipAlive: boolean
+): void {
+  if (!shipAlive) return
+  const frame = {
+    thrust: inputs.thrust,
+    fire: inputs.fire,
+    left: inputs.left,
+    right: inputs.right,
+  }
+  window.frames.push(frame)
+  window.counts.aliveFrames += 1
+  if (frame.thrust) window.counts.thrustFrames += 1
+  if (frame.fire) window.counts.fireFrames += 1
+  if (frame.left || frame.right) window.counts.turnFrames += 1
+  if (frame.left) window.counts.leftFrames += 1
+  if (frame.right) window.counts.rightFrames += 1
+
+  if (window.frames.length > ACTION_BAND_WINDOW_SIZE) {
+    const removed = window.frames.shift()
+    if (removed != null) {
+      window.counts.aliveFrames -= 1
+      if (removed.thrust) window.counts.thrustFrames -= 1
+      if (removed.fire) window.counts.fireFrames -= 1
+      if (removed.left || removed.right) window.counts.turnFrames -= 1
+      if (removed.left) window.counts.leftFrames -= 1
+      if (removed.right) window.counts.rightFrames -= 1
+    }
+  }
+}
+
+function computeRollingActionBandCost(
+  window: RollingActionWindow,
+  config: HexagonoidsEnvironmentConfig['behavioralGateConfig'],
+  coefficient: number
+): number {
+  if (coefficient === 0) return 0
+  if (window.counts.aliveFrames < ACTION_BAND_MIN_SAMPLES) return 0
+  const gates = computeGateBreakdown(
+    window.counts,
+    config ?? DEFAULT_BEHAVIORAL_GATE_CONFIG
+  )
+  return -coefficient * (1 - gates.combined)
 }
 
 function createNoopStepAgent(): StepAgent {
@@ -167,14 +366,22 @@ export class HexagonoidsEnvironment
   private readonly initOptions:
     | EnvironmentInitOptions<StepAgentFactory, StepAgentFactoryOptions>
     | undefined
+  private readonly runtimeHooks: ResolvedRuntimeScoringHooks
   private agentSeedCounter = 0
   private currentRewardAccumulator: RewardAccumulator | undefined
+  private currentHookAnnotations:
+    | {
+        reward?: RuntimeHookAnnotations | undefined
+        fitness?: RuntimeHookAnnotations | undefined
+      }
+    | undefined
 
   constructor(
     config?: Partial<HexagonoidsEnvironmentConfig>,
     initOptions?: EnvironmentInitOptions
   ) {
     this.config = mergeConfig(config)
+    this.runtimeHooks = resolveRuntimeScoringHooks(this.config.runtimeHooks)
     this.initOptions = initOptions as
       | EnvironmentInitOptions<StepAgentFactory, StepAgentFactoryOptions>
       | undefined
@@ -277,14 +484,19 @@ export class HexagonoidsEnvironment
     const frames: ActionFrames = {
       thrustFrames: 0,
       fireFrames: 0,
+      turnFrames: 0,
       leftFrames: 0,
       rightFrames: 0,
+      turnConflictFrames: 0,
+      turnAmbiguousFrames: 0,
       aliveFrames: 0,
     }
 
     // Accumulate RL reward across all episodes
     const rewardAccumulator = createRewardAccumulator()
     this.currentRewardAccumulator = rewardAccumulator
+    this.currentHookAnnotations =
+      this.config.runtimeHooks != null ? {} : undefined
 
     // Collect per-episode breakdowns when stats active
     const scenarioBreakdowns: FitnessBreakdown[] = []
@@ -316,30 +528,29 @@ export class HexagonoidsEnvironment
       const bgConfig =
         this.config.behavioralGateConfig ?? DEFAULT_BEHAVIORAL_GATE_CONFIG
       const gatedFitness = applyBehavioralGates(fitness, frames, bgConfig)
+      const breakdown = this.finalizeGauntletBreakdown({
+        fitness: gatedFitness,
+        blendedFitnessRaw: fitness,
+        scenarioFitness: 0,
+        fullGameFitness: fitness,
+        curriculumFitness: 0,
+        gates: computeGateBreakdown(frames, bgConfig),
+        scenarioBreakdowns: [],
+        fullGameBreakdowns,
+        curriculumBreakdowns: [],
+        aggregatedFrames: { ...frames },
+        rewardBreakdown: cloneRewardBreakdown(rewardAccumulator.breakdown.total),
+        rewardBreakdownByMode: cloneRewardBreakdownByMode(
+          rewardAccumulator.breakdown
+        ),
+        totalReward: rewardAccumulator.total,
+      })
 
       if (wantsBreakdown && stats != null) {
-        const gates = computeGateBreakdown(frames, bgConfig)
-        const breakdown: GauntletBreakdown = {
-          fitness: gatedFitness,
-          blendedFitnessRaw: fitness,
-          scenarioFitness: 0,
-          fullGameFitness: fitness,
-          curriculumFitness: 0,
-          gates,
-          scenarioBreakdowns: [],
-          fullGameBreakdowns,
-          curriculumBreakdowns: [],
-          aggregatedFrames: { ...frames },
-          rewardBreakdown: cloneRewardBreakdown(rewardAccumulator.breakdown.total),
-          rewardBreakdownByMode: cloneRewardBreakdownByMode(
-            rewardAccumulator.breakdown
-          ),
-          totalReward: rewardAccumulator.total,
-        }
         stats.record(METRIC_GAUNTLET_BREAKDOWN, breakdown)
       }
 
-      return gatedFitness
+      return breakdown.fitness
     }
 
     // Normalize weights
@@ -398,31 +609,30 @@ export class HexagonoidsEnvironment
       frames,
       bgConfig
     )
+    const breakdown = this.finalizeGauntletBreakdown({
+      fitness: gatedFitness,
+      blendedFitnessRaw,
+      scenarioFitness,
+      fullGameFitness,
+      curriculumFitness,
+      gates: computeGateBreakdown(frames, bgConfig),
+      scenarioBreakdowns,
+      fullGameBreakdowns,
+      curriculumBreakdowns,
+      curriculumParams,
+      aggregatedFrames: { ...frames },
+      rewardBreakdown: cloneRewardBreakdown(rewardAccumulator.breakdown.total),
+      rewardBreakdownByMode: cloneRewardBreakdownByMode(
+        rewardAccumulator.breakdown
+      ),
+      totalReward: rewardAccumulator.total,
+    })
 
     if (wantsBreakdown && stats != null) {
-      const gates = computeGateBreakdown(frames, bgConfig)
-      const breakdown: GauntletBreakdown = {
-        fitness: gatedFitness,
-        blendedFitnessRaw,
-        scenarioFitness,
-        fullGameFitness,
-        curriculumFitness,
-        gates,
-        scenarioBreakdowns,
-        fullGameBreakdowns,
-        curriculumBreakdowns,
-        curriculumParams,
-        aggregatedFrames: { ...frames },
-        rewardBreakdown: cloneRewardBreakdown(rewardAccumulator.breakdown.total),
-        rewardBreakdownByMode: cloneRewardBreakdownByMode(
-          rewardAccumulator.breakdown
-        ),
-        totalReward: rewardAccumulator.total,
-      }
       stats.record(METRIC_GAUNTLET_BREAKDOWN, breakdown)
     }
 
-    return gatedFitness
+    return breakdown.fitness
   }
 
   async evaluateAsync(
@@ -460,10 +670,13 @@ export class HexagonoidsEnvironment
       ...rewardConfig,
     }
     const dtMs = this.config.simulation.dtMs
+    const behavioralGateConfig =
+      this.config.behavioralGateConfig ?? DEFAULT_BEHAVIORAL_GATE_CONFIG
     let episodeStartTime: number | undefined
-    let previousEngagement = 0
+    let previousPotentials: TacticalPotentials | undefined
+    const actionWindow = createRollingActionWindow()
     return {
-      onAfterTick(deltas: TickDeltas, snapshot) {
+      onAfterTick: (deltas: TickDeltas, snapshot: SimulationSnapshot) => {
         // Capture game time on first tick to filter pre-existing bullets
         if (episodeStartTime === undefined) {
           episodeStartTime = snapshot.state.now
@@ -496,31 +709,55 @@ export class HexagonoidsEnvironment
             deltas.newBullets * resolvedRewardConfig.shotPenalty
           reward += rewardTerms.shotPenalty
         }
-        if (deltas.waveChanged) {
-          rewardTerms.waveBonus += resolvedRewardConfig.waveBonus
-          reward += rewardTerms.waveBonus
+        if (snapshot.turnConflict) {
+          rewardTerms.turnConflict -= resolvedRewardConfig.turnConflictPenalty
+          reward += rewardTerms.turnConflict
         }
+
+        updateRollingActionWindow(
+          actionWindow,
+          snapshot.inputs,
+          deltas.shipAlive
+        )
+        rewardTerms.actionBand += computeRollingActionBandCost(
+          actionWindow,
+          behavioralGateConfig,
+          resolvedRewardConfig.actionBandCost
+        )
+        reward += rewardTerms.actionBand
 
         const rockPerception = snapshot.context.memory[
           MEMORY_ROCK_PERCEPTION
         ] as RockPerceptionPrecompute | undefined
-        const engagementSignal = computeEngagementSignal(rockPerception)
-        if (resolvedRewardConfig.engagementReward !== 0 && engagementSignal > 0) {
-          rewardTerms.engagement +=
-            resolvedRewardConfig.engagementReward * engagementSignal
-          reward += rewardTerms.engagement
+        const currentPotentials = computeTacticalPotentials(
+          rockPerception,
+          snapshot.state.rocks.size
+        )
+        if (previousPotentials != null) {
+          const targetAccessDelta =
+            currentPotentials.targetAccess - previousPotentials.targetAccess
+          if (
+            resolvedRewardConfig.engagementReward !== 0 &&
+            targetAccessDelta !== 0
+          ) {
+            rewardTerms.engagement +=
+              resolvedRewardConfig.engagementReward * targetAccessDelta
+            reward += rewardTerms.engagement
+          }
+
+          const encounterControlDelta =
+            currentPotentials.encounterControl -
+            previousPotentials.encounterControl
+          if (
+            resolvedRewardConfig.progressReward !== 0 &&
+            encounterControlDelta !== 0
+          ) {
+            rewardTerms.progress +=
+              resolvedRewardConfig.progressReward * encounterControlDelta
+            reward += rewardTerms.progress
+          }
         }
-        if (
-          resolvedRewardConfig.progressReward !== 0 &&
-          previousEngagement > 0 &&
-          engagementSignal > previousEngagement
-        ) {
-          rewardTerms.progress +=
-            resolvedRewardConfig.progressReward *
-            (engagementSignal - previousEngagement)
-          reward += rewardTerms.progress
-        }
-        previousEngagement = engagementSignal
+        previousPotentials = currentPotentials
 
         // Bullet aim reward — fire-time intercept prediction
         if (deltas.newBullets > 0 && resolvedRewardConfig.bulletAimReward > 0) {
@@ -538,6 +775,33 @@ export class HexagonoidsEnvironment
               episodeStartTime
             )
             reward += rewardTerms.aim
+          }
+        }
+
+        const rewardHook = this.runtimeHooks.reward
+        if (rewardHook != null && this.runtimeHooks.rewardRef != null) {
+          const hookResult = rewardHook({
+            hookId: this.runtimeHooks.rewardRef,
+            rewardMode,
+            deltas,
+            snapshot,
+            rewardConfig: resolvedRewardConfig,
+            rewardTerms,
+          })
+          if (hookResult?.adjustments != null) {
+            reward += applyRewardHookAdjustments(
+              rewardTerms,
+              hookResult.adjustments
+            )
+          }
+          if (hookResult?.annotations != null) {
+            this.currentHookAnnotations = {
+              ...(this.currentHookAnnotations ?? {}),
+              reward: mergeRuntimeHookAnnotations(
+                this.currentHookAnnotations?.reward,
+                hookResult.annotations
+              ),
+            }
           }
         }
 
@@ -567,8 +831,8 @@ export class HexagonoidsEnvironment
             'aim',
             'shotPenalty',
             'death',
-            'waveBonus',
             'actionBand',
+            'turnConflict',
           ]
           for (const component of components) {
             addRewardComponent(
@@ -642,6 +906,67 @@ export class HexagonoidsEnvironment
     )
   }
 
+  private finalizeGauntletBreakdown(
+    breakdown: GauntletBreakdown
+  ): GauntletBreakdown {
+    const finalized: GauntletBreakdown = {
+      ...breakdown,
+      ...(this.config.runtimeHooks != null
+        ? { activeHooks: { ...this.config.runtimeHooks } }
+        : {}),
+      ...(this.currentHookAnnotations != null
+        ? {
+            hookAnnotations: {
+              ...(this.currentHookAnnotations.reward != null
+                ? { reward: { ...this.currentHookAnnotations.reward } }
+                : {}),
+            },
+          }
+        : {}),
+    }
+
+    const fitnessHook = this.runtimeHooks.fitness
+    if (fitnessHook != null && this.runtimeHooks.fitnessRef != null) {
+      const hookResult = fitnessHook({
+        hookId: this.runtimeHooks.fitnessRef,
+        breakdown: finalized,
+        config: {
+          fitnessWeights: this.config.fitnessWeights,
+          gateConfig: this.config.gateConfig,
+          behavioralGateConfig: this.config.behavioralGateConfig,
+          rewardConfig: this.config.rewardConfig,
+          scenarioWeight: this.config.scenarioWeight,
+          fullGameWeight: this.config.fullGameWeight,
+          curriculumWeight: this.config.curriculumWeight,
+        },
+      })
+
+      if (
+        typeof hookResult?.blendedFitnessRaw === 'number' &&
+        Number.isFinite(hookResult.blendedFitnessRaw)
+      ) {
+        finalized.blendedFitnessRaw = hookResult.blendedFitnessRaw
+      }
+      if (
+        typeof hookResult?.fitness === 'number' &&
+        Number.isFinite(hookResult.fitness)
+      ) {
+        finalized.fitness = hookResult.fitness
+      }
+      if (hookResult?.annotations != null) {
+        finalized.hookAnnotations = {
+          ...(finalized.hookAnnotations ?? {}),
+          fitness: mergeRuntimeHookAnnotations(
+            finalized.hookAnnotations?.fitness,
+            hookResult.annotations
+          ),
+        }
+      }
+    }
+
+    return finalized
+  }
+
   /**
    * Score curriculum micro-scenarios with weightedFitnessSum, then average.
    */
@@ -687,8 +1012,11 @@ export class HexagonoidsEnvironment
     for (const [index, { metrics, params }] of results.entries()) {
       frames.thrustFrames += metrics.thrustFrames
       frames.fireFrames += metrics.fireFrames
+      frames.turnFrames += metrics.turnFrames
       frames.leftFrames += metrics.leftFrames
       frames.rightFrames += metrics.rightFrames
+      frames.turnConflictFrames += metrics.turnConflictFrames
+      frames.turnAmbiguousFrames += metrics.turnAmbiguousFrames
       frames.aliveFrames += metrics.aliveFrames
 
       if (paramsOut != null) {
@@ -820,8 +1148,11 @@ export class HexagonoidsEnvironment
 
     frames.thrustFrames += metrics.thrustFrames
     frames.fireFrames += metrics.fireFrames
+    frames.turnFrames += metrics.turnFrames
     frames.leftFrames += metrics.leftFrames
     frames.rightFrames += metrics.rightFrames
+    frames.turnConflictFrames += metrics.turnConflictFrames
+    frames.turnAmbiguousFrames += metrics.turnAmbiguousFrames
     frames.aliveFrames += metrics.aliveFrames
 
     const fitness = this.scoreMetricsWithBreakdown(
@@ -898,8 +1229,11 @@ export class HexagonoidsEnvironment
 
       frames.thrustFrames += metrics.thrustFrames
       frames.fireFrames += metrics.fireFrames
+      frames.turnFrames += metrics.turnFrames
       frames.leftFrames += metrics.leftFrames
       frames.rightFrames += metrics.rightFrames
+      frames.turnConflictFrames += metrics.turnConflictFrames
+      frames.turnAmbiguousFrames += metrics.turnAmbiguousFrames
       frames.aliveFrames += metrics.aliveFrames
 
       const fitness = this.scoreMetricsWithBreakdown(
@@ -936,6 +1270,15 @@ export class HexagonoidsEnvironment
       simulation: { ...this.config.simulation },
       fitnessWeights: { ...this.config.fitnessWeights },
       gateConfig: { ...this.config.gateConfig },
+      ...(this.config.behavioralGateConfig != null && {
+        behavioralGateConfig: {
+          ...this.config.behavioralGateConfig,
+          thrust: { ...this.config.behavioralGateConfig.thrust },
+          fire: { ...this.config.behavioralGateConfig.fire },
+          turn: { ...this.config.behavioralGateConfig.turn },
+          turnBias: { ...this.config.behavioralGateConfig.turnBias },
+        },
+      }),
       ...(this.config.scenarioBank != null && {
         scenarioBank: this.config.scenarioBank,
       }),
@@ -949,6 +1292,11 @@ export class HexagonoidsEnvironment
       }),
       ...(this.config.rewardConfig != null && {
         rewardConfig: this.config.rewardConfig,
+      }),
+      ...(this.config.runtimeHooks != null && {
+        runtimeHooks: {
+          ...this.config.runtimeHooks,
+        },
       }),
     }
   }
