@@ -3,8 +3,12 @@ import type {
   GateConfig,
   GateEasing,
 } from '@heygrady/hexagonoids-environment'
-import { defaultProfile, getProfile } from '../features/profiles/index.js'
-import { loadProfile } from '../features/profiles/loadProfile.js'
+import {
+  formatResolvedProfileSummary,
+  mergeTrainingProfileConfig,
+} from '../features/profiles/index.js'
+import { resolveProfile } from '../features/profiles/resolveProfile.js'
+import type { ResolvedTrainingProfile } from '../features/profiles/types.js'
 import type { SupportedAlgorithm } from '../features/registries/algorithmRegistry.js'
 import type { TrainOptions } from '../features/training/train.js'
 import { BaseCommand } from './base-command.js'
@@ -15,10 +19,6 @@ const DEFAULT_FITNESS_WEIGHTS = {
   targetAccuracy: 0.2,
   targetKillRatio: 0.5,
 } satisfies FitnessWeights
-
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return value != null && typeof value === 'object'
-}
 
 const isNonEmptyString = (value: unknown): value is string => {
   return typeof value === 'string' && value.length > 0
@@ -89,9 +89,10 @@ interface TrainLikeNumberFlags {
   rlRewardSurvival?: number
   rlRewardEngagement?: number
   rlRewardProgress?: number
+  rlRewardActionBand?: number
+  rlRewardTurnConflict?: number
   rlRewardScoreScale?: number
   rlRewardShotPenalty?: number
-  rlRewardWaveBonus?: number
   rlRewardBulletAim?: number
   rlRewardBulletAimOutOfRange?: number
   rlRewardBulletMissDemerit?: number
@@ -103,29 +104,26 @@ type TrainLikeFlags = TrainLikeBooleanFlags &
   TrainLikeNumberFlags
 
 export abstract class TrainLikeCommand extends BaseCommand {
-  protected async resolveProfile(profileRef: string | undefined): Promise<{
-    config: Partial<TrainOptions>
-    label: string
-  }> {
-    if (profileRef == null) {
-      return {
-        config: defaultProfile.config ?? {},
-        label: defaultProfile.name,
-      }
-    }
+  protected async resolveProfile(
+    profileRef: string | undefined
+  ): Promise<ResolvedTrainingProfile> {
+    return await resolveProfile(profileRef)
+  }
 
-    const namedProfile = getProfile(profileRef)
-    if (namedProfile != null) {
-      return {
-        config: namedProfile.config ?? {},
-        label: namedProfile.name,
-      }
-    }
+  protected profileToTrainOptions(
+    profile: ResolvedTrainingProfile
+  ): Partial<TrainOptions> {
+    return mergeTrainingProfileConfig(profile.config, {
+      runtimeHooks: profile.hooks,
+    }) as Partial<TrainOptions>
+  }
 
-    const profile = await loadProfile(profileRef)
-    return {
-      config: profile.config ?? {},
-      label: profile.name,
+  protected logResolvedProfile(
+    profile: ResolvedTrainingProfile,
+    options?: Partial<TrainOptions>
+  ): void {
+    for (const line of formatResolvedProfileSummary(profile, options)) {
+      this.log(line)
     }
   }
 
@@ -279,14 +277,17 @@ export abstract class TrainLikeCommand extends BaseCommand {
     if (isNumber(flags.rlRewardProgress)) {
       options.rlRewardProgress = flags.rlRewardProgress
     }
+    if (isNumber(flags.rlRewardActionBand)) {
+      options.rlRewardActionBand = flags.rlRewardActionBand
+    }
+    if (isNumber(flags.rlRewardTurnConflict)) {
+      options.rlRewardTurnConflict = flags.rlRewardTurnConflict
+    }
     if (isNumber(flags.rlRewardScoreScale)) {
       options.rlRewardScoreScale = flags.rlRewardScoreScale
     }
     if (isNumber(flags.rlRewardShotPenalty)) {
       options.rlRewardShotPenalty = flags.rlRewardShotPenalty
-    }
-    if (isNumber(flags.rlRewardWaveBonus)) {
-      options.rlRewardWaveBonus = flags.rlRewardWaveBonus
     }
     if (isNumber(flags.rlRewardBulletAim)) {
       options.rlRewardBulletAim = flags.rlRewardBulletAim
@@ -339,37 +340,6 @@ export abstract class TrainLikeCommand extends BaseCommand {
   protected mergeTrainOptions(
     ...sources: Array<Partial<TrainOptions> | undefined>
   ): TrainOptions {
-    const merged: TrainOptions = {}
-    let mergedFitnessWeights: Partial<FitnessWeights> | undefined
-    let mergedGateConfig: Partial<GateConfig> | undefined
-
-    for (const source of sources) {
-      if (source == null) continue
-      Object.assign(merged, source)
-
-      if (isRecord(source.fitnessWeights)) {
-        mergedFitnessWeights = {
-          ...(mergedFitnessWeights ?? {}),
-          ...source.fitnessWeights,
-        }
-      }
-
-      if (isRecord(source.gateConfig)) {
-        mergedGateConfig = {
-          ...(mergedGateConfig ?? {}),
-          ...source.gateConfig,
-        }
-      }
-    }
-
-    if (mergedFitnessWeights != null) {
-      merged.fitnessWeights = mergedFitnessWeights as FitnessWeights
-    }
-
-    if (mergedGateConfig != null) {
-      merged.gateConfig = mergedGateConfig as Partial<GateConfig>
-    }
-
-    return merged
+    return mergeTrainingProfileConfig(...sources) as TrainOptions
   }
 }

@@ -23,12 +23,12 @@ export default class TrainCommand extends TrainLikeCommand {
       typeof flags.profile === 'string' ? flags.profile : undefined
     const profile = await this.resolveProfile(profileRef)
     const options = this.mergeTrainOptions(
-      profile.config,
+      this.profileToTrainOptions(profile),
       this.flagsToTrainOptions(flags),
       { baselineOnly: false }
     )
 
-    this.log(`Using profile: ${profile.label}`)
+    this.logResolvedProfile(profile, options)
     const result = await train(options)
     if (result.mode !== 'training') {
       this.error('Expected training mode result.')

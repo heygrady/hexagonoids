@@ -10,7 +10,7 @@ import {
   type FitnessWeights,
   type GateConfig,
 } from '@heygrady/hexagonoids-environment'
-import { defaultProfile } from '../profiles/index.js'
+import { defaultProfile, mergeTrainingProfileConfig } from '../profiles/index.js'
 import {
   type TrainingRunResult,
   type TrainOptions,
@@ -35,7 +35,10 @@ interface VariantConfig {
 const DEFAULT_BASE_SEED = 'hexagonoids-episodic'
 
 function buildVariants(options: EpisodicOptions): VariantConfig[] {
-  const profileConfig = defaultProfile.config ?? {}
+  const profileConfig = mergeTrainingProfileConfig(
+    defaultProfile.config,
+    { runtimeHooks: defaultProfile.hooks }
+  ) as Partial<TrainOptions>
 
   // Start from the tuned default profile, then override for episodic runs.
   // Deep-merge structured objects (fitnessWeights, gateConfig) the same way

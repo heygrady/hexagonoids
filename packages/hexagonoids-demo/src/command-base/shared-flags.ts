@@ -167,14 +167,26 @@ export const trainLikeFlags = {
   )(),
   rlRewardEngagement: floatFlag(
     'rlRewardEngagement',
-    'Dense reward for useful rock engagement',
+    'Dense reward for improving target access to visible rocks',
     -1,
     1
   )(),
   rlRewardProgress: floatFlag(
     'rlRewardProgress',
-    'Dense reward for improving target quality',
+    'Dense reward for improving encounter control',
     -1,
+    1
+  )(),
+  rlRewardActionBand: floatFlag(
+    'rlRewardActionBand',
+    'Soft cost coefficient for rolling behavioral gate violations',
+    0,
+    1
+  )(),
+  rlRewardTurnConflict: floatFlag(
+    'rlRewardTurnConflict',
+    'Penalty when both left and right turn are requested',
+    0,
     1
   )(),
   rlRewardScoreScale: floatFlag(
@@ -188,12 +200,6 @@ export const trainLikeFlags = {
     'Step penalty per bullet fired',
     0,
     1
-  )(),
-  rlRewardWaveBonus: floatFlag(
-    'rlRewardWaveBonus',
-    'Step bonus for wave clear',
-    -10,
-    10
   )(),
   rlRewardBulletAim: floatFlag(
     'rlRewardBulletAim',

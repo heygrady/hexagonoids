@@ -1,48 +1,49 @@
 import { Flags } from '@oclif/core'
 import { trainLikeFlags } from '../../command-base/shared-flags.js'
 import { TrainLikeCommand } from '../../command-base/train-like-command.js'
-import {
-  defaultInspectRewardsOptions,
-  runInspectRewards,
-} from '../../features/inspect/inspectStepRewards.js'
+import { runRewardValidation } from '../../features/inspect/rewardScreen.js'
 import { resolveRewardConfig } from '../../features/runtime/buildEnvironmentOptions.js'
 
-export default class InspectRewardsCommand extends TrainLikeCommand {
+function parseCsv(value: string | undefined): string[] | undefined {
+  if (value == null || value.trim().length === 0) return undefined
+  return value
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+}
+
+export default class InspectValidateCommand extends TrainLikeCommand {
   static override summary =
-    'Inspect reward-fitness alignment during training.'
+    'Run the longer reward-validation comparison across fixed seeds.'
 
   static override description =
-    'Runs a training loop and reports per-generation alignment between structured reward components and fitness.'
+    'Runs 15-generation-style validation comparing vanilla, A2C, and PPO across fixed seeds for the selected reward candidates and prints a recommendation. When --candidates is omitted, the command first shortlists the top candidates with a compact pre-screen.'
 
   static override examples = [
-    '<%= config.bin %> inspect rewards',
-    '<%= config.bin %> inspect rewards --profile default --showComponents --topN 3',
+    '<%= config.bin %> inspect validate --profile default',
+    '<%= config.bin %> inspect validate --iterations 15 --populationSize 32 --seeds s1,s2,s3 --candidates access-first',
   ]
 
   static override flags = {
     profile: trainLikeFlags.profile,
-    seed: Flags.string({ summary: 'Base seed for training' }),
+    seed: Flags.string({ summary: 'Base seed prefix for validation runs' }),
     method: Flags.string({ summary: 'Algorithm method (e.g. HyperNEAT)' }),
-    populationSize: Flags.integer({
-      summary: 'Population size',
-      min: 5,
-    }),
     iterations: Flags.integer({
-      summary: 'Number of generations to run',
+      summary: 'Iterations per validation run',
       min: 1,
+      default: 15,
     }),
-    topN: Flags.integer({
-      summary: 'Top organisms to print for each ranking slice',
-      min: 1,
+    populationSize: Flags.integer({
+      summary: 'Population size per validation run',
+      min: 5,
+      default: 32,
     }),
-    showComponents: Flags.boolean({
-      summary: 'Show per-component reward correlations',
+    seeds: Flags.string({
+      summary: 'Comma-separated fixed validation seeds',
+      default: 'seed-a,seed-b,seed-c',
     }),
-    showModes: Flags.boolean({
-      summary: 'Show reward totals split by scenario/fullGame/curriculum',
-    }),
-    showFitnessViews: Flags.boolean({
-      summary: 'Show reward correlations against decomposed fitness views',
+    candidates: Flags.string({
+      summary: 'Comma-separated candidate labels to validate',
     }),
     rlRewardRock: trainLikeFlags.rlRewardRock,
     rlRewardDeath: trainLikeFlags.rlRewardDeath,
@@ -66,8 +67,7 @@ export default class InspectRewardsCommand extends TrainLikeCommand {
   }
 
   override async run(): Promise<void> {
-    const { flags } = await this.parse(InspectRewardsCommand)
-    const defaults = defaultInspectRewardsOptions()
+    const { flags } = await this.parse(InspectValidateCommand)
     const profileRef =
       typeof flags.profile === 'string' ? flags.profile : undefined
     const profile = await this.resolveProfile(profileRef)
@@ -77,25 +77,19 @@ export default class InspectRewardsCommand extends TrainLikeCommand {
     )
 
     this.logResolvedProfile(profile, mergedOptions)
-    await runInspectRewards({
-      seed: typeof flags.seed === 'string' ? flags.seed : defaults.seed,
-      method: typeof flags.method === 'string' ? flags.method : defaults.method,
-      populationSize:
-        typeof flags.populationSize === 'number'
-          ? flags.populationSize
-          : defaults.populationSize,
-      iterations:
-        typeof flags.iterations === 'number'
-          ? flags.iterations
-          : defaults.iterations,
-      topN: typeof flags.topN === 'number' ? flags.topN : defaults.topN,
-      showComponents:
-        flags.showComponents === true ? true : defaults.showComponents,
-      showModes: flags.showModes === true ? true : defaults.showModes,
-      showFitnessViews:
-        flags.showFitnessViews === true ? true : defaults.showFitnessViews,
-      rewardConfig: resolveRewardConfig(mergedOptions),
+    await runRewardValidation({
+      seed:
+        typeof flags.seed === 'string' ? flags.seed : 'reward-validate-001',
+      method:
+        typeof flags.method === 'string'
+          ? flags.method
+          : ((mergedOptions.method as string | undefined) ?? 'HyperNEAT'),
+      iterations: flags.iterations,
+      populationSize: flags.populationSize,
+      seeds: parseCsv(flags.seeds) ?? ['seed-a', 'seed-b', 'seed-c'],
+      candidateLabels: parseCsv(flags.candidates),
       profileConfig: mergedOptions,
+      baseRewardConfig: resolveRewardConfig(mergedOptions),
     })
   }
 }

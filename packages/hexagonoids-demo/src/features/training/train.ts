@@ -7,6 +7,7 @@ import {
   type FitnessWeights,
   type GateConfig,
   type RawMetrics,
+  type RuntimeScoringHooksConfig,
   randomAgent,
 } from '@heygrady/hexagonoids-environment'
 import { createEnvironment } from '@heygrady/hexagonoids-environment/node'
@@ -131,6 +132,7 @@ export interface TrainOptions {
   fitnessWeights?: FitnessWeights | undefined
   gateConfig?: Partial<GateConfig> | undefined
   behavioralGateConfig?: Partial<BehavioralGateConfig> | undefined
+  runtimeHooks?: RuntimeScoringHooksConfig | undefined
   scenarioWeight?: number | undefined
   fullGameWeight?: number | undefined
   scenarioSeedsPerOrganism?: number | undefined
@@ -154,9 +156,10 @@ export interface TrainOptions {
   rlRewardSurvival?: number | undefined
   rlRewardEngagement?: number | undefined
   rlRewardProgress?: number | undefined
+  rlRewardActionBand?: number | undefined
+  rlRewardTurnConflict?: number | undefined
   rlRewardScoreScale?: number | undefined
   rlRewardShotPenalty?: number | undefined
-  rlRewardWaveBonus?: number | undefined
   rlRewardBulletAim?: number | undefined
   rlRewardBulletAimOutOfRange?: number | undefined
   rlRewardBulletMissDemerit?: number | undefined
@@ -360,13 +363,19 @@ function algorithmConfig(method: SupportedAlgorithm): ErasedManagerConfig {
   }
 }
 
-const ACTION_COUNT = 4
+const LEGACY_ACTION_COUNT = 4
+const GROUPED_ACTION_FACTOR_SIZES = [2, 2, 3] as const
+const GROUPED_ACTION_FACTOR_COUNT = GROUPED_ACTION_FACTOR_SIZES.length
+const GROUPED_ACTION_OUTPUT_COUNT = GROUPED_ACTION_FACTOR_SIZES.reduce(
+  (sum, size) => sum + size,
+  0
+)
 
 /**
  * Determine genome output count and activation based on RL mode.
- * - Vanilla: 8 outputs, 4 × [2, Softmax] (paired softmax per action)
- * - AC: 9 outputs (4 × [2, Softmax] + [1, Linear])
- * - QL multiDiscrete: 8 outputs (2 Q-values per action), Linear
+ * - Vanilla: 7 outputs, thrust(2) + fire(2) + turn(3)
+ * - AC/A2C/PPO: 8 outputs (+ value head)
+ * - QL multiDiscrete: 7 outputs, one categorical group per control factor
  * - QL flat: 4 outputs, Linear
  */
 function rlOutputConfig(
@@ -378,61 +387,58 @@ function rlOutputConfig(
 } {
   if (rlMode === 'actor-critic') {
     return {
-      outputCount: ACTION_COUNT * 2 + 1,
+      outputCount: GROUPED_ACTION_OUTPUT_COUNT + 1,
       outputActivation: [
         [2, Activation.Softmax],
         [2, Activation.Softmax],
-        [2, Activation.Softmax],
-        [2, Activation.Softmax],
+        [3, Activation.Softmax],
         [1, Activation.Linear],
       ],
     }
   }
   if (rlMode === 'a2c' || rlMode === 'ppo') {
-    // Same layout as actor-critic: paired softmax + value head
+    // Same layout as actor-critic: grouped categorical + value head
     return {
-      outputCount: ACTION_COUNT * 2 + 1,
+      outputCount: GROUPED_ACTION_OUTPUT_COUNT + 1,
       outputActivation: [
         [2, Activation.Softmax],
         [2, Activation.Softmax],
-        [2, Activation.Softmax],
-        [2, Activation.Softmax],
+        [3, Activation.Softmax],
         [1, Activation.Linear],
       ],
     }
   }
   if (rlMode === 'q-learning' && rlMultiDiscrete) {
     return {
-      outputCount: ACTION_COUNT * 2,
+      outputCount: GROUPED_ACTION_OUTPUT_COUNT,
       outputActivation: Activation.Linear,
     }
   }
   if (rlMode === 'q-learning') {
     return {
-      outputCount: ACTION_COUNT,
+      outputCount: LEGACY_ACTION_COUNT,
       outputActivation: Activation.Linear,
     }
   }
   if (rlMode === 'dql') {
     if (rlMultiDiscrete) {
       return {
-        outputCount: ACTION_COUNT * 2,
+        outputCount: GROUPED_ACTION_OUTPUT_COUNT,
         outputActivation: Activation.Linear,
       }
     }
     return {
-      outputCount: ACTION_COUNT,
+      outputCount: LEGACY_ACTION_COUNT,
       outputActivation: Activation.Linear,
     }
   }
-  // Vanilla: paired softmax (4 actions × 2 outputs each)
+  // Vanilla: grouped categorical thrust(2) + fire(2) + turn(3)
   return {
-    outputCount: ACTION_COUNT * 2,
+    outputCount: GROUPED_ACTION_OUTPUT_COUNT,
     outputActivation: [
       [2, Activation.Softmax],
       [2, Activation.Softmax],
-      [2, Activation.Softmax],
-      [2, Activation.Softmax],
+      [3, Activation.Softmax],
     ],
   }
 }
@@ -455,7 +461,8 @@ function buildRLEvaluatorConfig(config: ReturnType<typeof toRunConfig>): {
   if (config.rlMode === 'actor-critic') {
     const acConfig: ActorCriticStepAgentConfig = {
       learningRate: config.rlLearningRate,
-      actionCount: ACTION_COUNT,
+      actionCount: GROUPED_ACTION_FACTOR_COUNT,
+      actionFactorSizes: GROUPED_ACTION_FACTOR_SIZES,
       multiDiscrete: true,
       gradientConfig: {
         discountFactor: 0.99,
@@ -486,7 +493,8 @@ function buildRLEvaluatorConfig(config: ReturnType<typeof toRunConfig>): {
     }
     const a2cConfig: A2CStepAgentConfig = {
       learningRate: config.rlLearningRate,
-      actionCount: ACTION_COUNT,
+      actionCount: GROUPED_ACTION_FACTOR_COUNT,
+      actionFactorSizes: GROUPED_ACTION_FACTOR_SIZES,
       multiDiscrete: true,
       discountFactor: 0.99,
       gaeLambda: 0.95,
@@ -515,7 +523,12 @@ function buildRLEvaluatorConfig(config: ReturnType<typeof toRunConfig>): {
   if (config.rlMode === 'q-learning') {
     const qlConfig: QLearningStepAgentConfig = {
       learningRate: config.rlLearningRate,
-      actionCount: ACTION_COUNT,
+      actionCount: config.rlMultiDiscrete
+        ? GROUPED_ACTION_FACTOR_COUNT
+        : LEGACY_ACTION_COUNT,
+      ...(config.rlMultiDiscrete && {
+        actionFactorSizes: GROUPED_ACTION_FACTOR_SIZES,
+      }),
       discountFactor: 0.99,
       rolloutConfig,
       epsilonInitial: config.rlEpsilon,
@@ -540,7 +553,12 @@ function buildRLEvaluatorConfig(config: ReturnType<typeof toRunConfig>): {
   if (config.rlMode === 'dql') {
     const dqlConfig: DeepQLearningStepAgentConfig = {
       learningRate: config.rlLearningRate,
-      actionCount: ACTION_COUNT,
+      actionCount: config.rlMultiDiscrete
+        ? GROUPED_ACTION_FACTOR_COUNT
+        : LEGACY_ACTION_COUNT,
+      ...(config.rlMultiDiscrete && {
+        actionFactorSizes: GROUPED_ACTION_FACTOR_SIZES,
+      }),
       multiDiscrete: config.rlMultiDiscrete,
       discountFactor: 0.99,
       epsilonInitial: config.rlEpsilon,
@@ -576,7 +594,8 @@ function buildRLEvaluatorConfig(config: ReturnType<typeof toRunConfig>): {
     }
     const ppoConfig: PPOStepAgentConfig = {
       learningRate: config.rlLearningRate,
-      actionCount: ACTION_COUNT,
+      actionCount: GROUPED_ACTION_FACTOR_COUNT,
+      actionFactorSizes: GROUPED_ACTION_FACTOR_SIZES,
       multiDiscrete: true,
       discountFactor: 0.99,
       clipEpsilon: 0.2,
@@ -677,6 +696,18 @@ export async function train(options: TrainOptions = {}): Promise<TrainResult> {
       rlOutputs.outputCount
     )
   )
+  if (options.runtimeHooks != null) {
+    const hookParts: string[] = []
+    if (typeof options.runtimeHooks.reward === 'string') {
+      hookParts.push(`reward=${options.runtimeHooks.reward}`)
+    }
+    if (typeof options.runtimeHooks.fitness === 'string') {
+      hookParts.push(`fitness=${options.runtimeHooks.fitness}`)
+    }
+    if (hookParts.length > 0) {
+      console.log(`Runtime hooks: ${hookParts.join(' ')}`)
+    }
+  }
 
   const algorithmDetails = algorithmConfig(method)
   // Override genomeOptions with RL-specific output activation

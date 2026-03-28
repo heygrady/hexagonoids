@@ -33,7 +33,7 @@ export default class BaselineCommand extends TrainLikeCommand {
       typeof flags.profile === 'string' ? flags.profile : undefined
     const profile = await this.resolveProfile(profileRef)
     const options = this.mergeTrainOptions(
-      profile.config,
+      this.profileToTrainOptions(profile),
       this.flagsToTrainOptions(flags),
       { baselineOnly: true }
     )
@@ -43,9 +43,9 @@ export default class BaselineCommand extends TrainLikeCommand {
       this.error('Expected baseline mode result.')
     }
 
+    this.logResolvedProfile(profile, options)
     this.log(`Mode: baseline`)
     this.log(`Method: ${result.method}`)
-    this.log(`Profile: ${profile.label}`)
     this.log(`Seeds: ${result.seeds.length}`)
     for (const score of result.scores) {
       this.log(

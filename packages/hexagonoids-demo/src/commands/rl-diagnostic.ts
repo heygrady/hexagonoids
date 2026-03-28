@@ -3,7 +3,12 @@ import { join } from 'node:path'
 
 import { Flags } from '@oclif/core'
 import { createMemoryRecorder } from '@neat-evolution/stats'
-import { METRIC_GAUNTLET_BREAKDOWN, type GauntletBreakdown } from '@heygrady/hexagonoids-environment'
+import {
+  DEFAULT_REWARD_CONFIG,
+  METRIC_GAUNTLET_BREAKDOWN,
+  SHAPING_TERM_SEMANTICS,
+  type GauntletBreakdown,
+} from '@heygrady/hexagonoids-environment'
 
 import { formatNumber } from '../command-base/output.js'
 import { trainLikeFlags } from '../command-base/shared-flags.js'
@@ -65,7 +70,7 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
         ? { earlyStopPatience: iterations + 1, secondsLimit: 0 }
         : {}
     const options = this.mergeTrainOptions(
-      profile.config,
+      this.profileToTrainOptions(profile),
       flagOptions,
       { baselineOnly: false },
       disableEarlyStop
@@ -88,7 +93,7 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
       ? createMemoryRecorder([METRIC_GAUNTLET_BREAKDOWN])
       : undefined
 
-    this.log(`Using profile: ${profile.label}`)
+    this.logResolvedProfile(profile, options)
     this.log(`RL mode: ${rlMode}`)
     this.log(
       `Population: ${options.populationSize ?? 100}  Iterations: ${options.iterations ?? 50}  LR: ${options.rlLearningRate ?? 0.001}`
@@ -404,15 +409,22 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
     if (options.rlRewardSurvival != null)
       parts.push(`survival=${options.rlRewardSurvival}`)
     if (options.rlRewardEngagement != null)
-      parts.push(`engagement=${options.rlRewardEngagement}`)
+      parts.push(
+        `engagement(${SHAPING_TERM_SEMANTICS.engagement})=${options.rlRewardEngagement}`
+      )
     if (options.rlRewardProgress != null)
-      parts.push(`progress=${options.rlRewardProgress}`)
+      parts.push(
+        `progress(${SHAPING_TERM_SEMANTICS.progress})=${options.rlRewardProgress}`
+      )
+    if (options.rlRewardActionBand != null)
+      parts.push(`actionBand=${options.rlRewardActionBand}`)
+    if (options.rlRewardTurnConflict != null) {
+      parts.push(`turnConflict=${options.rlRewardTurnConflict}`)
+    }
     if (options.rlRewardScoreScale != null)
       parts.push(`scoreScale=${options.rlRewardScoreScale}`)
     if (options.rlRewardShotPenalty != null)
       parts.push(`shotPenalty=${options.rlRewardShotPenalty}`)
-    if (options.rlRewardWaveBonus != null)
-      parts.push(`waveBonus=${options.rlRewardWaveBonus}`)
     if (options.rlRewardBulletAim != null)
       parts.push(`bulletAim=${options.rlRewardBulletAim}`)
     if (options.rlRewardBulletAimOutOfRange != null)
@@ -421,7 +433,7 @@ export default class RlDiagnosticCommand extends TrainLikeCommand {
       this.log(`Reward overrides: ${parts.join(', ')}`)
     } else {
       this.log(
-        'Reward config: defaults (rock=1, death=-0.5, survival=0.002, engagement=0.01, progress=0.05)'
+        `Reward config: defaults (rock=${DEFAULT_REWARD_CONFIG.rockReward}, death=${DEFAULT_REWARD_CONFIG.deathPenalty}, survival=${DEFAULT_REWARD_CONFIG.survivalReward}, engagement(${SHAPING_TERM_SEMANTICS.engagement})=${DEFAULT_REWARD_CONFIG.engagementReward}, progress(${SHAPING_TERM_SEMANTICS.progress})=${DEFAULT_REWARD_CONFIG.progressReward}, actionBand=${DEFAULT_REWARD_CONFIG.actionBandCost}, turnConflict=${DEFAULT_REWARD_CONFIG.turnConflictPenalty})`
       )
     }
   }

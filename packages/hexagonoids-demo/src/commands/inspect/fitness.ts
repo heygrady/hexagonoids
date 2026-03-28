@@ -26,10 +26,11 @@ export default class InspectFitnessCommand extends TrainLikeCommand {
       typeof flags.profile === 'string' ? flags.profile : undefined
     const profile = await this.resolveProfile(profileRef)
     const mergedOptions = this.mergeTrainOptions(
-      profile.config,
+      this.profileToTrainOptions(profile),
       this.flagsToTrainOptions(flags)
     )
 
+    this.logResolvedProfile(profile, mergedOptions)
     await runInspectFitness({
       scenariosPerOrganism:
         typeof flags.scenariosPerOrganism === 'number'
