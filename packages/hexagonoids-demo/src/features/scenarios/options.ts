@@ -16,7 +16,7 @@ function findPackageRoot() {
 }
 
 export const packageRoot = findPackageRoot()
-export const EXPECTED_OUTPUTS = 4
+export const EXPECTED_OUTPUTS = 7
 export const EXPECTED_IO: ExpectedIoShape = {
   inputs: INPUT_COUNT,
   outputs: EXPECTED_OUTPUTS,

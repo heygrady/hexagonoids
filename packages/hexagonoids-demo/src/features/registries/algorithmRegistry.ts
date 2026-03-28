@@ -61,7 +61,7 @@ export interface AlgorithmDefinition {
 
 export const HEXAGONOIDS_IO: AlgorithmIO = {
   inputs: INPUT_COUNT,
-  outputs: 4,
+  outputs: 7,
 }
 
 const cloneDefaultOptions = <T>(defaults: T): T => structuredClone(defaults)

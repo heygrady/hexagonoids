@@ -67,6 +67,9 @@ export function buildEnvironmentOptions(
       behavioralGateConfig:
         options.behavioralGateConfig as HexagonoidsEnvironmentConfig['behavioralGateConfig'],
     }),
+    ...(options.runtimeHooks != null && {
+      runtimeHooks: options.runtimeHooks,
+    }),
     ...(outputCount != null && { outputCount }),
     ...buildRewardConfig(options),
   } as Partial<HexagonoidsEnvironmentConfig>
@@ -85,16 +88,14 @@ function buildRewardConfig(
     overrides.engagementReward = options.rlRewardEngagement
   if (options.rlRewardProgress != null)
     overrides.progressReward = options.rlRewardProgress
-  if (options.rlRewardEngagement != null)
-    overrides.engagementReward = options.rlRewardEngagement
-  if (options.rlRewardProgress != null)
-    overrides.progressReward = options.rlRewardProgress
+  if (options.rlRewardActionBand != null)
+    overrides.actionBandCost = options.rlRewardActionBand
+  if (options.rlRewardTurnConflict != null)
+    overrides.turnConflictPenalty = options.rlRewardTurnConflict
   if (options.rlRewardScoreScale != null)
     overrides.scoreScale = options.rlRewardScoreScale
   if (options.rlRewardShotPenalty != null)
     overrides.shotPenalty = options.rlRewardShotPenalty
-  if (options.rlRewardWaveBonus != null)
-    overrides.waveBonus = options.rlRewardWaveBonus
   if (options.rlRewardBulletAim != null)
     overrides.bulletAimReward = options.rlRewardBulletAim
   if (options.rlRewardBulletAimOutOfRange != null)
