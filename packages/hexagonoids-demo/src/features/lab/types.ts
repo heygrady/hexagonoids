@@ -24,7 +24,6 @@ export interface LabConfig {
 
 export interface ScoringProfile {
   productionFitness: number
-  alternativeScores: Record<string, number>
 }
 
 export interface GenomeBehavior {
@@ -40,11 +39,7 @@ export interface GenomeBehavior {
   score: number
 }
 
-export type {
-  ScoringMethod,
-  TrainingProfile,
-  TrainingProfile as LabProfile,
-} from '../profiles/types.js'
+export type { TrainingProfile, TrainingProfile as LabProfile } from '../profiles/types.js'
 
 export interface LabAnalysis {
   config: LabConfig

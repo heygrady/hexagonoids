@@ -17,7 +17,7 @@ import {
   loadTrainingFitness,
 } from '../registries/hydrateGenome.js'
 import { generationSeedPack } from '../training/evaluation/seedSchedule.js'
-import type { GenomeBehavior, ScoringMethod } from './types.js'
+import type { GenomeBehavior } from './types.js'
 
 export interface AnalyzeGenomesOptions {
   genomePaths: string[]
@@ -26,7 +26,6 @@ export interface AnalyzeGenomesOptions {
   maxTicks: number
   dtMs: number
   baseSeed: string
-  scoringMethods?: Record<string, ScoringMethod> | undefined
   fitnessWeights?: FitnessWeights | undefined
   gateConfig?: GateConfig | undefined
   onProgress?: (completed: number, total: number) => void
@@ -42,7 +41,6 @@ export async function analyzeGenomes(
     maxTicks,
     dtMs,
     baseSeed,
-    scoringMethods,
     fitnessWeights,
     gateConfig,
     onProgress,
@@ -68,7 +66,6 @@ export async function analyzeGenomes(
     // Compute fitness per seed (avoids aggregation bug where summed deaths
     // exceed possibleDeaths and collapse survivalTerm to 0)
     const perSeedFitness: number[] = []
-    const perSeedAltScores: Record<string, number[]> = {}
     for (const m of allMetrics) {
       const possibleDeaths = computePossibleDeaths(m.elapsedTicks, dtMs)
       if (fitnessWeights != null && gateConfig != null) {
@@ -81,25 +78,11 @@ export async function analyzeGenomes(
       } else {
         perSeedFitness.push(evaluateFullGameFitness(m, dtMs))
       }
-      if (scoringMethods != null) {
-        for (const [name, fn] of Object.entries(scoringMethods)) {
-          let arr = perSeedAltScores[name]
-          if (arr == null) {
-            arr = []
-            perSeedAltScores[name] = arr
-          }
-          arr.push(fn(m, { generation: i }))
-        }
-      }
     }
 
     const n = allMetrics.length
     const productionFitness =
       n > 0 ? perSeedFitness.reduce((a, b) => a + b, 0) / n : 0
-    const alternativeScores: Record<string, number> = {}
-    for (const [name, arr] of Object.entries(perSeedAltScores)) {
-      alternativeScores[name] = arr.reduce((a, b) => a + b, 0) / n
-    }
 
     // Aggregated metrics for behavioral profile (sums → averages for report)
     const aggregated = aggregateMetrics(allMetrics)
@@ -111,7 +94,7 @@ export async function analyzeGenomes(
       action: profile.action,
       movement: profile.movement,
       engagement: profile.engagement,
-      scoring: { productionFitness, alternativeScores },
+      scoring: { productionFitness },
       rocksDestroyed: aggregated.rocksDestroyed / n,
       accuracy: aggregated.accuracy,
       deaths: aggregated.deaths / n,

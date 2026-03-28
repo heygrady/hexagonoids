@@ -7,7 +7,7 @@ import { WorkerPool } from '@neat-evolution/worker-pool'
 import { hardwareConcurrency } from '@neat-evolution/worker-threads'
 
 import type { SupportedAlgorithm } from '../registries/algorithmRegistry.js'
-import type { GenomeBehavior, ScoringMethod } from './types.js'
+import type { GenomeBehavior } from './types.js'
 import {
   analyzeBatch,
   type GenomeRef,
@@ -23,7 +23,6 @@ export interface LabWorkerPool {
     maxTicks: number
     dtMs: number
     baseSeed: string
-    scoringMethods?: Record<string, ScoringMethod> | undefined
     fitnessWeights?: FitnessWeights | undefined
     gateConfig?: GateConfig | undefined
     onProgress?: (completed: number, total: number) => void
@@ -77,15 +76,10 @@ export async function createLabWorkerPool(options?: {
         maxTicks,
         dtMs,
         baseSeed,
-        scoringMethods,
         fitnessWeights,
         gateConfig,
         onProgress,
       } = analyzeOptions
-
-      const hasScoringMethods =
-        scoringMethods != null && Object.keys(scoringMethods).length > 0
-      const includePerSeedMetrics = hasScoringMethods
 
       // Build genome refs with generation index
       const genomeRefs: GenomeRef[] = genomePaths.map((genomePath, i) => ({
@@ -109,7 +103,6 @@ export async function createLabWorkerPool(options?: {
               maxTicks,
               dtMs,
               baseSeed,
-              includePerSeedMetrics,
               ...(fitnessWeights != null ? { fitnessWeights } : {}),
               ...(gateConfig != null ? { gateConfig } : {}),
             })
@@ -127,29 +120,7 @@ export async function createLabWorkerPool(options?: {
       const behaviors: GenomeBehavior[] = []
       for (const result of results) {
         for (const entry of result.entries) {
-          const behavior = entry.behavior
-
-          // Apply scoring methods on main thread if needed
-          if (hasScoringMethods && entry.perSeedMetrics != null) {
-            const perSeedAltScores: Record<string, number[]> = {}
-            for (const m of entry.perSeedMetrics) {
-              for (const [name, fn] of Object.entries(scoringMethods!)) {
-                let arr = perSeedAltScores[name]
-                if (arr == null) {
-                  arr = []
-                  perSeedAltScores[name] = arr
-                }
-                arr.push(fn(m, { generation: behavior.generation }))
-              }
-            }
-            const n = entry.perSeedMetrics.length
-            for (const [name, arr] of Object.entries(perSeedAltScores)) {
-              behavior.scoring.alternativeScores[name] =
-                arr.reduce((a, b) => a + b, 0) / n
-            }
-          }
-
-          behaviors.push(behavior)
+          behaviors.push(entry.behavior)
         }
       }
 

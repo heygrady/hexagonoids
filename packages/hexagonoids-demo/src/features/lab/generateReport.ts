@@ -44,15 +44,6 @@ export async function generateReport(
   lines.push(`Analysis max ticks: ${analysis.config.analysisMaxTicks}`)
   lines.push('')
 
-  // Collect alternative scoring method names
-  const altNames = new Set<string>()
-  for (const b of analysis.behaviors) {
-    for (const name of Object.keys(b.scoring.alternativeScores)) {
-      altNames.add(name)
-    }
-  }
-  const altNameList = [...altNames].sort()
-
   // Header
   const headers = [
     pad('Gen', 4),
@@ -71,9 +62,6 @@ export async function generateReport(
     pad('Death', 6),
     pad('Eng%', 6),
   ]
-  for (const name of altNameList) {
-    headers.push(pad(name.slice(0, 10), 10))
-  }
 
   lines.push(headers.join(' '))
   lines.push('-'.repeat(headers.join(' ').length))
@@ -97,9 +85,6 @@ export async function generateReport(
       pad(String(b.deaths), 6),
       pad(pct(b.engagement.framesWithRocksInSOIPct), 6),
     ]
-    for (const name of altNameList) {
-      row.push(pad(fmt(b.scoring.alternativeScores[name] ?? 0, 4), 10))
-    }
     lines.push(row.join(' '))
   }
 

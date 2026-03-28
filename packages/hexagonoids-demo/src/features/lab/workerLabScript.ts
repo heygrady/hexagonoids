@@ -98,7 +98,6 @@ handler.register(
       maxTicks,
       dtMs,
       baseSeed,
-      includePerSeedMetrics,
       fitnessWeights,
       gateConfig,
     } = payload
@@ -158,18 +157,14 @@ handler.register(
         action: profile.action,
         movement: profile.movement,
         engagement: profile.engagement,
-        scoring: { productionFitness, alternativeScores: {} },
+        scoring: { productionFitness },
         rocksDestroyed: aggregated.rocksDestroyed / n,
         accuracy: aggregated.accuracy,
         deaths: aggregated.deaths / n,
         score: aggregated.score / n,
       }
 
-      const entry: AnalyzeBatchResultEntry = { behavior }
-      if (includePerSeedMetrics) {
-        entry.perSeedMetrics = allMetrics
-      }
-      entries.push(entry)
+      entries.push({ behavior })
     }
 
     return { entries }

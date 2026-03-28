@@ -11,8 +11,11 @@ import {
 const PACKAGE_ROOT = fileURLToPath(new URL('../../../..', import.meta.url))
 
 import { defaultProfile } from '../profiles/index.js'
-import { loadProfile } from '../profiles/loadProfile.js'
-import type { TrainingProfile } from '../profiles/types.js'
+import {
+  formatResolvedProfileSummary,
+  mergeTrainingProfileConfig,
+} from '../profiles/index.js'
+import { resolveProfile } from '../profiles/resolveProfile.js'
 import { LAB_ANALYSIS_DEFAULTS } from '../runtime/configDefaults.js'
 import { type TrainOptions, train } from '../training/train.js'
 import { generateReport } from './generateReport.js'
@@ -32,52 +35,47 @@ export async function runLab(options: LabOptions = {}): Promise<{
   analysisPath: string
   summaryPath: string
 }> {
-  // Load profile: explicit --profile flag, or built-in default
-  let profile: TrainingProfile
-  if (options.profilePath != null) {
-    profile = await loadProfile(options.profilePath)
-    console.log(`Loading profile from ${options.profilePath}...`)
-  } else {
-    profile = defaultProfile
-    console.log('Using default profile')
-  }
-
-  const profileConfig = profile.config ?? {}
+  const profile = await resolveProfile(options.profilePath)
+  const resolvedProfileConfig = mergeTrainingProfileConfig(profile.config, {
+    runtimeHooks: profile.hooks,
+  })
+  const profileTrainConfig = resolvedProfileConfig as Partial<TrainOptions>
 
   const experimentId = createExperimentId(options.name)
   const experimentDir = resolve(PACKAGE_ROOT, '.artifacts', 'lab', experimentId)
   await mkdir(experimentDir, { recursive: true })
 
   // Merge config: default profile -> loaded profile -> explicit command options
-  const trainOptions: TrainOptions = {
-    ...(defaultProfile.config ?? {}),
-    ...profileConfig,
-    ...options,
-    // Deep merge structured objects
-    fitnessWeights: {
-      ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
-      ...defaultProfile.config?.fitnessWeights,
-      ...profileConfig.fitnessWeights,
-      ...options.fitnessWeights,
-    },
-    gateConfig: {
-      ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
-      ...defaultProfile.config?.gateConfig,
-      ...profileConfig.gateConfig,
-      ...options.gateConfig,
-    },
-    outputDir: experimentDir,
-  }
+  const trainOptions = mergeTrainingProfileConfig(
+    defaultProfile.config,
+    profileTrainConfig,
+    options,
+    {
+      fitnessWeights: {
+        ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.fitnessWeights,
+        ...defaultProfile.config?.fitnessWeights,
+        ...resolvedProfileConfig.fitnessWeights,
+        ...options.fitnessWeights,
+      },
+      gateConfig: {
+        ...DEFAULT_HEXAGONOIDS_ENVIRONMENT_CONFIG.gateConfig,
+        ...defaultProfile.config?.gateConfig,
+        ...resolvedProfileConfig.gateConfig,
+        ...options.gateConfig,
+      },
+      outputDir: experimentDir,
+    }
+  ) as TrainOptions
 
   const config: LabConfig = {
     experimentId,
     analysisSeedsPerGenome:
       options.analysisSeedsPerGenome ??
-      profileConfig.analysisSeedsPerGenome ??
+      resolvedProfileConfig.analysisSeedsPerGenome ??
       LAB_ANALYSIS_DEFAULTS.analysisSeedsPerGenome,
     analysisMaxTicks:
       options.analysisMaxTicks ??
-      profileConfig.analysisMaxTicks ??
+      resolvedProfileConfig.analysisMaxTicks ??
       LAB_ANALYSIS_DEFAULTS.analysisMaxTicks,
     trainOptions,
   }
@@ -93,6 +91,9 @@ export async function runLab(options: LabOptions = {}): Promise<{
 
   console.log(`\nLab experiment: ${experimentId}`)
   console.log(`Output: ${experimentDir}`)
+  for (const line of formatResolvedProfileSummary(profile, trainOptions)) {
+    console.log(line)
+  }
   console.log(
     `Method: ${method}, Iterations: ${trainOptions.iterations ?? '?'}, Population: ${trainOptions.populationSize ?? '?'}`
   )
@@ -142,7 +143,6 @@ export async function runLab(options: LabOptions = {}): Promise<{
     maxTicks: config.analysisMaxTicks,
     dtMs: trainOptions.dtMs ?? 33,
     baseSeed: trainOptions.baseSeed ?? 'hexagonoids-phase03',
-    scoringMethods: profile.scoringMethods,
     fitnessWeights: trainOptions.fitnessWeights as FitnessWeights | undefined,
     gateConfig: trainOptions.gateConfig as GateConfig | undefined,
     onProgress: (completed, total) => {

@@ -25,8 +25,6 @@ export interface AnalyzeBatchPayload {
   maxTicks: number
   dtMs: number
   baseSeed: string
-  /** When true, worker includes per-seed raw metrics for main-thread scoring */
-  includePerSeedMetrics: boolean
   /** Optional fitness weights from the training profile for production fitness scoring */
   fitnessWeights?: import('@heygrady/hexagonoids-environment').FitnessWeights
   /** Optional gate config from the training profile for production fitness scoring */
@@ -35,8 +33,6 @@ export interface AnalyzeBatchPayload {
 
 export interface AnalyzeBatchResultEntry {
   behavior: GenomeBehavior
-  /** Only populated when includePerSeedMetrics was true in the request */
-  perSeedMetrics?: import('@heygrady/hexagonoids-environment').RawMetrics[]
 }
 
 export interface AnalyzeBatchResult {
