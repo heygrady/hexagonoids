@@ -38,17 +38,20 @@ function applyInputs(
     const ship = state.ships.get(player.shipId)
     if (ship == null) continue
 
+    const turnLeft = input.left && !input.right
+    const turnRight = input.right && !input.left
+
     // Track left input hold
-    if (input.left && player.leftPressedAt == null) {
+    if (turnLeft && player.leftPressedAt == null) {
       player.leftPressedAt = now
-    } else if (!input.left) {
+    } else if (!turnLeft) {
       player.leftPressedAt = null
     }
 
     // Track right input hold
-    if (input.right && player.rightPressedAt == null) {
+    if (turnRight && player.rightPressedAt == null) {
       player.rightPressedAt = now
-    } else if (!input.right) {
+    } else if (!turnRight) {
       player.rightPressedAt = null
     }
 
@@ -59,11 +62,11 @@ function applyInputs(
       player.thrustPressedAt = null
     }
 
-    if (input.left) {
+    if (turnLeft) {
       const leftDuration = now - player.leftPressedAt!
       turnShip(ship, -1, dtMs, leftDuration)
     }
-    if (input.right) {
+    if (turnRight) {
       const rightDuration = now - player.rightPressedAt!
       turnShip(ship, 1, dtMs, rightDuration)
     }
