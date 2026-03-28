@@ -1,7 +1,11 @@
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode'
 import {
+  formatResolvedProfileSummary,
+  formatTrainingProfileHooks,
+  mergeTrainingProfileConfig,
   SUPPORTED_ALGORITHMS,
+  summarizeResolvedProfileConfig,
   type SupportedAlgorithm,
   type TrainOptions,
 } from '@heygrady/hexagonoids-demo'
@@ -36,6 +40,7 @@ import {
 } from './constants'
 import {
   createObserveTrainingAdapter,
+  type ObserveTrainingConfig,
   organismToExecutor,
 } from './training/createObserveTrainingAdapter'
 import { getObserveProfile } from './training/profiles'
@@ -96,11 +101,10 @@ export function ObserveController() {
   const searchParams = new URLSearchParams(window.location.search)
 
   const profileName = searchParams.get('profile') ?? 'default'
-  const profileOptions: Partial<TrainOptions> =
-    getObserveProfile(profileName) ?? {}
-  if (Object.keys(profileOptions).length > 0) {
-    console.log(`[OBSERVE] profile=${profileName}`, profileOptions)
-  } else if (profileName !== 'default') {
+  const resolvedProfile =
+    getObserveProfile(profileName) ?? getObserveProfile('default')
+  const profileOptions = (resolvedProfile?.config ?? {}) as Partial<TrainOptions>
+  if (resolvedProfile == null && profileName !== 'default') {
     console.log(`[OBSERVE] profile=${profileName} (not found)`)
   }
 
@@ -139,6 +143,30 @@ export function ObserveController() {
   if (rlDeath != null) urlOverrides.rlRewardDeath = rlDeath
   const rlThrust = parseFloatParam('rlRewardThrust')
   if (rlThrust != null) urlOverrides.rlRewardThrust = rlThrust
+  const observeConfig = mergeTrainingProfileConfig(
+    profileOptions,
+    resolvedProfile != null ? { runtimeHooks: resolvedProfile.hooks } : {},
+    urlOverrides
+  ) as ObserveTrainingConfig
+
+  if (resolvedProfile != null) {
+    console.groupCollapsed(
+      `[OBSERVE] profile=${profileName} resolved=${resolvedProfile.label}`
+    )
+    for (const line of formatResolvedProfileSummary(resolvedProfile, observeConfig)) {
+      console.log(line)
+    }
+    console.log(
+      'URL overrides:',
+      Object.keys(urlOverrides).length > 0 ? urlOverrides : '(none)'
+    )
+    console.log('Resolved key config:', summarizeResolvedProfileConfig(observeConfig))
+    console.log(
+      'Resolved hooks:',
+      formatTrainingProfileHooks(resolvedProfile.hooks) ?? '(none)'
+    )
+    console.groupEnd()
+  }
 
   // observeAgent is set in startGeneration when a new executor arrives
 
@@ -165,7 +193,7 @@ export function ObserveController() {
   const observeMaxGenerations =
     !Number.isNaN(iterationsOverride) && iterationsOverride > 0
       ? iterationsOverride
-      : (profileOptions.iterations ?? OBSERVE_MAX_GENERATIONS)
+      : (observeConfig.iterations ?? OBSERVE_MAX_GENERATIONS)
 
   let playbackScenarioBank: ScenarioSnapshot[] | null = null
   if (playbackMode === 'scenario') {
@@ -492,11 +520,10 @@ export function ObserveController() {
   startWaiting(1)
 
   void adapter.start({
-    ...profileOptions,
-    ...urlOverrides,
+    ...observeConfig,
     iterations: observeMaxGenerations,
     evaluationSeedsPerOrganism:
-      profileOptions.evaluationSeedsPerOrganism ??
+      observeConfig.evaluationSeedsPerOrganism ??
       OBSERVE_EVALUATION_SEEDS_PER_ORGANISM,
     evaluationBaseSeed: OBSERVE_SEED,
     ...(observeRLMode != null && { rlMode: observeRLMode }),
