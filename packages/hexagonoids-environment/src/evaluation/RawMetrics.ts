@@ -14,8 +14,11 @@ export interface RawMetrics {
   // Phase 05 action & engagement metrics
   thrustFrames: number
   fireFrames: number
+  turnFrames: number
   leftFrames: number
   rightFrames: number
+  turnConflictFrames: number
+  turnAmbiguousFrames: number
   aliveFrames: number
   largeRocksSpawned: number
   uniqueRocksSeen: number
@@ -31,7 +34,11 @@ export interface MetricsCollector {
   /** Increment action counters per live frame. */
   addActionFrame: (
     inputs: { thrust: boolean; fire: boolean; left: boolean; right: boolean },
-    alive: boolean
+    alive: boolean,
+    diagnostics?: {
+      turnConflict?: boolean
+      turnAmbiguous?: boolean
+    }
   ) => void
   /** Track large rocks spawned from a wave. */
   addLargeRocksSpawned: (count: number) => void
@@ -88,8 +95,11 @@ export function createMetricsCollector(
   // Phase 05 tracking state
   let thrustFrames = 0
   let fireFrames = 0
+  let turnFrames = 0
   let leftFrames = 0
   let rightFrames = 0
+  let turnConflictFrames = 0
+  let turnAmbiguousFrames = 0
   let aliveFrames = 0
   let largeRocksSpawned = 0
   let framesWithRocksInSOI = 0
@@ -132,13 +142,16 @@ export function createMetricsCollector(
     addShotsFired: (count: number) => {
       shotsFired += count
     },
-    addActionFrame: (inputs, alive) => {
+    addActionFrame: (inputs, alive, diagnostics) => {
       if (!alive) return
       aliveFrames++
       if (inputs.thrust) thrustFrames++
       if (inputs.fire) fireFrames++
+      if (inputs.left || inputs.right) turnFrames++
       if (inputs.left) leftFrames++
       if (inputs.right) rightFrames++
+      if (diagnostics?.turnConflict === true) turnConflictFrames++
+      if (diagnostics?.turnAmbiguous === true) turnAmbiguousFrames++
     },
     addLargeRocksSpawned: (count: number) => {
       largeRocksSpawned += count
@@ -173,8 +186,11 @@ export function createMetricsCollector(
       wavesSpawned: final.wavesSpawned,
       thrustFrames,
       fireFrames,
+      turnFrames,
       leftFrames,
       rightFrames,
+      turnConflictFrames,
+      turnAmbiguousFrames,
       aliveFrames,
       largeRocksSpawned,
       uniqueRocksSeen: uniqueRocksSeen.size,

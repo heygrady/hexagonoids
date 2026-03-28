@@ -3,8 +3,11 @@ import type { RawMetrics } from './RawMetrics.js'
 export interface ActionProfile {
   thrustPct: number
   firePct: number
+  turnPct: number
   leftPct: number
   rightPct: number
+  turnConflictPct: number
+  turnAmbiguousPct: number
   entropy: number
 }
 
@@ -49,8 +52,11 @@ export function computeBehavioralProfile(
   // Action profile (fractions are scale-invariant, so aggregated is fine)
   const thrustPct = aggregated.thrustFrames / alive
   const firePct = aggregated.fireFrames / alive
+  const turnPct = aggregated.turnFrames / alive
   const leftPct = aggregated.leftFrames / alive
   const rightPct = aggregated.rightFrames / alive
+  const turnConflictPct = aggregated.turnConflictFrames / alive
+  const turnAmbiguousPct = aggregated.turnAmbiguousFrames / alive
   const total = thrustPct + firePct + leftPct + rightPct
   const fractions =
     total > 0
@@ -59,20 +65,23 @@ export function computeBehavioralProfile(
   const entropy = shannonEntropy(fractions)
 
   // Movement profile
-  const idleFrames =
-    alive -
-    Math.max(
-      aggregated.thrustFrames,
-      aggregated.leftFrames,
-      aggregated.rightFrames
-    )
+  const idleFrames = alive - Math.max(aggregated.thrustFrames, aggregated.turnFrames)
   const idlePct = Math.max(0, idleFrames) / alive
 
   // Engagement (fraction is scale-invariant)
   const framesWithRocksInSOIPct = aggregated.framesWithRocksInSOI / alive
 
   return {
-    action: { thrustPct, firePct, leftPct, rightPct, entropy },
+    action: {
+      thrustPct,
+      firePct,
+      turnPct,
+      leftPct,
+      rightPct,
+      turnConflictPct,
+      turnAmbiguousPct,
+      entropy,
+    },
     movement: {
       distanceTraveled: aggregated.distanceTraveled / seedCount,
       uniqueCells: Math.round(aggregated.uniqueCellsVisited / seedCount),

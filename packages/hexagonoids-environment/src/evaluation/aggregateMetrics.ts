@@ -9,8 +9,11 @@ export function aggregateMetrics(allMetrics: RawMetrics[]): RawMetrics {
   let distanceTraveled = 0
   let thrustFrames = 0
   let fireFrames = 0
+  let turnFrames = 0
   let leftFrames = 0
   let rightFrames = 0
+  let turnConflictFrames = 0
+  let turnAmbiguousFrames = 0
   let aliveFrames = 0
   let framesWithRocksInSOI = 0
   let largeRocksSpawned = 0
@@ -30,8 +33,11 @@ export function aggregateMetrics(allMetrics: RawMetrics[]): RawMetrics {
     distanceTraveled += m.distanceTraveled
     thrustFrames += m.thrustFrames
     fireFrames += m.fireFrames
+    turnFrames += m.turnFrames
     leftFrames += m.leftFrames
     rightFrames += m.rightFrames
+    turnConflictFrames += m.turnConflictFrames
+    turnAmbiguousFrames += m.turnAmbiguousFrames
     aliveFrames += m.aliveFrames
     framesWithRocksInSOI += m.framesWithRocksInSOI
     largeRocksSpawned += m.largeRocksSpawned
@@ -63,8 +69,11 @@ export function aggregateMetrics(allMetrics: RawMetrics[]): RawMetrics {
     wavesSpawned,
     thrustFrames,
     fireFrames,
+    turnFrames,
     leftFrames,
     rightFrames,
+    turnConflictFrames,
+    turnAmbiguousFrames,
     aliveFrames,
     largeRocksSpawned,
     uniqueRocksSeen,

@@ -1,5 +1,5 @@
 import type { GameState } from '@heygrady/hexagonoids-engine'
-import { selectDecoder } from '../encoding/actionDecoders.js'
+import { decodeActionOutputs } from '../encoding/actionDecoders.js'
 import type { RockPerceptionPrecompute } from '../encoding/collectObservations.js'
 import { createObservationFrameBuffer } from '../encoding/collectObservations.js'
 import { encodeGameState } from '../encoding/encodeGameState.js'
@@ -7,6 +7,7 @@ import { INPUT_COUNT } from '../encoding/encodingPresets.js'
 
 import type { AgentContext, AgentFn } from './types.js'
 import {
+  MEMORY_ACTION_DIAGNOSTICS,
   MEMORY_INPUT_BUFFER,
   MEMORY_OBSERVATION_BUFFER,
   MEMORY_ROCK_PERCEPTION,
@@ -69,7 +70,9 @@ export function createGameAgent(controller: ActionController): GameAgent {
   const bridgedAgent: AgentFn = (state, playerId, context) => {
     const observation = observe(state, playerId, context)
     const actionOutputs = controller.act(observation)
-    return selectDecoder(actionOutputs.length)(actionOutputs)
+    const decoded = decodeActionOutputs(actionOutputs)
+    context.memory[MEMORY_ACTION_DIAGNOSTICS] = decoded.diagnostics
+    return decoded.input
   }
 
   return {
